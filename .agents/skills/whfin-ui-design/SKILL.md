@@ -12,6 +12,7 @@ Build WHFIN as a dense, calm financial instrument whose hierarchy remains clear 
 1. Read repository `AGENTS.md`, `SPEC.md`, affected UI/state code, and [visual-language.md](references/visual-language.md). Read [component-contracts.md](references/component-contracts.md) when adding or changing shared components.
 2. Inspect the current screen on a device or emulator before editing. Capture both layout semantics and a screenshot; visually inspect the screenshot.
 3. Identify every relevant state: loading, empty, error, unavailable, populated, selected, disabled, and destructive confirmation. Do not hide unsupported states behind a generic empty message.
+   Room-backed screens must not treat a `StateFlow` placeholder such as `emptyList()` as a confirmed empty database. Keep loading explicit until the first complete query snapshot arrives, and publish related rows atomically when their combination defines the screen.
 4. Put reusable visual decisions in `:core-ui`. Keep Material primitives behind WHFIN components when the primitive carries product appearance. Do not wrap incidental `Text`, `Row`, or `Spacer`.
 5. Keep feature state and business callbacks outside `:core-ui`. Prefer stateless screen content plus a thin state-collecting route so previews and tests require no database.
 6. Apply edge-to-edge once per hierarchy. Pass scaffold/list insets through `contentPadding` and consume them. For text input, verify `adjustResize`, focus, scrolling, and the primary action with the real IME.

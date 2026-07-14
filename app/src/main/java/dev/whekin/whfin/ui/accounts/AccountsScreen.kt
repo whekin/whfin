@@ -93,8 +93,10 @@ fun AccountsScreen(
     statementsViewModel: BankStatementsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val accounts by viewModel.accounts.collectAsState()
-    val debts by viewModel.debts.collectAsState()
+    val screenState by viewModel.screenState.collectAsState()
+    val readyState = screenState as? AccountsScreenState.Ready
+    val accounts = readyState?.accounts.orEmpty()
+    val debts = readyState?.debts.orEmpty()
     val people by viewModel.people.collectAsState()
     val message by viewModel.message.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
@@ -135,7 +137,7 @@ fun AccountsScreen(
         topBar = {
             WhfinContextHeader(
                 label = stringResource(R.string.accounts_net_worth),
-                value = formatMinor(gelBalance, "GEL"),
+                value = if (readyState == null) "—" else formatMinor(gelBalance, "GEL"),
                 scrollBehavior = headerScrollBehavior,
             ) {
                 WhfinIconButton(
@@ -160,7 +162,16 @@ fun AccountsScreen(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
-            if (accounts.isEmpty() && debts.isEmpty()) {
+            if (readyState == null) {
+                Column(Modifier.fillMaxSize().padding(padding)) {
+                    WhfinStatePane(
+                        state = WhfinPaneState.Loading,
+                        title = stringResource(R.string.accounts_loading),
+                        body = stringResource(R.string.accounts_loading_body),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                    )
+                }
+            } else if (accounts.isEmpty() && debts.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(padding)) {
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,

@@ -47,6 +47,11 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Feed and Accounts open with a compact context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes search, type/sort filtering, and settings; Accounts exposes add, Account overview, and settings. The bar leaves the viewport while scrolling down and returns immediately on upward intent. During transaction selection it stays fixed; selecting only pending rows replaces the generic status action with a direct Confirm action. Every icon action remains a 48 dp touch target.
 
+Accounts and Account overview keep Room loading distinct from an empty ledger. Accounts publishes its
+account and debt rows as one ready snapshot; until that snapshot exists, the context total is a dash and the
+body is a neutral loading state. `No accounts yet` is shown only after Room has confirmed an empty result, so
+a populated database cannot flash the onboarding state during navigation or cold collection.
+
 Cash is a currency ledger rather than a user-named container. Add/Edit Cash therefore asks only for the
 currency, stores the canonical model name `Cash`, and rejects a second active Cash ledger in that currency.
 
@@ -85,6 +90,10 @@ Host-side screenshot references are stored under `core-ui/src/screenshotTestDebu
 The complete shell and primary journeys were rendered on a Pixel 9 Pro API 36.1 AVD with private Credo fixtures. Feed, Accounts, Settings, statement import/history, transaction details, expense/income/transfer/debt composers, and the debt ledger were inspected in light mode. Feed and composer were checked in dark mode; Feed and composer were also checked at font scale 1.5. The scrolling Feed and Accounts context headers were verified both at rest and fully outside the viewport; the status-inset protection remained legible in light, dark, and font scale 1.5 renders. With font scale 1.5, both the numeric amount field and the final Note field were focused with the IME open: the scrolling content, focused field, pinned Save action, status bar, and navigation bar remained visible and legible.
 
 The compact Feed/Accounts context headers and Account overview were additionally rendered with synthetic multi-account QA data on the same disposable AVD. Account overview was checked populated and empty in light mode, populated in dark mode, and populated at font scale 1.5. Search was checked with automatic focus and the text IME open. The final APK was installed on the physical OnePlus only as an in-place upgrade; no connected tests or data-clearing commands were run there.
+
+The Feed → Accounts transition was recorded frame-by-frame at font scale 1.5 with populated Room data.
+It shows a coherent loading surface followed directly by the full Cash/deposit hierarchy; the previous false
+`No accounts yet` frame and false zero balance are absent.
 
 Monthly Statistics was rendered in RU and EN on the same Pixel 9 Pro AVD: populated light/dark, font scale 1.5 at the top and final scroll position, category drill-down, system back, and a scrolling title/status-bar boundary. The host suite covers range/category interaction plus transfers, debts, adjustments, FX-funded purchases, and unsupported native-currency expenses.
 

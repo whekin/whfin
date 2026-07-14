@@ -19,6 +19,8 @@
     <string name="feed_transfer">Перевод</string>
     <string name="feed_uncategorized">Без категории</string>
     <string name="accounts_empty">Пока нет счетов</string>
+    <string name="accounts_loading">Загружаем счета</string>
+    <string name="accounts_loading_body">Читаем локальную финансовую книгу…</string>
     <string name="accounts_net_worth">Все счета</string>
     <string name="accounts_available">Доступно</string>
     <string name="accounts_reserve">Резерв</string>

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dev.whekin.whfin.data.db.*
@@ -44,6 +45,19 @@ data class AccountWithBalance(
     val groupName: String? = null,
 )
 
+sealed interface AccountRowsState {
+    data object Loading : AccountRowsState
+    data class Ready(val accounts: List<AccountWithBalance>) : AccountRowsState
+}
+
+sealed interface AccountsScreenState {
+    data object Loading : AccountsScreenState
+    data class Ready(
+        val accounts: List<AccountWithBalance>,
+        val debts: List<DebtCaseUi>,
+    ) : AccountsScreenState
+}
+
 class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = (app as WhfinApp).db
@@ -56,7 +70,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         db.cryptoDao().observeAddresses(),
     ) { groups, addresses -> groups.associateBy { it.id } to addresses.associateBy { it.id } }
 
-    val accounts: StateFlow<List<AccountWithBalance>> = combine(
+    private val accountRows = combine(
         db.accountDao().observeActive(),
         db.transactionDao().observeAccountBalances(),
         db.paymentInstrumentDao().observeActive(),
@@ -79,9 +93,9 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 it.groupId?.let(groupById::get)?.name,
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }
 
-    val debts: StateFlow<List<DebtCaseUi>> = combine(
+    private val debtRows = combine(
         db.debtDao().observeCases(), db.debtDao().observeEvents(), db.personDao().observeActive(),
     ) { cases, events, people ->
         val personById = people.associateBy { it.id }
@@ -91,7 +105,15 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 DebtCaseUi(debt, person, (debt.originalAmountMinor - caseEvents.sumOf { it.debtValueMinor }).coerceAtLeast(0), caseEvents)
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }
+
+    val accountRowsState: StateFlow<AccountRowsState> = accountRows
+        .map<List<AccountWithBalance>, AccountRowsState>(AccountRowsState::Ready)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountRowsState.Loading)
+
+    val screenState: StateFlow<AccountsScreenState> = combine(accountRows, debtRows) { accounts, debts ->
+        AccountsScreenState.Ready(accounts, debts)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsScreenState.Loading)
 
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

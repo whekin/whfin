@@ -38,6 +38,8 @@ import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinPaneState
+import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
@@ -98,8 +100,16 @@ internal fun accountOverviewData(accounts: List<AccountWithBalance>): AccountOve
 
 @Composable
 fun AccountOverviewScreen(viewModel: AccountsViewModel = viewModel()) {
-    val accounts by viewModel.accounts.collectAsState()
-    AccountOverviewContent(accountOverviewData(accounts))
+    val accountRowsState by viewModel.accountRowsState.collectAsState()
+    when (val state = accountRowsState) {
+        AccountRowsState.Loading -> WhfinStatePane(
+            state = WhfinPaneState.Loading,
+            title = stringResource(R.string.accounts_loading),
+            body = stringResource(R.string.accounts_loading_body),
+            modifier = Modifier.fillMaxSize(),
+        )
+        is AccountRowsState.Ready -> AccountOverviewContent(accountOverviewData(state.accounts))
+    }
 }
 
 @Composable

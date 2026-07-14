@@ -16,6 +16,8 @@
     <string name="feed_transfer">Transfer</string>
     <string name="feed_uncategorized">Uncategorized</string>
     <string name="accounts_empty">No accounts yet</string>
+    <string name="accounts_loading">Loading accounts</string>
+    <string name="accounts_loading_body">Reading your local ledger…</string>
     <string name="accounts_net_worth">All accounts</string>
     <string name="accounts_available">Available</string>
     <string name="accounts_reserve">Reserve</string>
