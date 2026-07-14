@@ -47,6 +47,8 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Feed and Accounts open with a compact context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes only search and one filter action; Settings remains discoverable from Accounts rather than competing with ledger work. The filter owns transaction type, multi-category selection and sort order in one fully expanded sheet, with draft changes applied explicitly. Quick filter chips are intentionally absent from the reading surface. Accounts exposes add, Account overview, and settings. The bar leaves the viewport while scrolling down and returns immediately on upward intent. During transaction selection it stays fixed; selecting only pending rows replaces the generic status action with a direct Confirm action. Every icon action remains a 48 dp touch target.
 
+Appearance separates brightness from palette. System/Light/Dark is persisted in DataStore and can override device brightness, while System colors independently applies Android 12+ wallpaper-derived Material roles to the app canvas, surfaces and semantic accents. Edge-to-edge system icon contrast follows the effective app brightness. The widget always uses the system Glance palette and exposes no competing WHFIN palette override.
+
 Accounts and Account overview keep Room loading distinct from an empty ledger. Accounts publishes its
 account and debt rows as one ready snapshot; until that snapshot exists, the context total is a dash and the
 body is a neutral loading state. `No accounts yet` is shown only after Room has confirmed an empty result, so

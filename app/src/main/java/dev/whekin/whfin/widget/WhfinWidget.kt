@@ -5,7 +5,6 @@ package dev.whekin.whfin.widget
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,16 +43,11 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import androidx.glance.material3.ColorProviders
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.R
-import dev.whekin.whfin.core.ui.WhfinDarkColorScheme
-import dev.whekin.whfin.core.ui.WhfinLightColorScheme
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
-import dev.whekin.whfin.data.preferences.UiPreferences
-import dev.whekin.whfin.data.preferences.WidgetColorMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -67,8 +61,6 @@ private val One = DpSize(64.dp, 48.dp)
 private val Two = DpSize(110.dp, 48.dp)
 private val Three = DpSize(180.dp, 48.dp)
 private val Four = DpSize(250.dp, 48.dp)
-
-private val WhfinWidgetColors = ColorProviders(WhfinLightColorScheme, WhfinDarkColorScheme)
 
 private data class WidgetSource(
     val compactLabel: String,
@@ -89,11 +81,8 @@ class WhfinWidget : GlanceAppWidget() {
         val sources = loadSources(context)
         val store = context.widgetStore
         val initial = store.data.first()
-        val uiPreferences = UiPreferences(context)
-        val initialColorMode = uiPreferences.widgetColorMode.first()
         provideContent {
             val preferences by store.data.collectAsState(initial)
-            val colorMode by uiPreferences.widgetColorMode.collectAsState(initialColorMode)
             val scope = rememberCoroutineScope()
             val size = LocalSize.current
             val level = when {
@@ -110,12 +99,7 @@ class WhfinWidget : GlanceAppWidget() {
             val currency = preferredCurrency.takeIf { it in availableCurrencies } ?: availableCurrencies.first()
             val accountId = selectedSource.accountByCurrency[currency]
 
-            val colors = if (usesSystemWidgetColors(colorMode, Build.VERSION.SDK_INT)) {
-                GlanceTheme.colors
-            } else {
-                WhfinWidgetColors
-            }
-            GlanceTheme(colors = colors) {
+            GlanceTheme {
                 CompactWidget(
                     level = level,
                     source = selectedSource,

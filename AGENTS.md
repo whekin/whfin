@@ -200,11 +200,9 @@
   использует официальный `glance_default_loading_layout`, а picker-preview состоят только из
   разрешённых `RemoteViews`-классов и векторной add-иконки. Добавлен Robolectric regression-test,
   который применяет все четыре preview-layout как `RemoteViews`.
-  Оформление по умолчанию использует системную wallpaper-derived Material 3 палитру на Android 12+
+  Оформление всегда использует системную wallpaper-derived Material 3 палитру на Android 12+
   и автоматически следует light/dark mode; контраст задаётся парными Glance-ролями, без ручного
-  семплирования обоев и прозрачности. В Settings → Appearance есть переключатель на фирменную
-  WHFIN day/night-палитру; на старых Android она же служит fallback. Переключение обновляет все
-  установленные варианты без пересоздания. Нативные picker preview-layout получили нейтральные
+  семплирования обоев и прозрачности. Отдельного widget override больше нет. Нативные picker preview-layout получили нейтральные
   day/night ресурсы; обязательный для ColorOS previewImage остаётся статическим фирменным bitmap,
   так как каталог не умеет wallpaper-reactive bitmap. Runtime System/WHFIN и system dark проверены
   на disposable Pixel 9 Pro API 36.1. В многоячеечных вариантах цветная поверхность `+` имеет
@@ -255,6 +253,8 @@
   и обе backup rules.
   Author `whekin` открывает `github.com/whekin`; пять нажатий на Version раскрывают локальную пасхалку
   без debug-настроек и изменения состояния приложения.
+  Appearance хранит в DataStore независимые System/Light/Dark и wallpaper-derived System colors;
+  выбранная тема сразу синхронизирует фон приложения и контраст edge-to-edge системных панелей.
   До публичного релиза остаются public policy URL/contact, полные third-party notices,
   encrypted backup option, signing, Play Data safety + SMS declaration и release QA. Детали:
   `docs/privacy-policy.md`, `docs/production-readiness.md`

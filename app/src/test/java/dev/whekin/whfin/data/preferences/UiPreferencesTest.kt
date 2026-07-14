@@ -87,18 +87,19 @@ class UiPreferencesTest {
     }
 
     @Test
-    fun widgetColors_defaultToSystemAndPersistWhfinOverride() = runBlocking {
+    fun appearance_defaultsToSystemAndPersistsThemeAndDynamicColors() = runBlocking {
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
         val preferences = UiPreferences(dataStore)
 
         try {
-            assertEquals(WidgetColorMode.System, preferences.widgetColorMode.first())
-            preferences.setWidgetColorMode(WidgetColorMode.Whfin)
-            assertEquals(WidgetColorMode.Whfin, preferences.widgetColorMode.first())
-            preferences.setWidgetColorMode(WidgetColorMode.System)
-            assertEquals(WidgetColorMode.System, preferences.widgetColorMode.first())
+            assertEquals(AppThemeMode.System, preferences.appThemeMode.first())
+            assertTrue(preferences.dynamicColorsEnabled.first())
+            preferences.setAppThemeMode(AppThemeMode.Dark)
+            preferences.setDynamicColorsEnabled(false)
+            assertEquals(AppThemeMode.Dark, preferences.appThemeMode.first())
+            assertFalse(preferences.dynamicColorsEnabled.first())
         } finally {
             scope.cancel()
             file.delete()

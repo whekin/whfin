@@ -8,7 +8,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -25,10 +27,9 @@ import androidx.core.app.ActivityCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import androidx.glance.appwidget.updateAll
 import dev.whekin.whfin.data.preferences.AppLockTimeout
+import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.preferences.UiPreferences
-import dev.whekin.whfin.data.preferences.WidgetColorMode
 import dev.whekin.whfin.data.security.AppLockPinStore
 import dev.whekin.whfin.data.security.AppLockViewModel
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -39,7 +40,6 @@ import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAva
 import dev.whekin.whfin.ui.MainScreen
 import dev.whekin.whfin.ui.settings.AppLockGate
 import dev.whekin.whfin.ui.theme.WhfinTheme
-import dev.whekin.whfin.widget.WhfinWidget
 import kotlinx.coroutines.launch
 
 internal enum class AppStartupContent { Loading, LockGate, Main }
@@ -79,7 +79,23 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
         setContent {
-            WhfinTheme {
+            val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
+            val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = true)
+            val systemDark = isSystemInDarkTheme()
+            val effectiveDark = when (appThemeMode) {
+                AppThemeMode.System -> systemDark
+                AppThemeMode.Light -> false
+                AppThemeMode.Dark -> true
+            }
+            LaunchedEffect(effectiveDark) {
+                val transparent = android.graphics.Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(transparent, transparent) { effectiveDark },
+                    navigationBarStyle = SystemBarStyle.auto(transparent, transparent) { effectiveDark },
+                )
+                window.isNavigationBarContrastEnforced = false
+            }
+            WhfinTheme(themeMode = appThemeMode, dynamicColor = dynamicColorsEnabled) {
                 val smsPermissionPromptDismissed: Boolean? by uiPreferences.smsPermissionPromptDismissed
                     .collectAsState(initial = null)
                 val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
@@ -87,7 +103,6 @@ class MainActivity : FragmentActivity() {
                     .observeConfiguredCount().collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
-                val widgetColorMode: WidgetColorMode? by uiPreferences.widgetColorMode.collectAsState(initial = null)
                 val effectiveTimeout = savedTimeout
                     ?.takeIf { !it.enabled || hasAppLockPin }
                     ?: AppLockTimeout.Disabled
@@ -124,12 +139,13 @@ class MainActivity : FragmentActivity() {
                     )
                     AppStartupContent.Main -> mainState.SaveableStateProvider("main") {
                         MainScreen(
-                            widgetColorMode = widgetColorMode ?: WidgetColorMode.System,
-                            onWidgetColorModeChange = { mode ->
-                                scope.launch {
-                                    uiPreferences.setWidgetColorMode(mode)
-                                    WhfinWidget().updateAll(applicationContext)
-                                }
+                            appThemeMode = appThemeMode,
+                            dynamicColorsEnabled = dynamicColorsEnabled,
+                            onAppThemeModeChange = { mode ->
+                                scope.launch { uiPreferences.setAppThemeMode(mode) }
+                            },
+                            onDynamicColorsEnabledChange = { enabled ->
+                                scope.launch { uiPreferences.setDynamicColorsEnabled(enabled) }
                             },
                             smsImportEnabled = smsImportEnabled == true && (configuredSmsCards ?: 0) > 0,
                             hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,

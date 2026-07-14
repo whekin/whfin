@@ -17,6 +17,10 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -34,12 +38,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.data.preferences.AppLockTimeout
-import dev.whekin.whfin.data.preferences.WidgetColorMode
+import dev.whekin.whfin.data.preferences.AppThemeMode
 
 @Composable
 fun SettingsScreen(
-    widgetColorMode: WidgetColorMode,
-    onWidgetColorModeChange: (WidgetColorMode) -> Unit,
+    appThemeMode: AppThemeMode = AppThemeMode.System,
+    dynamicColorsEnabled: Boolean = true,
+    onAppThemeModeChange: (AppThemeMode) -> Unit = {},
+    onDynamicColorsEnabledChange: (Boolean) -> Unit = {},
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean = true,
     hasSmsPermission: Boolean,
@@ -67,26 +73,38 @@ fun SettingsScreen(
     ) {
         WhfinSectionLabel(stringResource(R.string.settings_appearance))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            listOf(
+                Triple(AppThemeMode.System, Icons.Default.BrightnessAuto, R.string.settings_theme_system),
+                Triple(AppThemeMode.Light, Icons.Default.LightMode, R.string.settings_theme_light),
+                Triple(AppThemeMode.Dark, Icons.Default.DarkMode, R.string.settings_theme_dark),
+            ).forEachIndexed { index, (mode, icon, label) ->
+                WhfinLedgerRow(
+                    title = stringResource(label),
+                    supportingText = stringResource(
+                        when (mode) {
+                            AppThemeMode.System -> R.string.settings_theme_system_body
+                            AppThemeMode.Light -> R.string.settings_theme_light_body
+                            AppThemeMode.Dark -> R.string.settings_theme_dark_body
+                        },
+                    ),
+                    icon = icon,
+                    trailing = if (appThemeMode == mode) {
+                        { androidx.compose.material3.Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                    } else null,
+                    onClick = { onAppThemeModeChange(mode) },
+                    divider = true,
+                )
+            }
             WhfinLedgerRow(
-                title = stringResource(R.string.settings_widget_system_colors),
-                supportingText = stringResource(
-                    if (widgetColorMode == WidgetColorMode.System) {
-                        R.string.settings_widget_system_colors_body
-                    } else {
-                        R.string.settings_widget_whfin_colors_body
-                    },
-                ),
+                title = stringResource(R.string.settings_dynamic_colors),
+                supportingText = stringResource(R.string.settings_dynamic_colors_body),
                 supportingMaxLines = 3,
                 icon = Icons.Default.Palette,
                 trailing = {
                     WhfinSwitch(
-                        checked = widgetColorMode == WidgetColorMode.System,
-                        onCheckedChange = { enabled ->
-                            onWidgetColorModeChange(
-                                if (enabled) WidgetColorMode.System else WidgetColorMode.Whfin,
-                            )
-                        },
-                        contentDescription = stringResource(R.string.settings_widget_system_colors_toggle),
+                        checked = dynamicColorsEnabled,
+                        onCheckedChange = onDynamicColorsEnabledChange,
+                        contentDescription = stringResource(R.string.settings_dynamic_colors_toggle),
                     )
                 },
             )
@@ -218,8 +236,6 @@ private fun SettingsScreenPreview() {
     WhfinTheme {
         androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.background) {
             SettingsScreen(
-                widgetColorMode = WidgetColorMode.System,
-                onWidgetColorModeChange = {},
                 smsImportEnabled = true,
                 hasSmsPermission = false,
                 canRequestSmsPermission = true,
@@ -245,8 +261,6 @@ private fun SettingsSmsDisabledPreview() {
     WhfinTheme {
         androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.background) {
             SettingsScreen(
-                widgetColorMode = WidgetColorMode.Whfin,
-                onWidgetColorModeChange = {},
                 smsImportEnabled = false,
                 hasSmsPermission = true,
                 canRequestSmsPermission = true,

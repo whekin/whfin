@@ -16,7 +16,7 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.data.preferences.AppLockTimeout
-import dev.whekin.whfin.data.preferences.WidgetColorMode
+import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,8 +41,6 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = WidgetColorMode.System,
-                    onWidgetColorModeChange = {},
                     smsImportEnabled = true,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,
@@ -72,8 +70,6 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = WidgetColorMode.System,
-                    onWidgetColorModeChange = {},
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -110,8 +106,6 @@ class SettingsScreenTest {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 WhfinTheme {
                     SettingsScreen(
-                        widgetColorMode = WidgetColorMode.System,
-                        onWidgetColorModeChange = {},
                         smsImportEnabled = enabled,
                         hasSmsPermission = true,
                         canRequestSmsPermission = true,
@@ -143,8 +137,6 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = WidgetColorMode.System,
-                    onWidgetColorModeChange = {},
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -176,8 +168,6 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = WidgetColorMode.System,
-                    onWidgetColorModeChange = {},
                     smsImportEnabled = false,
                     hasSmsCardMapping = false,
                     hasSmsPermission = false,
@@ -205,15 +195,18 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun widgetSystemColorsSwitch_exposesModeAndToggles() {
-        var selectedMode = WidgetColorMode.System
+    fun appearanceControls_selectThemeAndToggleSystemColors() {
+        var selectedTheme = AppThemeMode.System
+        var dynamicColors = true
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val description = context.getString(R.string.settings_widget_system_colors_toggle)
+        val description = context.getString(R.string.settings_dynamic_colors_toggle)
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = selectedMode,
-                    onWidgetColorModeChange = { selectedMode = it },
+                    appThemeMode = selectedTheme,
+                    dynamicColorsEnabled = dynamicColors,
+                    onAppThemeModeChange = { selectedTheme = it },
+                    onDynamicColorsEnabledChange = { dynamicColors = it },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -232,8 +225,10 @@ class SettingsScreenTest {
             }
         }
 
+        compose.onNodeWithText(context.getString(R.string.settings_theme_dark)).performClick()
         compose.onNodeWithContentDescription(description).assertIsOn().performClick()
-        assertEquals(WidgetColorMode.Whfin, selectedMode)
+        assertEquals(AppThemeMode.Dark, selectedTheme)
+        assertFalse(dynamicColors)
     }
 
     @Test
@@ -246,8 +241,6 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
-                    widgetColorMode = WidgetColorMode.System,
-                    onWidgetColorModeChange = {},
                     smsImportEnabled = false,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,

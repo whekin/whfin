@@ -56,7 +56,7 @@ import dev.whekin.whfin.ui.settings.AppLockScreen
 import dev.whekin.whfin.ui.settings.PrivacyScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
-import dev.whekin.whfin.data.preferences.WidgetColorMode
+import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
 import java.time.YearMonth
 import androidx.core.content.pm.PackageInfoCompat
@@ -102,8 +102,10 @@ private enum class ShellScene(val depth: Int) {
 
 @Composable
 fun MainScreen(
-    widgetColorMode: WidgetColorMode,
-    onWidgetColorModeChange: (WidgetColorMode) -> Unit,
+    appThemeMode: AppThemeMode,
+    dynamicColorsEnabled: Boolean,
+    onAppThemeModeChange: (AppThemeMode) -> Unit,
+    onDynamicColorsEnabledChange: (Boolean) -> Unit,
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean,
     hasSmsPermission: Boolean,
@@ -243,8 +245,10 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) {
                         SettingsScreen(
-                            widgetColorMode = widgetColorMode,
-                            onWidgetColorModeChange = onWidgetColorModeChange,
+                            appThemeMode = appThemeMode,
+                            dynamicColorsEnabled = dynamicColorsEnabled,
+                            onAppThemeModeChange = onAppThemeModeChange,
+                            onDynamicColorsEnabledChange = onDynamicColorsEnabledChange,
                             smsImportEnabled = smsImportEnabled,
                             hasSmsCardMapping = hasSmsCardMapping,
                             hasSmsPermission = hasSmsPermission,

@@ -3,6 +3,7 @@ package dev.whekin.whfin.core.ui
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -118,10 +119,23 @@ private val WhfinTypography = Typography(
 @Composable
 fun WhfinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    colorScheme: ColorScheme? = null,
     content: @Composable () -> Unit,
 ) {
-    val scheme = if (darkTheme) WhfinDarkColorScheme else WhfinLightColorScheme
-    val extended = if (darkTheme) {
+    val scheme = colorScheme ?: if (darkTheme) WhfinDarkColorScheme else WhfinLightColorScheme
+    val extended = if (colorScheme != null) {
+        WhfinExtendedColors(
+            paper = scheme.background,
+            ink = scheme.onSurface,
+            bottle = scheme.primary,
+            sage = scheme.secondary,
+            clay = scheme.tertiary,
+            oxide = scheme.error,
+            rule = scheme.outlineVariant,
+            positive = scheme.primary,
+            pending = scheme.tertiary,
+        )
+    } else if (darkTheme) {
         WhfinExtendedColors(
             paper = scheme.background,
             ink = scheme.onSurface,

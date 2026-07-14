@@ -32,13 +32,14 @@ enum class AppLockTimeout(val storedValue: Int, val timeoutMillis: Long?) {
     }
 }
 
-enum class WidgetColorMode(val storedValue: Int) {
+enum class AppThemeMode(val storedValue: Int) {
     System(0),
-    Whfin(1),
+    Light(1),
+    Dark(2),
     ;
 
     companion object {
-        fun fromStoredValue(value: Int): WidgetColorMode = entries.firstOrNull {
+        fun fromStoredValue(value: Int): AppThemeMode = entries.firstOrNull {
             it.storedValue == value
         } ?: System
     }
@@ -75,12 +76,17 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[BiometricUnlockEnabled] ?: true }
 
-    /** Uses Android's wallpaper-derived widget colors by default on supported devices. */
-    val widgetColorMode: Flow<WidgetColorMode> = dataStore.data
+    val appThemeMode: Flow<AppThemeMode> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
         }
-        .map { preferences -> WidgetColorMode.fromStoredValue(preferences[WidgetColorModeKey] ?: 0) }
+        .map { preferences -> AppThemeMode.fromStoredValue(preferences[AppThemeModeKey] ?: 0) }
+
+    val dynamicColorsEnabled: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[DynamicColorsEnabledKey] ?: true }
 
     suspend fun dismissSmsPermissionPrompt() {
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
@@ -101,8 +107,12 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[BiometricUnlockEnabled] = enabled }
     }
 
-    suspend fun setWidgetColorMode(mode: WidgetColorMode) {
-        dataStore.edit { preferences -> preferences[WidgetColorModeKey] = mode.storedValue }
+    suspend fun setAppThemeMode(mode: AppThemeMode) {
+        dataStore.edit { preferences -> preferences[AppThemeModeKey] = mode.storedValue }
+    }
+
+    suspend fun setDynamicColorsEnabled(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[DynamicColorsEnabledKey] = enabled }
     }
 
     private companion object {
@@ -110,6 +120,7 @@ internal class UiPreferences(
         val SmsImportEnabled = booleanPreferencesKey("sms_import_enabled")
         val AppLockTimeoutKey = intPreferencesKey("app_lock_timeout")
         val BiometricUnlockEnabled = booleanPreferencesKey("biometric_unlock_enabled")
-        val WidgetColorModeKey = intPreferencesKey("widget_color_mode")
+        val AppThemeModeKey = intPreferencesKey("app_theme_mode")
+        val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
     }
 }
