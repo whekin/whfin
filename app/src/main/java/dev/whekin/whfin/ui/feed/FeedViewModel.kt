@@ -417,4 +417,31 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (item.tx.status == status) return
         viewModelScope.launch { db.transactionDao().update(item.tx.copy(status = status)) }
     }
+
+    fun updateStatuses(items: List<FeedItem>, status: TxStatus) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            db.withTransaction {
+                val groupIds = items.mapNotNull { it.tx.transferGroupId }.distinct()
+                val transactionIds = items.filter { it.tx.transferGroupId == null }.map { it.tx.id }.distinct()
+                if (transactionIds.isNotEmpty()) db.transactionDao().updateStatus(transactionIds, status)
+                if (groupIds.isNotEmpty()) db.transactionDao().updateTransferGroupStatus(groupIds, status)
+            }
+        }
+    }
+
+    fun deleteItems(items: List<FeedItem>) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            db.withTransaction {
+                val groupIds = items.mapNotNull { it.tx.transferGroupId }.distinct()
+                val transactionIds = items.filter { it.tx.transferGroupId == null }.map { it.tx.id }.distinct()
+                if (transactionIds.isNotEmpty()) db.transactionDao().deleteByIds(transactionIds)
+                if (groupIds.isNotEmpty()) {
+                    db.transactionDao().deleteByTransferGroupIds(groupIds)
+                    db.transactionDao().deleteTransferGroups(groupIds)
+                }
+            }
+        }
+    }
 }

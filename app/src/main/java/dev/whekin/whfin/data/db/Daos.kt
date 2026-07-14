@@ -283,8 +283,20 @@ interface TransactionDao {
     @Update
     suspend fun update(tx: TransactionEntity)
 
+    @Query("UPDATE transactions SET status = :status WHERE id IN (:ids)")
+    suspend fun updateStatus(ids: List<Long>, status: TxStatus)
+
+    @Query("UPDATE transactions SET status = :status WHERE transferGroupId IN (:groupIds)")
+    suspend fun updateTransferGroupStatus(groupIds: List<Long>, status: TxStatus)
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM transactions WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
+    @Query("DELETE FROM transactions WHERE transferGroupId IN (:groupIds)")
+    suspend fun deleteByTransferGroupIds(groupIds: List<Long>)
 
     @Query("DELETE FROM transactions WHERE transferGroupId = :groupId AND source = 'MANUAL'")
     suspend fun deleteManualTransferGroup(groupId: Long)
@@ -294,6 +306,9 @@ interface TransactionDao {
 
     @Query("DELETE FROM transfer_groups WHERE id = :groupId")
     suspend fun deleteTransferGroup(groupId: Long)
+
+    @Query("DELETE FROM transfer_groups WHERE id IN (:groupIds)")
+    suspend fun deleteTransferGroups(groupIds: List<Long>)
 
     @Query("UPDATE transactions SET transferGroupId = :groupId WHERE id = :transactionId")
     suspend fun setTransferGroup(transactionId: Long, groupId: Long)

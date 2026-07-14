@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -46,8 +47,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
@@ -80,6 +82,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -150,6 +153,9 @@ fun FeedScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(FeedFilter.ALL) }
     var sort by remember { mutableStateOf(FeedSort.NEWEST) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var showBatchStatus by remember { mutableStateOf(false) }
+    var showBatchDelete by remember { mutableStateOf(false) }
     val now = LocalDate.now()
     val monthItems = items.filter {
         it.day.month == now.month && it.day.year == now.year &&
@@ -187,17 +193,30 @@ fun FeedScreen(
         )
     }
     val grouped = sortedItems.groupBy { it.day }
+    val selectedItems = items.filter { it.tx.id in selectedIds }
+    val selectionMode = selectedIds.isNotEmpty()
+
+    LaunchedEffect(items) {
+        val availableIds = items.mapTo(mutableSetOf()) { it.tx.id }
+        selectedIds = selectedIds.intersect(availableIds)
+    }
+
+    fun toggleSelection(item: FeedItem) {
+        selectedIds = if (item.tx.id in selectedIds) selectedIds - item.tx.id else selectedIds + item.tx.id
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
-            WhfinPrimaryIconAction(
-                icon = Icons.Default.Add,
-                contentDescription = stringResource(R.string.add_transaction),
-                onClick = { showAdd = true },
-            )
+            if (!selectionMode) {
+                WhfinPrimaryIconAction(
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.add_transaction),
+                    onClick = { showAdd = true },
+                )
+            }
         },
     ) { contentPadding ->
     Box(Modifier.fillMaxSize()) {
@@ -206,7 +225,32 @@ fun FeedScreen(
             contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 96.dp),
         ) {
         item(key = "context-header") {
-            WhfinContextHeader(
+            if (selectionMode) {
+                WhfinContextHeader(
+                    label = stringResource(R.string.transactions_selected),
+                    value = selectedIds.size.toString(),
+                ) {
+                    WhfinIconButton(
+                        icon = Icons.Default.TaskAlt,
+                        contentDescription = stringResource(R.string.transactions_change_status),
+                        onClick = { showBatchStatus = true },
+                        outlined = false,
+                    )
+                    WhfinIconButton(
+                        icon = Icons.Default.DeleteOutline,
+                        contentDescription = stringResource(R.string.transactions_delete_selected),
+                        onClick = { showBatchDelete = true },
+                        outlined = false,
+                        style = WhfinActionStyle.Destructive,
+                    )
+                    WhfinIconButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.transactions_selection_close),
+                        onClick = { selectedIds = emptySet() },
+                        outlined = false,
+                    )
+                }
+            } else WhfinContextHeader(
                 label = stringResource(R.string.balance_total),
                 value = formatMinor(balance, "GEL"),
             ) {
@@ -221,7 +265,7 @@ fun FeedScreen(
                     selected = showSearch,
                 )
                 WhfinIconButton(
-                    icon = Icons.Default.Tune,
+                    icon = Icons.Default.FilterAlt,
                     contentDescription = stringResource(R.string.feed_filter_sort),
                     onClick = { showFilterSheet = true },
                     outlined = false,
@@ -235,18 +279,20 @@ fun FeedScreen(
                 )
             }
         }
-        item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
-        item(key = "feed-tools") {
-            FeedTools(
-                search = search,
-                onSearchChange = { search = it },
-                searchVisible = showSearch,
-                filter = filter,
-                onFilterChange = { filter = it },
-            )
-        }
-        if (showSmsOnboarding) item(key = "sms-onboarding") {
-            SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
+        if (!selectionMode) {
+            item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
+            item(key = "feed-tools") {
+                FeedTools(
+                    search = search,
+                    onSearchChange = { search = it },
+                    searchVisible = showSearch,
+                    filter = filter,
+                    onFilterChange = { filter = it },
+                )
+            }
+            if (showSmsOnboarding) item(key = "sms-onboarding") {
+                SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
+            }
         }
         if (items.isEmpty()) {
             item(key = "empty") {
@@ -290,9 +336,23 @@ fun FeedScreen(
                         expandedTransferDays = expandedTransferDays + day
                     }
                 }
-                items(regular, key = { it.tx.id }) { item -> FeedRow(item, onClick = { details = item }) }
+                items(regular, key = { it.tx.id }) { item ->
+                    FeedRow(
+                        item = item,
+                        selected = item.tx.id in selectedIds,
+                        onClick = { if (selectionMode) toggleSelection(item) else details = item },
+                        onLongClick = { toggleSelection(item) },
+                    )
+                }
             } else {
-                items(dayItems, key = { it.tx.id }) { item -> FeedRow(item, onClick = { details = item }) }
+                items(dayItems, key = { it.tx.id }) { item ->
+                    FeedRow(
+                        item = item,
+                        selected = item.tx.id in selectedIds,
+                        onClick = { if (selectionMode) toggleSelection(item) else details = item },
+                        onLongClick = { toggleSelection(item) },
+                    )
+                }
             }
         }
         }
@@ -306,6 +366,34 @@ fun FeedScreen(
         onFilter = { filter = it },
         onSort = { sort = it },
         onDismiss = { showFilterSheet = false },
+    )
+
+    if (showBatchStatus) TransactionStatusSheet(
+        current = selectedItems.map { it.tx.status }.distinct().singleOrNull(),
+        onDismiss = { showBatchStatus = false },
+        onSelect = { status ->
+            viewModel.updateStatuses(selectedItems, status)
+            showBatchStatus = false
+            selectedIds = emptySet()
+        },
+    )
+
+    if (showBatchDelete) AlertDialog(
+        onDismissRequest = { showBatchDelete = false },
+        title = { Text(stringResource(R.string.transactions_delete_selected)) },
+        text = { Text(stringResource(R.string.transactions_delete_selected_body, selectedItems.size)) },
+        confirmButton = {
+            TextButton(onClick = {
+                viewModel.deleteItems(selectedItems)
+                showBatchDelete = false
+                selectedIds = emptySet()
+            }) {
+                Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { showBatchDelete = false }) { Text(stringResource(R.string.action_cancel)) }
+        },
     )
 
     if (showAdd) {
@@ -518,7 +606,7 @@ internal fun TransactionDetailsSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionStatusSheet(
-    current: TxStatus,
+    current: TxStatus?,
     onDismiss: () -> Unit,
     onSelect: (TxStatus) -> Unit,
 ) {
@@ -926,7 +1014,12 @@ private fun humanizeTitle(raw: String): String {
 }
 
 @Composable
-internal fun FeedRow(item: FeedItem, onClick: () -> Unit) {
+internal fun FeedRow(
+    item: FeedItem,
+    onClick: () -> Unit,
+    selected: Boolean = false,
+    onLongClick: () -> Unit = {},
+) {
     val tx = item.tx
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
     val title = item.transferSummary
@@ -960,10 +1053,13 @@ internal fun FeedRow(item: FeedItem, onClick: () -> Unit) {
     }
 
     Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("feed-row-${item.tx.id}").combinedClickable(
+            onClick = onClick,
+            onLongClickLabel = stringResource(R.string.transactions_select_action),
+            onLongClick = onLongClick,
+        ),
         shape = androidx.compose.ui.graphics.RectangleShape,
-        color = MaterialTheme.colorScheme.surface,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
     ) {
     Column {
         Row(
@@ -972,13 +1068,18 @@ internal fun FeedRow(item: FeedItem, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Surface(shape = MaterialTheme.shapes.small,
-                color = item.category?.let { Color(it.color).copy(alpha = .12f) } ?: MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(1.dp, item.category?.let { Color(it.color).copy(alpha = .28f) } ?: MaterialTheme.colorScheme.outlineVariant),
+                color = if (selected) MaterialTheme.colorScheme.primary else
+                    item.category?.let { Color(it.color).copy(alpha = .12f) } ?: MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else
+                    item.category?.let { Color(it.color).copy(alpha = .28f) } ?: MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.size(44.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        CategoryIcons.resolve(item.category?.icon, isTransfer = tx.isTransfer), null,
-                        tint = item.category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (selected) Icons.Default.CheckCircle else
+                            CategoryIcons.resolve(item.category?.icon, isTransfer = tx.isTransfer),
+                        contentDescription = if (selected) stringResource(R.string.transactions_selected) else null,
+                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else
+                            item.category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(21.dp),
                     )
                 }
@@ -1089,14 +1190,14 @@ private fun FeedContentPreview() {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 WhfinContextHeader(stringResource(R.string.balance_total), formatMinor(559_417, "GEL")) {
                     WhfinIconButton(Icons.Default.Search, "Search", {}, outlined = false)
-                    WhfinIconButton(Icons.Default.Tune, "Filter", {}, outlined = false)
+                    WhfinIconButton(Icons.Default.FilterAlt, "Filter", {}, outlined = false)
                     WhfinIconButton(Icons.Default.Settings, "Settings", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
                 FeedTools("", {}, false, FeedFilter.ALL, {})
                 SmsOnboardingCard({}, {})
                 DayHeader(LocalDate.now(), mapOf("USD" to 2_360), 6_346, true, {})
-                FeedRow(item, {})
+                FeedRow(item, {}, selected = true)
             }
         }
     }

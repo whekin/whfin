@@ -47,6 +47,12 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Feed and Accounts open with a compact scrolling context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes search, type/sort filtering, and settings; Accounts exposes add, Account overview, and settings. The row leaves the viewport with the rest of the ledger, removing decorative title space without permanently consuming it; every icon action remains a 48 dp touch target.
 
+Feed selection starts with a long press and keeps the ledger spatially stable: summary/search controls give
+way to a compact selected-count header, selected rows receive one continuous tonal surface and a check icon,
+and subsequent taps toggle rows. Batch status is quiet; batch delete uses the destructive semantic color and
+an explicit balance-impact confirmation. A transfer or conversion is one visible selection and always updates
+or deletes both persisted legs.
+
 Account overview explains the current balance rather than pretending to be analytics. Assets, liabilities, available funds, reserve, and source distribution are calculated only in GEL. Other currencies remain separate native amounts until WHFIN has exchange rates with provenance and timestamps; they are never mixed into the GEL net worth or distribution percentages.
 
 Monthly Statistics opens from the Feed's month summary rather than adding another dock destination or header icon. It combines a selected-month net result, rolling 1/3/6/12-month category distribution, and a twelve-month bar trend. Selecting a category highlights the row and changes the year graph; the all-expenses scope remains one tap away. Each trend month has a selectable 48 dp target and updates the amount/comparison below the chart. “View transactions” opens a focused ledger filtered by that trend month and the active category, while Back restores the unchanged Statistics context. The drill-down queries the full month rather than Feed's bounded recent-history window. Transfers and debt allocations are excluded. Linked automatic conversion funding is attributed to the purchase category in GEL, while unconverted foreign expenses stay in native-currency rows. System Unaccounted adjustments are visible in a separate section but excluded from income, expenses, category shares, and trends.

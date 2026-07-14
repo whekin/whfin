@@ -371,6 +371,12 @@
     <string name="transaction_manual_hint">Amount, account, date and note</string>
     <string name="transaction_delete_body">This manual transaction will be permanently deleted.</string>
     <string name="transaction_delete_transfer_body">Both sides of this manual transfer will be permanently deleted.</string>
+    <string name="transactions_selected">Selected transactions</string>
+    <string name="transactions_select_action">Select transaction</string>
+    <string name="transactions_change_status">Change selected status</string>
+    <string name="transactions_delete_selected">Delete selected</string>
+    <string name="transactions_delete_selected_body">Delete %1$d selected transactions permanently? A selected transfer includes both sides, and deleting imported transactions changes account balances.</string>
+    <string name="transactions_selection_close">Close selection</string>
     <string name="action_delete">Delete</string>
     <string name="discard_transaction_title">Discard transaction?</string>
     <string name="discard_transaction_body">The information you entered will be lost.</string>

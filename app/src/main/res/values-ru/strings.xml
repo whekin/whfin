@@ -370,6 +370,12 @@
     <string name="transaction_manual_hint">Сумма, счёт, дата и заметка</string>
     <string name="transaction_delete_body">Ручная операция будет удалена без возможности восстановления.</string>
     <string name="transaction_delete_transfer_body">Обе стороны ручного перевода будут удалены без возможности восстановления.</string>
+    <string name="transactions_selected">Выбрано операций</string>
+    <string name="transactions_select_action">Выбрать операцию</string>
+    <string name="transactions_change_status">Изменить статус выбранных</string>
+    <string name="transactions_delete_selected">Удалить выбранные</string>
+    <string name="transactions_delete_selected_body">Удалить выбранные операции (%1$d) без возможности восстановления? Для перевода удалятся обе стороны, а удаление импортированных операций изменит балансы счетов.</string>
+    <string name="transactions_selection_close">Закрыть выбор</string>
     <string name="action_delete">Удалить</string>
     <string name="discard_transaction_title">Отменить операцию?</string>
     <string name="discard_transaction_body">Введённые данные будут потеряны.</string>

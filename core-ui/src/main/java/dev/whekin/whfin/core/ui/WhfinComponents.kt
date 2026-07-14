@@ -147,19 +147,34 @@ fun WhfinIconButton(
     outlined: Boolean = true,
     selected: Boolean = false,
     enabled: Boolean = true,
+    style: WhfinActionStyle = WhfinActionStyle.Quiet,
 ) {
     Surface(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.size(WhfinThemeTokens.sizes.minTouchTarget),
         shape = CircleShape,
-        color = if (selected && enabled) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        color = when {
+            !selected || !enabled -> Color.Transparent
+            style == WhfinActionStyle.Destructive || style == WhfinActionStyle.DestructiveSecondary ->
+                MaterialTheme.colorScheme.errorContainer
+            else -> MaterialTheme.colorScheme.primaryContainer
+        },
         contentColor = when {
             !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
+            style == WhfinActionStyle.Destructive || style == WhfinActionStyle.DestructiveSecondary ->
+                if (selected) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.error
             selected -> MaterialTheme.colorScheme.onPrimaryContainer
             else -> MaterialTheme.colorScheme.onSurface
         },
-        border = if (outlined) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+        border = if (outlined) BorderStroke(
+            1.dp,
+            if (style == WhfinActionStyle.Destructive || style == WhfinActionStyle.DestructiveSecondary) {
+                MaterialTheme.colorScheme.error.copy(alpha = .45f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            },
+        ) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription, modifier = Modifier.size(WhfinThemeTokens.sizes.icon))
