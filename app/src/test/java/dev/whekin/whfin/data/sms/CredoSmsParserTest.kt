@@ -7,6 +7,8 @@ import dev.whekin.whfin.data.sms.CredoSmsParser.OutgoingTransfer
 import dev.whekin.whfin.data.sms.CredoSmsParser.OwnTransfer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 
@@ -173,6 +175,25 @@ class CredoSmsParserTest {
     @Test
     fun `unrelated sms is ignored`() {
         assertNull(CredoSmsParser.parse("Your delivery code is 1234"))
+        val result = CredoSmsParser.classify("Your delivery code is 1234")
+        assertTrue(result is CredoSmsParser.Classification.Ignored)
+        assertFalse((result as CredoSmsParser.Classification.Ignored).credoCandidate)
+    }
+
+    @Test
+    fun `malformed transaction message is visible as unrecognized`() {
+        val result = CredoSmsParser.classify("Payment: new Credo format")
+        assertEquals(CredoSmsParser.Classification.Unrecognized, result)
+        assertTrue(CredoSmsParser.isCredoCandidate("Payment: new Credo format"))
+    }
+
+    @Test
+    fun `OTP remains a Credo candidate but has an explicit ignored reason`() {
+        val result = CredoSmsParser.classify(
+            "CODE: 123456 confirms card ***0002 payment of 19.99 EUR at EXAMPLE SHOP",
+        ) as CredoSmsParser.Classification.Ignored
+        assertEquals(CredoSmsParser.IgnoreReason.OTP, result.reason)
+        assertTrue(result.credoCandidate)
     }
 
     @Test

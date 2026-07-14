@@ -42,7 +42,7 @@ class WhfinBackupInstrumentedTest {
                     "AND name NOT LIKE 'sqlite_%' AND name NOT IN ('room_master_table', 'android_metadata') ORDER BY name",
             ).use { cursor -> while (cursor.moveToNext()) add(cursor.getString(0)) }
         }
-        assertEquals(WhfinBackupSchema.byName.keys, actualTables)
+        assertEquals(WhfinBackupSchema.byName.keys + WhfinBackupSchema.excludedTables, actualTables)
 
         WhfinBackupSchema.tables.forEach { table ->
             val actualColumns = buildList {
@@ -95,6 +95,24 @@ class WhfinBackupInstrumentedTest {
             runBlocking {
                 WhfinBackupManager(target).restore(ByteArrayInputStream("{not-json".toByteArray()))
             }
+        }
+    }
+
+    @Test
+    fun restore_acceptsVersion2BackupAndClearsLocalDiagnostics() = runBlocking {
+        seedEveryTable(source)
+        target.openHelper.writableDatabase.execSQL(
+            "INSERT INTO sms_diagnostics (externalKey, kind, outcome, receivedAt, updatedAt) " +
+                "VALUES ('sms|local', 'UNRECOGNIZED', 'UNRECOGNIZED', 1, 1)",
+        )
+        val version2 = export(source).toString(Charsets.UTF_8)
+            .replace("\"databaseVersion\": 3", "\"databaseVersion\": 2")
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(version2.toByteArray()))
+
+        target.openHelper.writableDatabase.query("SELECT COUNT(*) FROM sms_diagnostics").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
         }
     }
 

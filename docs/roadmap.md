@@ -56,22 +56,23 @@ earliest→current schema-test проходят на disposable-эмулятор
 
 ## 3. SMS reliability and diagnostics
 
-Статус: запланировано следующим продуктовым этапом. Receiver и parser существуют, но приложение пока
-не объясняет пользователю, почему конкретное сообщение не стало транзакцией.
+Статус: основная локальная надёжность реализована в Room DB v3. Receiver больше не теряет parsing и
+account-resolution failures; Settings → SMS diagnostics показывает исход каждого Credo-кандидата.
+История за 90 дней имеет отдельное разрешение, prominent disclosure и dry-run до записи.
 
-- Сначала заменить nullable/silent результат importer на явный outcome: imported, duplicate,
+- [x] Заменить nullable/silent результат importer на явный outcome: imported, duplicate,
   ignored (OTP/rejected/unrelated), unrecognized, needs card mapping и ambiguous account.
-- Добавить Settings → SMS diagnostics: новые сообщения показывать с локальным результатом обработки;
+- [x] Добавить Settings → SMS diagnostics: новые сообщения показывать с локальным результатом обработки;
   историю телефона сканировать только по отдельному действию пользователя и после prominent disclosure.
-- Исторический scan требует `READ_SMS`. Запрашивать его не на старте, ограничивать Credo/разумным периодом,
+- [x] Исторический scan требует `READ_SMS`. Запрашивать его не на старте, ограничивать Credo/разумным периодом,
   не хранить и не загружать полный inbox. Перед release пройти Play restricted-permissions declaration;
   money-management exception вероятно применим, но это должен подтвердить review.
-- Для `needs mapping` дать выбрать счёт/карту и сохранить mapping, затем повторить import. Batch import
+- [x] Для `needs mapping` дать выбрать счёт/карту и сохранить mapping, затем повторить import. Batch import
   выполняется только по явному действию и до записи показывает dry-run summary.
-- Нераспознанное сообщение можно отправить разработчику только через Android Sharesheet. По умолчанию
+- [ ] Нераспознанное сообщение можно отправить разработчику только через Android Sharesheet. По умолчанию
   payload редактируемый/редактированный; raw body добавляется лишь после отдельного подтверждения.
   Никакой фоновой telemetry или автоматической отправки SMS.
-- Проверка: golden/unit tests, injected Credo SMS на disposable emulator, dry-run существующих SMS на
+- [~] Проверка: golden/unit tests и injected Credo SMS на disposable emulator выполнены; dry-run существующих SMS на
   OnePlus, затем одна новая реальная операция. На физическом телефоне по-прежнему без instrumentation.
 
 Детальный контракт и текущий диагноз: `docs/sms-import.md`.

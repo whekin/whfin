@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="48dp"
     android:background="@drawable/widget_preview_surface"
@@ -43,8 +44,9 @@
                 android:layout_height="26dp"
                 android:layout_gravity="center"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_widget_add"
-                android:tint="@color/widget_preview_on_action" />
+            android:src="@drawable/ic_widget_add"
+            android:tint="@color/widget_preview_on_action"
+            tools:ignore="UseAppTint" />
         </FrameLayout>
     </FrameLayout>
 </LinearLayout>

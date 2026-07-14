@@ -16,6 +16,14 @@ import java.util.Locale
  */
 object CredoSmsParser {
 
+    enum class IgnoreReason { OTP, REJECTED, UNRELATED }
+
+    sealed interface Classification {
+        data class Parsed(val sms: Sms) : Classification
+        data class Ignored(val reason: IgnoreReason, val credoCandidate: Boolean) : Classification
+        data object Unrecognized : Classification
+    }
+
     sealed interface Sms {
         val amountMinor: Long
         val currency: String
@@ -87,27 +95,38 @@ object CredoSmsParser {
         Regex("""Date:\s*(\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M)""")
     private val ibanRegex = Regex("""(GE\d{2}[A-Z]{2}\d{16})""")
 
-    /**
-     * @return распознанная транзакция или null (не транзакционная SMS Credo:
-     * OTP-коды, rejected payment, реклама и чужие сообщения).
-     */
-    fun parse(body: String): Sms? {
+    fun classify(body: String): Classification {
         val text = body
             .substringBefore("want to split the bill?")
             .trim()
-        if (text.isEmpty()) return null
+        if (text.isEmpty()) return Classification.Ignored(IgnoreReason.UNRELATED, credoCandidate = false)
 
         return when {
-            text.startsWith("Rejected payment") -> null
-            text.startsWith("CODE:") -> null
-            text.startsWith("Payment:") -> parseCardPayment(text)
-            text.startsWith("Transfer between accounts") -> parseOwnTransfer(text)
-            text.startsWith("Currency exchange") -> parseCurrencyExchange(text)
-            text.startsWith("Outgoing transfer") -> parseOutgoingTransfer(text)
-            text.startsWith("Incoming transfer") -> parseIncomingTransfer(text)
-            else -> null
+            text.startsWith("Rejected payment") ->
+                Classification.Ignored(IgnoreReason.REJECTED, credoCandidate = true)
+            text.startsWith("CODE:") && text.contains("confirms card", ignoreCase = true) ->
+                Classification.Ignored(IgnoreReason.OTP, credoCandidate = true)
+            text.startsWith("Payment:") -> parsedOrUnrecognized { parseCardPayment(text) }
+            text.startsWith("Transfer between accounts") -> parsedOrUnrecognized { parseOwnTransfer(text) }
+            text.startsWith("Currency exchange") -> parsedOrUnrecognized { parseCurrencyExchange(text) }
+            text.startsWith("Outgoing transfer") -> parsedOrUnrecognized { parseOutgoingTransfer(text) }
+            text.startsWith("Incoming transfer") -> parsedOrUnrecognized { parseIncomingTransfer(text) }
+            text.contains("mycredo", ignoreCase = true) || text.contains("Credo", ignoreCase = true) ->
+                Classification.Unrecognized
+            else -> Classification.Ignored(IgnoreReason.UNRELATED, credoCandidate = false)
         }
     }
+
+    /** Backwards-compatible parser for callers that only need recognized transactions. */
+    fun parse(body: String): Sms? = (classify(body) as? Classification.Parsed)?.sms
+
+    fun isCredoCandidate(body: String): Boolean = when (val result = classify(body)) {
+        is Classification.Parsed, Classification.Unrecognized -> true
+        is Classification.Ignored -> result.credoCandidate
+    }
+
+    private inline fun parsedOrUnrecognized(block: () -> Sms?): Classification =
+        block()?.let(Classification::Parsed) ?: Classification.Unrecognized
 
     private fun money(match: MatchResult): Pair<Long, String> {
         val minor = match.groupValues[1].replace(",", "").replace(".", "").toLong()

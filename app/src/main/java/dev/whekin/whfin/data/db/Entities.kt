@@ -407,3 +407,54 @@ data class ReconciliationIssueEntity(
     val state: ReconciliationIssueState = ReconciliationIssueState.OPEN,
     val createdAt: Long,
 )
+
+/**
+ * Structured local audit record for SMS processing. Raw message bodies are never stored.
+ * Parsed fields are sufficient to explain and retry account/card resolution.
+ */
+@Entity(
+    tableName = "sms_diagnostics",
+    foreignKeys = [
+        ForeignKey(
+            entity = TransactionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["transactionId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        ForeignKey(
+            entity = AccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["accountId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [
+        Index(value = ["externalKey"], unique = true),
+        Index("outcome"),
+        Index("receivedAt"),
+        Index("transactionId"),
+        Index("accountId"),
+    ],
+)
+data class SmsDiagnosticEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val externalKey: String,
+    val kind: SmsDiagnosticKind,
+    val outcome: SmsDiagnosticOutcome,
+    val reason: SmsDiagnosticReason? = null,
+    val receivedAt: Long,
+    val occurredAt: Long? = null,
+    val amountMinor: Long? = null,
+    val currency: String? = null,
+    val secondaryAmountMinor: Long? = null,
+    val secondaryCurrency: String? = null,
+    val balanceMinor: Long? = null,
+    val balanceCurrency: String? = null,
+    val cardLast4: String? = null,
+    val counterparty: String? = null,
+    val fromIban: String? = null,
+    val toIban: String? = null,
+    val transactionId: Long? = null,
+    val accountId: Long? = null,
+    val updatedAt: Long,
+)

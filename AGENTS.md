@@ -27,13 +27,16 @@
 - [x] GeorgiaMerchantPreset: локальные правила для супермаркетов, транспорта, аптек, заведений,
   коммуналки, техники и подписок; backfill только пустых категорий. Проверено на приватной базе:
   известные мерчанты категоризируются автоматически, неизвестные не затрагиваются
-- [~] SMS Credo: парсер (5 типов, 11 golden-тестов), BroadcastReceiver, RECEIVE_SMS + runtime flow,
-  запись в Room как PENDING, привязка карта/IBAN→счёт и реконсиляция с выпиской. Текущий receiver видит
-  только новые сообщения; ошибки parsing/account resolution молча теряются. Проверка на физическом
-  тестовом устройстве подтвердила: разрешение и toggle активны, но без настроенного `PaymentInstrument`
-  карта не разрешается в ledger, а несколько GEL-счетов делают перевод без карты неоднозначным.
-  Следующий этап — локальная SMS diagnostics/inbox,
-  явные outcomes и исправление mapping без автоматической отправки сырых сообщений. План: `docs/sms-import.md`
+- [~] SMS Credo: парсер (5 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
+  persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
+  `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
+  choose account/error. Settings → SMS diagnostics показывает каждый исход; неизвестную карту или
+  неоднозначный перевод можно привязать к валютному ledger и повторить import. Отдельный `READ_SMS`
+  flow проверяет не более 500 Credo-кандидатов за 90 дней: сначала dry-run, запись только после
+  подтверждения; сырые сообщения живут только в памяти и исключены из JSON backup. v2→v3 migration,
+  importer/backup tests, light/dark/font 1.5 и реальный injected-SMS path проверены на disposable Pixel.
+  Осталось: явно редактируемый/redacted Sharesheet для parser failure и осторожный dry-run на OnePlus
+  перед любым импортом реальных сообщений. Детали: `docs/sms-import.md`
 - [~] Core UI: есть лента (группировка по дням, иконки категорий, переводы серым), счета (баланс
   реактивно, диалог добавления), импорт через SAF-пикер, EN+RU, тёмная тема, сидер 20 категорий
   (`CategorySeeder`, RU/EN по локали), настройки и UX-запрос разрешения SMS. Выбрано дизайн-направление:

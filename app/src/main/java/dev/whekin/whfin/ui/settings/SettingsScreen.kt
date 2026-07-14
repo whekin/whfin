@@ -46,6 +46,7 @@ fun SettingsScreen(
     onRequestSmsPermission: () -> Unit,
     onOpenSystemSettings: () -> Unit,
     onOpenStatements: () -> Unit,
+    onOpenSmsDiagnostics: () -> Unit,
     appLockTimeout: AppLockTimeout,
     onOpenAppLock: () -> Unit,
     onOpenBackup: () -> Unit,
@@ -96,6 +97,14 @@ fun SettingsScreen(
                 icon = Icons.Default.Description,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenStatements,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.sms_diagnostics_title),
+                supportingText = stringResource(R.string.sms_diagnostics_settings_summary),
+                icon = Icons.Default.Sms,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenSmsDiagnostics,
             )
         }
         WhfinNotice(
@@ -189,6 +198,7 @@ private fun SettingsScreenPreview() {
                 onRequestSmsPermission = {},
                 onOpenSystemSettings = {},
                 onOpenStatements = {},
+                onOpenSmsDiagnostics = {},
                 appLockTimeout = AppLockTimeout.OneMinute,
                 onOpenAppLock = {},
                 onOpenBackup = {},
@@ -215,6 +225,7 @@ private fun SettingsSmsDisabledPreview() {
                 onRequestSmsPermission = {},
                 onOpenSystemSettings = {},
                 onOpenStatements = {},
+                onOpenSmsDiagnostics = {},
                 appLockTimeout = AppLockTimeout.Disabled,
                 onOpenAppLock = {},
                 onOpenBackup = {},

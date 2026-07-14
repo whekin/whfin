@@ -7,10 +7,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,12 +16,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -59,6 +57,9 @@ internal fun appStartupContent(
 
 class MainActivity : FragmentActivity() {
     private var hasSmsPermission by mutableStateOf(false)
+    private var hasSmsHistoryPermission by mutableStateOf(false)
+    private var canRequestSmsPermission by mutableStateOf(true)
+    private var canRequestSmsHistoryPermission by mutableStateOf(true)
     private var biometricAvailability by mutableStateOf(BiometricAvailability.Unsupported)
     private var biometricUnlockEnabled = true
     private var hasAppLockPin by mutableStateOf(false)
@@ -90,15 +91,6 @@ class MainActivity : FragmentActivity() {
                     ?: AppLockTimeout.Disabled
                 val scope = rememberCoroutineScope()
                 val mainState = rememberSaveableStateHolder()
-                var canRequestSmsPermission by remember { mutableStateOf(true) }
-                val smsPermission = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestPermission(),
-                ) { granted ->
-                    hasSmsPermission = granted
-                    canRequestSmsPermission = granted ||
-                        shouldShowRequestPermissionRationale(Manifest.permission.RECEIVE_SMS)
-                }
-
                 LaunchedEffect(savedTimeout, biometricEnabled) {
                     biometricEnabled?.let { this@MainActivity.biometricUnlockEnabled = it }
                     savedTimeout?.let { timeout ->
@@ -135,9 +127,12 @@ class MainActivity : FragmentActivity() {
                             smsImportEnabled = smsImportEnabled != false,
                             hasSmsPermission = hasSmsPermission,
                             canRequestSmsPermission = canRequestSmsPermission,
+                            hasSmsHistoryPermission = hasSmsHistoryPermission,
+                            canRequestSmsHistoryPermission = canRequestSmsHistoryPermission,
                             // Do not flash an already dismissed prompt while DataStore is loading.
                             smsPermissionPromptDismissed = smsPermissionPromptDismissed != false,
-                            onRequestSmsPermission = { smsPermission.launch(Manifest.permission.RECEIVE_SMS) },
+                            onRequestSmsPermission = ::requestSmsPermission,
+                            onRequestSmsHistoryPermission = ::requestSmsHistoryPermission,
                             onDismissSmsPermissionPrompt = {
                                 scope.launch { uiPreferences.dismissSmsPermissionPrompt() }
                             },
@@ -196,6 +191,42 @@ class MainActivity : FragmentActivity() {
     override fun onStop() {
         if (::appLock.isInitialized && !isChangingConfigurations) appLock.background()
         super.onStop()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            REQUEST_RECEIVE_SMS -> {
+                refreshSmsPermission()
+                canRequestSmsPermission = hasSmsPermission ||
+                    shouldShowRequestPermissionRationale(Manifest.permission.RECEIVE_SMS)
+            }
+            REQUEST_READ_SMS -> {
+                refreshSmsPermission()
+                canRequestSmsHistoryPermission = hasSmsHistoryPermission ||
+                    shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
+            }
+        }
+    }
+
+    private fun requestSmsPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.RECEIVE_SMS),
+            REQUEST_RECEIVE_SMS,
+        )
+    }
+
+    private fun requestSmsHistoryPermission() {
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.READ_SMS),
+            REQUEST_READ_SMS,
+        )
     }
 
     private fun requestBiometricUnlock() {
@@ -270,5 +301,14 @@ class MainActivity : FragmentActivity() {
             this,
             Manifest.permission.RECEIVE_SMS,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        hasSmsHistoryPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_SMS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    private companion object {
+        const val REQUEST_RECEIVE_SMS = 1101
+        const val REQUEST_READ_SMS = 1102
     }
 }

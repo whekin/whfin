@@ -30,3 +30,34 @@ enum class DebtStatus { OPEN, CLOSED }
 enum class DebtEventKind { OPENED, SETTLEMENT, ADJUSTMENT, CLOSED }
 
 enum class ReconciliationIssueState { OPEN, KEPT }
+
+enum class SmsDiagnosticKind {
+    CARD_PAYMENT,
+    OUTGOING_TRANSFER,
+    INCOMING_TRANSFER,
+    OWN_TRANSFER,
+    CURRENCY_EXCHANGE,
+    IGNORED,
+    UNRECOGNIZED,
+}
+
+enum class SmsDiagnosticOutcome {
+    IMPORTED,
+    DUPLICATE,
+    IGNORED,
+    UNRECOGNIZED,
+    NEEDS_CARD_MAPPING,
+    CHOOSE_ACCOUNT,
+    ERROR,
+}
+
+enum class SmsDiagnosticReason {
+    OTP,
+    REJECTED,
+    UNRELATED,
+    PARSE_FAILURE,
+    NO_ACCOUNT,
+    MULTIPLE_ACCOUNTS,
+    NO_CARD_MAPPING,
+    STORAGE_ERROR,
+}

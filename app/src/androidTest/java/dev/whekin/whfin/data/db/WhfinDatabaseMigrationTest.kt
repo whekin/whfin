@@ -55,11 +55,38 @@ class WhfinDatabaseMigrationTest {
     @Test
     fun migrateAllFromEarliestSchema_matchesCurrentRoomSchema() {
         helper.createDatabase(TEST_DB_ALL, 1).close()
-        helper.runMigrationsAndValidate(TEST_DB_ALL, 2, true, *ALL_MIGRATIONS).close()
+        helper.runMigrationsAndValidate(TEST_DB_ALL, 3, true, *ALL_MIGRATIONS).close()
+    }
+
+    @Test
+    fun migrate2To3_preservesLedgerAndCreatesSmsDiagnostics() {
+        helper.createDatabase(TEST_DB_2_3, 2).apply {
+            execSQL("INSERT INTO `financial_groups` VALUES (1, 'Example bank', 'BANK', 'Example', 0, 0)")
+            execSQL("INSERT INTO `accounts` VALUES (1, 'Example GEL', 'BANK', 1, 'GEL', NULL, NULL, NULL, NULL, NULL, 0, 0)")
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_2_3, 3, true, MIGRATION_2_3).apply {
+            query("SELECT `name` FROM `accounts` WHERE `id` = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("Example GEL", cursor.getString(0))
+            }
+            execSQL(
+                "INSERT INTO `sms_diagnostics` " +
+                    "(`externalKey`, `kind`, `outcome`, `receivedAt`, `updatedAt`) " +
+                    "VALUES ('sms|example', 'CARD_PAYMENT', 'NEEDS_CARD_MAPPING', 1000, 1000)",
+            )
+            query("SELECT COUNT(*) FROM `sms_diagnostics`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+            close()
+        }
     }
 
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
+        const val TEST_DB_2_3 = "whfin-migration-2-3"
     }
 }

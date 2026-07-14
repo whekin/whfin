@@ -21,8 +21,10 @@ and does not operate an application server that receives this financial data.
 
 SMS access is optional and can be disabled in WHFIN or revoked in Android Settings. When enabled,
 WHFIN examines incoming Credo messages on the device and converts recognized transaction messages
-into pending financial records. OTP codes, rejected payments and unrelated messages are ignored.
-WHFIN does not send SMS content to a WHFIN server.
+into pending financial records. A separate user action can read up to 90 days of recent messages and
+shows a dry-run summary before importing anything. OTP codes, rejected payments and unrelated messages
+are ignored. WHFIN stores only structured outcomes and masked parsed fields for diagnostics; raw SMS
+bodies and OTP codes are not stored, exported or uploaded. WHFIN does not send SMS content to a server.
 
 ## Statement files
 

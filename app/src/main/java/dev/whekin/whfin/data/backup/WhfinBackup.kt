@@ -62,6 +62,7 @@ internal data class BackupTable(
 internal object WhfinBackupSchema {
     const val FORMAT = "whfin-backup"
     const val FORMAT_VERSION = 1
+    val excludedTables = setOf("sms_diagnostics")
 
     val tables = listOf(
         BackupTable("financial_groups", listOf("id", "name", "type", "provider", "isArchived", "sortOrder")),
@@ -207,6 +208,9 @@ internal object WhfinBackupCodec {
 
     fun restore(db: SupportSQLiteDatabase, snapshot: BackupSnapshot) {
         db.execSQL("PRAGMA defer_foreign_keys = ON")
+        WhfinBackupSchema.excludedTables.forEach { table ->
+            db.execSQL("DELETE FROM ${table.quoted()}")
+        }
         WhfinBackupSchema.tables.asReversed().forEach { table ->
             db.execSQL("DELETE FROM ${table.name.quoted()}")
         }
@@ -262,8 +266,10 @@ internal object WhfinBackupCodec {
         if (schemaVersion != WhfinBackupSchema.FORMAT_VERSION) {
             throw WhfinBackupException("Unsupported backup format version: $schemaVersion.")
         }
-        if (databaseVersion != WHFIN_DATABASE_VERSION) {
-            throw WhfinBackupException("Unsupported WHFIN database version: $databaseVersion.")
+        val dbVersion = databaseVersion
+            ?: throw WhfinBackupException("Missing WHFIN database version.")
+        if (dbVersion !in 2..WHFIN_DATABASE_VERSION) {
+            throw WhfinBackupException("Unsupported WHFIN database version: $dbVersion.")
         }
         val currency = primaryCurrency
             ?.takeIf { it.matches(Regex("[A-Z0-9]{2,12}")) }
@@ -276,7 +282,7 @@ internal object WhfinBackupCodec {
             summary = WhfinBackupSummary(
                 exportedAt = exported,
                 appVersion = version,
-                databaseVersion = databaseVersion,
+                databaseVersion = dbVersion,
                 primaryCurrency = currency,
                 rowCount = tables.values.sumOf(List<*>::size),
             ),

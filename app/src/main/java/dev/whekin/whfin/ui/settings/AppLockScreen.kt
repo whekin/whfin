@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -196,7 +197,7 @@ fun AppLockGate(
     onVerifyPin: (String) -> PinVerificationResult,
     onBiometric: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     var pin by remember { mutableStateOf("") }
     var pinProblem by remember { mutableStateOf<String?>(null) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -215,14 +216,14 @@ fun AppLockGate(
                         PinVerificationResult.Success -> Unit
                         is PinVerificationResult.Invalid -> {
                             pin = ""
-                            pinProblem = context.getString(
+                            pinProblem = resources.getString(
                                 R.string.app_lock_wrong_code,
                                 result.attemptsRemaining,
                             )
                         }
                         is PinVerificationResult.Locked -> {
                             pin = ""
-                            pinProblem = context.getString(
+                            pinProblem = resources.getString(
                                 R.string.app_lock_code_locked,
                                 (result.retryAfterMillis / 1_000L).coerceAtLeast(1L),
                             )

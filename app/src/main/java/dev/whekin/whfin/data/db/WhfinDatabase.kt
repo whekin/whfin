@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-const val WHFIN_DATABASE_VERSION = 2
+const val WHFIN_DATABASE_VERSION = 3
 
 @Database(
     entities = [
@@ -27,6 +27,7 @@ const val WHFIN_DATABASE_VERSION = 2
         DebtEventEntity::class,
         StatementImportEntity::class,
         ReconciliationIssueEntity::class,
+        SmsDiagnosticEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
     exportSchema = true,
@@ -45,6 +46,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun paymentInstrumentDao(): PaymentInstrumentDao
     abstract fun cryptoDao(): CryptoDao
     abstract fun statementSourceDao(): StatementSourceDao
+    abstract fun smsDiagnosticDao(): SmsDiagnosticDao
 
     companion object {
         const val NAME = "whfin-v2.db"

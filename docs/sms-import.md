@@ -1,19 +1,20 @@
 # Credo SMS import contract
 
-## Observed prototype failure mode
+## Implemented state
 
-On a physical test device, WHFIN was configured to receive SMS:
+The original physical-device diagnosis found two silent paths: missing card mappings and ambiguous
+same-currency bank accounts. Room DB v3 now records a structured local outcome for both instead of
+dropping the message.
 
-- `RECEIVE_SMS` is granted;
-- the WHFIN SMS toggle is enabled (its absent DataStore override means the default `true` is active);
-- the private database contains statement transactions but no `source=SMS` rows;
-- there are no `PaymentInstrument` rows, so a card payment cannot resolve `****last4` to a ledger;
-- there are multiple GEL bank accounts, so a card-less GEL transfer cannot safely use `singleOrNull()`.
+- `RECEIVE_SMS` still observes only broadcasts delivered after permission is granted.
+- `READ_SMS` is requested only from the explicit 90-day history action.
+- The scan is capped at 500 Credo candidates and produces a dry-run summary before any write.
+- Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
+  masked fields; the table is excluded from portable JSON backup and cleared on restore.
+- Card mapping and ambiguous-account outcomes open a product sheet, persist the chosen mapping, and retry.
 
-The receiver only observes broadcasts delivered after permission is granted. It does not read older
-messages. `CredoSmsReceiver` currently discards parser failures, and `SmsTransactionImporter` returns
-`null` when account resolution fails. Those two silent paths explain both the historical gap and why a
-new valid Credo message can appear to do nothing.
+The remaining product gap is explicit parser-failure sharing. It must use a user-initiated Android
+Sharesheet with an editable redacted payload; there is still no automatic telemetry or upload.
 
 ## Product behavior
 

@@ -43,6 +43,7 @@ import dev.whekin.whfin.ui.feed.FeedScreen
 import dev.whekin.whfin.ui.feed.FeedViewModel
 import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.SettingsScreen
+import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
 import dev.whekin.whfin.ui.settings.AboutScreen
 import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.AppLockScreen
@@ -75,12 +76,13 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-private enum class SecondaryDestination { Settings, Statements, AccountOverview, Analytics, AppLock, Backup, Privacy, About }
+private enum class SecondaryDestination { Settings, Statements, SmsDiagnostics, AccountOverview, Analytics, AppLock, Backup, Privacy, About }
 
 private enum class ShellScene(val depth: Int) {
     Primary(0),
     Settings(1),
     Statements(2),
+    SmsDiagnostics(2),
     AccountOverview(1),
     Analytics(1),
     AppLock(2),
@@ -96,8 +98,11 @@ fun MainScreen(
     smsImportEnabled: Boolean,
     hasSmsPermission: Boolean,
     canRequestSmsPermission: Boolean,
+    hasSmsHistoryPermission: Boolean,
+    canRequestSmsHistoryPermission: Boolean,
     smsPermissionPromptDismissed: Boolean,
     onRequestSmsPermission: () -> Unit,
+    onRequestSmsHistoryPermission: () -> Unit,
     onDismissSmsPermissionPrompt: () -> Unit,
     onSmsImportEnabledChange: (Boolean) -> Unit,
     onOpenSystemSettings: () -> Unit,
@@ -119,6 +124,7 @@ fun MainScreen(
     val scene = when {
         secondaryDestination == SecondaryDestination.Settings -> ShellScene.Settings
         secondaryDestination == SecondaryDestination.Statements -> ShellScene.Statements
+        secondaryDestination == SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
         secondaryDestination == SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
         secondaryDestination == SecondaryDestination.Analytics -> ShellScene.Analytics
         secondaryDestination == SecondaryDestination.AppLock -> ShellScene.AppLock
@@ -149,6 +155,7 @@ fun MainScreen(
         when {
             analyticsTransactions != null -> analyticsTransactions = null
             secondaryDestination == SecondaryDestination.Statements ||
+                secondaryDestination == SecondaryDestination.SmsDiagnostics ||
                 secondaryDestination == SecondaryDestination.AppLock ||
                 secondaryDestination == SecondaryDestination.Backup ||
                 secondaryDestination == SecondaryDestination.Privacy ||
@@ -210,6 +217,7 @@ fun MainScreen(
                             onRequestSmsPermission = onRequestSmsPermission,
                             onOpenSystemSettings = onOpenSystemSettings,
                             onOpenStatements = { open(SecondaryDestination.Statements) },
+                            onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
                             appLockTimeout = appLockTimeout,
                             onOpenAppLock = { open(SecondaryDestination.AppLock) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
@@ -222,6 +230,19 @@ fun MainScreen(
                         title = stringResource(R.string.statements_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { BankStatementsScreen() }
+                    ShellScene.SmsDiagnostics -> SecondaryPage(
+                        title = stringResource(R.string.sms_diagnostics_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) {
+                        SmsDiagnosticsRoute(
+                            smsImportEnabled = smsImportEnabled,
+                            hasReceivePermission = hasSmsPermission,
+                            hasHistoryPermission = hasSmsHistoryPermission,
+                            canRequestHistoryPermission = canRequestSmsHistoryPermission,
+                            onRequestHistoryPermission = onRequestSmsHistoryPermission,
+                            onOpenSystemSettings = onOpenSystemSettings,
+                        )
+                    }
                     ShellScene.AccountOverview -> SecondaryPage(
                         title = stringResource(R.string.account_overview_title),
                         onBack = { goBack(withHaptic = true) },

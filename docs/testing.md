@@ -7,8 +7,8 @@
 - UI: fully Jetpack Compose, with Glance for widgets.
 - UI behavior: Compose UI test APIs with Robolectric for fast host tests.
 - Database: Room instrumented tests use an in-memory database and the device SQLite engine.
-- Database migrations: committed Room schema assets drive `MigrationTestHelper`; tests validate both
-  v1 data preservation through v2 and the complete earliest→current schema path.
+- Database migrations: committed Room schema assets drive `MigrationTestHelper`; tests validate v1→v2,
+  v2→v3 SMS diagnostics creation/data preservation, and the complete earliest→current schema path.
 - Portable backup: instrumented SQLite tests verify the explicit table/column allowlist against the
   current Room schema, every-table deterministic export→restore→export, malformed JSON rejection and
   future-format rejection without changing current data.
@@ -95,6 +95,12 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   system prompt succeeded with an emulator touch, and “Use WHFIN code” returned to the custom keypad
   without exposing the Android device-PIN field. With Immediate lock active, the Glance `+`
   action opened Quick expense directly without biometric/PIN and without exposing balances/history.
+- SMS diagnostics: parser classification, permission disclosure and account-link UI pass host tests.
+  Eleven address-scoped instrumented tests passed on `emulator-5554`: v1→v2→v3 migrations, diagnostic
+  schema privacy, unknown-card repair, ambiguous-account outcome, backup compatibility and exclusion.
+  A sanitized Credo SMS injected through `adb emu sms send` reached the real receiver and rendered
+  `Choose an account`; the screen, empty dry-run and unavailable mapping sheet were checked in EN light,
+  EN dark and font scale 1.5. The physical phone was not used for instrumentation or history import.
 - Launch/quick-entry/dock polish: a dark cold start was captured before Compose could paint and showed the
   night splash rather than a white frame. The widget action produced a focused amount semantics node and a
   visible numeric IME on its first rendered state. Mid/final Feed→Accounts captures verified one moving

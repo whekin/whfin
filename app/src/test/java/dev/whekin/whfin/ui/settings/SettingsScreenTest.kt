@@ -50,6 +50,7 @@ class SettingsScreenTest {
                     onRequestSmsPermission = { clicked = true },
                     onOpenSystemSettings = {},
                     onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
                     appLockTimeout = AppLockTimeout.Disabled,
                     onOpenAppLock = {},
                     onOpenBackup = {},
@@ -60,7 +61,7 @@ class SettingsScreenTest {
             }
         }
 
-        compose.onNodeWithText(action).assertIsDisplayed().performClick()
+        compose.onNodeWithText(action).performScrollTo().assertIsDisplayed().performClick()
         assertTrue(clicked)
     }
 
@@ -80,6 +81,7 @@ class SettingsScreenTest {
                     onRequestSmsPermission = {},
                     onOpenSystemSettings = {},
                     onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
                     appLockTimeout = AppLockTimeout.Disabled,
                     onOpenAppLock = {},
                     onOpenBackup = {},
@@ -117,6 +119,7 @@ class SettingsScreenTest {
                         onRequestSmsPermission = {},
                         onOpenSystemSettings = {},
                         onOpenStatements = {},
+                        onOpenSmsDiagnostics = {},
                         appLockTimeout = AppLockTimeout.Disabled,
                         onOpenAppLock = {},
                         onOpenBackup = {},
@@ -149,6 +152,7 @@ class SettingsScreenTest {
                     onRequestSmsPermission = {},
                     onOpenSystemSettings = {},
                     onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
                     appLockTimeout = AppLockTimeout.Disabled,
                     onOpenAppLock = {},
                     onOpenBackup = {},
@@ -179,6 +183,7 @@ class SettingsScreenTest {
                     onRequestSmsPermission = {},
                     onOpenSystemSettings = {},
                     onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
                     appLockTimeout = AppLockTimeout.Disabled,
                     onOpenAppLock = {},
                     onOpenBackup = {},
@@ -212,6 +217,7 @@ class SettingsScreenTest {
                     onRequestSmsPermission = {},
                     onOpenSystemSettings = {},
                     onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
                     appLockTimeout = AppLockTimeout.OneMinute,
                     onOpenAppLock = { appLockOpened = true },
                     onOpenBackup = { backupOpened = true },

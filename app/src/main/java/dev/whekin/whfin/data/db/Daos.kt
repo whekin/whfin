@@ -44,7 +44,7 @@ interface AccountDao {
     )
     suspend fun byCardAndCurrency(last4: String, currency: String): List<AccountEntity>
 
-    @Query("SELECT * FROM accounts WHERE isArchived = 0 AND type = 'BANK' AND currency = :currency")
+    @Query("SELECT * FROM accounts WHERE isArchived = 0 AND type IN ('BANK', 'SAVINGS') AND currency = :currency")
     suspend fun bankAccountsByCurrency(currency: String): List<AccountEntity>
 
     @Query("SELECT * FROM accounts WHERE groupId = :groupId AND isArchived = 0 ORDER BY sortOrder, id")
@@ -405,6 +405,27 @@ interface ReconciliationIssueDao {
 
     @Query("UPDATE reconciliation_issues SET state = 'KEPT' WHERE id = :id")
     suspend fun keep(id: Long)
+}
+
+@Dao
+interface SmsDiagnosticDao {
+    @Query("SELECT * FROM sms_diagnostics ORDER BY receivedAt DESC, id DESC LIMIT :limit")
+    fun observeRecent(limit: Int = 200): Flow<List<SmsDiagnosticEntity>>
+
+    @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
+    suspend fun byId(id: Long): SmsDiagnosticEntity?
+
+    @Query("SELECT * FROM sms_diagnostics WHERE externalKey = :externalKey LIMIT 1")
+    suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?
+
+    @Insert
+    suspend fun insert(item: SmsDiagnosticEntity): Long
+
+    @Update
+    suspend fun update(item: SmsDiagnosticEntity)
+
+    @Query("DELETE FROM sms_diagnostics")
+    suspend fun deleteAll()
 }
 
 data class ReconciliationIssueWithTransaction(
