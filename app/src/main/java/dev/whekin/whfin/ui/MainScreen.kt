@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.accounts.AccountsScreen
 import dev.whekin.whfin.ui.accounts.AccountOverviewScreen
+import dev.whekin.whfin.ui.accounts.AccountTransactionsScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsRequest
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsScreen
@@ -82,7 +83,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Analytics, AppLock, Backup, Privacy, About }
+private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About }
 
 private enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -91,6 +92,7 @@ private enum class ShellScene(val depth: Int) {
     Statements(2),
     SmsDiagnostics(2),
     AccountOverview(1),
+    AccountTransactions(1),
     Analytics(1),
     AppLock(2),
     Backup(2),
@@ -129,12 +131,14 @@ fun MainScreen(
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
     }
+    var accountTransactionsId by rememberSaveable { mutableStateOf<Long?>(null) }
     val scene = when {
         secondaryDestination == SecondaryDestination.Settings -> ShellScene.Settings
         secondaryDestination == SecondaryDestination.CredoSync -> ShellScene.CredoSync
         secondaryDestination == SecondaryDestination.Statements -> ShellScene.Statements
         secondaryDestination == SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
         secondaryDestination == SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
+        secondaryDestination == SecondaryDestination.AccountTransactions -> ShellScene.AccountTransactions
         secondaryDestination == SecondaryDestination.Analytics -> ShellScene.Analytics
         secondaryDestination == SecondaryDestination.AppLock -> ShellScene.AppLock
         secondaryDestination == SecondaryDestination.Backup -> ShellScene.Backup
@@ -156,13 +160,25 @@ fun MainScreen(
         if (secondaryDestination == destination && analyticsTransactions == null) return
         haptics.performHapticFeedback(WhfinHaptics.navigation)
         analyticsTransactions = null
+        accountTransactionsId = null
         secondaryDestination = destination
+    }
+
+    fun openAccountTransactions(accountId: Long) {
+        haptics.performHapticFeedback(WhfinHaptics.navigation)
+        analyticsTransactions = null
+        accountTransactionsId = accountId
+        secondaryDestination = SecondaryDestination.AccountTransactions
     }
 
     fun goBack(withHaptic: Boolean) {
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
             analyticsTransactions != null -> analyticsTransactions = null
+            secondaryDestination == SecondaryDestination.AccountTransactions -> {
+                accountTransactionsId = null
+                secondaryDestination = null
+            }
             secondaryDestination == SecondaryDestination.CredoSync ||
                 secondaryDestination == SecondaryDestination.Statements ||
                 secondaryDestination == SecondaryDestination.SmsDiagnostics ||
@@ -209,6 +225,7 @@ fun MainScreen(
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
                                 onOpenOverview = { open(SecondaryDestination.AccountOverview) },
                                 onOpenSettings = { open(SecondaryDestination.Settings) },
+                                onOpenAccountTransactions = ::openAccountTransactions,
                             )
                         }
                         LedgerDock(tab) { tab = it }
@@ -268,6 +285,15 @@ fun MainScreen(
                         title = stringResource(R.string.account_overview_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { AccountOverviewScreen() }
+                    ShellScene.AccountTransactions -> {
+                        val accountId = accountTransactionsId
+                        if (accountId != null) {
+                            AccountTransactionsScreen(
+                                accountId = accountId,
+                                onBack = { goBack(withHaptic = true) },
+                            )
+                        }
+                    }
                     ShellScene.AppLock -> SecondaryPage(
                         title = stringResource(R.string.app_lock_title),
                         onBack = { goBack(withHaptic = true) },

@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <plurals name="accounts_container_count">
+        <item quantity="one">%1$d account</item>
+        <item quantity="other">%1$d accounts</item>
+    </plurals>
+    <plurals name="accounts_currency_count">
+        <item quantity="one">%1$d currency</item>
+        <item quantity="other">%1$d currencies</item>
+    </plurals>
     <string name="app_name" translatable="false">whfin</string>
     <string name="tab_feed">Transactions</string>
     <string name="tab_accounts">Accounts</string>
@@ -375,6 +383,23 @@
     <string name="adjust_delta_hint">Difference %1$s will be recorded as Unaccounted</string>
     <string name="category_unaccounted">Unaccounted</string>
     <string name="account_edit">Edit account</string>
+    <string name="account_actions">Account actions</string>
+    <string name="account_purpose">Account purpose</string>
+    <string name="account_purpose_everyday">Everyday</string>
+    <string name="account_purpose_reserve">Reserve</string>
+    <string name="account_purpose_deposit">Deposit</string>
+    <string name="account_purpose_goal">Savings goal</string>
+    <string name="accounts_everyday_section">Everyday accounts</string>
+    <string name="accounts_savings_section">Savings &amp; deposits</string>
+    <string name="account_transactions_title">Account activity</string>
+    <string name="account_transactions_balance">Current balance</string>
+    <string name="account_transactions_iban_currency">IBAN •%1$s · %2$s</string>
+    <string name="account_transactions_loading">Loading activity</string>
+    <string name="account_transactions_loading_body">Reading this account’s ledger.</string>
+    <string name="account_transactions_empty">No transactions yet</string>
+    <string name="account_transactions_empty_body">Transactions imported or added to this account will appear here.</string>
+    <string name="account_transactions_error">Couldn’t load account activity</string>
+    <string name="account_transactions_error_body">Your data is still stored locally. Go back and try opening the account again.</string>
     <string name="account_delete">Delete account</string>
     <string name="account_delete_confirmation">Delete %1$s and all of its transactions? This can’t be undone.</string>
     <string name="account_mark_reserve">Mark as reserve</string>

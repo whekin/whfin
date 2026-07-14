@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <plurals name="accounts_container_count">
+        <item quantity="one">%1$d счёт</item>
+        <item quantity="few">%1$d счёта</item>
+        <item quantity="many">%1$d счетов</item>
+        <item quantity="other">%1$d счёта</item>
+    </plurals>
+    <plurals name="accounts_currency_count">
+        <item quantity="one">%1$d валюта</item>
+        <item quantity="few">%1$d валюты</item>
+        <item quantity="many">%1$d валют</item>
+        <item quantity="other">%1$d валюты</item>
+    </plurals>
     <string name="tab_feed">Транзакции</string>
     <string name="tab_accounts">Счета</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
@@ -374,6 +386,23 @@
     <string name="adjust_delta_hint">Разница %1$s запишется в «Неучтённое»</string>
     <string name="category_unaccounted">Неучтённое</string>
     <string name="account_edit">Изменить счёт</string>
+    <string name="account_actions">Действия со счётом</string>
+    <string name="account_purpose">Назначение счёта</string>
+    <string name="account_purpose_everyday">Основной</string>
+    <string name="account_purpose_reserve">Резерв</string>
+    <string name="account_purpose_deposit">Депозит</string>
+    <string name="account_purpose_goal">Цель накопления</string>
+    <string name="accounts_everyday_section">Основные счета</string>
+    <string name="accounts_savings_section">Накопления и депозиты</string>
+    <string name="account_transactions_title">Операции счёта</string>
+    <string name="account_transactions_balance">Текущий баланс</string>
+    <string name="account_transactions_iban_currency">IBAN •%1$s · %2$s</string>
+    <string name="account_transactions_loading">Загружаем операции</string>
+    <string name="account_transactions_loading_body">Читаем журнал этого счёта.</string>
+    <string name="account_transactions_empty">Операций пока нет</string>
+    <string name="account_transactions_empty_body">Загруженные или добавленные операции этого счёта появятся здесь.</string>
+    <string name="account_transactions_error">Не удалось загрузить операции</string>
+    <string name="account_transactions_error_body">Данные остаются на устройстве. Вернитесь назад и откройте счёт ещё раз.</string>
     <string name="account_delete">Удалить счёт</string>
     <string name="account_delete_confirmation">Удалить %1$s и все его операции? Это действие нельзя отменить.</string>
     <string name="account_mark_reserve">Отнести в резерв</string>

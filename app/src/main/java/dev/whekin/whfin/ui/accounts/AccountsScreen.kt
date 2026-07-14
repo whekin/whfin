@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,10 +72,12 @@ import dev.whekin.whfin.core.ui.WhfinContextHeader
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
+import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.SavingsMode
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -83,6 +88,7 @@ fun AccountsScreen(
     onOpenStatements: () -> Unit = {},
     onOpenOverview: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenAccountTransactions: (Long) -> Unit = {},
     viewModel: AccountsViewModel = viewModel(),
     statementsViewModel: BankStatementsViewModel = viewModel(),
 ) {
@@ -93,6 +99,15 @@ fun AccountsScreen(
     val message by viewModel.message.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
     val gelBalance = accounts.filter { it.account.currency == "GEL" }.sumOf { it.balanceMinor }
+    val accountContainers = accounts.groupBy { item ->
+        item.account.groupId to (item.account.iban ?: "account-${item.account.id}")
+    }.values
+    val everydayAccounts = accountContainers.filterNot { container ->
+        container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
+    }.flatten()
+    val savingsAccounts = accountContainers.filter { container ->
+        container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
+    }.flatten()
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
     var actionsFor by remember { mutableStateOf<AccountWithBalance?>(null) }
@@ -167,19 +182,34 @@ fun AccountsScreen(
                     item(key = "accounts-summary") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { AccountsSummary(accounts) }
                     }
-                    accounts.groupBy {
-                        it.groupName ?: it.account.type.name.lowercase().replaceFirstChar(Char::titlecase)
-                    }.forEach { (groupName, groupAccounts) ->
-                        item(key = "group-$groupName") {
-                            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                                AccountGroupCard(
-                                    name = groupName,
-                                    accounts = groupAccounts,
-                                    onAccountClick = { actionsFor = it },
-                                    onOpenStatements = onOpenStatements.takeIf {
-                                        groupAccounts.any { account -> account.account.type == AccountType.BANK }
-                                    },
+                    listOf(
+                        R.string.accounts_everyday_section to everydayAccounts,
+                        R.string.accounts_savings_section to savingsAccounts,
+                    ).forEach { (sectionLabel, sectionAccounts) ->
+                        if (sectionAccounts.isNotEmpty()) {
+                            item(key = "account-section-$sectionLabel") {
+                                WhfinSectionLabel(
+                                    stringResource(sectionLabel),
+                                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                                 )
+                            }
+                            sectionAccounts.groupBy {
+                                it.groupName ?: it.account.type.name.lowercase().replaceFirstChar(Char::titlecase)
+                            }.forEach { (groupName, groupAccounts) ->
+                                item(key = "group-$sectionLabel-$groupName") {
+                                    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                                        AccountGroupCard(
+                                            name = groupName,
+                                            accounts = groupAccounts,
+                                            onOpenTransactions = { onOpenAccountTransactions(it.account.id) },
+                                            onAccountActions = { actionsFor = it },
+                                            onEditContainer = { editFor = it },
+                                            onOpenStatements = onOpenStatements.takeIf {
+                                                groupAccounts.any { account -> account.account.type == AccountType.BANK }
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -237,7 +267,6 @@ fun AccountsScreen(
             onBankMapping = { configureAccount = item; actionsFor = null },
             onEdit = { editFor = item; actionsFor = null },
             onDelete = { deleteFor = item; actionsFor = null },
-            onToggleReserve = { viewModel.toggleReserve(item.account); actionsFor = null },
         )
     }
 
@@ -246,8 +275,8 @@ fun AccountsScreen(
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editFor = null },
-            onConfirm = { name, currency, address ->
-                viewModel.editAccount(item.account, name, currency, address)
+            onConfirm = { name, currency, address, savingsMode ->
+                viewModel.editAccount(item.account, name, currency, address, savingsMode)
                 editFor = null
             },
         )
@@ -357,27 +386,32 @@ private fun SummaryColumn(label: String, value: String, modifier: Modifier) {
 private fun AccountGroupCard(
     name: String,
     accounts: List<AccountWithBalance>,
-    onAccountClick: (AccountWithBalance) -> Unit,
+    onOpenTransactions: (AccountWithBalance) -> Unit,
+    onAccountActions: (AccountWithBalance) -> Unit,
+    onEditContainer: (AccountWithBalance) -> Unit,
     onOpenStatements: (() -> Unit)?,
 ) {
         Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (accounts.any { it.account.groupId != null }) {
             WhfinSectionHeader(
                 title = name,
-                supportingText = stringResource(
-                    R.string.accounts_bank_structure,
-                    accounts.map { it.account.iban ?: "account-${it.account.id}" }.distinct().size,
-                    accounts.map { it.account.currency }.distinct().size,
-                ),
+                supportingText = run {
+                    val accountCount = accounts.map { it.account.iban ?: "account-${it.account.id}" }.distinct().size
+                    val currencyCount = accounts.map { it.account.currency }.distinct().size
+                    pluralStringResource(R.plurals.accounts_container_count, accountCount, accountCount) +
+                        " · " + pluralStringResource(R.plurals.accounts_currency_count, currencyCount, currencyCount)
+                },
                 trailing = onOpenStatements?.let { open ->
                     { TextButton(onClick = open) { Text(stringResource(R.string.statements_title)) } }
                 },
             )
+            }
             accounts
                 .groupBy { it.account.iban ?: "account-${it.account.id}" }
                 .toList()
                 .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
                 .forEach { (_, ibanAccounts) ->
-                    IbanCard(ibanAccounts, onAccountClick)
+                    IbanCard(ibanAccounts, onOpenTransactions, onAccountActions, onEditContainer)
                 }
     }
 }
@@ -385,7 +419,9 @@ private fun AccountGroupCard(
 @Composable
 private fun IbanCard(
     accounts: List<AccountWithBalance>,
-    onAccountClick: (AccountWithBalance) -> Unit,
+    onOpenTransactions: (AccountWithBalance) -> Unit,
+    onAccountActions: (AccountWithBalance) -> Unit,
+    onEditContainer: (AccountWithBalance) -> Unit,
 ) {
     val iban = accounts.first().account.iban
     WhfinLedgerGroup {
@@ -402,7 +438,7 @@ private fun IbanCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            accountTypeIcon(AccountType.BANK),
+                            accountTypeIcon(accounts.first().account.type),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(19.dp),
@@ -411,8 +447,7 @@ private fun IbanCard(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
-                        iban?.let { stringResource(R.string.account_iban_short, it.takeLast(4)) }
-                            ?: accounts.first().account.name,
+                        accounts.first().account.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -425,11 +460,21 @@ private fun IbanCard(
                 }
                 Text(accounts.joinToString(" · ") { it.account.currency },
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WhfinIconButton(
+                    icon = Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.account_edit),
+                    onClick = { onEditContainer(accounts.first()) },
+                    outlined = false,
+                )
             }
             HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
             accounts.sortedWith(compareBy<AccountWithBalance> { if (it.account.currency == "GEL") 0 else 1 }
                 .thenBy { it.account.currency }).forEachIndexed { index, item ->
-                CurrencyAccountRow(item, onClick = { onAccountClick(item) })
+                CurrencyAccountRow(
+                    item = item,
+                    onClick = { onOpenTransactions(item) },
+                    onActions = { onAccountActions(item) },
+                )
                 if (index != accounts.lastIndex) HorizontalDivider(
                     Modifier.padding(start = 16.dp, end = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f),
@@ -440,7 +485,11 @@ private fun IbanCard(
 }
 
 @Composable
-private fun CurrencyAccountRow(item: AccountWithBalance, onClick: () -> Unit) {
+private fun CurrencyAccountRow(
+    item: AccountWithBalance,
+    onClick: () -> Unit,
+    onActions: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -454,8 +503,13 @@ private fun CurrencyAccountRow(item: AccountWithBalance, onClick: () -> Unit) {
             Text(item.account.currency, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             val cards = item.cardMasks.map { "••$it" } + item.virtualCardMasks.map { "${stringResource(R.string.account_card_virtual)} ••$it" }
             val detail = cards.joinToString(" · ").ifBlank {
-                if (item.account.savingsMode != null) stringResource(R.string.accounts_reserve)
-                else item.account.name.takeIf { it != item.account.currency } ?: stringResource(R.string.accounts_currency_balance)
+                when (item.account.savingsMode) {
+                    SavingsMode.FLEXIBLE_RESERVE -> stringResource(R.string.account_purpose_reserve)
+                    SavingsMode.TERM_DEPOSIT -> stringResource(R.string.account_purpose_deposit)
+                    SavingsMode.GOAL -> stringResource(R.string.account_purpose_goal)
+                    null -> item.account.name.takeIf { it != item.account.currency }
+                        ?: stringResource(R.string.accounts_currency_balance)
+                }
             }
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -463,6 +517,13 @@ private fun CurrencyAccountRow(item: AccountWithBalance, onClick: () -> Unit) {
             formatMinor(item.balanceMinor, item.account.currency),
             style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
             fontWeight = FontWeight.SemiBold,
+        )
+        WhfinIconButton(
+            icon = Icons.Default.MoreVert,
+            contentDescription = stringResource(R.string.account_actions),
+            onClick = onActions,
+            modifier = Modifier.padding(start = 4.dp),
+            outlined = false,
         )
     }
 }
@@ -546,7 +607,8 @@ private fun AccountsContentPreview() {
                 }
                 Column(Modifier.padding(20.dp)) {
                     AccountsSummary(accounts)
-                    AccountGroupCard("Credo", accounts, {}, {})
+                    WhfinSectionLabel(stringResource(R.string.accounts_everyday_section))
+                    AccountGroupCard("Credo", accounts, {}, {}, {}, {})
                     DebtsSummary(emptyList(), {})
                 }
             }

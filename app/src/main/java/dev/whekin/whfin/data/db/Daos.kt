@@ -30,6 +30,9 @@ interface AccountDao {
     @Update
     suspend fun update(account: AccountEntity)
 
+    @Query("UPDATE accounts SET name = :name, savingsMode = :savingsMode WHERE groupId = :groupId AND iban = :iban")
+    suspend fun updateIbanContainer(groupId: Long, iban: String, name: String, savingsMode: SavingsMode?)
+
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun delete(id: Long)
 

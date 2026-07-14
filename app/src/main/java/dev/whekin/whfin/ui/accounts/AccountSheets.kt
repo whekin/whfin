@@ -42,6 +42,7 @@ import android.content.res.Configuration
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.SavingsMode
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -148,18 +149,21 @@ fun EditAccountSheet(
     account: AccountEntity,
     initialAddress: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, currency: String, address: String?) -> Unit,
+    onConfirm: (name: String, currency: String, address: String?, savingsMode: SavingsMode?) -> Unit,
 ) {
     var name by remember { mutableStateOf(account.name) }
     var currency by remember { mutableStateOf(account.currency) }
     var address by remember { mutableStateOf(initialAddress.orEmpty()) }
+    var savingsMode by remember { mutableStateOf(account.savingsMode) }
 
     FormSheet(
         title = stringResource(R.string.account_edit),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
         primaryEnabled = name.isNotBlank() && currency.isNotBlank(),
-        onPrimary = { onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty)) },
+        onPrimary = {
+            onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty), savingsMode)
+        },
     ) {
         if (account.type != AccountType.CASH) {
             OutlinedTextField(
@@ -171,11 +175,20 @@ fun EditAccountSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        CurrencySelector(
-            currency = currency,
-            onChange = { currency = it },
-            quick = if (account.type == AccountType.CRYPTO) cryptoQuickCurrencies else quickCurrencies,
-        )
+        if (account.type == AccountType.BANK || account.type == AccountType.SAVINGS) {
+            Text(stringResource(R.string.account_purpose), style = MaterialTheme.typography.labelLarge)
+            AccountPurposeSelector(
+                selected = savingsMode,
+                allowEveryday = account.type == AccountType.BANK,
+                onSelect = { savingsMode = it },
+            )
+        } else {
+            CurrencySelector(
+                currency = currency,
+                onChange = { currency = it },
+                quick = if (account.type == AccountType.CRYPTO) cryptoQuickCurrencies else quickCurrencies,
+            )
+        }
         if (account.type == AccountType.CRYPTO) {
             OutlinedTextField(
                 value = address,
@@ -184,6 +197,30 @@ fun EditAccountSheet(
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountPurposeSelector(
+    selected: SavingsMode?,
+    allowEveryday: Boolean,
+    onSelect: (SavingsMode?) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        buildList {
+            if (allowEveryday) add(null to R.string.account_purpose_everyday)
+            add(SavingsMode.FLEXIBLE_RESERVE to R.string.account_purpose_reserve)
+            add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
+        }.forEach { (mode, label) ->
+            FilterChip(
+                selected = selected == mode,
+                onClick = { onSelect(mode) },
+                label = { Text(stringResource(label)) },
             )
         }
     }
@@ -373,7 +410,6 @@ fun AccountActionsSheet(
     onBankMapping: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onToggleReserve: () -> Unit,
 ) {
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -404,17 +440,6 @@ fun AccountActionsSheet(
                     onClick = onEdit,
                     divider = true,
                 )
-                if (item.account.type == AccountType.BANK || item.account.type == AccountType.SAVINGS) {
-                ActionRow(
-                    icon = Icons.Default.Savings,
-                    label = stringResource(
-                        if (item.account.savingsMode == null) R.string.account_mark_reserve
-                        else R.string.account_remove_reserve,
-                    ),
-                    onClick = onToggleReserve,
-                    divider = true,
-                )
-                }
                 if (item.account.type == AccountType.BANK) {
                 ActionRow(
                     icon = Icons.Default.AccountBalance,

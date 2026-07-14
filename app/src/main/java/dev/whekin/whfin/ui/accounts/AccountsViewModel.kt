@@ -160,14 +160,30 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun editAccount(account: AccountEntity, name: String, currency: String, address: String?) {
+    fun editAccount(
+        account: AccountEntity,
+        name: String,
+        currency: String,
+        address: String?,
+        savingsMode: SavingsMode?,
+    ) {
         viewModelScope.launch {
-            db.accountDao().update(
-                account.copy(
-                    name = if (account.type == AccountType.CASH) "Cash" else name.trim(),
-                    currency = currency.trim().uppercase(),
-                ),
-            )
+            val normalizedName = if (account.type == AccountType.CASH) "Cash" else name.trim()
+            val groupId = account.groupId
+            val iban = account.iban
+            if (groupId != null && iban != null &&
+                (account.type == AccountType.BANK || account.type == AccountType.SAVINGS)
+            ) {
+                db.accountDao().updateIbanContainer(groupId, iban, normalizedName, savingsMode)
+            } else {
+                db.accountDao().update(
+                    account.copy(
+                        name = normalizedName,
+                        currency = currency.trim().uppercase(),
+                        savingsMode = savingsMode,
+                    ),
+                )
+            }
         }
     }
 
@@ -234,13 +250,4 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun toggleReserve(account: AccountEntity) {
-        viewModelScope.launch {
-            db.accountDao().update(
-                account.copy(
-                    savingsMode = if (account.savingsMode == null) SavingsMode.FLEXIBLE_RESERVE else null,
-                ),
-            )
-        }
-    }
 }
