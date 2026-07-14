@@ -61,6 +61,11 @@ and subsequent taps toggle rows. Batch status is quiet; batch delete uses the de
 an explicit balance-impact confirmation. A transfer or conversion is one visible selection and always updates
 or deletes both persisted legs.
 
+Transaction details prioritize the amount and four routine facts. Status and category become the action when
+they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
+default, and infrequent edit/debt/delete actions share one horizontally resilient 48 dp action rail. The sheet
+uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
+
 Account overview explains the current balance rather than pretending to be analytics. Assets, liabilities, available funds, reserve, and source distribution are calculated only in GEL. Other currencies remain separate native amounts until WHFIN has exchange rates with provenance and timestamps; they are never mixed into the GEL net worth or distribution percentages.
 
 Monthly Statistics opens from the Feed's month summary rather than adding another dock destination or header icon. It combines a selected-month net result, rolling 1/3/6/12-month category distribution, and a twelve-month bar trend. Selecting a category highlights the row and changes the year graph; the all-expenses scope remains one tap away. Each trend month has a selectable 48 dp target and updates the amount/comparison below the chart. “View transactions” opens a focused ledger filtered by that trend month and the active category, while Back restores the unchanged Statistics context. The drill-down queries the full month rather than Feed's bounded recent-history window. Transfers and debt allocations are excluded. Linked automatic conversion funding is attributed to the purchase category in GEL, while unconverted foreign expenses stay in native-currency rows. System Unaccounted adjustments are visible in a separate section but excluded from income, expenses, category shares, and trends.

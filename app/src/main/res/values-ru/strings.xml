@@ -67,6 +67,7 @@
     <string name="tx_detail_account">Счёт</string>
     <string name="tx_detail_source">Источник</string>
     <string name="tx_detail_status">Статус</string>
+    <string name="tx_detail_more">Данные банка и источника</string>
     <string name="tx_detail_category">Категория</string>
     <string name="tx_detail_counterparty">Контрагент</string>
     <string name="tx_detail_counterparty_iban">IBAN контрагента</string>

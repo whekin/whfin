@@ -64,6 +64,7 @@
     <string name="tx_detail_account">Account</string>
     <string name="tx_detail_source">Source</string>
     <string name="tx_detail_status">Status</string>
+    <string name="tx_detail_more">Bank and source details</string>
     <string name="tx_detail_category">Category</string>
     <string name="tx_detail_counterparty">Counterparty</string>
     <string name="tx_detail_counterparty_iban">Counterparty IBAN</string>
