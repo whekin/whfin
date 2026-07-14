@@ -1,0 +1,4 @@
+interface:
+  display_name: "WHFIN UI Design"
+  short_description: "Design and verify WHFIN Android interfaces"
+  default_prompt: "Use $whfin-ui-design to design, implement, and visually verify a WHFIN interface."

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Ledger ribbons: W, open book and movement between accounts. -->
+    <path android:fillColor="#FFF7F1E5" android:pathData="M24,36 L35,36 L43,65 L52,42 L61,65 L69,36 L80,36 L67,75 L56,75 L52,61 L47,75 L36,75 Z" />
+    <path android:fillColor="#FFC45F3C" android:pathData="M75,25 A7,7 0,1 1,74.9,25 Z" />
+</vector>

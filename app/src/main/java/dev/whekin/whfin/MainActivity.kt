@@ -1,0 +1,274 @@
+package dev.whekin.whfin
+
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.glance.appwidget.updateAll
+import dev.whekin.whfin.data.preferences.AppLockTimeout
+import dev.whekin.whfin.data.preferences.UiPreferences
+import dev.whekin.whfin.data.preferences.WidgetColorMode
+import dev.whekin.whfin.data.security.AppLockPinStore
+import dev.whekin.whfin.data.security.AppLockViewModel
+import dev.whekin.whfin.data.security.BiometricAvailability
+import dev.whekin.whfin.data.security.PinVerificationResult
+import dev.whekin.whfin.data.security.WHFIN_BIOMETRIC_AUTHENTICATORS
+import dev.whekin.whfin.data.security.WhfinAuthenticator
+import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAvailability
+import dev.whekin.whfin.ui.MainScreen
+import dev.whekin.whfin.ui.settings.AppLockGate
+import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.widget.WhfinWidget
+import kotlinx.coroutines.launch
+
+internal enum class AppStartupContent { Loading, LockGate, Main }
+
+internal fun appStartupContent(
+    savedTimeout: AppLockTimeout?,
+    hasPin: Boolean,
+    sessionLocked: Boolean,
+): AppStartupContent = when {
+    savedTimeout == null -> AppStartupContent.Loading
+    !savedTimeout.enabled || !hasPin -> AppStartupContent.Main
+    sessionLocked -> AppStartupContent.LockGate
+    else -> AppStartupContent.Main
+}
+
+class MainActivity : FragmentActivity() {
+    private var hasSmsPermission by mutableStateOf(false)
+    private var biometricAvailability by mutableStateOf(BiometricAvailability.Unsupported)
+    private var biometricUnlockEnabled = true
+    private var hasAppLockPin by mutableStateOf(false)
+    private var resumed = false
+    private val uiPreferences by lazy { UiPreferences(applicationContext) }
+    private val pinStore by lazy { AppLockPinStore(applicationContext) }
+    private lateinit var appLock: AppLockViewModel
+    private lateinit var authenticator: WhfinAuthenticator
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
+        authenticator = WhfinAuthenticator(this)
+        hasAppLockPin = pinStore.hasPin()
+        refreshSmsPermission()
+        refreshBiometricAvailability()
+        enableEdgeToEdge()
+        window.isNavigationBarContrastEnforced = false
+        setContent {
+            WhfinTheme {
+                val smsPermissionPromptDismissed: Boolean? by uiPreferences.smsPermissionPromptDismissed
+                    .collectAsState(initial = null)
+                val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
+                val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
+                val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
+                val widgetColorMode: WidgetColorMode? by uiPreferences.widgetColorMode.collectAsState(initial = null)
+                val effectiveTimeout = savedTimeout
+                    ?.takeIf { !it.enabled || hasAppLockPin }
+                    ?: AppLockTimeout.Disabled
+                val scope = rememberCoroutineScope()
+                val mainState = rememberSaveableStateHolder()
+                var canRequestSmsPermission by remember { mutableStateOf(true) }
+                val smsPermission = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted ->
+                    hasSmsPermission = granted
+                    canRequestSmsPermission = granted ||
+                        shouldShowRequestPermissionRationale(Manifest.permission.RECEIVE_SMS)
+                }
+
+                LaunchedEffect(savedTimeout, biometricEnabled) {
+                    biometricEnabled?.let { this@MainActivity.biometricUnlockEnabled = it }
+                    savedTimeout?.let { timeout ->
+                        if (timeout.enabled && !hasAppLockPin) {
+                            uiPreferences.setAppLockTimeout(AppLockTimeout.Disabled)
+                        }
+                        appLock.configure(timeout, hasAppLockPin)
+                        updateWindowPrivacy()
+                        if (resumed && appLock.locked && biometricEnabled == true) requestBiometricUnlock()
+                    }
+                }
+
+                when (appStartupContent(savedTimeout, hasAppLockPin, appLock.locked)) {
+                    AppStartupContent.Loading -> Surface(
+                        Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {}
+                    AppStartupContent.LockGate -> AppLockGate(
+                        biometricAvailable = biometricEnabled == true &&
+                            biometricAvailability == BiometricAvailability.Available,
+                        problem = appLock.problem,
+                        onVerifyPin = ::verifyPin,
+                        onBiometric = ::requestBiometricUnlock,
+                    )
+                    AppStartupContent.Main -> mainState.SaveableStateProvider("main") {
+                        MainScreen(
+                            widgetColorMode = widgetColorMode ?: WidgetColorMode.System,
+                            onWidgetColorModeChange = { mode ->
+                                scope.launch {
+                                    uiPreferences.setWidgetColorMode(mode)
+                                    WhfinWidget().updateAll(applicationContext)
+                                }
+                            },
+                            smsImportEnabled = smsImportEnabled != false,
+                            hasSmsPermission = hasSmsPermission,
+                            canRequestSmsPermission = canRequestSmsPermission,
+                            // Do not flash an already dismissed prompt while DataStore is loading.
+                            smsPermissionPromptDismissed = smsPermissionPromptDismissed != false,
+                            onRequestSmsPermission = { smsPermission.launch(Manifest.permission.RECEIVE_SMS) },
+                            onDismissSmsPermissionPrompt = {
+                                scope.launch { uiPreferences.dismissSmsPermissionPrompt() }
+                            },
+                            onSmsImportEnabledChange = { enabled ->
+                                scope.launch { uiPreferences.setSmsImportEnabled(enabled) }
+                            },
+                            onOpenSystemSettings = {
+                                startActivity(
+                                    Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.fromParts("package", packageName, null),
+                                    ),
+                                )
+                            },
+                            appLockTimeout = effectiveTimeout,
+                            appLockHasPin = hasAppLockPin,
+                            biometricAvailability = biometricAvailability,
+                            biometricUnlockEnabled = biometricEnabled != false,
+                            onAppLockTimeoutChange = ::requestTimeoutChange,
+                            onAppLockPinCreated = ::savePin,
+                            onBiometricUnlockEnabledChange = { enabled ->
+                                biometricUnlockEnabled = enabled
+                                scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
+                            },
+                            onOpenBiometricSettings = ::openBiometricSettings,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        refreshSmsPermission()
+        refreshBiometricAvailability()
+        if (::appLock.isInitialized) {
+            appLock.foreground()
+            updateWindowPrivacy()
+            if (appLock.locked && appLock.timeout.enabled) {
+                window.decorView.post(::requestBiometricUnlock)
+            }
+        }
+    }
+
+    override fun onPause() {
+        if (::appLock.isInitialized && appLock.timeout.enabled) {
+            // Set before Android captures the task thumbnail; clear only after a valid foreground session.
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        resumed = false
+        super.onPause()
+    }
+
+    override fun onStop() {
+        if (::appLock.isInitialized && !isChangingConfigurations) appLock.background()
+        super.onStop()
+    }
+
+    private fun requestBiometricUnlock() {
+        if (
+            !resumed || !appLock.locked || !appLock.timeout.enabled ||
+            !biometricUnlockEnabled || authenticator.isPromptVisible
+        ) return
+        if (biometricAvailability != BiometricAvailability.Available) return
+        authenticator.authenticate(
+            title = getString(R.string.app_lock_prompt_title),
+            subtitle = getString(R.string.app_lock_prompt_subtitle),
+            useCodeLabel = getString(R.string.app_lock_use_code),
+            onSuccess = {
+                appLock.unlock()
+                updateWindowPrivacy()
+            },
+            onProblem = appLock::report,
+        )
+    }
+
+    private fun requestTimeoutChange(timeout: AppLockTimeout) {
+        if (timeout == appLock.timeout) return
+        if (timeout.enabled && !hasAppLockPin) return
+        appLock.configure(timeout, hasAppLockPin)
+        appLock.unlock()
+        updateWindowPrivacy()
+        lifecycleScope.launch { uiPreferences.setAppLockTimeout(timeout) }
+    }
+
+    private fun savePin(pin: String, timeout: AppLockTimeout) {
+        pinStore.setPin(pin.toCharArray())
+        hasAppLockPin = true
+        appLock.configure(timeout, hasPin = true)
+        appLock.unlock()
+        updateWindowPrivacy()
+        lifecycleScope.launch { uiPreferences.setAppLockTimeout(timeout) }
+    }
+
+    private fun verifyPin(pin: String): PinVerificationResult = pinStore.verify(pin.toCharArray()).also {
+        if (it == PinVerificationResult.Success) {
+            appLock.unlock()
+            updateWindowPrivacy()
+        }
+    }
+
+    private fun openBiometricSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_BIOMETRIC_ENROLL).putExtra(
+                Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                WHFIN_BIOMETRIC_AUTHENTICATORS,
+            )
+        } else {
+            Intent(Settings.ACTION_SECURITY_SETTINGS)
+        }
+        startActivity(intent)
+    }
+
+    private fun updateWindowPrivacy() {
+        if (appLock.timeout.enabled && appLock.locked) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else if (resumed) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun refreshBiometricAvailability() {
+        biometricAvailability = checkBiometricAvailability(this)
+    }
+
+    private fun refreshSmsPermission() {
+        hasSmsPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECEIVE_SMS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+}

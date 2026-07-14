@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- API 29–30: back up only user data and only with client-side encryption. -->
+    <include
+        domain="database"
+        path="."
+        requireFlags="clientSideEncryption" />
+    <include
+        domain="file"
+        path="datastore/whfin_ui.preferences_pb"
+        requireFlags="clientSideEncryption" />
+    <include
+        domain="file"
+        path="datastore/whfin_widget.preferences_pb"
+        requireFlags="clientSideEncryption" />
+</full-backup-content>
