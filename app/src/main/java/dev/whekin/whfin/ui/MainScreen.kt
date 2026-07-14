@@ -12,7 +12,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
@@ -430,7 +430,7 @@ private fun SecondaryPage(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DockItem(
-                    Icons.AutoMirrored.Filled.List,
+                    Icons.AutoMirrored.Filled.ReceiptLong,
                     stringResource(R.string.tab_feed),
                     selected == 0,
                     Modifier.weight(1f).testTag("dock-feed"),
