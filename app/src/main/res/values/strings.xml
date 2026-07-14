@@ -521,6 +521,7 @@
     <string name="feed_filter_sort">Filter and sort</string>
     <string name="feed_filters_reset">Reset</string>
     <string name="feed_filters_apply">Apply</string>
+    <string name="feed_categories_selected">%1$d selected</string>
     <string name="feed_transaction_type">Transaction type</string>
     <string name="feed_sort_by">Sort by</string>
     <string name="feed_sort_newest">Newest first</string>

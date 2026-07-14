@@ -26,7 +26,7 @@ The reusable agent workflow and full visual guidance live in [`.agents/skills/wh
 
 Permission prompts outside Settings are optional proposals, not gates. The Feed SMS notice has a 48 dp close action and persists “do not show again” in app preferences. Settings owns a separate persistent SMS-import switch: turning it off leaves the Android permission unchanged but gates the broadcast receiver before message extraction, parsing, or transaction import; turning it on requests permission only when necessary. Existing installs default on so an upgrade cannot silently disable automation.
 
-The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Feed/Accounts switching keeps the dock fixed. Dock items never move and switch emphasis atomically with their destination. Their icon-over-label geometry keeps both names on one line at font scale 1.5. A separate 52 dp center action opens the transaction composer and returns to Feed if necessary; it is visually contained inside the dock rather than floating over ledger rows. Each ripple is clipped to the same product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
+The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Feed/Accounts switching keeps the dock fixed. Dock items never move and switch emphasis atomically with their destination. Their icon-over-label geometry keeps both names on one line at font scale 1.5. The selected peer changes only its icon and label color. The separate 52 dp center action is an outlined primary-color circle rather than another filled navigation state; it opens the transaction composer and returns to Feed if necessary. Add requests are consumed after delivery, so returning from Accounts cannot replay an earlier request and reopen Expense. The action is visually contained inside the dock rather than floating over ledger rows. Each transient pressed state is clipped to the same product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
 
 ## Visual rules
 
@@ -75,6 +75,11 @@ way to a compact selected-count header, selected rows receive one continuous ton
 and subsequent taps toggle rows. Batch status is quiet; batch delete uses the destructive semantic color and
 an explicit balance-impact confirmation. A transfer or conversion is one visible selection and always updates
 or deletes both persisted legs.
+
+Feed filtering stays a short, intrinsic-height sheet: type and sort use compact controls, while category
+selection shows the three most-used eligible categories plus More. The ranking comes from real transaction
+usage and keeps already-selected categories visible. More replaces the sheet with a dedicated full-screen,
+lazy category list; the ordinary sheet never composes every category or reserves nearly the full display.
 
 Transaction details prioritize the amount and four routine facts. Status and category become the action when
 they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
@@ -161,5 +166,6 @@ The enrolled-fingerprint prompt was exercised in both directions: success unlock
 The dark cold-launch path was captured immediately after process start and remained bottle-green from the
 system splash through the first Compose frame. Widget `+` opened quick-entry with the amount field focused
 and the numeric IME already visible. Feed/Accounts switching was captured in rapid intermediate frames:
-the destination content changes immediately, while only the two stationary dock items cross-fade for 140 ms;
-pressed states stay clipped to their item geometry.
+the destination content changes immediately, while only the color emphasis of the two stationary dock items
+cross-fades for 140 ms; there is no persistent selected-item fill, and pressed states stay clipped to their
+item geometry.

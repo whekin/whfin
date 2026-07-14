@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -50,6 +52,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
@@ -91,6 +94,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.TxStatus
@@ -106,6 +111,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinBackButton
+import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinContextHeader
 import dev.whekin.whfin.core.ui.WhfinIconButton
@@ -133,6 +140,7 @@ fun FeedScreen(
     onDismissSmsOnboarding: () -> Unit,
     onOpenAnalytics: () -> Unit = {},
     addRequestKey: Int = 0,
+    onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
 ) {
     val items by viewModel.items.collectAsState()
@@ -207,11 +215,12 @@ fun FeedScreen(
         selectedIds = selectedIds.intersect(availableIds)
     }
 
-    LaunchedEffect(addRequestKey) {
-        if (addRequestKey > 0) {
+    AddRequestEffect(
+        requestKey = addRequestKey,
+        onConsumed = onAddRequestConsumed,
+    ) {
             selectedIds = emptySet()
             showAdd = true
-        }
     }
 
     fun toggleSelection(item: FeedItem) {
@@ -375,7 +384,7 @@ fun FeedScreen(
     if (showFilterSheet) FeedFilterSheet(
         filter = filter,
         sort = sort,
-        categories = categories.filterNot { it.isSystem },
+        categories = categoriesByUsage.filterNot { it.isSystem },
         selectedCategoryIds = categoryFilters,
         onApply = { newFilter, newSort, newCategories ->
             filter = newFilter
@@ -841,103 +850,153 @@ private fun FeedFilterSheet(
     var draftFilter by remember(filter) { mutableStateOf(filter) }
     var draftSort by remember(sort) { mutableStateOf(sort) }
     var draftCategories by remember(selectedCategoryIds) { mutableStateOf(selectedCategoryIds) }
+    var showAllCategories by remember { mutableStateOf(false) }
+
+    val eligibleCategories = remember(categories, draftFilter) {
+        when (draftFilter) {
+            FeedFilter.EXPENSES -> categories.filter { it.kind == CategoryKind.EXPENSE }
+            FeedFilter.INCOME -> categories.filter { it.kind == CategoryKind.INCOME }
+            FeedFilter.TRANSFERS -> emptyList()
+            FeedFilter.ALL -> categories
+        }
+    }
+    val quickCategories = remember(eligibleCategories, draftCategories) {
+        (eligibleCategories.filter { it.id in draftCategories } + eligibleCategories)
+            .distinctBy { it.id }
+            .take(3)
+    }
+
+    if (showAllCategories) {
+        FilterCategorySelector(
+            categories = eligibleCategories,
+            selectedIds = draftCategories,
+            onToggle = { category ->
+                draftCategories = if (category.id in draftCategories) {
+                    draftCategories - category.id
+                } else {
+                    draftCategories + category.id
+                }
+            },
+            onBack = { showAllCategories = false },
+        )
+        return
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(
-            Modifier.fillMaxWidth().fillMaxHeight(.92f).navigationBarsPadding(),
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 stringResource(R.string.feed_filter_sort),
                 style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
             )
-            LazyColumn(
-                Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item(key = "filter-type-label") {
-                    WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
-                }
-                item(key = "filter-types") {
-                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                        listOf(
-                            FeedFilter.ALL to R.string.feed_filter_all,
-                            FeedFilter.EXPENSES to R.string.feed_filter_expenses,
-                            FeedFilter.INCOME to R.string.feed_filter_income,
-                            FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
-                        ).forEachIndexed { index, (value, label) ->
-                            WhfinLedgerRow(
-                                title = stringResource(label),
-                                trailing = if (draftFilter == value) {
-                                    { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                                } else null,
-                                onClick = { draftFilter = value },
-                                divider = index != FeedFilter.entries.lastIndex,
-                            )
-                        }
-                    }
-                }
-                CategoryKind.entries.forEach { kind ->
-                    val kindCategories = categories.filter { it.kind == kind }.sortedBy { it.name }
-                    if (kindCategories.isNotEmpty()) {
-                        item(key = "filter-category-label-$kind") {
-                            WhfinSectionLabel(stringResource(
-                                if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income,
-                            ))
-                        }
-                        item(key = "filter-categories-$kind") {
-                            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                                kindCategories.forEachIndexed { index, category ->
-                                    WhfinLedgerRow(
-                                        title = category.name,
-                                        icon = CategoryIcons.resolve(category.icon),
-                                        iconTint = Color(category.color),
-                                        trailing = if (category.id in draftCategories) {
-                                            { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                                        } else null,
-                                        onClick = {
-                                            draftCategories = if (category.id in draftCategories) {
-                                                draftCategories - category.id
-                                            } else {
-                                                draftCategories + category.id
-                                            }
-                                        },
-                                        divider = index != kindCategories.lastIndex,
-                                    )
+                listOf(
+                    FeedFilter.ALL to R.string.feed_filter_all,
+                    FeedFilter.EXPENSES to R.string.feed_filter_expenses,
+                    FeedFilter.INCOME to R.string.feed_filter_income,
+                    FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
+                ).forEach { (value, label) ->
+                    WhfinFilterPill(
+                        label = stringResource(label),
+                        selected = draftFilter == value,
+                        onClick = {
+                            draftFilter = value
+                            draftCategories = when (value) {
+                                FeedFilter.EXPENSES -> draftCategories.filterTo(mutableSetOf()) { id ->
+                                    categories.any { it.id == id && it.kind == CategoryKind.EXPENSE }
                                 }
+                                FeedFilter.INCOME -> draftCategories.filterTo(mutableSetOf()) { id ->
+                                    categories.any { it.id == id && it.kind == CategoryKind.INCOME }
+                                }
+                                FeedFilter.TRANSFERS -> emptySet()
+                                FeedFilter.ALL -> draftCategories
                             }
-                        }
-                    }
-                }
-                item(key = "filter-sort-label") {
-                    WhfinSectionLabel(stringResource(R.string.feed_sort_by))
-                }
-                item(key = "filter-sort") {
-                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                        listOf(
-                            FeedSort.NEWEST to R.string.feed_sort_newest,
-                            FeedSort.OLDEST to R.string.feed_sort_oldest,
-                            FeedSort.AMOUNT to R.string.feed_sort_amount,
-                        ).forEachIndexed { index, (value, label) ->
-                            WhfinLedgerRow(
-                                title = stringResource(label),
-                                trailing = if (draftSort == value) {
-                                    { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                                } else null,
-                                onClick = { draftSort = value },
-                                divider = index < 2,
-                            )
-                        }
-                    }
+                        },
+                    )
                 }
             }
+
+            if (draftFilter != FeedFilter.TRANSFERS && quickCategories.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WhfinSectionLabel(
+                        stringResource(R.string.tx_detail_category),
+                        Modifier.weight(1f),
+                    )
+                    if (draftCategories.isNotEmpty()) {
+                        Text(
+                            stringResource(R.string.feed_categories_selected, draftCategories.size),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    quickCategories.forEach { category ->
+                        FilterCategoryTile(
+                            category = category,
+                            selected = category.id in draftCategories,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                draftCategories = if (category.id in draftCategories) {
+                                    draftCategories - category.id
+                                } else {
+                                    draftCategories + category.id
+                                }
+                            },
+                        )
+                    }
+                    FilterCategoryTile(
+                        category = null,
+                        selected = draftCategories.any { id -> quickCategories.none { it.id == id } },
+                        modifier = Modifier.weight(1f),
+                        onClick = { showAllCategories = true },
+                    )
+                }
+            }
+
+            WhfinSectionLabel(stringResource(R.string.feed_sort_by))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(
+                    FeedSort.NEWEST to R.string.feed_sort_newest,
+                    FeedSort.OLDEST to R.string.feed_sort_oldest,
+                    FeedSort.AMOUNT to R.string.feed_sort_amount,
+                ).forEach { (value, label) ->
+                    WhfinFilterPill(
+                        label = stringResource(label),
+                        selected = draftSort == value,
+                        onClick = { draftSort = value },
+                    )
+                }
+            }
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 WhfinButton(
@@ -956,6 +1015,128 @@ private fun FeedFilterSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun FilterCategoryTile(
+    category: CategoryEntity?,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val tint = category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 76.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = if (selected) tint.copy(alpha = .12f) else Color.Transparent,
+        border = if (selected) BorderStroke(1.dp, tint.copy(alpha = .7f)) else null,
+    ) {
+        Column(
+            Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
+        ) {
+            Surface(shape = CircleShape, color = tint.copy(alpha = .14f)) {
+                Icon(
+                    imageVector = category?.let { CategoryIcons.resolve(it.icon) } ?: Icons.Default.MoreHoriz,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.padding(8.dp).size(19.dp),
+                )
+            }
+            Text(
+                category?.name ?: stringResource(R.string.categories_more),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterCategorySelector(
+    categories: List<CategoryEntity>,
+    selectedIds: Set<Long>,
+    onToggle: (CategoryEntity) -> Unit,
+    onBack: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onBack,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        WhfinDialogSystemBars()
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WhfinBackButton(stringResource(R.string.action_back), onBack)
+                    Text(
+                        stringResource(R.string.categories_show_all),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    TextButton(onClick = onBack) { Text(stringResource(R.string.action_done)) }
+                }
+                LazyColumn(
+                    Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CategoryKind.entries.forEach { kind ->
+                        val kindCategories = categories.filter { it.kind == kind }
+                        if (kindCategories.isNotEmpty()) {
+                            item(key = "all-filter-category-label-$kind") {
+                                WhfinSectionLabel(stringResource(
+                                    if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income,
+                                ))
+                            }
+                            items(kindCategories, key = { "all-filter-category-${it.id}" }) { category ->
+                                Column(Modifier.fillMaxWidth()) {
+                                    Surface(
+                                        onClick = { onToggle(category) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = MaterialTheme.shapes.small,
+                                        color = Color.Transparent,
+                                    ) {
+                                        WhfinLedgerRow(
+                                            title = category.name,
+                                            icon = CategoryIcons.resolve(category.icon),
+                                            iconTint = Color(category.color),
+                                            trailing = if (category.id in selectedIds) {
+                                                { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                            } else null,
+                                        )
+                                    }
+                                    HorizontalDivider(
+                                        Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AddRequestEffect(
+    requestKey: Int,
+    onConsumed: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    LaunchedEffect(requestKey) {
+        if (requestKey > 0) {
+            onAdd()
+            onConsumed()
         }
     }
 }

@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -32,6 +33,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.accounts.AccountsScreen
 import dev.whekin.whfin.ui.accounts.AccountOverviewScreen
@@ -58,6 +60,7 @@ import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
+import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.YearMonth
 import androidx.core.content.pm.PackageInfoCompat
 
@@ -223,6 +226,7 @@ fun MainScreen(
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
                                 addRequestKey = addRequestKey,
+                                onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,
                             ) else AccountsScreen(
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
@@ -435,9 +439,9 @@ private fun SecondaryPage(
                     onClick = onAdd,
                     modifier = Modifier.size(52.dp).testTag("dock-add"),
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shadowElevation = 1.dp,
+                    color = androidx.compose.ui.graphics.Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Add, stringResource(R.string.add_transaction), Modifier.size(24.dp))
@@ -456,8 +460,6 @@ private fun SecondaryPage(
 
 @Composable private fun DockItem(icon: ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f)
-        else androidx.compose.ui.graphics.Color.Transparent
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = {
@@ -469,7 +471,7 @@ private fun SecondaryPage(
             this.selected = selected
         },
         shape = MaterialTheme.shapes.medium,
-        color = containerColor,
+        color = androidx.compose.ui.graphics.Color.Transparent,
     ) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp),
@@ -487,4 +489,12 @@ private fun SecondaryPage(
             )
         }
     }
+}
+
+@Preview(name = "Dock light", widthDp = 400, heightDp = 96, showBackground = true)
+@Preview(name = "Dock dark", widthDp = 400, heightDp = 96, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Dock font 1.5", widthDp = 400, heightDp = 116, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun LedgerDockPreview() {
+    WhfinTheme { LedgerDock(selected = 0, onAdd = {}, onSelect = {}) }
 }

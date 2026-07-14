@@ -25,9 +25,10 @@ class LedgerDockTest {
     @Test
     fun selectionChangesLocallyWithoutMovingTheItems() {
         var selected by mutableIntStateOf(0)
+        var addRequests = 0
         compose.setContent {
             WhfinTheme {
-                LedgerDock(selected, onAdd = {}) { selected = it }
+                LedgerDock(selected, onAdd = { addRequests += 1 }) { selected = it }
             }
         }
 
@@ -35,6 +36,9 @@ class LedgerDockTest {
         compose.onNodeWithTag("dock-accounts").assertIsNotSelected().performClick()
         compose.onNodeWithTag("dock-feed").assertIsNotSelected()
         compose.onNodeWithTag("dock-accounts").assertIsSelected()
-        assertEquals(1, selected)
+        compose.onNodeWithTag("dock-feed").performClick()
+        compose.onNodeWithTag("dock-feed").assertIsSelected()
+        assertEquals(0, selected)
+        assertEquals(0, addRequests)
     }
 }
