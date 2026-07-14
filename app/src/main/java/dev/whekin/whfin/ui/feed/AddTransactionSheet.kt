@@ -282,7 +282,10 @@ fun AddTransactionSheet(
         }
     }
 
-    if (showTypeMenu) ModalBottomSheet(onDismissRequest = { showTypeMenu = false }) {
+    if (showTypeMenu) ModalBottomSheet(
+        onDismissRequest = { showTypeMenu = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.choose_transaction_type), style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = 8.dp))
@@ -513,7 +516,10 @@ private fun minorInput(value: Long): String {
         }
         Icon(Icons.Default.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    if (open) ModalBottomSheet(onDismissRequest = { open = false }) {
+    if (open) ModalBottomSheet(
+        onDismissRequest = { open = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),

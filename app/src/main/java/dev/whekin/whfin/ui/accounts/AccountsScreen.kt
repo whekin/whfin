@@ -122,12 +122,7 @@ fun AccountsScreen(
     }.flatten()
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
-    var settingsFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
     var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
-    var adjustFor by remember { mutableStateOf<AccountWithBalance?>(null) }
-    var editFor by remember { mutableStateOf<AccountWithBalance?>(null) }
-    var configureAccount by remember { mutableStateOf<AccountWithBalance?>(null) }
-    var deleteFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -224,7 +219,9 @@ fun AccountsScreen(
                                             name = groupName,
                                             accounts = groupAccounts,
                                             onOpenTransactions = { onOpenAccountTransactions(it.account.id) },
-                                            onAccountSettings = { settingsFor = it },
+                                            onAccountSettings = { items ->
+                                                items.firstOrNull()?.let { onOpenAccountTransactions(it.account.id) }
+                                            },
                                             onOpenGroupDetails = {
                                                 val seed = groupAccounts.first().account
                                                 val related = when {
@@ -294,80 +291,9 @@ fun AccountsScreen(
             onOpenStatements = onOpenStatements.takeIf {
                 selection.accounts.any { it.account.type == AccountType.BANK }
             },
-            onOpenAccountSettings = { items ->
+            onOpenAccountActivity = { items ->
                 groupDetailsFor = null
-                settingsFor = items
-            },
-        )
-    }
-
-    settingsFor?.let { items ->
-        val item = items.first()
-        AccountSettingsSheet(
-            items = items,
-            onDismiss = { settingsFor = null },
-            onAdjustBalance = { balance -> adjustFor = balance; settingsFor = null },
-            onBankMapping = { configureAccount = item; settingsFor = null },
-            onEdit = { editFor = item; settingsFor = null },
-            onDelete = { deleteFor = items; settingsFor = null },
-        )
-    }
-
-    editFor?.let { item ->
-        EditAccountSheet(
-            account = item.account,
-            initialAddress = item.address,
-            onDismiss = { editFor = null },
-            onConfirm = { name, currency, address, savingsMode ->
-                viewModel.editAccount(item.account, name, currency, address, savingsMode)
-                editFor = null
-            },
-        )
-    }
-
-    adjustFor?.let { item ->
-        AdjustBalanceSheet(
-            item = item,
-            onDismiss = { adjustFor = null },
-            onConfirm = { delta ->
-                viewModel.adjustBalance(item, delta)
-                adjustFor = null
-            },
-        )
-    }
-
-    configureAccount?.let { item ->
-        BankMappingSheet(
-            account = item.account,
-            existingCards = item.cardMasks,
-            existingVirtualCards = item.virtualCardMasks,
-            onDismiss = { configureAccount = null },
-            onConfirm = { iban, cards, isVirtual ->
-                viewModel.updateBankMapping(
-                    item.account,
-                    iban,
-                    if (isVirtual) emptyList() else cards,
-                    if (isVirtual) cards else emptyList(),
-                )
-                configureAccount = null
-            },
-        )
-    }
-
-    deleteFor?.let { items ->
-        val item = items.first()
-        AlertDialog(
-            onDismissRequest = { deleteFor = null },
-            title = { Text(stringResource(R.string.account_delete)) },
-            text = { Text(stringResource(R.string.account_delete_confirmation, item.account.name)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteAccountContainer(items.map { it.account })
-                    deleteFor = null
-                }) { Text(stringResource(R.string.account_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteFor = null }) { Text(stringResource(R.string.action_cancel)) }
+                items.firstOrNull()?.let { onOpenAccountTransactions(it.account.id) }
             },
         )
     }
@@ -468,7 +394,7 @@ private fun AccountGroupDetailsDialog(
     accounts: List<AccountWithBalance>,
     onDismiss: () -> Unit,
     onOpenStatements: (() -> Unit)?,
-    onOpenAccountSettings: (List<AccountWithBalance>) -> Unit,
+    onOpenAccountActivity: (List<AccountWithBalance>) -> Unit,
 ) {
     val containers = accounts
         .groupBy { it.account.iban ?: "account-${it.account.id}" }
@@ -535,8 +461,8 @@ private fun AccountGroupDetailsDialog(
                                 supportingText = supporting,
                                 supportingMaxLines = 4,
                                 icon = accountTypeIcon(first.account.type),
-                                trailing = { Icon(Icons.Default.Settings, stringResource(R.string.account_settings)) },
-                                onClick = { onOpenAccountSettings(container) },
+                                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                                onClick = { onOpenAccountActivity(container) },
                             )
                         }
                     }
@@ -588,8 +514,8 @@ private fun IbanCard(
                     )
                 }
                 WhfinIconButton(
-                    icon = Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.account_settings),
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.account_transactions_title),
                     onClick = { onAccountSettings(accounts) },
                     outlined = false,
                 )

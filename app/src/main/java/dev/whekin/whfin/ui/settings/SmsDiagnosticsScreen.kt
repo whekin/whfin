@@ -39,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -729,7 +730,11 @@ private fun AccountMappingSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SmsMessageSheet(state: SmsMessageState, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         Column(
             Modifier.fillMaxWidth().heightIn(max = 720.dp).verticalScroll(rememberScrollState())
                 .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp)

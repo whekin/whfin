@@ -303,6 +303,7 @@ fun MainScreen(
                             AccountTransactionsScreen(
                                 accountId = accountId,
                                 onBack = { goBack(withHaptic = true) },
+                                feedViewModel = feedViewModel,
                             )
                         }
                     }

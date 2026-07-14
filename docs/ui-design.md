@@ -78,8 +78,15 @@ or deletes both persisted legs.
 
 Transaction details prioritize the amount and four routine facts. Status and category become the action when
 they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
-default, and infrequent edit/debt/delete actions share one horizontally resilient 48 dp action rail. The sheet
-uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
+default, and infrequent edit/debt/delete actions share one horizontally resilient 48 dp action rail. Editable
+summary rows do not add trailing pencil icons that disturb the value column. The sheet uses lazy content so
+long bank descriptions do not turn scrolling into a full-column remeasure.
+
+Account activity is the single owner of one currency ledger and its account-container actions. Edit account,
+bank details, balance adjustment and delete live beside the balance in a wrapping two-column action area;
+Accounts no longer opens an intermediate settings sheet. The activity ledger reuses the same transaction
+details, category/status editing, manual composer, debt and delete paths as Feed. Small sheets use
+`skipPartiallyExpanded`, so their primary actions are reachable on first presentation without an extra swipe.
 
 Account overview explains the current balance rather than pretending to be analytics. Assets, liabilities, available funds, reserve, and source distribution are calculated only in GEL. Other currencies remain separate native amounts until WHFIN has exchange rates with provenance and timestamps; they are never mixed into the GEL net worth or distribution percentages.
 
@@ -89,7 +96,7 @@ Monthly Statistics opens from the Feed's month summary rather than adding anothe
 
 Glance widget metadata uses `@layout/glance_default_loading_layout` for `initialLayout`. Picker previews may mirror the WHFIN composition, but must remain valid `RemoteViews`: only supported layout/view classes, vector assets for icon actions, and no generic `<View>` dividers or Unicode icon substitutes. This prevents launchers such as ColorOS from briefly showing “Error loading widget” before the first Glance composition arrives.
 
-Widget appearance defaults to **System colors** on Android 12 and newer. Glance's wallpaper-derived Material roles own `widgetBackground`, `onSurface`, `onSurfaceVariant`, `outline`, `primaryContainer`, and `onPrimaryContainer`; WHFIN never samples wallpaper pixels or invents translucent overlays. These paired roles keep labels and the add action readable while following both wallpaper tone and system light/dark mode. Settings → Appearance can switch to the Quiet Ledger day/night schemes. Pre-Android 12 devices use that same WHFIN fallback because platform dynamic colors are unavailable. Changing the preference updates every installed 1–4-cell receiver without recreating the widget. Native preview layouts use a neutral day/night approximation. ColorOS uses the required static branded `previewImage` instead, because a bitmap catalog preview cannot react to wallpaper changes; runtime color remains authoritative.
+Widget appearance always uses **System colors**. Glance's wallpaper-derived Material roles own `widgetBackground`, `onSurface`, `onSurfaceVariant`, `outline`, `primaryContainer`, and `onPrimaryContainer`; WHFIN never samples wallpaper pixels or invents translucent overlays. These paired roles keep labels and the add action readable while following both wallpaper tone and system light/dark mode. The app has no widget palette override. Native preview layouts use a neutral day/night approximation. ColorOS uses the required static branded `previewImage` instead, because a bitmap catalog preview cannot react to wallpaper changes; runtime color remains authoritative.
 
 In multi-cell variants the add action retains a 48 dp interactive slot, but its colored surface is inset to 40 dp. The visible action must not merge with the full-height widget bar; the 4 dp surround keeps it distinct without reducing accessibility. The standalone 1-cell variant remains a 46 dp filled action.
 
@@ -133,7 +140,7 @@ The shell transition regression was checked on the Pixel AVD by repeatedly openi
 
 Secure four-digit entry uses one WHFIN code component in `:core-ui`: four quiet dots above a 3×4 numeric keypad with circular 68 dp targets, clipped pressed states, keyboard-tap haptics and a real Backspace icon. App Lock may place biometrics in the empty lower-left slot; Credo OTP keeps it empty, requires explicit Confirm, clears on Resend or when the challenge leaves the screen, and never opens the system IME.
 
-The widget appearance contract was rendered on a wiped Pixel 9 Pro API 36.1 AVD. All four picker previews inflated in light mode, the 3-cell runtime widget followed the blue wallpaper palette, switched immediately to the WHFIN light palette from Settings, returned to System colors, and then adopted the system dark palette without losing contrast. The settings row and update path were also covered by Robolectric preferences/Compose tests.
+The widget appearance contract was rendered on a wiped Pixel 9 Pro API 36.1 AVD. All four picker previews inflated in light mode, and the 3-cell runtime widget followed the wallpaper palette and system dark mode without losing contrast.
 
 ## App Lock
 

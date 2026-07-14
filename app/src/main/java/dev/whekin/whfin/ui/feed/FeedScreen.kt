@@ -542,7 +542,11 @@ internal fun TransactionDetailsSheet(
         tx.rawCounterparty != null || tx.counterpartyIban != null || tx.note != null ||
         tx.origAmountMinor != null || item.fundedByConversionMinor != null
     val hasActions = onEdit != null || onDelete != null || onDebt != null || onClearDebt != null
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         LazyColumn(
             Modifier.fillMaxWidth().heightIn(max = 680.dp).navigationBarsPadding(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
@@ -648,12 +652,16 @@ internal fun TransactionDetailsSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TransactionStatusSheet(
+internal fun TransactionStatusSheet(
     current: TxStatus?,
     onDismiss: () -> Unit,
     onSelect: (TxStatus) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -707,8 +715,7 @@ private fun DetailEditableRow(label: String, value: String, onClick: (() -> Unit
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(.42f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(.48f))
-        if (onClick != null) Icon(Icons.Default.Edit, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(.58f))
     }
 }
 
@@ -739,7 +746,7 @@ private fun DetailQuickAction(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DebtPersonSheet(
+internal fun DebtPersonSheet(
     item: FeedItem,
     people: List<PersonEntity>,
     onDismiss: () -> Unit,
@@ -747,7 +754,11 @@ private fun DebtPersonSheet(
     onAdd: (String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding().padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -967,7 +978,7 @@ private fun TransferBundleRow(count: Int, onExpand: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CategoryPickerSheet(
+internal fun CategoryPickerSheet(
     item: FeedItem,
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
@@ -982,7 +993,11 @@ private fun CategoryPickerSheet(
     val visible = categories.filter { !it.isSystem && it.kind == kind }
     val title = item.transferSummary ?: item.merchant?.displayName ?: item.tx.rawCounterparty
         ?: stringResource(R.string.feed_no_description)
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         Column(Modifier.padding(horizontal = 20.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
             Text(

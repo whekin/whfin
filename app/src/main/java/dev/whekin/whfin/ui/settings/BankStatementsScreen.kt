@@ -23,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -162,6 +163,7 @@ fun StatementImportStatusSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = { if (state !is StatementImportUiState.Running) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).padding(bottom = 20.dp)) {
             when (state) {
@@ -362,7 +364,10 @@ private fun ReviewSheet(
     onKeep: (dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction) -> Unit,
     onDelete: (dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Text(stringResource(R.string.statements_review_title), style = MaterialTheme.typography.titleLarge)
             Text(
