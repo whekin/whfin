@@ -317,7 +317,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             if (db.accountDao().allActive().any { it.type == dev.whekin.whfin.data.db.AccountType.CASH && it.currency == currency }) return@launch
             db.accountDao().insert(AccountEntity(
-                name = if (currency == "GEL") "Cash" else "Cash $currency",
+                name = "Cash",
                 type = dev.whekin.whfin.data.db.AccountType.CASH,
                 currency = currency,
                 sortOrder = 1000,

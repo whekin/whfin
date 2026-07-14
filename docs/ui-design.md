@@ -26,7 +26,7 @@ The reusable agent workflow and full visual guidance live in [`.agents/skills/wh
 
 Permission prompts outside Settings are optional proposals, not gates. The Feed SMS notice has a 48 dp close action and persists “do not show again” in app preferences. Settings owns a separate persistent SMS-import switch: turning it off leaves the Android permission unchanged but gates the broadcast receiver before message extraction, parsing, or transaction import; turning it on requests permission only when necessary. Existing installs default on so an upgrade cannot silently disable automation.
 
-The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Feed/Accounts switching keeps the dock fixed. The dock moves one shared selection surface between its two destinations; icon and label colors switch atomically instead of cross-fading through muddy intermediate colors, and each item's ripple is clipped to the same 48 dp product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
+The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Feed/Accounts switching keeps the dock fixed. Dock items never move: the old and new destinations locally cross-fade their own container/content colors for 140 ms, so selection cannot trail behind an already-switched screen. Each ripple is clipped to the same 48 dp product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
 
 ## Visual rules
 
@@ -46,6 +46,9 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 ## Context headers and balance overview
 
 Feed and Accounts open with a compact scrolling context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes search, type/sort filtering, and settings; Accounts exposes add, Account overview, and settings. The row leaves the viewport with the rest of the ledger, removing decorative title space without permanently consuming it; every icon action remains a 48 dp touch target.
+
+Cash is a currency ledger rather than a user-named container. Add/Edit Cash therefore asks only for the
+currency, stores the canonical model name `Cash`, and rejects a second active Cash ledger in that currency.
 
 Feed selection starts with a long press and keeps the ledger spatially stable: summary/search controls give
 way to a compact selected-count header, selected rows receive one continuous tonal surface and a check icon,
@@ -119,6 +122,6 @@ The enrolled-fingerprint prompt was exercised in both directions: success unlock
 
 The dark cold-launch path was captured immediately after process start and remained bottle-green from the
 system splash through the first Compose frame. Widget `+` opened quick-entry with the amount field focused
-and the numeric IME already visible. Feed/Accounts switching was captured during and after motion: one
-selection surface moves for 220 ms, while content colors change atomically and pressed states stay clipped
-to the dock item geometry.
+and the numeric IME already visible. Feed/Accounts switching was captured in rapid intermediate frames:
+the destination content changes immediately, while only the two stationary dock items cross-fade for 140 ms;
+pressed states stay clipped to their item geometry.

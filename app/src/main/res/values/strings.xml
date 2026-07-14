@@ -21,6 +21,7 @@
     <string name="account_currency_other_hint">Other currency…</string>
     <string name="account_type_bank">Bank</string>
     <string name="account_type_cash">Cash</string>
+    <string name="cash_account_exists">Cash in %1$s already exists.</string>
     <string name="account_type_savings">Savings</string>
     <string name="account_type_crypto">Crypto</string>
     <string name="account_type_person">Person</string>

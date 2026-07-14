@@ -112,11 +112,21 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             db.withTransaction {
                 val normalizedCurrency = currency.trim().uppercase()
+                val normalizedName = if (type == AccountType.CASH) "Cash" else name.trim()
+                if (type == AccountType.CASH && db.accountDao().allActive().any {
+                        it.type == AccountType.CASH && it.currency == normalizedCurrency
+                    }) {
+                    _message.value = getApplication<Application>().getString(
+                        dev.whekin.whfin.R.string.cash_account_exists,
+                        normalizedCurrency,
+                    )
+                    return@withTransaction
+                }
                 if (type == AccountType.CRYPTO && address != null) {
                     val chainId = if (address.startsWith("0x", ignoreCase = true)) "eip155:1" else "tron:mainnet"
                     val existingAddress = db.cryptoDao().address(chainId, address.trim())
                     val groupId = existingAddress?.groupId ?: db.financialGroupDao().insert(
-                        FinancialGroupEntity(name = name.trim(), type = FinancialGroupType.WALLET, provider = "Trust Wallet"),
+                        FinancialGroupEntity(name = normalizedName, type = FinancialGroupType.WALLET, provider = "Trust Wallet"),
                     )
                     val addressId = existingAddress?.id ?: db.cryptoDao().insertAddress(
                         WalletAddressEntity(groupId = groupId, chainId = chainId, address = address.trim()),
@@ -130,10 +140,10 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     val assetId = existingAsset?.id ?: db.cryptoDao().insertAsset(
                         CryptoAssetEntity(chainId = chainId, contractAddress = contract, symbol = normalizedCurrency, name = normalizedCurrency, decimals = if (normalizedCurrency == "USDT") 6 else 18),
                     )
-                    db.accountDao().insert(AccountEntity(name = name.trim(), type = type, currency = normalizedCurrency, groupId = groupId, walletAddressId = addressId, cryptoAssetId = assetId))
+                    db.accountDao().insert(AccountEntity(name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId, walletAddressId = addressId, cryptoAssetId = assetId))
                 } else {
                     val groupId = if (type == AccountType.BANK) {
-                        val provider = bankProvider ?: name.trim()
+                        val provider = bankProvider ?: normalizedName
                         db.financialGroupDao().byProvider(FinancialGroupType.BANK, provider)?.id
                             ?: db.financialGroupDao().insert(
                                 FinancialGroupEntity(name = provider, type = FinancialGroupType.BANK, provider = provider),
@@ -141,7 +151,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     } else null
                     db.accountDao().insert(
                         AccountEntity(
-                            name = name.trim(), type = type, currency = normalizedCurrency, groupId = groupId,
+                            name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
                             savingsMode = SavingsMode.FLEXIBLE_RESERVE.takeIf { type == AccountType.SAVINGS },
                         ),
                     )
@@ -154,7 +164,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             db.accountDao().update(
                 account.copy(
-                    name = name.trim(),
+                    name = if (account.type == AccountType.CASH) "Cash" else name.trim(),
                     currency = currency.trim().uppercase(),
                 ),
             )

@@ -20,6 +20,7 @@
     <string name="account_currency_other_hint">Другая валюта…</string>
     <string name="account_type_bank">Банк</string>
     <string name="account_type_cash">Наличные</string>
+    <string name="cash_account_exists">Наличные в %1$s уже добавлены.</string>
     <string name="account_type_savings">Накопления</string>
     <string name="account_type_crypto">Крипта</string>
     <string name="account_type_person">Человек</string>

@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import android.content.res.Configuration
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
@@ -44,6 +46,7 @@ import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
+import dev.whekin.whfin.ui.theme.WhfinTheme
 
 private val quickCurrencies = listOf("GEL", "USD", "EUR", "RUB")
 private val cryptoQuickCurrencies = listOf("USDT", "BTC", "ETH", "TON")
@@ -53,10 +56,11 @@ fun AddAccountSheet(
     onDismiss: () -> Unit,
     onImportStatement: () -> Unit,
     onConfirm: (name: String, type: AccountType, currency: String, address: String?, bankProvider: String?) -> Unit,
+    initialType: AccountType = AccountType.BANK,
 ) {
     var name by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf("GEL") }
-    var type by remember { mutableStateOf(AccountType.BANK) }
+    var currency by remember { mutableStateOf(if (initialType == AccountType.CRYPTO) "USDT" else "GEL") }
+    var type by remember { mutableStateOf(initialType) }
     var address by remember { mutableStateOf("") }
     var customBank by remember { mutableStateOf(false) }
     var bankProvider by remember { mutableStateOf<String?>(null) }
@@ -65,9 +69,17 @@ fun AddAccountSheet(
         title = stringResource(R.string.accounts_add),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = name.isNotBlank() && currency.isNotBlank() &&
+        primaryEnabled = (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank() &&
             (type != AccountType.CRYPTO || address.isNotBlank()),
-        onPrimary = { onConfirm(name, type, currency, address.trim().takeIf(String::isNotEmpty), bankProvider) },
+        onPrimary = {
+            onConfirm(
+                if (type == AccountType.CASH) "Cash" else name,
+                type,
+                currency,
+                address.trim().takeIf(String::isNotEmpty),
+                bankProvider,
+            )
+        },
     ) {
         TypeSelector(
             selected = type,
@@ -101,14 +113,16 @@ fun AddAccountSheet(
                 )
             }
         }
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text(stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name)) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (type != AccountType.CASH) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name)) },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         CurrencySelector(
             currency = currency,
             onChange = { currency = it },
@@ -147,14 +161,16 @@ fun EditAccountSheet(
         primaryEnabled = name.isNotBlank() && currency.isNotBlank(),
         onPrimary = { onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty)) },
     ) {
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text(stringResource(R.string.account_name)) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (account.type != AccountType.CASH) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.account_name)) },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         CurrencySelector(
             currency = currency,
             onChange = { currency = it },
@@ -170,6 +186,16 @@ fun EditAccountSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+}
+
+@Preview(name = "Add Cash", widthDp = 400, heightDp = 760, showBackground = true)
+@Preview(name = "Add Cash dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Add Cash font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun AddCashPreview() {
+    WhfinTheme {
+        AddAccountSheet({}, {}, { _, _, _, _, _ -> }, initialType = AccountType.CASH)
     }
 }
 

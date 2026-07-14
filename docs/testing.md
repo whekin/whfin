@@ -103,8 +103,8 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   EN dark and font scale 1.5. The physical phone was not used for instrumentation or history import.
 - Launch/quick-entry/dock polish: a dark cold start was captured before Compose could paint and showed the
   night splash rather than a white frame. The widget action produced a focused amount semantics node and a
-  visible numeric IME on its first rendered state. Mid/final Feed→Accounts captures verified one moving
-  selection surface, immediate content-color state, and shape-clipped 48 dp press targets. Debug, release,
+  visible numeric IME on its first rendered state. Rapid Feed→Accounts captures verified stationary local
+  selection surfaces, a 140 ms color cross-fade, and shape-clipped 48 dp press targets. Debug, release,
   host tests, and screenshot validation all passed after the change.
 - Widget appearance: `UiPreferencesTest` verifies the System default and persistent WHFIN override;
   `WidgetColorModeTest` verifies the Android 12 dynamic-color gate; `SettingsScreenTest` exercises the

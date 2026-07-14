@@ -3,7 +3,7 @@ package dev.whekin.whfin.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -24,8 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.accounts.AccountsScreen
@@ -358,47 +363,26 @@ private fun SecondaryPage(
     }
 }
 
-@Composable private fun LedgerDock(selected: Int, onSelect: (Int) -> Unit) {
+@Composable internal fun LedgerDock(selected: Int, onSelect: (Int) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val gap = 8.dp
-                    val itemWidth = (maxWidth - gap) / 2
-                    val indicatorOffset by animateDpAsState(
-                        targetValue = if (selected == 0) 0.dp else itemWidth + gap,
-                        animationSpec = WhfinMotion.standard(),
-                        label = "dock-indicator-position",
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .offset(x = indicatorOffset)
-                            .width(itemWidth)
-                            .height(WhfinThemeTokens.sizes.minTouchTarget),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f),
-                    ) {}
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(gap),
-                    ) {
-                        DockItem(
-                            Icons.AutoMirrored.Filled.List,
-                            stringResource(R.string.tab_feed),
-                            selected == 0,
-                            Modifier.weight(1f),
-                        ) { onSelect(0) }
-                        DockItem(
-                            Icons.Default.AccountBalanceWallet,
-                            stringResource(R.string.tab_accounts),
-                            selected == 1,
-                            Modifier.weight(1f),
-                        ) { onSelect(1) }
-                    }
-                }
+                DockItem(
+                    Icons.AutoMirrored.Filled.List,
+                    stringResource(R.string.tab_feed),
+                    selected == 0,
+                    Modifier.weight(1f).testTag("dock-feed"),
+                ) { onSelect(0) }
+                DockItem(
+                    Icons.Default.AccountBalanceWallet,
+                    stringResource(R.string.tab_accounts),
+                    selected == 1,
+                    Modifier.weight(1f).testTag("dock-accounts"),
+                ) { onSelect(1) }
             }
         }
     }
@@ -406,19 +390,28 @@ private fun SecondaryPage(
 
 @Composable private fun DockItem(icon: ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val containerColor by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f)
+        else androidx.compose.ui.graphics.Color.Transparent,
+        animationSpec = WhfinMotion.quick(),
+        label = "dock-item-container",
+    )
+    val contentColor by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = WhfinMotion.quick(),
+        label = "dock-item-content",
+    )
     Surface(
         onClick = {
             if (!selected) haptics.performHapticFeedback(WhfinHaptics.navigation)
             onClick()
         },
-        modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget),
+        modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).semantics {
+            role = Role.Tab
+            this.selected = selected
+        },
         shape = MaterialTheme.shapes.medium,
-        color = androidx.compose.ui.graphics.Color.Transparent,
+        color = containerColor,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
