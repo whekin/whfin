@@ -471,6 +471,8 @@
     <string name="transactions_delete_selected_body">Delete %1$d selected transactions permanently? A selected transfer includes both sides, and deleting imported transactions changes account balances.</string>
     <string name="transactions_selection_close">Close selection</string>
     <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="debt_action_short">Debt</string>
     <string name="discard_transaction_title">Discard transaction?</string>
     <string name="discard_transaction_body">The information you entered will be lost.</string>
     <string name="discard_action">Discard</string>

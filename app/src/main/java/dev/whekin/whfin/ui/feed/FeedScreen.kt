@@ -627,17 +627,17 @@ internal fun TransactionDetailsSheet(
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (onEdit != null) item {
-                            DetailQuickAction(Icons.Default.Edit, stringResource(R.string.transaction_edit), onEdit)
+                            DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
                         }
                         if (onClearDebt != null) item {
                             DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)
                         } else if (onDebt != null) item {
-                            DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_mark), onDebt)
+                            DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
                         }
                         if (onDelete != null) item {
                             DetailQuickAction(
                                 Icons.Default.DeleteOutline,
-                                stringResource(R.string.transaction_delete),
+                                stringResource(R.string.action_delete),
                                 onDelete,
                                 destructive = true,
                             )
