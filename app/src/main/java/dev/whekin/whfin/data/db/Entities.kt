@@ -376,6 +376,8 @@ data class StatementImportEntity(
     val accountId: Long,
     val sourceId: Long? = null,
     val fileName: String? = null,
+    @ColumnInfo(defaultValue = "'FILE'")
+    val origin: StatementImportOrigin = StatementImportOrigin.FILE,
     /** Inclusive statement coverage, epoch day. */
     val periodFrom: Long?,
     val periodTo: Long?,

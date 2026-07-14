@@ -6,6 +6,7 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.StatementSourceEntity
@@ -95,18 +96,20 @@ class StatementImporter(private val db: WhfinDatabase) {
     suspend fun import(
         input: InputStream,
         fileName: String? = null,
+        origin: StatementImportOrigin = StatementImportOrigin.FILE,
         onPhase: (Phase) -> Unit = {},
     ): Result {
         onPhase(Phase.READING)
         val statement = CredoStatementParser.parse(input)
         onPhase(Phase.IMPORTING)
         // Одна SQLite-транзакция на весь файл: иначе 1000+ отдельных коммитов = десятки секунд
-        return db.withTransaction { importParsed(statement, fileName, onPhase) }
+        return db.withTransaction { importParsed(statement, fileName, origin, onPhase) }
     }
 
     private suspend fun importParsed(
         statement: CredoStatementParser.Statement,
         fileName: String?,
+        origin: StatementImportOrigin,
         onPhase: (Phase) -> Unit,
     ): Result {
         var accountCreated = false
@@ -269,6 +272,7 @@ class StatementImporter(private val db: WhfinDatabase) {
                 accountId = account.id,
                 sourceId = sourceId,
                 fileName = fileName,
+                origin = origin,
                 periodFrom = statement.periodFrom?.toEpochDay(),
                 periodTo = statement.periodTo?.toEpochDay(),
                 openingBalanceMinor = statement.openingBalanceMinor,

@@ -441,6 +441,12 @@ interface StatementImportDao {
 
     @Insert
     suspend fun insert(item: StatementImportEntity): Long
+
+    /** Only no-op imports are safe to forget: no ledger rows or reconciliations depend on them. */
+    @Query(
+        "DELETE FROM statement_imports WHERE id = :id AND inserted = 0 AND reconciled = 0 AND reviewCount = 0",
+    )
+    suspend fun deleteIfNoEffect(id: Long): Int
 }
 
 @Dao

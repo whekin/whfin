@@ -13,6 +13,7 @@ import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import java.io.ByteArrayInputStream
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -146,7 +147,11 @@ class CredoSyncViewModel internal constructor(
                 val fileResult = try {
                     val bytes = gateway.downloadStatement(activeSession, account, fromIso, toIso)
                     val result = ByteArrayInputStream(bytes).use { input ->
-                        StatementImporter(db).import(input, account.fileName()) { phase ->
+                        StatementImporter(db).import(
+                            input = input,
+                            fileName = account.fileName(),
+                            origin = StatementImportOrigin.CREDO_SYNC,
+                        ) { phase ->
                             _state.value = _state.value.copy(currentPhase = phase)
                         }
                     }

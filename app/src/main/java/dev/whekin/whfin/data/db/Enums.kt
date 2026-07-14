@@ -11,6 +11,9 @@ enum class PaymentInstrumentType { PHYSICAL_CARD, VIRTUAL_CARD }
 
 enum class StatementSourceType { ACCOUNT, CARD }
 
+/** How a statement reached WHFIN; kept separately from the bank account/card it describes. */
+enum class StatementImportOrigin { FILE, CREDO_SYNC }
+
 enum class TransferGroupType { TRANSFER, CONVERSION, CARD_TOPUP, SAVINGS, CRYPTO_SWAP, CRYPTO_BRIDGE }
 
 enum class CategoryKind { EXPENSE, INCOME }

@@ -55,7 +55,7 @@ class WhfinDatabaseMigrationTest {
     @Test
     fun migrateAllFromEarliestSchema_matchesCurrentRoomSchema() {
         helper.createDatabase(TEST_DB_ALL, 1).close()
-        helper.runMigrationsAndValidate(TEST_DB_ALL, 3, true, *ALL_MIGRATIONS).close()
+        helper.runMigrationsAndValidate(TEST_DB_ALL, 4, true, *ALL_MIGRATIONS).close()
     }
 
     @Test
@@ -84,9 +84,34 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate3To4_preservesImportsAndBackfillsOrigin() {
+        helper.createDatabase(TEST_DB_3_4, 3).apply {
+            execSQL("INSERT INTO `financial_groups` VALUES (1, 'Credo', 'BANK', 'Credo', 0, 0)")
+            execSQL("INSERT INTO `accounts` VALUES (1, 'Everyday', 'BANK', 1, 'GEL', 'GE00CD1', NULL, NULL, NULL, NULL, 0, 0)")
+            execSQL(
+                "INSERT INTO `statement_imports` " +
+                    "(`id`, `accountId`, `sourceId`, `fileName`, `periodFrom`, `periodTo`, `openingBalanceMinor`, " +
+                    "`closingBalanceMinor`, `totalRows`, `inserted`, `duplicates`, `reconciled`, `reviewCount`, `importedAt`) " +
+                    "VALUES (1, 1, NULL, 'MYCREDO_GE00CD1_GEL_STATEMENT_2026_07_14.xlsx', NULL, NULL, NULL, NULL, 4, 0, 4, 0, 0, 1000)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_3_4, 4, true, MIGRATION_3_4).apply {
+            query("SELECT `origin`, `fileName` FROM `statement_imports` WHERE `id` = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("CREDO_SYNC", cursor.getString(0))
+                assertEquals("MYCREDO_GE00CD1_GEL_STATEMENT_2026_07_14.xlsx", cursor.getString(1))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
         const val TEST_DB_2_3 = "whfin-migration-2-3"
+        const val TEST_DB_3_4 = "whfin-migration-3-4"
     }
 }

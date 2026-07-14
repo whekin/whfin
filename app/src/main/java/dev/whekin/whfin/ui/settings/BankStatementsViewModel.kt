@@ -129,4 +129,12 @@ class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteDraft(item: ReconciliationIssueWithTransaction) {
         viewModelScope.launch(Dispatchers.IO) { db.transactionDao().delete(item.transaction.id) }
     }
+
+    fun removeNoEffectImport(item: StatementImportEntity) {
+        if (!item.canRemoveFromHistory) return
+        viewModelScope.launch(Dispatchers.IO) { db.statementImportDao().deleteIfNoEffect(item.id) }
+    }
 }
+
+val StatementImportEntity.canRemoveFromHistory: Boolean
+    get() = inserted == 0 && reconciled == 0 && reviewCount == 0

@@ -90,9 +90,21 @@ production bank sync.
   preferences, OTP, access/refresh tokens из Android backup и переносимого JSON.
 - [x] Первый этап оставить foreground-only: access/refresh tokens не персистятся, фоновых retry нет,
   OTP не читается и не подтверждается автоматически.
-- [ ] Проверить реальный username/password → OTP → список ledger’ов на OnePlus вручную, без передачи
+- [x] Проверить реальный username/password → OTP → список ledger’ов и импорт XLSX на OnePlus вручную, без передачи
   credentials разработчику и без instrumentation на пользовательском устройстве.
 - [ ] После dogfood решить, нужен ли session refresh/background sync; до этого не расширять secret scope.
+
+### Immediate dogfood UX
+
+- [x] Объединить ручные и MyCredo-выписки в одном журнале с явным provenance. Повторную запись можно
+  удалить только если импорт ничего не добавил, не реконсилировал и не создал review items.
+- [ ] Сделать Accounts семантическим: тап по валютному ledger открывает его транзакции; редактирование
+  вынести в явное действие; добавить пользовательское имя IBAN-контейнера и разделить everyday от
+  savings/deposits без ложного объединения разных валют.
+- [ ] Заменить системное OTP-поле на локальную четырёхточечную WHFIN-клавиатуру, не сохраняя OTP и не
+  включая автоматическое чтение/подтверждение.
+- [ ] Полный rollback результативной выписки не предлагать, пока транзакции и изменения реконсиляции
+  не получат обратимый import provenance. Удаление audit record при сохранённых данных запрещено.
 
 Стабильный контракт и failure policy: `docs/credo-private-sync.md`.
 

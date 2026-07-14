@@ -14,11 +14,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,14 +36,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
-import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.importer.StatementCoverage
+import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.ui.formatMinor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -62,6 +67,7 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
     val cardHistories by viewModel.cardHistories.collectAsState()
     val state by viewModel.importState.collectAsState()
     var reviewing by remember { mutableStateOf<AccountStatementHistory?>(null) }
+    var removing by remember { mutableStateOf<StatementImportEntity?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.importStatements(uris.map { uri ->
             statementFileName(context, uri) to { context.contentResolver.openInputStream(uri) }
@@ -96,7 +102,11 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
             StatementImportUiState.Idle -> Unit
         }
         items(histories, key = { it.account.id }) { history ->
-            AccountHistoryCard(history, onReview = { reviewing = history })
+            AccountHistoryCard(
+                history = history,
+                onReview = { reviewing = history },
+                onRemoveImport = { removing = it },
+            )
         }
         items(cardHistories, key = { "card-${it.source.id}" }) { history ->
             CardSourceHistoryCard(history)
@@ -105,7 +115,7 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
             WhfinStatePane(
                 state = WhfinPaneState.Empty,
                 title = stringResource(R.string.statements_never),
-                body = stringResource(R.string.statements_intro),
+                body = stringResource(R.string.statements_empty_body),
             )
         }
     }
@@ -115,6 +125,30 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
             onDismiss = { reviewing = null },
             onKeep = viewModel::keepIssue,
             onDelete = viewModel::deleteDraft,
+        )
+    }
+    removing?.let { item ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text(stringResource(R.string.statements_remove_title)) },
+            text = { Text(stringResource(R.string.statements_remove_body)) },
+            confirmButton = {
+                WhfinButton(
+                    label = stringResource(R.string.statements_remove_action),
+                    onClick = {
+                        viewModel.removeNoEffectImport(item)
+                        removing = null
+                    },
+                    style = WhfinActionStyle.Destructive,
+                )
+            },
+            dismissButton = {
+                WhfinButton(
+                    label = stringResource(R.string.action_cancel),
+                    onClick = { removing = null },
+                    style = WhfinActionStyle.Quiet,
+                )
+            },
         )
     }
 }
@@ -246,51 +280,74 @@ private fun ImportErrorCard(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun AccountHistoryCard(history: AccountStatementHistory, onReview: () -> Unit) {
+private fun AccountHistoryCard(
+    history: AccountStatementHistory,
+    onReview: () -> Unit,
+    onRemoveImport: (StatementImportEntity) -> Unit,
+) {
     val from = history.imports.mapNotNull { it.periodFrom }.minOrNull()?.let(LocalDate::ofEpochDay)
     val to = history.imports.mapNotNull { it.periodTo }.maxOrNull()?.let(LocalDate::ofEpochDay)
     val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
     val gaps = StatementCoverage.gaps(history.imports)
     WhfinLedgerGroup(tonal = true) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(history.account.name, style = MaterialTheme.typography.titleMedium)
-            history.account.iban?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text(
-                if (from != null && to != null) stringResource(
-                    R.string.statements_coverage,
-                    from.format(formatter), to.format(formatter),
-                ) else stringResource(R.string.statements_never),
-            )
-            gaps.firstOrNull()?.let { gap ->
+        Column(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(history.account.name, style = MaterialTheme.typography.titleMedium)
+                history.account.iban?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Text(
-                    stringResource(
-                        R.string.statements_gap,
-                        gap.from.format(formatter), gap.to.format(formatter),
-                    ),
-                    color = MaterialTheme.colorScheme.tertiary,
-                    style = MaterialTheme.typography.bodyMedium,
+                    if (from != null && to != null) stringResource(
+                        R.string.statements_coverage,
+                        from.format(formatter), to.format(formatter),
+                    ) else stringResource(R.string.statements_never),
                 )
-            }
-            if (history.imports.isNotEmpty()) {
-                Text(
-                    stringResource(R.string.statements_import_count, history.imports.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                history.imports.take(3).forEach { item ->
-                    val itemFrom = item.periodFrom?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
-                    val itemTo = item.periodTo?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
+                gaps.firstOrNull()?.let { gap ->
                     Text(
-                        "$itemFrom — $itemTo · ${item.totalRows}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        stringResource(
+                            R.string.statements_gap,
+                            gap.from.format(formatter), gap.to.format(formatter),
+                        ),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (history.reviewItems.isNotEmpty()) {
+                    WhfinButton(
+                        stringResource(R.string.statements_review_count, history.reviewItems.size), onReview,
+                        Modifier.align(Alignment.End), style = WhfinActionStyle.Secondary,
                     )
                 }
             }
-            if (history.reviewItems.isNotEmpty()) {
-                WhfinButton(
-                    stringResource(R.string.statements_review_count, history.reviewItems.size), onReview,
-                    Modifier.align(Alignment.End), style = WhfinActionStyle.Secondary,
+            history.imports.forEachIndexed { index, item ->
+                val itemFrom = item.periodFrom?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
+                val itemTo = item.periodTo?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
+                val origin = stringResource(
+                    if (item.origin == StatementImportOrigin.CREDO_SYNC) R.string.statements_origin_credo
+                    else R.string.statements_origin_file,
+                )
+                val result = stringResource(
+                    R.string.statements_history_result,
+                    item.totalRows,
+                    item.inserted,
+                    item.duplicates,
+                )
+                WhfinLedgerRow(
+                    title = "$origin · $itemFrom — $itemTo",
+                    supportingText = item.fileName?.let(::statementDisplayName)?.let { "$it\n$result" } ?: result,
+                    supportingMaxLines = 3,
+                    divider = index != history.imports.lastIndex,
+                    trailing = if (item.canRemoveFromHistory) {
+                        {
+                            WhfinIconButton(
+                                icon = Icons.Outlined.DeleteOutline,
+                                contentDescription = stringResource(R.string.statements_remove_action),
+                                onClick = { onRemoveImport(item) },
+                                outlined = false,
+                            )
+                        }
+                    } else null,
                 )
             }
         }
@@ -378,6 +435,62 @@ private fun StatementImportResultPreview() {
     WhfinTheme {
         Surface(Modifier.padding(20.dp), color = MaterialTheme.colorScheme.background) {
             ImportResultCard(listOf(success, error), {})
+        }
+    }
+}
+
+@Preview(name = "Statement history", widthDp = 400, heightDp = 760, showBackground = true)
+@Preview(name = "Statement history dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Statement history font 1.5", widthDp = 400, heightDp = 980, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun StatementHistoryPreview() {
+    val from = LocalDate.of(2026, 1, 1).toEpochDay()
+    val to = LocalDate.of(2026, 7, 14).toEpochDay()
+    val account = AccountEntity(
+        id = 1,
+        name = "Everyday",
+        type = AccountType.BANK,
+        groupId = 1,
+        currency = "GEL",
+        iban = "GE00CD0000000000000001",
+    )
+    val imports = listOf(
+        StatementImportEntity(
+            id = 2,
+            accountId = 1,
+            fileName = "MYCREDO_GE00CD0000000000000001_GEL_STATEMENT_2026_07_14.xlsx",
+            origin = StatementImportOrigin.CREDO_SYNC,
+            periodFrom = LocalDate.of(2026, 4, 15).toEpochDay(),
+            periodTo = to,
+            openingBalanceMinor = 16_318,
+            closingBalanceMinor = 18_738,
+            totalRows = 186,
+            inserted = 42,
+            duplicates = 144,
+            reconciled = 0,
+            importedAt = 2,
+        ),
+        StatementImportEntity(
+            id = 1,
+            accountId = 1,
+            fileName = "Credo Statement Q1.xlsx",
+            origin = StatementImportOrigin.FILE,
+            periodFrom = from,
+            periodTo = LocalDate.of(2026, 4, 14).toEpochDay(),
+            openingBalanceMinor = 8_100,
+            closingBalanceMinor = 16_318,
+            totalRows = 218,
+            inserted = 0,
+            duplicates = 218,
+            reconciled = 0,
+            importedAt = 1,
+        ),
+    )
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.padding(20.dp)) {
+                AccountHistoryCard(AccountStatementHistory(account, imports, emptyList()), {}, {})
+            }
         }
     }
 }

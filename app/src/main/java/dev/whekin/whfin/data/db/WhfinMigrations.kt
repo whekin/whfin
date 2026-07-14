@@ -90,4 +90,15 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `statement_imports` ADD COLUMN `origin` TEXT NOT NULL DEFAULT 'FILE'")
+        // These names are generated only by our MyCredo connector. Existing user-picked files remain FILE.
+        db.execSQL(
+            "UPDATE `statement_imports` SET `origin` = 'CREDO_SYNC' " +
+                "WHERE UPPER(`fileName`) LIKE 'MYCREDO\\_%' ESCAPE '\\'",
+        )
+    }
+}
+
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

@@ -342,7 +342,14 @@
     <string name="statements_error">Couldn’t import statement</string>
     <string name="statements_coverage">Confirmed: %1$s — %2$s</string>
     <string name="statements_never">No statements yet</string>
+    <string name="statements_empty_body">Upload an XLSX file here or connect MyCredo to build continuous account coverage.</string>
     <string name="statements_import_count">%1$d imports</string>
+    <string name="statements_origin_credo">MyCredo sync</string>
+    <string name="statements_origin_file">Imported file</string>
+    <string name="statements_history_result">%1$d rows · %2$d new · %3$d already present</string>
+    <string name="statements_remove_title">Remove duplicate import?</string>
+    <string name="statements_remove_body">This import added no transactions and matched no drafts. Removing it only clears the duplicate record from statement history.</string>
+    <string name="statements_remove_action">Remove record</string>
     <string name="statements_review">Needs review</string>
     <string name="statements_review_count">Review %1$d</string>
     <string name="statements_review_title">Needs review</string>

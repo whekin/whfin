@@ -341,7 +341,14 @@
     <string name="statements_error">Не удалось загрузить выписку</string>
     <string name="statements_coverage">Подтверждено: %1$s — %2$s</string>
     <string name="statements_never">Выписок пока нет</string>
+    <string name="statements_empty_body">Загрузите XLSX здесь или подключите MyCredo, чтобы собрать непрерывное покрытие счёта.</string>
     <string name="statements_import_count">Загрузок: %1$d</string>
+    <string name="statements_origin_credo">Синхронизация MyCredo</string>
+    <string name="statements_origin_file">Импорт файла</string>
+    <string name="statements_history_result">%1$d строк · %2$d новых · %3$d уже были</string>
+    <string name="statements_remove_title">Убрать повторную загрузку?</string>
+    <string name="statements_remove_body">Эта загрузка не добавила операций и не сопоставила черновики. Удалится только повторная запись из истории выписок.</string>
+    <string name="statements_remove_action">Убрать запись</string>
     <string name="statements_review">Требуют проверки</string>
     <string name="statements_review_count">Проверить: %1$d</string>
     <string name="statements_review_title">Требуют проверки</string>
