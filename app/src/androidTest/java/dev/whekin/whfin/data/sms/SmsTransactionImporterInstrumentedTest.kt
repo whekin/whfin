@@ -87,6 +87,67 @@ class SmsTransactionImporterInstrumentedTest {
     }
 
     @Test
+    fun depositTopUp_withoutConfiguredReserve_requiresExplicitAccountChoice() = runBlocking {
+        db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+
+        val result = importer.import(DEPOSIT_TOP_UP, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
+        assertEquals(0, transactionCount())
+    }
+
+    @Test
+    fun matchingDepositTopUpAndOutgoingTransfer_becomeOneSavingsTransfer() = runBlocking {
+        val mainId = db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+        val depositId = db.accountDao().insert(
+            AccountEntity(name = "Hot deposit", type = AccountType.SAVINGS, groupId = groupId, currency = "GEL"),
+        )
+
+        // History is read newest-first: Credo normally sends the deposit notification second.
+        val deposit = importer.import(DEPOSIT_TOP_UP, RECEIVED_AT + 1_000)
+        val outgoing = importer.import(DEPOSIT_OUTGOING_TRANSFER, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, deposit.outcome)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, outgoing.outcome)
+        val depositTransaction = db.transactionDao().byId(requireNotNull(deposit.transactionId))!!
+        val outgoingTransaction = db.transactionDao().byId(requireNotNull(outgoing.transactionId))!!
+        assertEquals(depositId, depositTransaction.accountId)
+        assertEquals(mainId, outgoingTransaction.accountId)
+        assertEquals(450_000L, depositTransaction.amountMinor)
+        assertEquals(-450_000L, outgoingTransaction.amountMinor)
+        assertTrue(depositTransaction.isTransfer)
+        assertTrue(outgoingTransaction.isTransfer)
+        assertNotNull(depositTransaction.transferGroupId)
+        assertEquals(depositTransaction.transferGroupId, outgoingTransaction.transferGroupId)
+    }
+
+    @Test
+    fun sameDepositAmountOutsidePairWindow_staysSeparate() = runBlocking {
+        val mainId = db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+        db.accountDao().insert(
+            AccountEntity(name = "Hot deposit", type = AccountType.SAVINGS, groupId = groupId, currency = "GEL"),
+        )
+
+        val deposit = importer.import(DEPOSIT_TOP_UP, RECEIVED_AT + 1_000)
+        val unresolved = importer.import(FAR_DEPOSIT_OUTGOING_TRANSFER, RECEIVED_AT)
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, unresolved.outcome)
+        val outgoing = importer.resolveDiagnostic(requireNotNull(unresolved.diagnosticId), mainId)
+
+        val depositTransaction = db.transactionDao().byId(requireNotNull(deposit.transactionId))!!
+        val outgoingTransaction = db.transactionDao().byId(requireNotNull(outgoing.transactionId))!!
+        assertFalse(depositTransaction.isTransfer)
+        assertFalse(outgoingTransaction.isTransfer)
+        assertEquals(null, depositTransaction.transferGroupId)
+        assertEquals(null, outgoingTransaction.transferGroupId)
+    }
+
+    @Test
     fun diagnosticsSchema_neverHasRawMessageColumn() {
         val columns = buildList {
             db.openHelper.writableDatabase.query("PRAGMA table_info(`sms_diagnostics`)").use { cursor ->
@@ -161,6 +222,27 @@ class SmsTransactionImporterInstrumentedTest {
             Amount: 100.00 GEL;
             Balance: 1234.56 GEL
             Date:4/5/2026 10:43:19 PM
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val DEPOSIT_OUTGOING_TRANSFER = """
+            Outgoing transfer
+            Amount: 4500.00 GEL;
+            Balance: 163.18 GEL
+            Date:7/12/2026 5:18:36 AM
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val DEPOSIT_TOP_UP = """
+            Deposit top-up
+            Amount: 4500.00 GEL
+            Available Balance on Deposit 4500.00 GEL.
+            Date: 7/12/2026 5:18:36 AM;
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val FAR_DEPOSIT_OUTGOING_TRANSFER = """
+            Outgoing transfer
+            Amount: 4500.00 GEL;
+            Balance: 163.18 GEL
+            Date:7/12/2026 5:21:00 AM
             Check details in MyCredo: https://mycredo.page.link/Pdkp
         """.trimIndent()
     }

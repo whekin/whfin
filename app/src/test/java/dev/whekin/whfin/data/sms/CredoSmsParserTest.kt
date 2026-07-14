@@ -2,6 +2,7 @@ package dev.whekin.whfin.data.sms
 
 import dev.whekin.whfin.data.sms.CredoSmsParser.CardPayment
 import dev.whekin.whfin.data.sms.CredoSmsParser.CurrencyExchange
+import dev.whekin.whfin.data.sms.CredoSmsParser.DepositTopUp
 import dev.whekin.whfin.data.sms.CredoSmsParser.IncomingTransfer
 import dev.whekin.whfin.data.sms.CredoSmsParser.OutgoingTransfer
 import dev.whekin.whfin.data.sms.CredoSmsParser.OwnTransfer
@@ -93,6 +94,24 @@ class CredoSmsParserTest {
         assertEquals(123456L, result.balanceMinor)
         // M/d/yyyy: 5 April, not 4 May.
         assertEquals(LocalDateTime.of(2026, 4, 5, 22, 43, 19), result.timestamp)
+    }
+
+    @Test
+    fun `deposit top-up parses available deposit balance`() {
+        val sms = """
+            Deposit top-up
+            Amount: 4500.00 GEL
+            Available Balance on Deposit 4500.00 GEL.
+            Date: 7/12/2026 5:18:36 AM;
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as DepositTopUp
+        assertEquals(450000L, result.amountMinor)
+        assertEquals("GEL", result.currency)
+        assertEquals(450000L, result.balanceMinor)
+        assertEquals("GEL", result.balanceCurrency)
+        assertEquals(LocalDateTime.of(2026, 7, 12, 5, 18, 36), result.timestamp)
     }
 
     @Test

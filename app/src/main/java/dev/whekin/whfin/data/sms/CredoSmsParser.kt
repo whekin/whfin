@@ -62,6 +62,15 @@ object CredoSmsParser {
         override val timestamp: LocalDateTime,
     ) : Sms
 
+    /** Пополнение депозита; Credo не присылает IBAN, но присылает новый доступный остаток. */
+    data class DepositTopUp(
+        override val amountMinor: Long,
+        override val currency: String,
+        override val balanceMinor: Long?,
+        override val balanceCurrency: String?,
+        override val timestamp: LocalDateTime,
+    ) : Sms
+
     /** Перевод между своими счетами: есть From/To IBAN. */
     data class OwnTransfer(
         override val amountMinor: Long,
@@ -111,6 +120,7 @@ object CredoSmsParser {
             text.startsWith("Currency exchange") -> parsedOrUnrecognized { parseCurrencyExchange(text) }
             text.startsWith("Outgoing transfer") -> parsedOrUnrecognized { parseOutgoingTransfer(text) }
             text.startsWith("Incoming transfer") -> parsedOrUnrecognized { parseIncomingTransfer(text) }
+            text.startsWith("Deposit top-up") -> parsedOrUnrecognized { parseDepositTopUp(text) }
             text.contains("mycredo", ignoreCase = true) || text.contains("Credo", ignoreCase = true) ->
                 Classification.Unrecognized
             else -> Classification.Ignored(IgnoreReason.UNRELATED, credoCandidate = false)
@@ -191,6 +201,18 @@ object CredoSmsParser {
             amountMinor = amount,
             currency = currency,
             senderName = sender,
+            balanceMinor = balance?.first,
+            balanceCurrency = balance?.second,
+            timestamp = transferTimestamp(text) ?: return null,
+        )
+    }
+
+    private fun parseDepositTopUp(text: String): DepositTopUp? {
+        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
+        val balance = firstAmountAfter(text, "Available Balance on Deposit")
+        return DepositTopUp(
+            amountMinor = amount,
+            currency = currency,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
             timestamp = transferTimestamp(text) ?: return null,

@@ -2,12 +2,15 @@ package dev.whekin.whfin.data.sms
 
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.db.TransferGroupEntity
+import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
@@ -94,6 +97,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 updatedAt = System.currentTimeMillis(),
             )
             db.smsDiagnosticDao().update(saved)
+            pairDepositTransfer(saved)
             return@withTransaction SmsImportResult(
                 SmsDiagnosticOutcome.DUPLICATE,
                 diagnostic.id,
@@ -120,6 +124,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             updatedAt = System.currentTimeMillis(),
         )
         db.smsDiagnosticDao().update(saved)
+        pairDepositTransfer(saved)
         SmsImportResult(outcome, diagnostic.id, resolvedTransactionId)
     }
 
@@ -185,6 +190,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 transactionId = existing.id,
             )
             val id = if (persist) persistDiagnostic(diagnostic) else null
+            if (persist) pairDepositTransfer(diagnostic.copy(id = requireNotNull(id)))
             return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE, id, existing.id)
         }
 
@@ -205,6 +211,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                     transactionId = resolvedTransactionId,
                 )
                 val id = persistDiagnostic(diagnostic)
+                pairDepositTransfer(diagnostic.copy(id = id))
                 SmsImportResult(outcome, id, resolvedTransactionId)
             }
             is AccountResolution.NeedsChoice -> {
@@ -248,6 +255,26 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             )
         }
         val candidates = db.accountDao().bankAccountsByCurrency(currency)
+        val pairedAccount = pairedAccountHint(sms)
+        val narrowed = when (sms) {
+            is CredoSmsParser.DepositTopUp -> candidates.filter { candidate ->
+                (candidate.type == AccountType.SAVINGS || candidate.savingsMode != null) &&
+                    candidate.id != pairedAccount?.id &&
+                    (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
+            }
+            is CredoSmsParser.OutgoingTransfer -> candidates.filter { candidate ->
+                candidate.id != pairedAccount?.id &&
+                    (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
+            }
+            else -> emptyList()
+        }
+        if (narrowed.size == 1) return AccountResolution.Found(narrowed.single())
+        if (sms is CredoSmsParser.DepositTopUp) {
+            return AccountResolution.NeedsChoice(
+                SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                if (candidates.isEmpty()) SmsDiagnosticReason.NO_ACCOUNT else SmsDiagnosticReason.MULTIPLE_ACCOUNTS,
+            )
+        }
         return when (candidates.size) {
             1 -> AccountResolution.Found(candidates.single())
             0 -> AccountResolution.NeedsChoice(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, SmsDiagnosticReason.NO_ACCOUNT)
@@ -265,7 +292,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             else -> null
         }
         val merchant = rawCounterparty?.let { resolveMerchant(it) }
-        val amount = if (sms is CredoSmsParser.IncomingTransfer) sms.amountMinor else -sms.amountMinor
+        val amount = if (sms is CredoSmsParser.IncomingTransfer || sms is CredoSmsParser.DepositTopUp) {
+            sms.amountMinor
+        } else {
+            -sms.amountMinor
+        }
         val accountAmount = if (sms.currency == account.currency) amount else 0L
         return db.transactionDao().insert(
             TransactionEntity(
@@ -302,6 +333,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             is CredoSmsParser.CardPayment -> SmsDiagnosticKind.CARD_PAYMENT
             is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.OUTGOING_TRANSFER
             is CredoSmsParser.IncomingTransfer -> SmsDiagnosticKind.INCOMING_TRANSFER
+            is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.DEPOSIT_TOP_UP
             is CredoSmsParser.OwnTransfer -> SmsDiagnosticKind.OWN_TRANSFER
             is CredoSmsParser.CurrencyExchange -> SmsDiagnosticKind.CURRENCY_EXCHANGE
         },
@@ -382,6 +414,9 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             SmsDiagnosticKind.INCOMING_TRANSFER -> CredoSmsParser.IncomingTransfer(
                 amount, valueCurrency, counterparty, balanceMinor, balanceCurrency, timestamp,
             )
+            SmsDiagnosticKind.DEPOSIT_TOP_UP -> CredoSmsParser.DepositTopUp(
+                amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
+            )
             SmsDiagnosticKind.OWN_TRANSFER -> CredoSmsParser.OwnTransfer(
                 amount, valueCurrency, fromIban ?: return null, toIban ?: return null,
                 balanceMinor, balanceCurrency, timestamp,
@@ -411,12 +446,79 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }.ifEmpty { listOf(account) }
     }
 
+    private suspend fun pairedAccountHint(sms: CredoSmsParser.Sms): AccountEntity? {
+        val oppositeKind = when (sms) {
+            is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.DEPOSIT_TOP_UP
+            is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.OUTGOING_TRANSFER
+            else -> return null
+        }
+        val occurredAt = sms.timestamp.atZone(zone).toInstant().toEpochMilli()
+        val accounts = db.smsDiagnosticDao().matchingImported(
+            kind = oppositeKind,
+            amountMinor = sms.amountMinor,
+            currency = sms.currency,
+            occurredAt = occurredAt,
+            fromMillis = occurredAt - DEPOSIT_PAIR_WINDOW_MILLIS,
+            toMillis = occurredAt + DEPOSIT_PAIR_WINDOW_MILLIS,
+        ).mapNotNull { it.accountId }
+            .distinct()
+            .mapNotNull { db.accountDao().byId(it) }
+        return accounts.singleOrNull()
+    }
+
+    private suspend fun pairDepositTransfer(current: SmsDiagnosticEntity) {
+        val oppositeKind = when (current.kind) {
+            SmsDiagnosticKind.OUTGOING_TRANSFER -> SmsDiagnosticKind.DEPOSIT_TOP_UP
+            SmsDiagnosticKind.DEPOSIT_TOP_UP -> SmsDiagnosticKind.OUTGOING_TRANSFER
+            else -> return
+        }
+        val currentTransactionId = current.transactionId ?: return
+        val occurredAt = current.occurredAt ?: return
+        val amountMinor = current.amountMinor ?: return
+        val currency = current.currency ?: return
+        val currentTransaction = db.transactionDao().byId(currentTransactionId) ?: return
+        if (currentTransaction.transferGroupId != null) return
+        val currentAccount = db.accountDao().byId(currentTransaction.accountId) ?: return
+        val matches = db.smsDiagnosticDao().matchingImported(
+            kind = oppositeKind,
+            amountMinor = amountMinor,
+            currency = currency,
+            occurredAt = occurredAt,
+            fromMillis = occurredAt - DEPOSIT_PAIR_WINDOW_MILLIS,
+            toMillis = occurredAt + DEPOSIT_PAIR_WINDOW_MILLIS,
+            excludeId = current.id,
+        ).mapNotNull { diagnostic ->
+            val transaction = diagnostic.transactionId?.let { db.transactionDao().byId(it) }
+                ?: return@mapNotNull null
+            val account = db.accountDao().byId(transaction.accountId) ?: return@mapNotNull null
+            if (transaction.transferGroupId != null || transaction.accountId == currentTransaction.accountId) {
+                return@mapNotNull null
+            }
+            if (currentAccount.groupId == null || account.groupId != currentAccount.groupId) return@mapNotNull null
+            if (transaction.amountMinor != -currentTransaction.amountMinor) return@mapNotNull null
+            transaction
+        }
+        val match = matches.singleOrNull() ?: return
+        val groupId = db.transactionDao().insertTransferGroup(
+            TransferGroupEntity(
+                type = TransferGroupType.SAVINGS,
+                note = "Credo deposit transfer",
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        db.transactionDao().attachToTransferGroup(listOf(currentTransaction.id, match.id), groupId)
+    }
+
     private sealed interface AccountResolution {
         data class Found(val account: AccountEntity) : AccountResolution
         data class NeedsChoice(
             val outcome: SmsDiagnosticOutcome,
             val reason: SmsDiagnosticReason,
         ) : AccountResolution
+    }
+
+    private companion object {
+        const val DEPOSIT_PAIR_WINDOW_MILLIS = 2L * 60 * 1_000
     }
 }
 

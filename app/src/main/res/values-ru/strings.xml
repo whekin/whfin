@@ -110,6 +110,7 @@
     <string name="sms_kind_card">Оплата картой</string>
     <string name="sms_kind_outgoing">Исходящий перевод</string>
     <string name="sms_kind_incoming">Входящий перевод</string>
+    <string name="sms_kind_deposit_top_up">Пополнение депозита</string>
     <string name="sms_kind_own_transfer">Перевод между счетами</string>
     <string name="sms_kind_exchange">Обмен валюты</string>
     <string name="sms_kind_ignored">Неоперационное сообщение</string>

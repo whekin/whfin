@@ -111,6 +111,7 @@
     <string name="sms_kind_card">Card payment</string>
     <string name="sms_kind_outgoing">Outgoing transfer</string>
     <string name="sms_kind_incoming">Incoming transfer</string>
+    <string name="sms_kind_deposit_top_up">Deposit top-up</string>
     <string name="sms_kind_own_transfer">Transfer between accounts</string>
     <string name="sms_kind_exchange">Currency exchange</string>
     <string name="sms_kind_ignored">Non-transaction message</string>

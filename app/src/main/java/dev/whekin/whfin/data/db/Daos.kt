@@ -313,6 +313,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET transferGroupId = :groupId WHERE id = :transactionId")
     suspend fun setTransferGroup(transactionId: Long, groupId: Long)
 
+    @Query("UPDATE transactions SET transferGroupId = :groupId, isTransfer = 1 WHERE id IN (:transactionIds)")
+    suspend fun attachToTransferGroup(transactionIds: List<Long>, groupId: Long)
+
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE merchantId = :merchantId AND categoryId IS NULL")
     suspend fun categorizeUnassignedForMerchant(merchantId: Long, categoryId: Long)
 
@@ -469,6 +472,22 @@ interface SmsDiagnosticDao {
 
     @Query("SELECT * FROM sms_diagnostics WHERE externalKey = :externalKey LIMIT 1")
     suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?
+
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE kind = :kind AND transactionId IS NOT NULL " +
+            "AND amountMinor = :amountMinor AND currency = :currency " +
+            "AND occurredAt BETWEEN :fromMillis AND :toMillis AND id != :excludeId " +
+            "ORDER BY ABS(occurredAt - :occurredAt), id"
+    )
+    suspend fun matchingImported(
+        kind: SmsDiagnosticKind,
+        amountMinor: Long,
+        currency: String,
+        occurredAt: Long,
+        fromMillis: Long,
+        toMillis: Long,
+        excludeId: Long = 0,
+    ): List<SmsDiagnosticEntity>
 
     @Insert
     suspend fun insert(item: SmsDiagnosticEntity): Long

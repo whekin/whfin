@@ -27,7 +27,7 @@
 - [x] GeorgiaMerchantPreset: локальные правила для супермаркетов, транспорта, аптек, заведений,
   коммуналки, техники и подписок; backfill только пустых категорий. Проверено на приватной базе:
   известные мерчанты категоризируются автоматически, неизвестные не затрагиваются
-- [~] SMS Credo: парсер (5 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
+- [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
   choose account/error. Settings → SMS diagnostics показывает каждый исход; неизвестную карту или
@@ -35,7 +35,10 @@
   flow проверяет не более 500 Credo-кандидатов за 90 дней: сначала dry-run, запись только после
   подтверждения; исходный текст отдельного результата можно прочитать из Android inbox по запросу,
   но он не копируется в Room и исключён из JSON backup. Pending-операция имеет явную смену статуса
-  в деталях. v2→v3 migration,
+  в деталях и быструю Confirm-кнопку при выборе pending-строк. Добавлен тип `Deposit top-up`: пара с
+  `Outgoing transfer` склеивается в SAVINGS-transfer только при одинаковой сумме/валюте, окне до
+  2 минут, разных счетах одной банковской группы и единственном кандидате; unique reserve/savings
+  выбирается автоматически, неоднозначность остаётся явным выбором. v2→v3 migration,
   importer/backup tests, light/dark/font 1.5 и реальный injected-SMS path проверены на disposable Pixel.
   Автоматический импорт теперь по умолчанию выключен и не включается без хотя бы одной явной привязки
   последних четырёх цифр карты к банковскому ledger; receiver проверяет тот же gate. Привязками можно

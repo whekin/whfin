@@ -19,9 +19,15 @@ dropping the message.
   virtual card type. The card is linked to every currency ledger under the selected bank + IBAN;
   the currency parsed from each SMS chooses the ledger at import time. Settings → SMS diagnostics is
   the permanent place to add another card; resolving a “Needs card mapping” outcome saves the same rule.
-- Any imported pending transaction exposes an explicit status action in transaction details. Marking it
+- Any imported pending transaction exposes an explicit status action in transaction details. A selection
+  containing only pending rows gets a direct Confirm action in the pinned selection bar. Marking it
   Confirmed or Manual is a deliberate user override; leaving it Pending keeps it eligible for statement
   reconciliation.
+- `Deposit top-up` is parsed as an incoming deposit leg. A matching `Outgoing transfer` becomes one
+  `SAVINGS` transfer only when amount and currency are equal, timestamps differ by no more than two
+  minutes, both ledgers belong to the same bank group, and exactly one opposite candidate exists. A unique
+  savings/reserve ledger is preferred for the deposit leg; ambiguous source or destination accounts still
+  require an explicit choice. The raw message does not contain enough data to guess safely beyond that.
 
 The remaining product gap is explicit parser-failure sharing. It must use a user-initiated Android
 Sharesheet with an editable redacted payload; there is still no automatic telemetry or upload.
@@ -46,6 +52,12 @@ For card payments, routing is deliberately strict: `bank + card last4 → one ph
 `card + balance currency → one active ledger`. Four digits are required. One card may be connected to
 GEL, USD, EUR, and other ledgers under the same IBAN, so the card mapping is not duplicated per currency.
 WHFIN never guesses from a bank name alone because one bank can contain several cards and several IBANs.
+
+Credo deposit notifications omit both IBANs. WHFIN may use the paired outgoing/deposit notifications to
+identify a single internal transfer, but account resolution remains a separate decision: it automatically
+uses a unique reserve and a unique remaining source inside one bank group, otherwise diagnostics asks the
+user. Matching is deliberately much narrower than statement transfer matching because equal recurring
+amounts must not be silently merged.
 
 Raw SMS bodies are processed in memory. From a diagnostic, the user can view the matching original body:
 WHFIN hashes messages from a narrow time window in Android's SMS provider and displays the match on demand.
@@ -77,8 +89,8 @@ parser needs it; WHFIN must preview the exact payload first.
 
 ## Verification order
 
-1. Unit-test structured outcomes, the four-digit setup gate, account ambiguity, card mapping, duplicate handling, and all golden
-   parser samples.
+1. Unit-test structured outcomes, the four-digit setup gate, account ambiguity, card mapping, duplicate handling,
+   deposit-pair safeguards, and all golden parser samples.
 2. On the disposable emulator, create explicit accounts/instruments and inject sanitized messages with
    `adb emu sms send`; assert receiver → outcome → pending row → duplicate behavior.
 3. On a physical test device, run historical scan in dry-run mode first and compare outcome counts without writing.

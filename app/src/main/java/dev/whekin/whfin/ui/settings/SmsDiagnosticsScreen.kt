@@ -624,6 +624,7 @@ private fun SmsDiagnosticKind.labelResource(): Int = when (this) {
     SmsDiagnosticKind.CARD_PAYMENT -> R.string.sms_kind_card
     SmsDiagnosticKind.OUTGOING_TRANSFER -> R.string.sms_kind_outgoing
     SmsDiagnosticKind.INCOMING_TRANSFER -> R.string.sms_kind_incoming
+    SmsDiagnosticKind.DEPOSIT_TOP_UP -> R.string.sms_kind_deposit_top_up
     SmsDiagnosticKind.OWN_TRANSFER -> R.string.sms_kind_own_transfer
     SmsDiagnosticKind.CURRENCY_EXCHANGE -> R.string.sms_kind_exchange
     SmsDiagnosticKind.IGNORED -> R.string.sms_kind_ignored
