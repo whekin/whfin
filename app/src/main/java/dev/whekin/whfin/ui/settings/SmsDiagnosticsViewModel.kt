@@ -7,6 +7,7 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.sms.HistoricalSms
@@ -35,6 +36,12 @@ data class SmsAccountOption(
 data class SmsDiagnosticsData(
     val diagnostics: List<SmsDiagnosticEntity> = emptyList(),
     val accounts: List<SmsAccountOption> = emptyList(),
+    val cardMappings: List<SmsCardMapping> = emptyList(),
+)
+
+data class SmsCardMapping(
+    val instrument: PaymentInstrumentEntity,
+    val account: SmsAccountOption,
 )
 
 sealed interface SmsDiagnosticsLoadState {
@@ -70,13 +77,23 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         db.smsDiagnosticDao().observeRecent(),
         db.accountDao().observeActive(),
         db.financialGroupDao().observeActive(),
-    ) { diagnostics, accounts, groups ->
+        db.paymentInstrumentDao().observeActive(),
+        db.paymentInstrumentDao().observeLinks(),
+    ) { diagnostics, accounts, groups, instruments, links ->
         val groupNames = groups.associate { it.id to it.name }
+        val options = accounts
+            .filter { it.type == AccountType.BANK || it.type == AccountType.SAVINGS }
+            .map { SmsAccountOption(it, it.groupId?.let(groupNames::get)) }
+        val optionsById = options.associateBy { it.account.id }
+        val instrumentsById = instruments.associateBy { it.id }
         SmsDiagnosticsLoadState.Content(SmsDiagnosticsData(
             diagnostics = diagnostics,
-            accounts = accounts
-                .filter { it.type == AccountType.BANK || it.type == AccountType.SAVINGS }
-                .map { SmsAccountOption(it, it.groupId?.let(groupNames::get)) },
+            accounts = options,
+            cardMappings = links.mapNotNull { link ->
+                val instrument = instrumentsById[link.instrumentId] ?: return@mapNotNull null
+                val account = optionsById[link.accountId] ?: return@mapNotNull null
+                SmsCardMapping(instrument, account)
+            },
         )) as SmsDiagnosticsLoadState
     }.catch { emit(SmsDiagnosticsLoadState.Error) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SmsDiagnosticsLoadState.Loading)
@@ -151,6 +168,20 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             importer.resolveDiagnostic(diagnosticId, accountId, cardType)
+        }
+    }
+
+    fun addCardMapping(
+        accountId: Long,
+        last4: String,
+        cardType: PaymentInstrumentType,
+    ) {
+        val normalized = last4.filter(Char::isDigit)
+        if (normalized.length != 4) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val account = db.accountDao().byId(accountId) ?: return@launch
+            if (account.type != AccountType.BANK && account.type != AccountType.SAVINGS) return@launch
+            db.paymentInstrumentDao().linkForAccount(account, normalized, cardType)
         }
     }
 }

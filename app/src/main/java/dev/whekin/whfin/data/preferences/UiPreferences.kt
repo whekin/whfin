@@ -55,12 +55,12 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[SmsPermissionPromptDismissed] ?: false }
 
-    /** Defaults on to preserve SMS import for existing installs that predate this toggle. */
+    /** Defaults off: card routing must be configured before automatic SMS import is enabled. */
     val smsImportEnabled: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
         }
-        .map { preferences -> preferences[SmsImportEnabled] ?: true }
+        .map { preferences -> preferences[SmsImportEnabled] ?: false }
 
     /** Defaults off so an upgrade never locks a user out without an explicit choice. */
     val appLockTimeout: Flow<AppLockTimeout> = dataStore.data

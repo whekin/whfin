@@ -32,16 +32,15 @@ class UiPreferencesTest {
     }
 
     @Test
-    fun smsImportToggle_defaultsOnAndPersistsBothStates() = runBlocking {
+    fun smsImportToggle_defaultsOffAndPersistsBothStates() = runBlocking {
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
         val preferences = UiPreferences(dataStore)
 
         try {
-            assertTrue(preferences.smsImportEnabled.first())
-            preferences.setSmsImportEnabled(false)
             assertFalse(preferences.smsImportEnabled.first())
+            preferences.setSmsImportEnabled(false)
             assertTrue(preferences.smsPermissionPromptDismissed.first())
             preferences.setSmsImportEnabled(true)
             assertTrue(preferences.smsImportEnabled.first())

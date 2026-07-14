@@ -83,6 +83,8 @@ class MainActivity : FragmentActivity() {
                 val smsPermissionPromptDismissed: Boolean? by uiPreferences.smsPermissionPromptDismissed
                     .collectAsState(initial = null)
                 val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
+                val configuredSmsCards: Int? by (application as WhfinApp).db.paymentInstrumentDao()
+                    .observeConfiguredCount().collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
                 val widgetColorMode: WidgetColorMode? by uiPreferences.widgetColorMode.collectAsState(initial = null)
@@ -91,6 +93,11 @@ class MainActivity : FragmentActivity() {
                     ?: AppLockTimeout.Disabled
                 val scope = rememberCoroutineScope()
                 val mainState = rememberSaveableStateHolder()
+                LaunchedEffect(smsImportEnabled, configuredSmsCards) {
+                    if (smsImportEnabled == true && configuredSmsCards == 0) {
+                        uiPreferences.setSmsImportEnabled(false)
+                    }
+                }
                 LaunchedEffect(savedTimeout, biometricEnabled) {
                     biometricEnabled?.let { this@MainActivity.biometricUnlockEnabled = it }
                     savedTimeout?.let { timeout ->
@@ -124,7 +131,8 @@ class MainActivity : FragmentActivity() {
                                     WhfinWidget().updateAll(applicationContext)
                                 }
                             },
-                            smsImportEnabled = smsImportEnabled != false,
+                            smsImportEnabled = smsImportEnabled == true && (configuredSmsCards ?: 0) > 0,
+                            hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,
                             hasSmsPermission = hasSmsPermission,
                             canRequestSmsPermission = canRequestSmsPermission,
                             hasSmsHistoryPermission = hasSmsHistoryPermission,

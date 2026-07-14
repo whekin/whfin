@@ -16,6 +16,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -94,6 +95,25 @@ class SmsTransactionImporterInstrumentedTest {
             }
         }
         assertFalse(columns.any { it.contains("body", ignoreCase = true) || it.contains("raw", ignoreCase = true) })
+    }
+
+    @Test
+    fun proactiveCardMapping_routesMatchingCurrency() = runBlocking {
+        val account = AccountEntity(
+            id = db.accountDao().insert(
+                AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+            ),
+            name = "Main GEL",
+            type = AccountType.BANK,
+            groupId = groupId,
+            currency = "GEL",
+        )
+
+        db.paymentInstrumentDao().linkForAccount(account, "0001", PaymentInstrumentType.VIRTUAL_CARD)
+
+        assertTrue(db.paymentInstrumentDao().configuredCount() > 0)
+        assertEquals(account.id, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, importer.import(CARD_PAYMENT, RECEIVED_AT).outcome)
     }
 
     private fun transactionCount(): Int = db.openHelper.writableDatabase

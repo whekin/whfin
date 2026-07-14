@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.SmsFailed
 import androidx.compose.material3.FilterChip
@@ -40,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -50,6 +53,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinFormSheet
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -60,6 +64,7 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
@@ -106,6 +111,7 @@ fun SmsDiagnosticsRoute(
         onConfirmHistoryImport = viewModel::confirmHistoryImport,
         onCancelHistoryImport = viewModel::cancelHistoryImport,
         onResolve = viewModel::resolve,
+        onAddCardMapping = viewModel::addCardMapping,
     )
 }
 
@@ -121,13 +127,15 @@ internal fun SmsDiagnosticsScreen(
     onConfirmHistoryImport: () -> Unit,
     onCancelHistoryImport: () -> Unit,
     onResolve: (Long, Long, PaymentInstrumentType) -> Unit,
+    onAddCardMapping: (Long, String, PaymentInstrumentType) -> Unit,
 ) {
     var selectedDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
+    var showAddCard by rememberSaveable { mutableStateOf(false) }
     val content = (loadState as? SmsDiagnosticsLoadState.Content)?.data
     val selectedDiagnostic = content?.diagnostics?.firstOrNull { it.id == selectedDiagnosticId }
 
     LazyColumn(
-        Modifier.fillMaxSize(),
+        Modifier.fillMaxSize().testTag("sms-diagnostics-list"),
         contentPadding = PaddingValues(
             start = 20.dp,
             top = 12.dp,
@@ -138,6 +146,17 @@ internal fun SmsDiagnosticsScreen(
     ) {
         item("monitoring") {
             MonitoringNotice(smsImportEnabled, hasReceivePermission)
+        }
+        if (content != null) {
+            item("card-mappings-label") {
+                WhfinSectionLabel(stringResource(R.string.sms_card_mappings_title))
+            }
+            item("card-mappings") {
+                CardMappings(
+                    mappings = content.cardMappings,
+                    onAdd = { showAddCard = true },
+                )
+            }
         }
         item("history") {
             HistoryControl(
@@ -205,6 +224,141 @@ internal fun SmsDiagnosticsScreen(
                 selectedDiagnosticId = 0L
             },
         )
+    }
+    if (showAddCard && content != null) {
+        AddCardMappingSheet(
+            accounts = content.accounts,
+            onDismiss = { showAddCard = false },
+            onSave = { accountId, last4, cardType ->
+                onAddCardMapping(accountId, last4, cardType)
+                showAddCard = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun CardMappings(
+    mappings: List<SmsCardMapping>,
+    onAdd: () -> Unit,
+) {
+    if (mappings.isEmpty()) {
+        WhfinNotice(
+            title = stringResource(R.string.sms_card_required_title),
+            body = stringResource(R.string.sms_card_required_body),
+            icon = Icons.Default.CreditCard,
+            kind = WhfinNoticeKind.Attention,
+            actionLabel = stringResource(R.string.sms_add_card_action),
+            onAction = onAdd,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                mappings.forEachIndexed { index, mapping ->
+                    WhfinLedgerRow(
+                        title = stringResource(R.string.sms_card_suffix, mapping.instrument.last4),
+                        supportingText = listOf(
+                            mapping.account.label,
+                            mapping.account.account.currency,
+                            stringResource(
+                                if (mapping.instrument.type == PaymentInstrumentType.VIRTUAL_CARD) {
+                                    R.string.sms_card_virtual
+                                } else {
+                                    R.string.sms_card_physical
+                                },
+                            ),
+                        ).joinToString(" · "),
+                        icon = Icons.Default.CreditCard,
+                        divider = index != mappings.lastIndex,
+                    )
+                }
+            }
+            WhfinButton(
+                label = stringResource(R.string.sms_add_another_card_action),
+                onClick = onAdd,
+                style = WhfinActionStyle.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddCardMappingSheet(
+    accounts: List<SmsAccountOption>,
+    onDismiss: () -> Unit,
+    onSave: (Long, String, PaymentInstrumentType) -> Unit,
+) {
+    var last4 by rememberSaveable { mutableStateOf("") }
+    var selectedId by rememberSaveable { mutableLongStateOf(accounts.singleOrNull()?.account?.id ?: 0L) }
+    var cardType by rememberSaveable { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
+    val valid = last4.length == 4 && selectedId != 0L
+    WhfinFormSheet(
+        title = stringResource(R.string.sms_add_card_title),
+        onDismiss = onDismiss,
+        primaryLabel = stringResource(R.string.sms_save_card_action),
+        primaryEnabled = valid,
+        onPrimary = { if (valid) onSave(selectedId, last4, cardType) },
+    ) {
+        Text(
+            stringResource(R.string.sms_add_card_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        WhfinField(
+            value = last4,
+            onValueChange = { value -> last4 = value.filter(Char::isDigit).take(4) },
+            label = stringResource(R.string.sms_last_four_label),
+            placeholder = "2533",
+            supportingText = stringResource(
+                if (last4.isEmpty() || last4.length == 4) R.string.sms_last_four_support
+                else R.string.sms_last_four_error,
+            ),
+            isError = last4.isNotEmpty() && last4.length != 4,
+            keyboardType = KeyboardType.Number,
+            leadingIcon = Icons.Default.AddCard,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        WhfinSectionLabel(stringResource(R.string.sms_account_label))
+        if (accounts.isEmpty()) {
+            WhfinNotice(
+                title = stringResource(R.string.sms_no_bank_accounts_title),
+                body = stringResource(R.string.sms_no_bank_accounts_body),
+                icon = Icons.Default.AccountBalance,
+                kind = WhfinNoticeKind.Unavailable,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                accounts.forEachIndexed { index, option ->
+                    WhfinLedgerRow(
+                        title = option.label,
+                        supportingText = listOfNotNull(
+                            option.account.iban?.takeLast(4)?.let { "••$it" },
+                            option.account.currency,
+                        ).joinToString(" · "),
+                        icon = Icons.Default.AccountBalance,
+                        trailing = if (selectedId == option.account.id) {{ Icon(Icons.Default.Check, null) }} else null,
+                        onClick = { selectedId = option.account.id },
+                        divider = index != accounts.lastIndex,
+                    )
+                }
+            }
+        }
+        WhfinSectionLabel(stringResource(R.string.sms_card_type))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = cardType == PaymentInstrumentType.PHYSICAL_CARD,
+                onClick = { cardType = PaymentInstrumentType.PHYSICAL_CARD },
+                label = { Text(stringResource(R.string.sms_card_physical)) },
+            )
+            FilterChip(
+                selected = cardType == PaymentInstrumentType.VIRTUAL_CARD,
+                onClick = { cardType = PaymentInstrumentType.VIRTUAL_CARD },
+                label = { Text(stringResource(R.string.sms_card_virtual)) },
+            )
+        }
     }
 }
 
@@ -505,6 +659,7 @@ private val previewDiagnostics = listOf(
 @Preview(name = "SMS diagnostics light", widthDp = 400, heightDp = 850, showBackground = true)
 @Preview(name = "SMS diagnostics dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "SMS diagnostics font 1.5", widthDp = 400, heightDp = 950, fontScale = 1.5f, showBackground = true)
+@Preview(name = "SMS diagnostics compact", widthDp = 400, heightDp = 500, showBackground = true)
 @Composable
 private fun SmsDiagnosticsPreview() {
     WhfinTheme {
@@ -515,6 +670,17 @@ private fun SmsDiagnosticsPreview() {
                         diagnostics = previewDiagnostics,
                         accounts = listOf(
                             SmsAccountOption(AccountEntity(1, "Main", AccountType.BANK, 1, "GEL"), "Credo"),
+                        ),
+                        cardMappings = listOf(
+                            SmsCardMapping(
+                                PaymentInstrumentEntity(
+                                    id = 1,
+                                    groupId = 1,
+                                    type = PaymentInstrumentType.PHYSICAL_CARD,
+                                    last4 = "2533",
+                                ),
+                                SmsAccountOption(AccountEntity(1, "Main", AccountType.BANK, 1, "GEL"), "Credo"),
+                            ),
                         ),
                     ),
                 ),
@@ -527,6 +693,7 @@ private fun SmsDiagnosticsPreview() {
                 onConfirmHistoryImport = {},
                 onCancelHistoryImport = {},
                 onResolve = { _, _, _ -> },
+                onAddCardMapping = { _, _, _ -> },
             )
         }
     }
@@ -549,6 +716,7 @@ private fun SmsDiagnosticsEmptyPreview() {
                 onConfirmHistoryImport = {},
                 onCancelHistoryImport = {},
                 onResolve = { _, _, _ -> },
+                onAddCardMapping = { _, _, _ -> },
             )
         }
     }

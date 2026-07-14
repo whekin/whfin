@@ -1,9 +1,14 @@
 package dev.whekin.whfin.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
@@ -45,13 +50,18 @@ class SmsDiagnosticsScreenTest {
                     onConfirmHistoryImport = { error("Import must not start before preview") },
                     onCancelHistoryImport = {},
                     onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> },
                 )
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.sms_read_permission)).performClick()
+        val historyAction = context.getString(R.string.sms_read_permission)
+        compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(historyAction))
+        compose.onNodeWithText(historyAction).performClick()
         assertTrue(requested)
-        compose.onNodeWithText(context.getString(R.string.sms_diagnostics_empty_title)).assertIsDisplayed()
+        val emptyTitle = context.getString(R.string.sms_diagnostics_empty_title)
+        compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(emptyTitle))
+        compose.onNodeWithText(emptyTitle).assertIsDisplayed()
     }
 
     @Test
@@ -103,12 +113,63 @@ class SmsDiagnosticsScreenTest {
                     onResolve = { diagnosticId, accountId, cardType ->
                         resolved = Triple(diagnosticId, accountId, cardType)
                     },
+                    onAddCardMapping = { _, _, _ -> },
                 )
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.sms_outcome_mapping)).performClick()
+        val mappingTitle = context.getString(R.string.sms_outcome_mapping)
+        compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(mappingTitle))
+        compose.onNodeWithText(mappingTitle).performClick()
         compose.onNodeWithText(context.getString(R.string.sms_link_action)).performClick()
         assertEquals(Triple(7L, 11L, PaymentInstrumentType.PHYSICAL_CARD), resolved)
+    }
+
+    @Test
+    fun proactiveCardMapping_requiresExactlyFourDigits() {
+        var saved: Triple<Long, String, PaymentInstrumentType>? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(
+                            accounts = listOf(
+                                SmsAccountOption(
+                                    AccountEntity(
+                                        id = 11,
+                                        name = "Main",
+                                        type = AccountType.BANK,
+                                        groupId = 1,
+                                        currency = "GEL",
+                                    ),
+                                    groupName = "Credo",
+                                ),
+                            ),
+                        ),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    smsImportEnabled = false,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { accountId, last4, type ->
+                        saved = Triple(accountId, last4, type)
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_add_card_action)).performClick()
+        compose.onNodeWithText(context.getString(R.string.sms_last_four_label)).performTextInput("25")
+        compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).assertIsNotEnabled()
+        compose.onNodeWithText(context.getString(R.string.sms_last_four_label)).performTextInput("33")
+        compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).performClick()
+
+        assertEquals(Triple(11L, "2533", PaymentInstrumentType.PHYSICAL_CARD), saved)
     }
 }

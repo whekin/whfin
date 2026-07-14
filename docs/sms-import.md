@@ -12,6 +12,11 @@ dropping the message.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
 - Card mapping and ambiguous-account outcomes open a product sheet, persist the chosen mapping, and retry.
+- Automatic import defaults off and cannot be enabled until at least one active card-to-ledger mapping
+  exists. The receiver enforces the same gate, so a stale preference cannot bypass setup.
+- A mapping is the exact four digits printed after the masked Credo card number plus the selected
+  account/currency. Settings → SMS diagnostics is the permanent place to add another physical or
+  virtual card; resolving a “Needs card mapping” outcome saves the same rule.
 
 The remaining product gap is explicit parser-failure sharing. It must use a user-initiated Android
 Sharesheet with an editable redacted payload; there is still no automatic telemetry or upload.
@@ -31,6 +36,10 @@ Each candidate message gets exactly one visible outcome:
 | Ignored | OTP, rejected payment, or unrelated message | None |
 | Not recognized | Credo-like message does not match the parser | Share explicitly or copy |
 | Error | Storage/platform failure | Retry; preserve diagnostic reason |
+
+For card payments, routing is deliberately strict: `last4 + balance currency → one active ledger`.
+Four digits are required. WHFIN never guesses from a bank name alone because one Credo group can contain
+several cards and several currency ledgers.
 
 Raw SMS bodies are processed in memory. WHFIN persists only the resulting transaction and minimal
 diagnostic metadata needed to explain the outcome; it never exports raw messages, OTPs, or parser
@@ -60,7 +69,7 @@ parser needs it; WHFIN must preview the exact payload first.
 
 ## Verification order
 
-1. Unit-test structured outcomes, account ambiguity, card mapping, duplicate handling, and all golden
+1. Unit-test structured outcomes, the four-digit setup gate, account ambiguity, card mapping, duplicate handling, and all golden
    parser samples.
 2. On the disposable emulator, create explicit accounts/instruments and inject sanitized messages with
    `adb emu sms send`; assert receiver → outcome → pending row → duplicate behavior.

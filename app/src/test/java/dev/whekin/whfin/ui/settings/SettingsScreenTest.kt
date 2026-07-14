@@ -167,6 +167,44 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun smsImportSwitch_requiresCardMapping_beforeEnabling() {
+        var enabled = false
+        var diagnosticsOpened = false
+        var permissionRequested = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val description = context.getString(R.string.settings_sms_toggle)
+        compose.setContent {
+            WhfinTheme {
+                SettingsScreen(
+                    widgetColorMode = WidgetColorMode.System,
+                    onWidgetColorModeChange = {},
+                    smsImportEnabled = false,
+                    hasSmsCardMapping = false,
+                    hasSmsPermission = false,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = { enabled = it },
+                    onRequestSmsPermission = { permissionRequested = true },
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = { diagnosticsOpened = true },
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription(description).performScrollTo().assertIsOff().performClick()
+
+        assertFalse(enabled)
+        assertTrue(diagnosticsOpened)
+        assertFalse(permissionRequested)
+    }
+
+    @Test
     fun widgetSystemColorsSwitch_exposesModeAndToggles() {
         var selectedMode = WidgetColorMode.System
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

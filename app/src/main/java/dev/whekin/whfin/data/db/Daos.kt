@@ -74,6 +74,22 @@ interface PaymentInstrumentDao {
     @Query("SELECT * FROM instrument_account_links")
     fun observeLinks(): Flow<List<InstrumentAccountLinkEntity>>
 
+    @Query(
+        "SELECT COUNT(*) FROM instrument_account_links l " +
+            "JOIN payment_instruments i ON i.id = l.instrumentId " +
+            "JOIN accounts a ON a.id = l.accountId " +
+            "WHERE i.isArchived = 0 AND a.isArchived = 0"
+    )
+    fun observeConfiguredCount(): Flow<Int>
+
+    @Query(
+        "SELECT COUNT(*) FROM instrument_account_links l " +
+            "JOIN payment_instruments i ON i.id = l.instrumentId " +
+            "JOIN accounts a ON a.id = l.accountId " +
+            "WHERE i.isArchived = 0 AND a.isArchived = 0"
+    )
+    suspend fun configuredCount(): Int
+
     @Query("SELECT * FROM payment_instruments WHERE groupId = :groupId AND last4 = :last4 LIMIT 1")
     suspend fun byLast4(groupId: Long, last4: String): PaymentInstrumentEntity?
 
@@ -94,6 +110,18 @@ interface PaymentInstrumentDao {
             check(instrumentId > 0)
             link(InstrumentAccountLinkEntity(instrumentId, account.id))
         }
+    }
+
+    @Transaction
+    suspend fun linkForAccount(account: AccountEntity, last4: String, type: PaymentInstrumentType) {
+        require(last4.matches(Regex("\\d{4}")))
+        val groupId = requireNotNull(account.groupId)
+        val existing = byLast4(groupId, last4)
+        val instrumentId = existing?.id
+            ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
+                .takeIf { it > 0 }
+            ?: requireNotNull(byLast4(groupId, last4)).id
+        link(InstrumentAccountLinkEntity(instrumentId, account.id))
     }
 }
 
