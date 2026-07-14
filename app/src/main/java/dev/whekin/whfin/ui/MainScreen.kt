@@ -3,7 +3,6 @@ package dev.whekin.whfin.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -14,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -127,6 +127,7 @@ fun MainScreen(
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
@@ -218,8 +219,8 @@ fun MainScreen(
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
-                                onOpenSettings = { open(SecondaryDestination.Settings) },
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
+                                addRequestKey = addRequestKey,
                                 viewModel = feedViewModel,
                             ) else AccountsScreen(
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
@@ -228,7 +229,14 @@ fun MainScreen(
                                 onOpenAccountTransactions = ::openAccountTransactions,
                             )
                         }
-                        LedgerDock(tab) { tab = it }
+                        LedgerDock(
+                            selected = tab,
+                            onAdd = {
+                                tab = 0
+                                addRequestKey += 1
+                            },
+                            onSelect = { tab = it },
+                        )
                     }
                     ShellScene.Settings -> SecondaryPage(
                         title = stringResource(R.string.settings_title),
@@ -403,13 +411,14 @@ private fun SecondaryPage(
     }
 }
 
-@Composable internal fun LedgerDock(selected: Int, onSelect: (Int) -> Unit) {
+@Composable internal fun LedgerDock(selected: Int, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 DockItem(
                     Icons.AutoMirrored.Filled.List,
@@ -417,6 +426,18 @@ private fun SecondaryPage(
                     selected == 0,
                     Modifier.weight(1f).testTag("dock-feed"),
                 ) { onSelect(0) }
+                Surface(
+                    onClick = onAdd,
+                    modifier = Modifier.size(52.dp).testTag("dock-add"),
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shadowElevation = 1.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Add, stringResource(R.string.add_transaction), Modifier.size(24.dp))
+                    }
+                }
                 DockItem(
                     Icons.Default.AccountBalanceWallet,
                     stringResource(R.string.tab_accounts),
@@ -430,17 +451,9 @@ private fun SecondaryPage(
 
 @Composable private fun DockItem(icon: ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val containerColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f)
-        else androidx.compose.ui.graphics.Color.Transparent,
-        animationSpec = WhfinMotion.quick(),
-        label = "dock-item-container",
-    )
-    val contentColor by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = WhfinMotion.quick(),
-        label = "dock-item-content",
-    )
+    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f)
+        else androidx.compose.ui.graphics.Color.Transparent
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = {
             if (!selected) haptics.performHapticFeedback(WhfinHaptics.navigation)

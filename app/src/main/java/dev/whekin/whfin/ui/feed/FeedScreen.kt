@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,13 +49,11 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +61,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
@@ -115,7 +115,6 @@ import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
-import dev.whekin.whfin.core.ui.WhfinPrimaryIconAction
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
@@ -132,8 +131,8 @@ fun FeedScreen(
     showSmsOnboarding: Boolean,
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
-    onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
+    addRequestKey: Int = 0,
     viewModel: FeedViewModel = viewModel(),
 ) {
     val items by viewModel.items.collectAsState()
@@ -156,6 +155,7 @@ fun FeedScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(FeedFilter.ALL) }
     var sort by remember { mutableStateOf(FeedSort.NEWEST) }
+    var categoryFilters by remember { mutableStateOf(emptySet<Long>()) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
     var showBatchStatus by remember { mutableStateOf(false) }
     var showBatchDelete by remember { mutableStateOf(false) }
@@ -185,7 +185,8 @@ fun FeedScreen(
             item.tx.currency,
             (kotlin.math.abs(item.tx.amountMinor) / 100.0).toString(),
         ).joinToString(" ")
-        matchesType && (search.isBlank() || haystack.contains(search.trim(), ignoreCase = true))
+        val matchesCategory = categoryFilters.isEmpty() || item.tx.categoryId in categoryFilters
+        matchesType && matchesCategory && (search.isBlank() || haystack.contains(search.trim(), ignoreCase = true))
     }
     val sortedItems = when (sort) {
         FeedSort.NEWEST -> visibleItems.sortedByDescending { it.tx.occurredAt }
@@ -204,6 +205,13 @@ fun FeedScreen(
     LaunchedEffect(items) {
         val availableIds = items.mapTo(mutableSetOf()) { it.tx.id }
         selectedIds = selectedIds.intersect(availableIds)
+    }
+
+    LaunchedEffect(addRequestKey) {
+        if (addRequestKey > 0) {
+            selectedIds = emptySet()
+            showAdd = true
+        }
     }
 
     fun toggleSelection(item: FeedItem) {
@@ -277,40 +285,23 @@ fun FeedScreen(
                         contentDescription = stringResource(R.string.feed_filter_sort),
                         onClick = { showFilterSheet = true },
                         outlined = false,
-                        selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST,
-                    )
-                    WhfinIconButton(
-                        icon = Icons.Default.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
-                        onClick = onOpenSettings,
-                        outlined = false,
+                        selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST || categoryFilters.isNotEmpty(),
                     )
                 }
-            }
-        },
-        floatingActionButton = {
-            if (!selectionMode) {
-                WhfinPrimaryIconAction(
-                    icon = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.add_transaction),
-                    onClick = { showAdd = true },
-                )
             }
         },
     ) { contentPadding ->
         LazyColumn(
             Modifier.fillMaxSize().consumeWindowInsets(contentPadding),
-            contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 96.dp),
+            contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 28.dp),
         ) {
         if (!selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
             item(key = "feed-tools") {
-                FeedTools(
+                FeedSearch(
                     search = search,
                     onSearchChange = { search = it },
                     searchVisible = showSearch,
-                    filter = filter,
-                    onFilterChange = { filter = it },
                 )
             }
             if (showSmsOnboarding) item(key = "sms-onboarding") {
@@ -384,8 +375,14 @@ fun FeedScreen(
     if (showFilterSheet) FeedFilterSheet(
         filter = filter,
         sort = sort,
-        onFilter = { filter = it },
-        onSort = { sort = it },
+        categories = categories.filterNot { it.isSystem },
+        selectedCategoryIds = categoryFilters,
+        onApply = { newFilter, newSort, newCategories ->
+            filter = newFilter
+            sort = newSort
+            categoryFilters = newCategories
+            showFilterSheet = false
+        },
         onDismiss = { showFilterSheet = false },
     )
 
@@ -796,50 +793,27 @@ private enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS }
 private enum class FeedSort { NEWEST, OLDEST, AMOUNT }
 
 @Composable
-private fun FeedTools(
+private fun FeedSearch(
     search: String,
     onSearchChange: (String) -> Unit,
     searchVisible: Boolean,
-    filter: FeedFilter,
-    onFilterChange: (FeedFilter) -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        if (searchVisible) {
-            val focusRequester = remember { FocusRequester() }
-            val keyboard = LocalSoftwareKeyboardController.current
-            LaunchedEffect(Unit) {
-                focusRequester.requestFocus()
-                keyboard?.show()
-            }
-            OutlinedTextField(
-                value = search,
-                onValueChange = onSearchChange,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                placeholder = { Text(stringResource(R.string.feed_search_hint)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-            )
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            listOf(
-                FeedFilter.ALL to R.string.feed_filter_all,
-                FeedFilter.EXPENSES to R.string.feed_filter_expenses,
-                FeedFilter.INCOME to R.string.feed_filter_income,
-                FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
-            ).forEach { (value, label) ->
-                val selected = filter == value
-                WhfinFilterPill(stringResource(label), selected, { onFilterChange(value) })
-            }
-        }
+    if (!searchVisible) return
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
     }
+    OutlinedTextField(
+        value = search,
+        onValueChange = onSearchChange,
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.feed_search_hint)) },
+        singleLine = true,
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).focusRequester(focusRequester),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -847,46 +821,129 @@ private fun FeedTools(
 private fun FeedFilterSheet(
     filter: FeedFilter,
     sort: FeedSort,
-    onFilter: (FeedFilter) -> Unit,
-    onSort: (FeedSort) -> Unit,
+    categories: List<CategoryEntity>,
+    selectedCategoryIds: Set<Long>,
+    onApply: (FeedFilter, FeedSort, Set<Long>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var draftFilter by remember(filter) { mutableStateOf(filter) }
+    var draftSort by remember(sort) { mutableStateOf(sort) }
+    var draftCategories by remember(selectedCategoryIds) { mutableStateOf(selectedCategoryIds) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxWidth().fillMaxHeight(.92f).navigationBarsPadding(),
         ) {
-            Text(stringResource(R.string.feed_filter_sort), style = MaterialTheme.typography.headlineSmall)
-            WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Text(
+                stringResource(R.string.feed_filter_sort),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            LazyColumn(
+                Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                listOf(
-                    FeedFilter.ALL to R.string.feed_filter_all,
-                    FeedFilter.EXPENSES to R.string.feed_filter_expenses,
-                    FeedFilter.INCOME to R.string.feed_filter_income,
-                    FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
-                ).forEach { (value, label) ->
-                    WhfinFilterPill(stringResource(label), filter == value, { onFilter(value) })
+                item(key = "filter-type-label") {
+                    WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
+                }
+                item(key = "filter-types") {
+                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                        listOf(
+                            FeedFilter.ALL to R.string.feed_filter_all,
+                            FeedFilter.EXPENSES to R.string.feed_filter_expenses,
+                            FeedFilter.INCOME to R.string.feed_filter_income,
+                            FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
+                        ).forEachIndexed { index, (value, label) ->
+                            WhfinLedgerRow(
+                                title = stringResource(label),
+                                trailing = if (draftFilter == value) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                } else null,
+                                onClick = { draftFilter = value },
+                                divider = index != FeedFilter.entries.lastIndex,
+                            )
+                        }
+                    }
+                }
+                CategoryKind.entries.forEach { kind ->
+                    val kindCategories = categories.filter { it.kind == kind }.sortedBy { it.name }
+                    if (kindCategories.isNotEmpty()) {
+                        item(key = "filter-category-label-$kind") {
+                            WhfinSectionLabel(stringResource(
+                                if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income,
+                            ))
+                        }
+                        item(key = "filter-categories-$kind") {
+                            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                                kindCategories.forEachIndexed { index, category ->
+                                    WhfinLedgerRow(
+                                        title = category.name,
+                                        icon = CategoryIcons.resolve(category.icon),
+                                        iconTint = Color(category.color),
+                                        trailing = if (category.id in draftCategories) {
+                                            { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                        } else null,
+                                        onClick = {
+                                            draftCategories = if (category.id in draftCategories) {
+                                                draftCategories - category.id
+                                            } else {
+                                                draftCategories + category.id
+                                            }
+                                        },
+                                        divider = index != kindCategories.lastIndex,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item(key = "filter-sort-label") {
+                    WhfinSectionLabel(stringResource(R.string.feed_sort_by))
+                }
+                item(key = "filter-sort") {
+                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                        listOf(
+                            FeedSort.NEWEST to R.string.feed_sort_newest,
+                            FeedSort.OLDEST to R.string.feed_sort_oldest,
+                            FeedSort.AMOUNT to R.string.feed_sort_amount,
+                        ).forEachIndexed { index, (value, label) ->
+                            WhfinLedgerRow(
+                                title = stringResource(label),
+                                trailing = if (draftSort == value) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                } else null,
+                                onClick = { draftSort = value },
+                                divider = index < 2,
+                            )
+                        }
+                    }
                 }
             }
-            WhfinSectionLabel(stringResource(R.string.feed_sort_by), Modifier.padding(top = 4.dp))
-            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                listOf(
-                    FeedSort.NEWEST to R.string.feed_sort_newest,
-                    FeedSort.OLDEST to R.string.feed_sort_oldest,
-                    FeedSort.AMOUNT to R.string.feed_sort_amount,
-                ).forEachIndexed { index, (value, label) ->
-                    WhfinLedgerRow(
-                        title = stringResource(label),
-                        trailing = if (sort == value) {
-                            { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                        } else null,
-                        onClick = { onSort(value) },
-                        divider = index < 2,
-                    )
-                }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                WhfinButton(
+                    label = stringResource(R.string.feed_filters_reset),
+                    onClick = {
+                        draftFilter = FeedFilter.ALL
+                        draftSort = FeedSort.NEWEST
+                        draftCategories = emptySet()
+                    },
+                    modifier = Modifier.weight(1f),
+                    style = WhfinActionStyle.Secondary,
+                )
+                WhfinButton(
+                    label = stringResource(R.string.feed_filters_apply),
+                    onClick = { onApply(draftFilter, draftSort, draftCategories) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -1266,10 +1323,8 @@ private fun FeedContentPreview() {
                 WhfinContextHeader(stringResource(R.string.balance_total), formatMinor(559_417, "GEL")) {
                     WhfinIconButton(Icons.Default.Search, "Search", {}, outlined = false)
                     WhfinIconButton(Icons.Default.FilterAlt, "Filter", {}, outlined = false)
-                    WhfinIconButton(Icons.Default.Settings, "Settings", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
-                FeedTools("", {}, false, FeedFilter.ALL, {})
                 SmsOnboardingCard({}, {})
                 DayHeader(LocalDate.now(), mapOf("USD" to 2_360), 6_346, true, {})
                 FeedRow(item, {}, selected = true)

@@ -517,6 +517,8 @@
     <string name="debt_repayment_action">Добавить погашение</string>
     <string name="feed_this_month">Этот месяц</string>
     <string name="feed_filter_sort">Фильтры и сортировка</string>
+    <string name="feed_filters_reset">Сбросить</string>
+    <string name="feed_filters_apply">Применить</string>
     <string name="feed_transaction_type">Тип операции</string>
     <string name="feed_sort_by">Сортировка</string>
     <string name="feed_sort_newest">Сначала новые</string>

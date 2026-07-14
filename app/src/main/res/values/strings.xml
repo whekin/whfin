@@ -514,6 +514,8 @@
     <string name="debt_repayment_action">Add repayment</string>
     <string name="feed_this_month">This month</string>
     <string name="feed_filter_sort">Filter and sort</string>
+    <string name="feed_filters_reset">Reset</string>
+    <string name="feed_filters_apply">Apply</string>
     <string name="feed_transaction_type">Transaction type</string>
     <string name="feed_sort_by">Sort by</string>
     <string name="feed_sort_newest">Newest first</string>

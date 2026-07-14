@@ -27,7 +27,7 @@ class LedgerDockTest {
         var selected by mutableIntStateOf(0)
         compose.setContent {
             WhfinTheme {
-                LedgerDock(selected) { selected = it }
+                LedgerDock(selected, onAdd = {}) { selected = it }
             }
         }
 
