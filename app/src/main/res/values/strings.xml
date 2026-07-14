@@ -24,6 +24,7 @@
     <string name="accounts_no_fx_note">Currencies are shown separately until exchange rates are enabled.</string>
     <string name="accounts_add">Add account</string>
     <string name="account_name">Name</string>
+    <string name="cash_name_optional_hint">Optional — for example Pocket money or Rainy day.</string>
     <string name="account_name_in_bank">Account name</string>
     <string name="account_bank_provider">Bank</string>
     <string name="account_bank_other">Other</string>
@@ -389,6 +390,12 @@
     <string name="category_unaccounted">Unaccounted</string>
     <string name="account_edit">Edit account</string>
     <string name="account_actions">Account actions</string>
+    <string name="account_settings">Account settings</string>
+    <string name="account_source_details">Source details</string>
+    <string name="account_adjust_currency">Adjust %1$s balance</string>
+    <string name="account_group_accounts">Accounts and currencies</string>
+    <string name="account_cards">Cards</string>
+    <string name="account_statements_hint">Coverage, imports and items requiring review</string>
     <string name="account_purpose">Account purpose</string>
     <string name="account_purpose_everyday">Everyday</string>
     <string name="account_purpose_reserve">Reserve</string>

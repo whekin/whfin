@@ -134,7 +134,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             db.withTransaction {
                 val normalizedCurrency = currency.trim().uppercase()
-                val normalizedName = if (type == AccountType.CASH) "Cash" else name.trim()
+                val normalizedName = if (type == AccountType.CASH) name.trim().ifBlank { "Cash" } else name.trim()
                 if (type == AccountType.CASH && db.accountDao().allActive().any {
                         it.type == AccountType.CASH && it.currency == normalizedCurrency
                     }) {
@@ -190,7 +190,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         savingsMode: SavingsMode?,
     ) {
         viewModelScope.launch {
-            val normalizedName = if (account.type == AccountType.CASH) "Cash" else name.trim()
+            val normalizedName = name.trim().ifBlank { if (account.type == AccountType.CASH) "Cash" else account.name }
             val groupId = account.groupId
             val iban = account.iban
             if (groupId != null && iban != null &&
@@ -266,6 +266,20 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 db.accountDao().delete(account.id)
                 if (groupId != null && db.accountDao().countInGroup(groupId) == 0) {
                     db.financialGroupDao().delete(groupId)
+                }
+            }
+            _message.value = "Account deleted"
+        }
+    }
+
+    fun deleteAccountContainer(accounts: List<AccountEntity>) {
+        if (accounts.isEmpty()) return
+        viewModelScope.launch {
+            db.withTransaction {
+                val groupIds = accounts.mapNotNull(AccountEntity::groupId).distinct()
+                accounts.forEach { db.accountDao().delete(it.id) }
+                groupIds.forEach { groupId ->
+                    if (db.accountDao().countInGroup(groupId) == 0) db.financialGroupDao().delete(groupId)
                 }
             }
             _message.value = "Account deleted"

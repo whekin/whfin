@@ -27,6 +27,7 @@
     <string name="accounts_no_fx_note">Валюты показаны отдельно, пока не включены курсы обмена.</string>
     <string name="accounts_add">Добавить счёт</string>
     <string name="account_name">Название</string>
+    <string name="cash_name_optional_hint">Необязательно — например Карманные деньги или На чёрный день.</string>
     <string name="account_name_in_bank">Название счёта</string>
     <string name="account_bank_provider">Банк</string>
     <string name="account_bank_other">Другой</string>
@@ -392,6 +393,12 @@
     <string name="category_unaccounted">Неучтённое</string>
     <string name="account_edit">Изменить счёт</string>
     <string name="account_actions">Действия со счётом</string>
+    <string name="account_settings">Настройки счёта</string>
+    <string name="account_source_details">Детали источника</string>
+    <string name="account_adjust_currency">Скорректировать баланс %1$s</string>
+    <string name="account_group_accounts">Счета и валюты</string>
+    <string name="account_cards">Карты</string>
+    <string name="account_statements_hint">Покрытие, импорты и операции на проверку</string>
     <string name="account_purpose">Назначение счёта</string>
     <string name="account_purpose_everyday">Основной</string>
     <string name="account_purpose_reserve">Резерв</string>

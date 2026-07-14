@@ -1,6 +1,5 @@
 package dev.whekin.whfin.ui.accounts
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,10 +20,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -57,18 +60,20 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.ui.formatMinor
-import dev.whekin.whfin.ui.components.LedgerIconButton
-import dev.whekin.whfin.ui.components.LedgerButton
 import dev.whekin.whfin.ui.settings.BankStatementsViewModel
 import dev.whekin.whfin.ui.settings.StatementImportStatusSheet
 import dev.whekin.whfin.ui.settings.StatementImportUiState
 import dev.whekin.whfin.ui.settings.statementFileName
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
+import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinContextHeader
+import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
@@ -81,6 +86,11 @@ import dev.whekin.whfin.data.db.SavingsMode
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+
+private data class AccountGroupSelection(
+    val name: String,
+    val accounts: List<AccountWithBalance>,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,11 +122,12 @@ fun AccountsScreen(
     }.flatten()
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
-    var actionsFor by remember { mutableStateOf<AccountWithBalance?>(null) }
+    var settingsFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
+    var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
     var adjustFor by remember { mutableStateOf<AccountWithBalance?>(null) }
     var editFor by remember { mutableStateOf<AccountWithBalance?>(null) }
     var configureAccount by remember { mutableStateOf<AccountWithBalance?>(null) }
-    var deleteFor by remember { mutableStateOf<AccountWithBalance?>(null) }
+    var deleteFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -213,10 +224,15 @@ fun AccountsScreen(
                                             name = groupName,
                                             accounts = groupAccounts,
                                             onOpenTransactions = { onOpenAccountTransactions(it.account.id) },
-                                            onAccountActions = { actionsFor = it },
-                                            onEditContainer = { editFor = it },
-                                            onOpenStatements = onOpenStatements.takeIf {
-                                                groupAccounts.any { account -> account.account.type == AccountType.BANK }
+                                            onAccountSettings = { settingsFor = it },
+                                            onOpenGroupDetails = {
+                                                val seed = groupAccounts.first().account
+                                                val related = when {
+                                                    seed.groupId != null -> accounts.filter { it.account.groupId == seed.groupId }
+                                                    seed.type == AccountType.CASH -> accounts.filter { it.account.type == AccountType.CASH }
+                                                    else -> groupAccounts
+                                                }
+                                                groupDetailsFor = AccountGroupSelection(groupName, related)
                                             },
                                         )
                                     }
@@ -270,14 +286,30 @@ fun AccountsScreen(
         )
     }
 
-    actionsFor?.let { item ->
-        AccountActionsSheet(
-            item = item,
-            onDismiss = { actionsFor = null },
-            onAdjustBalance = { adjustFor = item; actionsFor = null },
-            onBankMapping = { configureAccount = item; actionsFor = null },
-            onEdit = { editFor = item; actionsFor = null },
-            onDelete = { deleteFor = item; actionsFor = null },
+    groupDetailsFor?.let { selection ->
+        AccountGroupDetailsDialog(
+            name = selection.name,
+            accounts = selection.accounts,
+            onDismiss = { groupDetailsFor = null },
+            onOpenStatements = onOpenStatements.takeIf {
+                selection.accounts.any { it.account.type == AccountType.BANK }
+            },
+            onOpenAccountSettings = { items ->
+                groupDetailsFor = null
+                settingsFor = items
+            },
+        )
+    }
+
+    settingsFor?.let { items ->
+        val item = items.first()
+        AccountSettingsSheet(
+            items = items,
+            onDismiss = { settingsFor = null },
+            onAdjustBalance = { balance -> adjustFor = balance; settingsFor = null },
+            onBankMapping = { configureAccount = item; settingsFor = null },
+            onEdit = { editFor = item; settingsFor = null },
+            onDelete = { deleteFor = items; settingsFor = null },
         )
     }
 
@@ -322,14 +354,15 @@ fun AccountsScreen(
         )
     }
 
-    deleteFor?.let { item ->
+    deleteFor?.let { items ->
+        val item = items.first()
         AlertDialog(
             onDismissRequest = { deleteFor = null },
             title = { Text(stringResource(R.string.account_delete)) },
             text = { Text(stringResource(R.string.account_delete_confirmation, item.account.name)) },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deleteAccount(item.account)
+                    viewModel.deleteAccountContainer(items.map { it.account })
                     deleteFor = null
                 }) { Text(stringResource(R.string.account_delete)) }
             },
@@ -398,12 +431,10 @@ private fun AccountGroupCard(
     name: String,
     accounts: List<AccountWithBalance>,
     onOpenTransactions: (AccountWithBalance) -> Unit,
-    onAccountActions: (AccountWithBalance) -> Unit,
-    onEditContainer: (AccountWithBalance) -> Unit,
-    onOpenStatements: (() -> Unit)?,
+    onAccountSettings: (List<AccountWithBalance>) -> Unit,
+    onOpenGroupDetails: () -> Unit,
 ) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (accounts.any { it.account.groupId != null }) {
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             WhfinSectionHeader(
                 title = name,
                 supportingText = run {
@@ -412,18 +443,106 @@ private fun AccountGroupCard(
                     pluralStringResource(R.plurals.accounts_container_count, accountCount, accountCount) +
                         " · " + pluralStringResource(R.plurals.accounts_currency_count, currencyCount, currencyCount)
                 },
-                trailing = onOpenStatements?.let { open ->
-                    { TextButton(onClick = open) { Text(stringResource(R.string.statements_title)) } }
+                trailing = {
+                    WhfinIconButton(
+                        icon = Icons.Default.Info,
+                        contentDescription = stringResource(R.string.account_source_details),
+                        onClick = onOpenGroupDetails,
+                        outlined = false,
+                    )
                 },
             )
-            }
             accounts
                 .groupBy { it.account.iban ?: "account-${it.account.id}" }
                 .toList()
                 .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
                 .forEach { (_, ibanAccounts) ->
-                    IbanCard(ibanAccounts, onOpenTransactions, onAccountActions, onEditContainer)
+                    IbanCard(ibanAccounts, onOpenTransactions, onAccountSettings)
                 }
+    }
+}
+
+@Composable
+private fun AccountGroupDetailsDialog(
+    name: String,
+    accounts: List<AccountWithBalance>,
+    onDismiss: () -> Unit,
+    onOpenStatements: (() -> Unit)?,
+    onOpenAccountSettings: (List<AccountWithBalance>) -> Unit,
+) {
+    val containers = accounts
+        .groupBy { it.account.iban ?: "account-${it.account.id}" }
+        .values
+        .toList()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        WhfinDialogSystemBars()
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 20.dp, top = 6.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    WhfinIconButton(Icons.Default.Close, stringResource(R.string.action_cancel), onDismiss, outlined = false)
+                    Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                }
+                LazyColumn(
+                    Modifier.fillMaxSize().navigationBarsPadding(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 12.dp,
+                        bottom = 28.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (onOpenStatements != null) item(key = "group-statements") {
+                        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                            WhfinLedgerRow(
+                                title = stringResource(R.string.statements_title),
+                                supportingText = stringResource(R.string.account_statements_hint),
+                                icon = Icons.Default.Description,
+                                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                                onClick = {
+                                    onDismiss()
+                                    onOpenStatements()
+                                },
+                            )
+                        }
+                    }
+                    item(key = "group-accounts-label") {
+                        WhfinSectionLabel(stringResource(R.string.account_group_accounts))
+                    }
+                    items(containers, key = { container ->
+                        val first = container.first().account
+                        first.iban ?: "account-${first.id}"
+                    }) { container ->
+                        val first = container.first()
+                        val cards = (container.flatMap { it.cardMasks }.map { "••$it" } +
+                            container.flatMap { it.virtualCardMasks }.map { "${stringResource(R.string.account_card_virtual)} ••$it" })
+                            .distinct()
+                        val supporting = buildList {
+                            first.account.iban?.let(::add)
+                            add(container.joinToString(" · ") { it.account.currency })
+                            if (cards.isNotEmpty()) add(stringResource(R.string.account_cards) + ": " + cards.joinToString(" · "))
+                        }.joinToString("\n")
+                        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                            WhfinLedgerRow(
+                                title = first.account.name,
+                                supportingText = supporting,
+                                supportingMaxLines = 4,
+                                icon = accountTypeIcon(first.account.type),
+                                trailing = { Icon(Icons.Default.Settings, stringResource(R.string.account_settings)) },
+                                onClick = { onOpenAccountSettings(container) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -431,8 +550,7 @@ private fun AccountGroupCard(
 private fun IbanCard(
     accounts: List<AccountWithBalance>,
     onOpenTransactions: (AccountWithBalance) -> Unit,
-    onAccountActions: (AccountWithBalance) -> Unit,
-    onEditContainer: (AccountWithBalance) -> Unit,
+    onAccountSettings: (List<AccountWithBalance>) -> Unit,
 ) {
     val iban = accounts.first().account.iban
     WhfinLedgerGroup {
@@ -469,12 +587,10 @@ private fun IbanCard(
                         maxLines = 1,
                     )
                 }
-                Text(accounts.joinToString(" · ") { it.account.currency },
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 WhfinIconButton(
-                    icon = Icons.Default.Edit,
-                    contentDescription = stringResource(R.string.account_edit),
-                    onClick = { onEditContainer(accounts.first()) },
+                    icon = Icons.Default.Settings,
+                    contentDescription = stringResource(R.string.account_settings),
+                    onClick = { onAccountSettings(accounts) },
                     outlined = false,
                 )
             }
@@ -484,7 +600,6 @@ private fun IbanCard(
                 CurrencyAccountRow(
                     item = item,
                     onClick = { onOpenTransactions(item) },
-                    onActions = { onAccountActions(item) },
                 )
                 if (index != accounts.lastIndex) HorizontalDivider(
                     Modifier.padding(start = 16.dp, end = 16.dp),
@@ -499,7 +614,6 @@ private fun IbanCard(
 private fun CurrencyAccountRow(
     item: AccountWithBalance,
     onClick: () -> Unit,
-    onActions: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -528,13 +642,6 @@ private fun CurrencyAccountRow(
             formatMinor(item.balanceMinor, item.account.currency),
             style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
             fontWeight = FontWeight.SemiBold,
-        )
-        WhfinIconButton(
-            icon = Icons.Default.MoreVert,
-            contentDescription = stringResource(R.string.account_actions),
-            onClick = onActions,
-            modifier = Modifier.padding(start = 4.dp),
-            outlined = false,
         )
     }
 }
@@ -619,7 +726,7 @@ private fun AccountsContentPreview() {
                 Column(Modifier.padding(20.dp)) {
                     AccountsSummary(accounts)
                     WhfinSectionLabel(stringResource(R.string.accounts_everyday_section))
-                    AccountGroupCard("Credo", accounts, {}, {}, {}, {})
+                    AccountGroupCard("Credo", accounts, {}, {}, {})
                     DebtsSummary(emptyList(), {})
                 }
             }

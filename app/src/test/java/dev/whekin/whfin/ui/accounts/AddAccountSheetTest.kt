@@ -22,7 +22,7 @@ class AddAccountSheetTest {
     val compose = createComposeRule()
 
     @Test
-    fun cashNeedsOnlyCurrencyAndUsesCanonicalName() {
+    fun cashNameIsOptionalAndDefaultsToCash() {
         var saved: Triple<String, AccountType, String>? = null
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
@@ -36,7 +36,7 @@ class AddAccountSheetTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.account_name)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.account_name)).assertExists()
         compose.onNodeWithText(context.getString(R.string.action_save)).assertIsEnabled().performClick()
         assertEquals(Triple("Cash", AccountType.CASH, "GEL"), saved)
     }

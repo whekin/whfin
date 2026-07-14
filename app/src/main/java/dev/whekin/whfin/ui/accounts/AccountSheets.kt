@@ -74,7 +74,7 @@ fun AddAccountSheet(
             (type != AccountType.CRYPTO || address.isNotBlank()),
         onPrimary = {
             onConfirm(
-                if (type == AccountType.CASH) "Cash" else name,
+                name.ifBlank { "Cash" },
                 type,
                 currency,
                 address.trim().takeIf(String::isNotEmpty),
@@ -114,16 +114,15 @@ fun AddAccountSheet(
                 )
             }
         }
-        if (type != AccountType.CASH) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name)) },
+            supportingText = if (type == AccountType.CASH) {{ Text(stringResource(R.string.cash_name_optional_hint)) }} else null,
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth(),
+        )
         CurrencySelector(
             currency = currency,
             onChange = { currency = it },
@@ -160,26 +159,26 @@ fun EditAccountSheet(
         title = stringResource(R.string.account_edit),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = name.isNotBlank() && currency.isNotBlank(),
+        primaryEnabled = (account.type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank(),
         onPrimary = {
             onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty), savingsMode)
         },
     ) {
-        if (account.type != AccountType.CASH) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.account_name)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        if (account.type == AccountType.BANK || account.type == AccountType.SAVINGS) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.account_name)) },
+            supportingText = if (account.type == AccountType.CASH) {{ Text(stringResource(R.string.cash_name_optional_hint)) }} else null,
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (account.type == AccountType.BANK || account.type == AccountType.SAVINGS || account.type == AccountType.CASH) {
             Text(stringResource(R.string.account_purpose), style = MaterialTheme.typography.labelLarge)
             AccountPurposeSelector(
                 selected = savingsMode,
-                allowEveryday = account.type == AccountType.BANK,
+                allowEveryday = account.type != AccountType.SAVINGS,
+                allowDeposit = account.type != AccountType.CASH,
                 onSelect = { savingsMode = it },
             )
         } else {
@@ -206,6 +205,7 @@ fun EditAccountSheet(
 private fun AccountPurposeSelector(
     selected: SavingsMode?,
     allowEveryday: Boolean,
+    allowDeposit: Boolean = true,
     onSelect: (SavingsMode?) -> Unit,
 ) {
     Row(
@@ -215,7 +215,7 @@ private fun AccountPurposeSelector(
         buildList {
             if (allowEveryday) add(null to R.string.account_purpose_everyday)
             add(SavingsMode.FLEXIBLE_RESERVE to R.string.account_purpose_reserve)
-            add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
+            if (allowDeposit) add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
         }.forEach { (mode, label) ->
             FilterChip(
                 selected = selected == mode,
@@ -400,17 +400,18 @@ private fun CurrencySelector(
     }
 }
 
-/** Меню действий по счёту: корректировка баланса (все) + реквизиты (банк). */
+/** Настройки одного account-контейнера; валютные ledgers выбираются только для балансных действий. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun AccountActionsSheet(
-    item: AccountWithBalance,
+fun AccountSettingsSheet(
+    items: List<AccountWithBalance>,
     onDismiss: () -> Unit,
-    onAdjustBalance: () -> Unit,
+    onAdjustBalance: (AccountWithBalance) -> Unit,
     onBankMapping: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val item = items.first()
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -429,24 +430,26 @@ fun AccountActionsSheet(
             )
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 ActionRow(
-                    icon = Icons.Default.Tune,
-                    label = stringResource(R.string.action_adjust_balance),
-                    onClick = onAdjustBalance,
-                    divider = true,
-                )
-                ActionRow(
                     icon = Icons.Default.Edit,
                     label = stringResource(R.string.account_edit),
                     onClick = onEdit,
                     divider = true,
                 )
                 if (item.account.type == AccountType.BANK) {
-                ActionRow(
-                    icon = Icons.Default.AccountBalance,
-                    label = stringResource(R.string.account_bank_mapping),
-                    onClick = onBankMapping,
-                    divider = true,
-                )
+                    ActionRow(
+                        icon = Icons.Default.AccountBalance,
+                        label = stringResource(R.string.account_bank_mapping),
+                        onClick = onBankMapping,
+                        divider = true,
+                    )
+                }
+                items.forEach { balance ->
+                    ActionRow(
+                        icon = Icons.Default.Tune,
+                        label = stringResource(R.string.account_adjust_currency, balance.account.currency),
+                        onClick = { onAdjustBalance(balance) },
+                        divider = true,
+                    )
                 }
                 ActionRow(
                     icon = Icons.Default.DeleteOutline,

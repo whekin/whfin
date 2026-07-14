@@ -52,8 +52,14 @@ account and debt rows as one ready snapshot; until that snapshot exists, the con
 body is a neutral loading state. `No accounts yet` is shown only after Room has confirmed an empty result, so
 a populated database cannot flash the onboarding state during navigation or cold collection.
 
-Cash is a currency ledger rather than a user-named container. Add/Edit Cash therefore asks only for the
-currency, stores the canonical model name `Cash`, and rejects a second active Cash ledger in that currency.
+Cash follows the same source → account → currency grammar as a bank. Its name is optional (`Cash` remains
+the fallback), so a ledger may become “Pocket money” or “Rainy day”; it may also be Everyday or Reserve.
+WHFIN still rejects a second active Cash ledger in the same currency.
+
+Currency rows only open their own transaction ledger. Container-wide edit, bank mapping, balance actions,
+and destructive removal live behind the account header settings action. The source header opens a full-screen
+overview: bank/Cash details, account aliases, IBAN/card metadata, currencies, and statement coverage. Currency
+codes are not repeated in the account header because the ledger rows immediately below already own them.
 
 Feed selection starts with a long press and keeps the ledger spatially stable: summary/search controls give
 way to a compact selected-count header, selected rows receive one continuous tonal surface and a check icon,
