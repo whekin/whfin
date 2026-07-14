@@ -97,6 +97,7 @@ interface PaymentInstrumentDao {
     suspend fun forAccount(accountId: Long): List<PaymentInstrumentEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(item: PaymentInstrumentEntity): Long
+    @Update suspend fun update(item: PaymentInstrumentEntity)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun link(item: InstrumentAccountLinkEntity): Long
     @Query("DELETE FROM instrument_account_links WHERE accountId = :accountId") suspend fun unlinkAccount(accountId: Long)
 
@@ -114,14 +115,22 @@ interface PaymentInstrumentDao {
 
     @Transaction
     suspend fun linkForAccount(account: AccountEntity, last4: String, type: PaymentInstrumentType) {
+        linkForAccounts(listOf(account), last4, type)
+    }
+
+    @Transaction
+    suspend fun linkForAccounts(accounts: List<AccountEntity>, last4: String, type: PaymentInstrumentType) {
         require(last4.matches(Regex("\\d{4}")))
-        val groupId = requireNotNull(account.groupId)
+        require(accounts.isNotEmpty())
+        val groupId = requireNotNull(accounts.first().groupId)
+        require(accounts.all { it.groupId == groupId })
         val existing = byLast4(groupId, last4)
+        if (existing != null && existing.type != type) update(existing.copy(type = type))
         val instrumentId = existing?.id
             ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
                 .takeIf { it > 0 }
             ?: requireNotNull(byLast4(groupId, last4)).id
-        link(InstrumentAccountLinkEntity(instrumentId, account.id))
+        accounts.forEach { account -> link(InstrumentAccountLinkEntity(instrumentId, account.id)) }
     }
 }
 

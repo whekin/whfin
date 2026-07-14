@@ -99,20 +99,43 @@ class SmsTransactionImporterInstrumentedTest {
 
     @Test
     fun proactiveCardMapping_routesMatchingCurrency() = runBlocking {
+        val iban = "GE00CD0000000000000001"
         val account = AccountEntity(
             id = db.accountDao().insert(
-                AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+                AccountEntity(
+                    name = "Main GEL", type = AccountType.BANK, groupId = groupId,
+                    currency = "GEL", iban = iban,
+                ),
             ),
             name = "Main GEL",
             type = AccountType.BANK,
             groupId = groupId,
             currency = "GEL",
+            iban = iban,
+        )
+        val usd = AccountEntity(
+            id = db.accountDao().insert(
+                AccountEntity(
+                    name = "Main USD", type = AccountType.BANK, groupId = groupId,
+                    currency = "USD", iban = iban,
+                ),
+            ),
+            name = "Main USD",
+            type = AccountType.BANK,
+            groupId = groupId,
+            currency = "USD",
+            iban = iban,
         )
 
-        db.paymentInstrumentDao().linkForAccount(account, "0001", PaymentInstrumentType.VIRTUAL_CARD)
+        db.paymentInstrumentDao().linkForAccounts(
+            listOf(account, usd),
+            "0001",
+            PaymentInstrumentType.VIRTUAL_CARD,
+        )
 
         assertTrue(db.paymentInstrumentDao().configuredCount() > 0)
         assertEquals(account.id, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        assertEquals(usd.id, db.accountDao().byCardAndCurrency("0001", "USD").single().id)
         assertEquals(SmsDiagnosticOutcome.IMPORTED, importer.import(CARD_PAYMENT, RECEIVED_AT).outcome)
     }
 

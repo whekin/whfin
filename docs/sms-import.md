@@ -7,16 +7,21 @@ same-currency bank accounts. Room DB v3 now records a structured local outcome f
 dropping the message.
 
 - `RECEIVE_SMS` still observes only broadcasts delivered after permission is granted.
-- `READ_SMS` is requested only from the explicit 90-day history action.
+- `READ_SMS` is requested only from the explicit 90-day history action or when the user asks to view
+  one diagnostic's original message.
 - The scan is capped at 500 Credo candidates and produces a dry-run summary before any write.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
 - Card mapping and ambiguous-account outcomes open a product sheet, persist the chosen mapping, and retry.
 - Automatic import defaults off and cannot be enabled until at least one active card-to-ledger mapping
   exists. The receiver enforces the same gate, so a stale preference cannot bypass setup.
-- A mapping is the exact four digits printed after the masked Credo card number plus the selected
-  account/currency. Settings → SMS diagnostics is the permanent place to add another physical or
-  virtual card; resolving a “Needs card mapping” outcome saves the same rule.
+- A mapping is the exact four digits printed after the masked Credo card number plus its physical or
+  virtual card type. The card is linked to every currency ledger under the selected bank + IBAN;
+  the currency parsed from each SMS chooses the ledger at import time. Settings → SMS diagnostics is
+  the permanent place to add another card; resolving a “Needs card mapping” outcome saves the same rule.
+- Any imported pending transaction exposes an explicit status action in transaction details. Marking it
+  Confirmed or Manual is a deliberate user override; leaving it Pending keeps it eligible for statement
+  reconciliation.
 
 The remaining product gap is explicit parser-failure sharing. It must use a user-initiated Android
 Sharesheet with an editable redacted payload; there is still no automatic telemetry or upload.
@@ -37,13 +42,16 @@ Each candidate message gets exactly one visible outcome:
 | Not recognized | Credo-like message does not match the parser | Share explicitly or copy |
 | Error | Storage/platform failure | Retry; preserve diagnostic reason |
 
-For card payments, routing is deliberately strict: `last4 + balance currency → one active ledger`.
-Four digits are required. WHFIN never guesses from a bank name alone because one Credo group can contain
-several cards and several currency ledgers.
+For card payments, routing is deliberately strict: `bank + card last4 → one physical/virtual card`, then
+`card + balance currency → one active ledger`. Four digits are required. One card may be connected to
+GEL, USD, EUR, and other ledgers under the same IBAN, so the card mapping is not duplicated per currency.
+WHFIN never guesses from a bank name alone because one bank can contain several cards and several IBANs.
 
-Raw SMS bodies are processed in memory. WHFIN persists only the resulting transaction and minimal
-diagnostic metadata needed to explain the outcome; it never exports raw messages, OTPs, or parser
-samples in JSON backup.
+Raw SMS bodies are processed in memory. From a diagnostic, the user can view the matching original body:
+WHFIN hashes messages from a narrow time window in Android's SMS provider and displays the match on demand.
+The body is never copied into Room and is explicitly unavailable if Android Messages no longer has it.
+WHFIN persists only the resulting transaction and minimal diagnostic metadata needed to explain the outcome;
+it never exports raw messages, OTPs, or parser samples in JSON backup.
 
 ## Historical scan
 

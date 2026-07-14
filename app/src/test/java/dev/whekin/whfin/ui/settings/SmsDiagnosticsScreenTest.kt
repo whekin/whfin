@@ -5,7 +5,9 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
@@ -42,6 +44,7 @@ class SmsDiagnosticsScreenTest {
                 SmsDiagnosticsScreen(
                     loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData()),
                     scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
                     smsImportEnabled = true,
                     hasReceivePermission = true,
                     hasHistoryPermission = false,
@@ -51,6 +54,8 @@ class SmsDiagnosticsScreenTest {
                     onCancelHistoryImport = {},
                     onResolve = { _, _, _ -> },
                     onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = { _ -> },
+                    onDismissMessage = {},
                 )
             }
         }
@@ -100,9 +105,20 @@ class SmsDiagnosticsScreenTest {
                                     groupName = "Credo",
                                 ),
                             ),
+                            cardFamilies = listOf(
+                                SmsCardFamily(
+                                    primaryAccountId = 11,
+                                    groupName = "Credo",
+                                    iban = null,
+                                    accounts = listOf(
+                                        AccountEntity(11, "Main", AccountType.BANK, 1, "GEL"),
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                     scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
                     smsImportEnabled = true,
                     hasReceivePermission = true,
                     hasHistoryPermission = true,
@@ -114,15 +130,62 @@ class SmsDiagnosticsScreenTest {
                         resolved = Triple(diagnosticId, accountId, cardType)
                     },
                     onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = { _ -> },
+                    onDismissMessage = {},
                 )
             }
         }
 
         val mappingTitle = context.getString(R.string.sms_outcome_mapping)
         compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(mappingTitle))
-        compose.onNodeWithText(mappingTitle).performClick()
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_link_action)).performClick()
         compose.onNodeWithText(context.getString(R.string.sms_link_action)).performClick()
         assertEquals(Triple(7L, 11L, PaymentInstrumentType.PHYSICAL_CARD), resolved)
+    }
+
+    @Test
+    fun diagnostic_exposesOriginalMessageWithoutPersistingItInUiState() {
+        var viewedId: Long? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(
+            id = 9,
+            externalKey = "sms|source",
+            kind = SmsDiagnosticKind.CARD_PAYMENT,
+            outcome = SmsDiagnosticOutcome.IMPORTED,
+            receivedAt = 1_000,
+            amountMinor = 1234,
+            currency = "GEL",
+            cardLast4 = "2533",
+            counterparty = "Example",
+            updatedAt = 1_000,
+        )
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(diagnostics = listOf(diagnostic)),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = { viewedId = it.id },
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        val action = context.getString(R.string.sms_view_message_action)
+        compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasContentDescription(action))
+        compose.onNodeWithContentDescription(action).performClick()
+        assertEquals(9L, viewedId)
     }
 
     @Test
@@ -146,9 +209,20 @@ class SmsDiagnosticsScreenTest {
                                     groupName = "Credo",
                                 ),
                             ),
+                            cardFamilies = listOf(
+                                SmsCardFamily(
+                                    primaryAccountId = 11,
+                                    groupName = "Credo",
+                                    iban = null,
+                                    accounts = listOf(
+                                        AccountEntity(11, "Main", AccountType.BANK, 1, "GEL"),
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                     scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
                     smsImportEnabled = false,
                     hasReceivePermission = true,
                     hasHistoryPermission = true,
@@ -160,6 +234,8 @@ class SmsDiagnosticsScreenTest {
                     onAddCardMapping = { accountId, last4, type ->
                         saved = Triple(accountId, last4, type)
                     },
+                    onViewMessage = { _ -> },
+                    onDismissMessage = {},
                 )
             }
         }

@@ -412,4 +412,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAllocations(item: FeedItem) {
         viewModelScope.launch { db.transactionAllocationDao().deleteForTransaction(item.tx.id) }
     }
+
+    fun updateStatus(item: FeedItem, status: TxStatus) {
+        if (item.tx.status == status) return
+        viewModelScope.launch { db.transactionDao().update(item.tx.copy(status = status)) }
+    }
 }

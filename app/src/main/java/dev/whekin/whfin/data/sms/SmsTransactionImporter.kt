@@ -2,9 +2,7 @@ package dev.whekin.whfin.data.sms
 
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.db.AccountEntity
-import dev.whekin.whfin.data.db.InstrumentAccountLinkEntity
 import dev.whekin.whfin.data.db.MerchantEntity
-import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
@@ -34,16 +32,16 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
 
     suspend fun preview(body: String, receivedAt: Long = System.currentTimeMillis()): SmsImportResult =
         db.withTransaction {
-            evaluate(CredoSmsParser.classify(body), externalKey(body), receivedAt, persist = false)
+            evaluate(CredoSmsParser.classify(body), smsExternalKey(body), receivedAt, persist = false)
         }
 
     suspend fun import(body: String, receivedAt: Long = System.currentTimeMillis()): SmsImportResult = try {
         db.withTransaction {
-            evaluate(CredoSmsParser.classify(body), externalKey(body), receivedAt, persist = true)
+            evaluate(CredoSmsParser.classify(body), smsExternalKey(body), receivedAt, persist = true)
         }
     } catch (error: Exception) {
         if (error is CancellationException) throw error
-        val key = externalKey(body)
+        val key = smsExternalKey(body)
         val classification = CredoSmsParser.classify(body)
         val diagnosticId = runCatching {
             db.withTransaction {
@@ -104,16 +102,8 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }
 
         diagnostic.cardLast4?.let { last4 ->
-            val groupId = account.groupId
-                ?: return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
-            val existing = db.paymentInstrumentDao().byLast4(groupId, last4)
-            val instrumentId = existing?.id ?: db.paymentInstrumentDao().insert(
-                PaymentInstrumentEntity(groupId = groupId, type = cardType, last4 = last4),
-            ).takeIf { it > 0 } ?: db.paymentInstrumentDao().byLast4(groupId, last4)?.id
-            if (instrumentId == null) {
-                return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.STORAGE_ERROR)
-            }
-            db.paymentInstrumentDao().link(InstrumentAccountLinkEntity(instrumentId, account.id))
+            val family = cardFamilyFor(account)
+            db.paymentInstrumentDao().linkForAccounts(family, last4, cardType)
         }
 
         val sms = diagnostic.toParsedSms()
@@ -414,10 +404,12 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         return if (id > 0) db.merchantDao().byKey(key) else db.merchantDao().resolve(key)
     }
 
-    private fun externalKey(body: String): String = "sms|" + MessageDigest.getInstance("SHA-256")
-        .digest(body.trim().toByteArray())
-        .take(12)
-        .joinToString("") { "%02x".format(it) }
+    private suspend fun cardFamilyFor(account: AccountEntity): List<AccountEntity> {
+        val groupId = account.groupId ?: return listOf(account)
+        return db.accountDao().byGroup(groupId).filter { candidate ->
+            if (account.iban != null) candidate.iban == account.iban else candidate.id == account.id
+        }.ifEmpty { listOf(account) }
+    }
 
     private sealed interface AccountResolution {
         data class Found(val account: AccountEntity) : AccountResolution
@@ -427,3 +419,8 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         ) : AccountResolution
     }
 }
+
+internal fun smsExternalKey(body: String): String = "sms|" + MessageDigest.getInstance("SHA-256")
+    .digest(body.trim().toByteArray())
+    .take(12)
+    .joinToString("") { "%02x".format(it) }

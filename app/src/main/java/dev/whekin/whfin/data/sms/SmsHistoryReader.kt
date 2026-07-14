@@ -33,4 +33,26 @@ class SmsHistoryReader(private val resolver: ContentResolver) {
             }
             result
         }
+
+    suspend fun findByExternalKey(externalKey: String, receivedAt: Long): HistoricalSms? =
+        withContext(Dispatchers.IO) {
+            val oneDay = 24 * 60 * 60 * 1_000L
+            resolver.query(
+                Telephony.Sms.Inbox.CONTENT_URI,
+                arrayOf(Telephony.Sms.BODY, Telephony.Sms.DATE),
+                "${Telephony.Sms.DATE} BETWEEN ? AND ?",
+                arrayOf((receivedAt - oneDay).toString(), (receivedAt + oneDay).toString()),
+                "${Telephony.Sms.DATE} DESC",
+            )?.use { cursor ->
+                val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
+                val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                while (cursor.moveToNext()) {
+                    val body = cursor.getString(bodyIndex).orEmpty()
+                    if (smsExternalKey(body) == externalKey) {
+                        return@withContext HistoricalSms(body, cursor.getLong(dateIndex))
+                    }
+                }
+            }
+            null
+        }
 }

@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
@@ -141,6 +142,7 @@ fun FeedScreen(
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
+    var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var expandedTransferDays by remember { mutableStateOf(setOf<LocalDate>()) }
     var expandedExpenseDays by remember { mutableStateOf(setOf<LocalDate>()) }
     var search by remember { mutableStateOf("") }
@@ -355,6 +357,21 @@ fun FeedScreen(
             }} else null,
             onDebt = if (item.tx.amountMinor < 0) {{ details = null; debtFor = item }} else null,
             onClearDebt = if (item.isDebt) {{ viewModel.clearAllocations(item); details = null }} else null,
+            onChangeStatus = {
+                details = null
+                statusFor = item
+            },
+        )
+    }
+
+    statusFor?.let { item ->
+        TransactionStatusSheet(
+            current = item.tx.status,
+            onDismiss = { statusFor = null },
+            onSelect = { status ->
+                viewModel.updateStatus(item, status)
+                statusFor = null
+            },
         )
     }
 
@@ -405,6 +422,7 @@ internal fun TransactionDetailsSheet(
     onEdit: (() -> Unit)?,
     onDebt: (() -> Unit)?,
     onClearDebt: (() -> Unit)?,
+    onChangeStatus: (() -> Unit)? = null,
 ) {
     val tx = item.tx
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
@@ -461,6 +479,12 @@ internal fun TransactionDetailsSheet(
             }
             Text(stringResource(R.string.transaction_actions), style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onChangeStatus != null) DetailAction(
+                icon = Icons.Default.TaskAlt,
+                title = stringResource(R.string.tx_detail_status),
+                value = tx.status.label(),
+                onClick = onChangeStatus,
+            )
             if (!isTransfer && onChangeCategory != null) DetailAction(
                 icon = Icons.Default.Category,
                 title = stringResource(R.string.tx_detail_category),
@@ -489,6 +513,50 @@ internal fun TransactionDetailsSheet(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransactionStatusSheet(
+    current: TxStatus,
+    onDismiss: () -> Unit,
+    onSelect: (TxStatus) -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(stringResource(R.string.transaction_status_title), style = MaterialTheme.typography.headlineSmall)
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                TxStatus.entries.forEachIndexed { index, status ->
+                    WhfinLedgerRow(
+                        title = status.label(),
+                        supportingText = stringResource(status.descriptionResource()),
+                        icon = Icons.Default.TaskAlt,
+                        trailing = if (status == current) {{ Icon(Icons.Default.Check, null) }} else null,
+                        onClick = { onSelect(status) },
+                        divider = index != TxStatus.entries.lastIndex,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TxStatus.label(): String = stringResource(
+    when (this) {
+        TxStatus.PENDING -> R.string.status_pending
+        TxStatus.CONFIRMED -> R.string.status_confirmed
+        TxStatus.MANUAL -> R.string.status_manual
+    },
+)
+
+private fun TxStatus.descriptionResource(): Int = when (this) {
+    TxStatus.PENDING -> R.string.status_pending_description
+    TxStatus.CONFIRMED -> R.string.status_confirmed_description
+    TxStatus.MANUAL -> R.string.status_manual_description
 }
 
 @Composable
