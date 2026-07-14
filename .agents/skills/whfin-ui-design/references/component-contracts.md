@@ -23,6 +23,10 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinStatePane`: loading, empty, error, and unavailable presentation with compact guidance and optional retry/action.
 - `WhfinFilterBar`: horizontally resilient filters and search affordance.
 - `WhfinField`: common field shape/colors/supporting/error behavior while retaining Material text-field semantics.
+- `WhfinCodeDots` + `WhfinNumericKeypad`: secure four-digit entry shared by App Lock and bank OTP.
+  Use circular 68 dp targets, a real Backspace icon, clipped pressed states and keyboard-tap haptics.
+  The feature owns code lifetime and submission policy; OTP must stay in memory, clear when its challenge
+  leaves the screen, and require explicit user submission rather than automatic SMS confirmation.
 - `WhfinFormSheet`: scrollable, IME-safe input sheet with explicit primary/secondary action hierarchy.
 - `WhfinFullScreenForm`: edge-to-edge complex editor with pinned action area and IME-safe content.
 - `WhfinAmount`: tabular money typography and semantic color without embedding formatting policy.

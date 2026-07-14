@@ -126,6 +126,10 @@
   instrumented harness и Compose Preview Screenshot Testing. Детали: `docs/ui-design.md`,
   `docs/testing.md`. Реальный Pixel 9 Pro API 36.1 проверен на light/dark, font scale 1.5,
   открытой цифровой/текстовой IME и системных панелях; batch-импорт приватных Credo XLSX прошёл end-to-end.
+  Credo OTP переведён с системного password-field на общий `:core-ui` code input: четыре точки,
+  собственная цифровая клавиатура с круглыми 68dp keys и haptics, явный Confirm и очистка при Resend.
+  Тот же компонент теперь рендерит App Lock, поэтому геометрия PIN/OTP не расходится; OTP остаётся
+  только в памяти текущей composition и не вызывает системную IME.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

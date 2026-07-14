@@ -1,13 +1,9 @@
 package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,10 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
@@ -37,16 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,6 +42,8 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinCodeDots
+import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.security.AppLockPinStore
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -251,7 +239,6 @@ private fun WhfinPinPad(
     onBiometric: () -> Unit = {},
     applySystemInsets: Boolean = false,
 ) {
-    val haptics = LocalHapticFeedback.current
     Column(
         Modifier
             .fillMaxSize()
@@ -274,23 +261,11 @@ private fun WhfinPinPad(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        WhfinCodeDots(
+            length = AppLockPinStore.PIN_LENGTH,
+            filled = pin.length,
             modifier = Modifier.padding(top = 28.dp),
-        ) {
-            repeat(AppLockPinStore.PIN_LENGTH) { index ->
-                Surface(
-                    modifier = Modifier.size(14.dp),
-                    shape = CircleShape,
-                    color = if (index < pin.length) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    border = if (index < pin.length) null else BorderStroke(
-                        1.5.dp,
-                        MaterialTheme.colorScheme.outline,
-                    ),
-                    content = {},
-                )
-            }
-        }
+        )
         Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) {
             if (error != null) Text(
                 error,
@@ -299,65 +274,14 @@ private fun WhfinPinPad(
                 textAlign = TextAlign.Center,
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("123", "456", "789").forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    row.forEach { digit ->
-                        PinKey(digit.toString()) {
-                            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                            onDigit(digit)
-                        }
-                    }
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (showBiometric) IconKey(
-                    icon = Icons.Default.Fingerprint,
-                    description = stringResource(R.string.app_lock_use_biometrics),
-                    onClick = onBiometric,
-                ) else Spacer(Modifier.size(68.dp))
-                PinKey("0") {
-                    haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                    onDigit('0')
-                }
-                IconKey(
-                    icon = Icons.AutoMirrored.Filled.Backspace,
-                    description = stringResource(R.string.app_lock_delete_digit),
-                    onClick = onBackspace,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PinKey(label: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.size(68.dp).clip(CircleShape).clickable(onClick = onClick),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun IconKey(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(68.dp).semantics { contentDescription = description },
-        shape = CircleShape,
-        color = Color.Transparent,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        WhfinNumericKeypad(
+            deleteContentDescription = stringResource(R.string.app_lock_delete_digit),
+            onDigit = onDigit,
+            onBackspace = onBackspace,
+            leadingIcon = Icons.Default.Fingerprint.takeIf { showBiometric },
+            leadingContentDescription = stringResource(R.string.app_lock_use_biometrics).takeIf { showBiometric },
+            onLeadingAction = onBiometric.takeIf { showBiometric },
+        )
     }
 }
 

@@ -102,6 +102,8 @@
     <string name="credo_sync_otp_body">Введите 4-значный код от Credo. WHFIN никогда не сохраняет этот код.</string>
     <string name="credo_sync_otp_body_with_phone">Введите 4-значный код, отправленный на %1$s. WHFIN никогда не сохраняет этот код.</string>
     <string name="credo_sync_otp">Код подтверждения</string>
+    <string name="credo_sync_otp_progress">Введено цифр кода: %1$d из %2$d</string>
+    <string name="credo_sync_delete_digit">Удалить цифру кода</string>
     <string name="credo_sync_confirm">Подтвердить</string>
     <string name="credo_sync_confirming">Подтверждаем…</string>
     <string name="credo_sync_resend_otp">Отправить новый код</string>

@@ -99,6 +99,8 @@
     <string name="credo_sync_otp_body">Enter the 4-digit code sent by Credo. WHFIN never stores this code.</string>
     <string name="credo_sync_otp_body_with_phone">Enter the 4-digit code sent to %1$s. WHFIN never stores this code.</string>
     <string name="credo_sync_otp">Confirmation code</string>
+    <string name="credo_sync_otp_progress">%1$d of %2$d code digits entered</string>
+    <string name="credo_sync_delete_digit">Delete code digit</string>
     <string name="credo_sync_confirm">Confirm</string>
     <string name="credo_sync_confirming">Confirming…</string>
     <string name="credo_sync_resend_otp">Send a new code</string>

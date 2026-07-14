@@ -102,6 +102,8 @@ full explanatory copy remains available by scrolling and all actions retain 48 d
 
 The shell transition regression was checked on the Pixel AVD by repeatedly opening Settings, returning to Feed, entering Bank statements, and returning through both app and Android Back. Settings stayed a single coherent top-bar/body surface in dark mode at font scale 1.0 and light mode at 1.5. The nested Statistics → filtered transactions transition was also exercised at font scale 1.5; Back kept the underlying Statistics composition alive and restored the same chart position instead of jumping to the top.
 
+Secure four-digit entry uses one WHFIN code component in `:core-ui`: four quiet dots above a 3×4 numeric keypad with circular 68 dp targets, clipped pressed states, keyboard-tap haptics and a real Backspace icon. App Lock may place biometrics in the empty lower-left slot; Credo OTP keeps it empty, requires explicit Confirm, clears on Resend or when the challenge leaves the screen, and never opens the system IME.
+
 The widget appearance contract was rendered on a wiped Pixel 9 Pro API 36.1 AVD. All four picker previews inflated in light mode, the 3-cell runtime widget followed the blue wallpaper palette, switched immediately to the WHFIN light palette from Settings, returned to System colors, and then adopted the system dark palette without losing contrast. The settings row and update path were also covered by Robolectric preferences/Compose tests.
 
 ## App Lock

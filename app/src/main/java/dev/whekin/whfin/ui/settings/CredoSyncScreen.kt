@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -47,6 +46,8 @@ import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinSwitch
+import dev.whekin.whfin.core.ui.WhfinCodeDots
+import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -85,7 +86,7 @@ fun CredoSyncScreen(
 ) {
     var username by rememberSaveable { mutableStateOf(state.savedUsername.orEmpty()) }
     var credential by rememberSaveable { mutableStateOf("") }
-    var otp by rememberSaveable { mutableStateOf("") }
+    var otp by remember { mutableStateOf("") }
     var rememberPassword by rememberSaveable { mutableStateOf(appLockHasPin) }
 
     LaunchedEffect(state.savedUsername) {
@@ -93,6 +94,9 @@ fun CredoSyncScreen(
     }
     LaunchedEffect(appLockHasPin) {
         if (!appLockHasPin) rememberPassword = false
+    }
+    LaunchedEffect(state.stage) {
+        if (state.stage != CredoSyncStage.AwaitingOtp) otp = ""
     }
 
     Column(
@@ -156,7 +160,10 @@ fun CredoSyncScreen(
                 otp = otp,
                 onOtpChange = { value -> otp = value.filter(Char::isDigit).take(4) },
                 onSubmit = { onSubmitOtp(otp) },
-                onResend = onResendOtp,
+                onResend = {
+                    otp = ""
+                    onResendOtp()
+                },
                 loading = state.isBusy,
             )
 
@@ -256,14 +263,23 @@ private fun OtpContent(
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    WhfinField(
-        value = otp,
-        onValueChange = onOtpChange,
-        label = stringResource(R.string.credo_sync_otp),
-        modifier = Modifier.fillMaxWidth(),
-        keyboardType = KeyboardType.NumberPassword,
-        visualTransformation = PasswordVisualTransformation(),
-    )
+    Column(
+        Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        WhfinCodeDots(
+            length = 4,
+            filled = otp.length,
+            contentDescription = stringResource(R.string.credo_sync_otp_progress, otp.length, 4),
+        )
+        WhfinNumericKeypad(
+            deleteContentDescription = stringResource(R.string.credo_sync_delete_digit),
+            onDigit = { digit -> if (otp.length < 4) onOtpChange(otp + digit) },
+            onBackspace = { if (otp.isNotEmpty()) onOtpChange(otp.dropLast(1)) },
+            enabled = !loading,
+        )
+    }
     WhfinButton(
         label = stringResource(if (loading) R.string.credo_sync_confirming else R.string.credo_sync_confirm),
         onClick = onSubmit,

@@ -6,7 +6,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 
@@ -67,5 +71,44 @@ private fun MonthlyChartScreenshotContent() {
             modifier = Modifier.padding(20.dp),
             onBarClick = {},
         )
+    }
+}
+
+@PreviewTest
+@Preview(name = "code_input_light", widthDp = 400, heightDp = 520)
+@Composable
+fun codeInputLightScreenshot() {
+    WhfinTheme(darkTheme = false) { CodeInputScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "code_input_dark", widthDp = 400, heightDp = 520, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun codeInputDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { CodeInputScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "code_input_font_150", widthDp = 400, heightDp = 620, fontScale = 1.5f)
+@Composable
+fun codeInputLargeFontScreenshot() {
+    WhfinTheme(darkTheme = false) { CodeInputScreenshotContent() }
+}
+
+@Composable
+private fun CodeInputScreenshotContent() {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            WhfinCodeDots(length = 4, filled = 2)
+            WhfinNumericKeypad(
+                deleteContentDescription = "Delete digit",
+                onDigit = {},
+                onBackspace = {},
+            )
+        }
     }
 }
