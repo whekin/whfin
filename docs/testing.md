@@ -87,6 +87,10 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   run. The Settings route, idle/working/success states and restore confirmation passed host Compose tests.
   A real SAF export produced a readable version-1 JSON file with 25 emulator records; the screen and
   system picker were rendered in dark 1.0 and light 1.5 with legible edge-to-edge system bars.
+- SAF statement picker regression: the app pins `androidx.fragment:fragment` 1.8.9 because Biometric
+  1.1.0 otherwise resolves Fragment 1.2.5, whose `FragmentActivity` rejects modern Activity Result request
+  codes above 16 bits. On disposable Pixel API 36.1, Upload statement opened DocumentsUI and returned to
+  the statements screen without an `AndroidRuntime` fatal exception.
 - App Lock: host tests cover timeout/session behavior, first-code setup, matching confirmation, keypad
   callbacks and biometric preference persistence. Two Android Keystore tests passed through an explicit
   `emulator-5554` instrumented run: correct/incorrect verification and five-attempt/30-second lockout.

@@ -192,6 +192,8 @@
   явный allowlist всех 18 Room-таблиц, deterministic export, полная замена только после подтверждения,
   строгая проверка format/database versions, malformed input и foreign keys. Raw SMS, OTP, secrets,
   разрешения и банковские токены не экспортируются; обычный JSON явно помечен как незашифрованный.
+  Все SAF-пикеры закрепляют совместимую `androidx.fragment:fragment` 1.8.9: это устраняет падение
+  `FragmentActivity` на request code Activity Result API, подтверждено на disposable Pixel.
   Полный порядок и критерии:
   `docs/roadmap.md`
 - [x] App Lock: собственный 4-значный код WHFIN с точками и цифровой клавиатурой, optional strong
