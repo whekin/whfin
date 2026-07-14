@@ -1,10 +1,13 @@
 package dev.whekin.whfin.ui.accounts
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.whekin.whfin.data.db.*
@@ -35,6 +39,7 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.ui.components.FormSheet
+import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
 fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
@@ -138,16 +143,65 @@ fun DebtLedgerDialog(
             save(NewDebt(personId, personName.takeIf { personId == null }, direction, minor!!, currency, accountId, LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()))
         },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row { FilterChip(direction == DebtDirection.THEY_OWE_ME, { direction = DebtDirection.THEY_OWE_ME }, { Text(stringResource(R.string.debt_they_owe)) }); Spacer(Modifier.width(8.dp)); FilterChip(direction == DebtDirection.I_OWE_THEM, { direction = DebtDirection.I_OWE_THEM }, { Text(stringResource(R.string.debt_i_owe)) }) }
-            if (people.isNotEmpty()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { people.take(3).forEach { p -> FilterChip(personId == p.id, { personId = p.id; personName = "" }, { Text(p.name) }) } }
-            OutlinedTextField(personName, { personName = it; if (it.isNotBlank()) personId = null }, label = { Text(stringResource(R.string.debt_new_person)) }, singleLine = true)
-            OutlinedTextField(amount, { amount = it }, label = { Text(stringResource(R.string.tx_amount)) }, suffix = { Text(currency) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("GEL", "USD", "EUR").forEach { c -> FilterChip(currency == c, { currency = c; accountId = null }, { Text(c) }) } }
-            WhfinSectionLabel(stringResource(R.string.debt_money_movement))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(accountId == null, { accountId = null }, { Text(stringResource(R.string.debt_no_movement)) })
-                accounts.filter { it.currency == currency }.take(2).forEach { a -> FilterChip(accountId == a.id, { accountId = a.id }, { Text(a.name) }) }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(direction == DebtDirection.THEY_OWE_ME, { direction = DebtDirection.THEY_OWE_ME }, { Text(stringResource(R.string.debt_they_owe)) })
+            FilterChip(direction == DebtDirection.I_OWE_THEM, { direction = DebtDirection.I_OWE_THEM }, { Text(stringResource(R.string.debt_i_owe)) })
+        }
+        if (people.isNotEmpty()) Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            people.forEach { person ->
+                FilterChip(personId == person.id, { personId = person.id; personName = "" }, { Text(person.name) })
+            }
+        }
+        OutlinedTextField(
+            personName,
+            { personName = it; if (it.isNotBlank()) personId = null },
+            label = { Text(stringResource(R.string.debt_new_person)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            amount,
+            { amount = it },
+            label = { Text(stringResource(R.string.tx_amount)) },
+            suffix = { Text(currency) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf("GEL", "USD", "EUR").forEach { code ->
+                FilterChip(currency == code, { currency = code; accountId = null }, { Text(code) })
+            }
+        }
+        WhfinSectionLabel(stringResource(R.string.debt_money_movement))
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.debt_no_movement),
+                supportingText = stringResource(R.string.debt_no_movement_hint),
+                icon = Icons.Default.Block,
+                trailing = if (accountId == null) {{ Icon(Icons.Default.Check, null) }} else null,
+                onClick = { accountId = null },
+                divider = accounts.any { it.currency == currency },
+            )
+            accounts.filter { it.currency == currency }.forEachIndexed { index, account ->
+                val matching = accounts.filter { it.currency == currency }
+                WhfinLedgerRow(
+                    title = account.name,
+                    supportingText = stringResource(R.string.debt_account_movement_hint, currency),
+                    icon = accountTypeIcon(account.type),
+                    trailing = if (accountId == account.id) {{ Icon(Icons.Default.Check, null) }} else null,
+                    onClick = { accountId = account.id },
+                    divider = index != matching.lastIndex,
+                )
             }
         }
     }
@@ -183,5 +237,24 @@ fun DebtLedgerDialog(
             if (!close) OutlinedTextField(debtCredit, { debtCredit = it }, label = { Text(stringResource(R.string.debt_credit_toward, item.debt.currency)) })
             Text(stringResource(R.string.debt_close_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Preview(name = "New debt light", widthDp = 400, heightDp = 800, showBackground = true)
+@Preview(name = "New debt dark", widthDp = 400, heightDp = 800, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "New debt font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f, showBackground = true)
+@Preview(name = "New debt compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Composable
+private fun NewDebtDialogPreview() {
+    WhfinTheme {
+        NewDebtDialog(
+            people = emptyList(),
+            accounts = listOf(
+                AccountEntity(id = 1, name = "Pocket money", type = AccountType.CASH, currency = "GEL"),
+                AccountEntity(id = 2, name = "Hot deposit", type = AccountType.SAVINGS, currency = "GEL"),
+            ),
+            dismiss = {},
+            save = {},
+        )
     }
 }

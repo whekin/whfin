@@ -28,7 +28,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -127,6 +132,8 @@ fun PrivacyScreen(onOpenSystemSettings: () -> Unit) {
 
 @Composable
 fun AboutScreen(appVersion: String) {
+    val uriHandler = LocalUriHandler.current
+    var versionTaps by rememberSaveable { mutableIntStateOf(0) }
     Column(
         Modifier
             .fillMaxSize()
@@ -150,11 +157,14 @@ fun AboutScreen(appVersion: String) {
                 supportingText = appVersion,
                 icon = Icons.Default.Info,
                 divider = true,
+                onClick = { versionTaps = (versionTaps + 1).coerceAtMost(5) },
             )
             WhfinLedgerRow(
                 title = stringResource(R.string.about_author_title),
                 supportingText = stringResource(R.string.about_author_value),
                 icon = Icons.Default.Person,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = { uriHandler.openUri("https://github.com/whekin") },
                 divider = true,
             )
             WhfinLedgerRow(
@@ -163,6 +173,14 @@ fun AboutScreen(appVersion: String) {
                 icon = Icons.Default.Favorite,
             )
         }
+
+        if (versionTaps >= 5) WhfinNotice(
+            title = stringResource(R.string.about_easter_egg_title),
+            body = stringResource(R.string.about_easter_egg_body),
+            icon = Icons.Default.Code,
+            kind = WhfinNoticeKind.Info,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         WhfinSectionLabel(stringResource(R.string.about_open_source_section))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {

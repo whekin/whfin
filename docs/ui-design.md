@@ -61,6 +61,13 @@ and destructive removal live behind the account header settings action. The sour
 overview: bank/Cash details, account aliases, IBAN/card metadata, currencies, and statement coverage. Currency
 codes are not repeated in the account header because the ledger rows immediately below already own them.
 
+Debt creation remains a scrollable WHFIN form. Direction and currency choices may scroll horizontally, but
+Money movement is a vertical ledger choice (`No movement` plus every matching account), so long aliases and
+font scale never wrap inside tiny chips or hide sources off-screen.
+
+About keeps authorship actionable: the `whekin` row opens the public GitHub profile. Five taps on Version
+reveal a harmless in-memory Quiet Ledger note; this never exposes debug controls or private data.
+
 Feed selection starts with a long press and keeps the ledger spatially stable: summary/search controls give
 way to a compact selected-count header, selected rows receive one continuous tonal surface and a check icon,
 and subsequent taps toggle rows. Batch status is quiet; batch delete uses the destructive semantic color and

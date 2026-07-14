@@ -301,6 +301,8 @@
     <string name="about_version_value">Version %1$s (%2$d)</string>
     <string name="about_author_title">Author</string>
     <string name="about_author_value">whekin</string>
+    <string name="about_easter_egg_title">Quiet Ledger unlocked</string>
+    <string name="about_easter_egg_body">Five taps, perfectly reconciled. Thanks for looking under the cover.</string>
     <string name="about_love_title">Made with love</string>
     <string name="about_love_body">An independent personal project from Tbilisi.</string>
     <string name="about_open_source_section">OPEN SOURCE</string>
@@ -487,6 +489,8 @@
     <string name="debt_i_owe">I owe</string>
     <string name="debt_person">Person</string>
     <string name="debt_money_movement">Money movement</string>
+    <string name="debt_no_movement_hint">Track the obligation without changing a balance</string>
+    <string name="debt_account_movement_hint">Record the movement in %1$s</string>
     <string name="debt_through_account">Through account</string>
     <string name="debt_no_movement">No movement</string>
     <string name="debts_title">Debts</string>

@@ -304,6 +304,8 @@
     <string name="about_version_value">Версия %1$s (%2$d)</string>
     <string name="about_author_title">Автор</string>
     <string name="about_author_value">whekin</string>
+    <string name="about_easter_egg_title">Тихая книга открыта</string>
+    <string name="about_easter_egg_body">Пять касаний — всё сошлось. Спасибо, что заглянул под обложку.</string>
     <string name="about_love_title">Сделано с любовью</string>
     <string name="about_love_body">Независимый личный проект из Тбилиси.</string>
     <string name="about_open_source_section">ОТКРЫТЫЙ КОД</string>
@@ -490,6 +492,8 @@
     <string name="debt_i_owe">Я должен</string>
     <string name="debt_person">Человек</string>
     <string name="debt_money_movement">Движение денег</string>
+    <string name="debt_no_movement_hint">Учесть обязательство без изменения баланса</string>
+    <string name="debt_account_movement_hint">Записать движение в %1$s</string>
     <string name="debt_through_account">Через счёт</string>
     <string name="debt_no_movement">Без движения</string>
     <string name="debts_title">Долги</string>

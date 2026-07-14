@@ -109,6 +109,8 @@
   может иметь другую фактическую сумму/валюту/счёт или вообще не иметь движения; полное закрытие
   не требует равенства фактического возврата остатку долга. Room DB v2 намеренно использует
   destructive reset на этапе разработки.
+  New Debt использует вертикальный список Money movement вместо непредсказуемой строки чипов: длинные
+  имена счетов не переносятся внутри кнопки, все источники доступны, а общий FormSheet остаётся scrollable.
   Статистика исключает системный Unaccounted из income/expenses, долей категорий и трендов, но показывает
   корректировки отдельной строкой; долги и свои переводы также не искажают результат.
   UI-refactor v3: создан отдельный `:core-ui` модуль и локальный skill
@@ -251,6 +253,8 @@
   backup allowlist (Room + non-secret UI/widget DataStore), исходник privacy policy и release checklist.
   Minified `:app:assembleRelease` проходит с R8/lintVital; packaged manifest проверен на version metadata
   и обе backup rules.
+  Author `whekin` открывает `github.com/whekin`; пять нажатий на Version раскрывают локальную пасхалку
+  без debug-настроек и изменения состояния приложения.
   До публичного релиза остаются public policy URL/contact, полные third-party notices,
   encrypted backup option, signing, Play Data safety + SMS declaration и release QA. Детали:
   `docs/privacy-policy.md`, `docs/production-readiness.md`
