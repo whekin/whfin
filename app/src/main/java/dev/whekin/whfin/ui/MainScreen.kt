@@ -471,17 +471,19 @@ private fun SecondaryPage(
         shape = MaterialTheme.shapes.medium,
         color = containerColor,
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Icon(icon, null, modifier = Modifier.size(20.dp), tint = contentColor)
             Text(
                 label,
-                modifier = Modifier.padding(start = 9.dp),
+                modifier = Modifier.padding(top = 3.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = contentColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
         }
     }
