@@ -106,7 +106,8 @@ class WhfinBackupInstrumentedTest {
                 "VALUES ('sms|local', 'UNRECOGNIZED', 'UNRECOGNIZED', 1, 1)",
         )
         val version2 = export(source).toString(Charsets.UTF_8)
-            .replace("\"databaseVersion\": 3", "\"databaseVersion\": 2")
+            .replace("\"databaseVersion\": 4", "\"databaseVersion\": 2")
+            .replace("        \"origin\": \"FILE\",\n", "")
 
         WhfinBackupManager(target).restore(ByteArrayInputStream(version2.toByteArray()))
 
@@ -114,6 +115,20 @@ class WhfinBackupInstrumentedTest {
             check(cursor.moveToFirst())
             assertEquals(0, cursor.getInt(0))
         }
+    }
+
+    @Test
+    fun restore_rejectsCurrentBackupMissingStatementOrigin() = runBlocking {
+        seedEveryTable(source)
+        val missingOrigin = export(source).toString(Charsets.UTF_8)
+            .replace("        \"origin\": \"FILE\",\n", "")
+
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking {
+                WhfinBackupManager(target).restore(ByteArrayInputStream(missingOrigin.toByteArray()))
+            }
+        }
+        Unit
     }
 
     private suspend fun export(db: WhfinDatabase): ByteArray {
@@ -148,7 +163,7 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO transaction_allocations VALUES (1, 1, -1250, 1, 1, 'SHARED', 'Half')")
             sqlite.execSQL("INSERT INTO debt_cases VALUES (1, 1, 'THEY_OWE_ME', 1250, 'GEL', 2000, 'OPEN', NULL, 'Lunch')")
             sqlite.execSQL("INSERT INTO debt_events VALUES (1, 1, 'OPENED', NULL, NULL, NULL, NULL, 0, 0, 2000, NULL)")
-            sqlite.execSQL("INSERT INTO statement_imports VALUES (1, 1, 1, 'statement.xlsx', 1, 31, 0, 10000, 1, 1, 0, 0, 0, 4000)")
+            sqlite.execSQL("INSERT INTO statement_imports VALUES (1, 1, 1, 'statement.xlsx', 'FILE', 1, 31, 0, 10000, 1, 1, 0, 0, 0, 4000)")
             sqlite.execSQL("INSERT INTO reconciliation_issues VALUES (1, 1, 1, 1, 'OPEN', 5000)")
             sqlite.setTransactionSuccessful()
         } finally {

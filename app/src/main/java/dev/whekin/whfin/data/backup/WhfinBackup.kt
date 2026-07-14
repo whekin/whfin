@@ -57,6 +57,12 @@ internal data class BackupTable(
     val name: String,
     val columns: List<String>,
     val orderBy: List<String> = listOf("id"),
+    val legacyColumns: Map<String, BackupLegacyColumn> = emptyMap(),
+)
+
+internal data class BackupLegacyColumn(
+    val introducedInDatabaseVersion: Int,
+    val defaultValue: BackupValue?,
 )
 
 internal object WhfinBackupSchema {
@@ -114,9 +120,15 @@ internal object WhfinBackupSchema {
         BackupTable(
             "statement_imports",
             listOf(
-                "id", "accountId", "sourceId", "fileName", "periodFrom", "periodTo",
+                "id", "accountId", "sourceId", "fileName", "origin", "periodFrom", "periodTo",
                 "openingBalanceMinor", "closingBalanceMinor", "totalRows", "inserted", "duplicates",
                 "reconciled", "reviewCount", "importedAt",
+            ),
+            legacyColumns = mapOf(
+                "origin" to BackupLegacyColumn(
+                    introducedInDatabaseVersion = 4,
+                    defaultValue = BackupValue.Text("FILE"),
+                ),
             ),
         ),
         BackupTable(
@@ -278,15 +290,30 @@ internal object WhfinBackupCodec {
             ?: throw WhfinBackupException("Missing application version.")
         val exported = exportedAt ?: throw WhfinBackupException("Missing backup export time.")
         val tables = rowsByTable ?: throw WhfinBackupException("Backup data is missing.")
+        val normalizedTables = tables.mapValues { (tableName, rows) ->
+            val table = WhfinBackupSchema.byName.getValue(tableName)
+            rows.map { row ->
+                val normalized = LinkedHashMap(row)
+                table.legacyColumns.forEach { (column, legacy) ->
+                    if (column !in normalized) {
+                        if (dbVersion >= legacy.introducedInDatabaseVersion) {
+                            throw WhfinBackupException("Missing columns in ${table.name}: $column.")
+                        }
+                        normalized[column] = legacy.defaultValue
+                    }
+                }
+                normalized
+            }
+        }
         return BackupSnapshot(
             summary = WhfinBackupSummary(
                 exportedAt = exported,
                 appVersion = version,
                 databaseVersion = dbVersion,
                 primaryCurrency = currency,
-                rowCount = tables.values.sumOf(List<*>::size),
+                rowCount = normalizedTables.values.sumOf(List<*>::size),
             ),
-            rowsByTable = tables,
+            rowsByTable = normalizedTables,
         )
     }
 
@@ -327,7 +354,7 @@ internal object WhfinBackupCodec {
             row[column] = readBackupValue()
         }
         endObject()
-        val missing = table.columns - row.keys
+        val missing = table.columns - row.keys - table.legacyColumns.keys
         if (missing.isNotEmpty()) {
             throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
         }

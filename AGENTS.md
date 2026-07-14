@@ -208,6 +208,9 @@
   `FragmentActivity` на request code Activity Result API, подтверждено на disposable Pixel.
   Полный порядок и критерии:
   `docs/roadmap.md`
+  DB/backup v4 включает provenance выписки (`origin`); restore legacy backup v2–v3 добавляет только
+  отсутствующий `origin=FILE`, а backup v4 без этого поля считается повреждённым. Полный emulator-only
+  instrumentation прогон: 23 теста, включая 6 backup и 4 migration, проходит
 - [x] App Lock: собственный 4-значный код WHFIN с точками и цифровой клавиатурой, optional strong
   biometric через системный `BiometricPrompt`, timeout выключено/сразу/30 сек/1 мин/5 мин и защищённый
   recent-apps snapshot. Код не хранится: проверяется HMAC-ключом Android Keystore; после пяти ошибок
