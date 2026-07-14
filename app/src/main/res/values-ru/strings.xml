@@ -374,6 +374,7 @@
     <string name="transactions_selected">Выбрано операций</string>
     <string name="transactions_select_action">Выбрать операцию</string>
     <string name="transactions_change_status">Изменить статус выбранных</string>
+    <string name="transactions_confirm_selected">Подтвердить выбранные операции</string>
     <string name="transactions_delete_selected">Удалить выбранные</string>
     <string name="transactions_delete_selected_body">Удалить выбранные операции (%1$d) без возможности восстановления? Для перевода удалятся обе стороны, а удаление импортированных операций изменит балансы счетов.</string>
     <string name="transactions_selection_close">Закрыть выбор</string>

@@ -8,8 +8,8 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 
 - `WhfinAppShell`: edge-to-edge top region, content host, dock, and optional floating action.
 - `WhfinTopBar`: large/compact title modes and accessible navigation/action slots.
-- `WhfinContextHeader`: compact primary-screen opening row that pairs one current metric with up to three screen-specific actions. It is the first scroll item, owns the initial status-bar inset, and scrolls away with content; do not make it sticky.
-- `WhfinStatusBarProtection`: an opaque background mask exactly as tall as the status-bar inset. Overlay it on scrolling primary screens so ledger content cannot reduce system-icon contrast; never extend it into a fixed app toolbar.
+- `WhfinContextHeader`: compact primary-screen top app bar that pairs one current metric with up to three screen-specific actions. Feed and Accounts use Material `enterAlways` behavior: the bar leaves on downward scrolling and returns as soon as the user scrolls upward. Contextual selection replaces it with a pinned bar so batch actions and the current selection count remain available. It owns the status-bar inset and must be passed through the destination's single `Scaffold` owner.
+- `WhfinStatusBarProtection`: an opaque background mask exactly as tall as the status-bar inset. Use it only on long reading surfaces whose heading intentionally remains a list item; primary Feed and Accounts use `WhfinContextHeader` as their system-inset owner instead.
 - `WhfinDock`: primary destinations with clear selected state and 48 dp targets.
 - `WhfinButton`: primary, secondary, quiet, and destructive variants with consistent enabled/loading behavior.
 - `WhfinIconButton`: standard and quiet variants; never smaller than the minimum target.

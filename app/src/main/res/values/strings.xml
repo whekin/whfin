@@ -375,6 +375,7 @@
     <string name="transactions_selected">Selected transactions</string>
     <string name="transactions_select_action">Select transaction</string>
     <string name="transactions_change_status">Change selected status</string>
+    <string name="transactions_confirm_selected">Confirm selected transactions</string>
     <string name="transactions_delete_selected">Delete selected</string>
     <string name="transactions_delete_selected_body">Delete %1$d selected transactions permanently? A selected transfer includes both sides, and deleting imported transactions changes account balances.</string>
     <string name="transactions_selection_close">Close selection</string>

@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.feed
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -76,6 +78,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
@@ -113,7 +116,6 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinPrimaryIconAction
 import dev.whekin.whfin.core.ui.WhfinStatePane
-import dev.whekin.whfin.core.ui.WhfinStatusBarProtection
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
@@ -195,6 +197,8 @@ fun FeedScreen(
     val grouped = sortedItems.groupBy { it.day }
     val selectedItems = items.filter { it.tx.id in selectedIds }
     val selectionMode = selectedIds.isNotEmpty()
+    val allSelectedPending = selectedItems.isNotEmpty() && selectedItems.all { it.tx.status == TxStatus.PENDING }
+    val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(items) {
         val availableIds = items.mapTo(mutableSetOf()) { it.tx.id }
@@ -205,35 +209,36 @@ fun FeedScreen(
         selectedIds = if (item.tx.id in selectedIds) selectedIds - item.tx.id else selectedIds + item.tx.id
     }
 
+    BackHandler(enabled = selectionMode) {
+        selectedIds = emptySet()
+    }
+
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .then(if (selectionMode) Modifier else Modifier.nestedScroll(headerScrollBehavior.nestedScrollConnection)),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
-        floatingActionButton = {
-            if (!selectionMode) {
-                WhfinPrimaryIconAction(
-                    icon = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.add_transaction),
-                    onClick = { showAdd = true },
-                )
-            }
-        },
-    ) { contentPadding ->
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize().consumeWindowInsets(contentPadding),
-            contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 96.dp),
-        ) {
-        item(key = "context-header") {
+        topBar = {
             if (selectionMode) {
                 WhfinContextHeader(
                     label = stringResource(R.string.transactions_selected),
                     value = selectedIds.size.toString(),
                 ) {
                     WhfinIconButton(
-                        icon = Icons.Default.TaskAlt,
-                        contentDescription = stringResource(R.string.transactions_change_status),
-                        onClick = { showBatchStatus = true },
+                        icon = if (allSelectedPending) Icons.Default.CheckCircle else Icons.Default.TaskAlt,
+                        contentDescription = stringResource(
+                            if (allSelectedPending) R.string.transactions_confirm_selected
+                            else R.string.transactions_change_status,
+                        ),
+                        onClick = {
+                            if (allSelectedPending) {
+                                viewModel.updateStatuses(selectedItems, TxStatus.CONFIRMED)
+                                selectedIds = emptySet()
+                            } else {
+                                showBatchStatus = true
+                            }
+                        },
                         outlined = false,
                     )
                     WhfinIconButton(
@@ -250,35 +255,52 @@ fun FeedScreen(
                         outlined = false,
                     )
                 }
-            } else WhfinContextHeader(
-                label = stringResource(R.string.balance_total),
-                value = formatMinor(balance, "GEL"),
-            ) {
-                WhfinIconButton(
-                    icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,
-                    contentDescription = stringResource(if (showSearch) R.string.feed_search_close else R.string.feed_search_open),
-                    onClick = {
-                        showSearch = !showSearch
-                        if (!showSearch) search = ""
-                    },
-                    outlined = false,
-                    selected = showSearch,
-                )
-                WhfinIconButton(
-                    icon = Icons.Default.FilterAlt,
-                    contentDescription = stringResource(R.string.feed_filter_sort),
-                    onClick = { showFilterSheet = true },
-                    outlined = false,
-                    selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST,
-                )
-                WhfinIconButton(
-                    icon = Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.settings_title),
-                    onClick = onOpenSettings,
-                    outlined = false,
+            } else {
+                WhfinContextHeader(
+                    label = stringResource(R.string.balance_total),
+                    value = formatMinor(balance, "GEL"),
+                    scrollBehavior = headerScrollBehavior,
+                ) {
+                    WhfinIconButton(
+                        icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = stringResource(if (showSearch) R.string.feed_search_close else R.string.feed_search_open),
+                        onClick = {
+                            showSearch = !showSearch
+                            if (!showSearch) search = ""
+                        },
+                        outlined = false,
+                        selected = showSearch,
+                    )
+                    WhfinIconButton(
+                        icon = Icons.Default.FilterAlt,
+                        contentDescription = stringResource(R.string.feed_filter_sort),
+                        onClick = { showFilterSheet = true },
+                        outlined = false,
+                        selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST,
+                    )
+                    WhfinIconButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.settings_title),
+                        onClick = onOpenSettings,
+                        outlined = false,
+                    )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (!selectionMode) {
+                WhfinPrimaryIconAction(
+                    icon = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.add_transaction),
+                    onClick = { showAdd = true },
                 )
             }
-        }
+        },
+    ) { contentPadding ->
+        LazyColumn(
+            Modifier.fillMaxSize().consumeWindowInsets(contentPadding),
+            contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 96.dp),
+        ) {
         if (!selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
             item(key = "feed-tools") {
@@ -356,8 +378,6 @@ fun FeedScreen(
             }
         }
         }
-        WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
-    }
     }
 
     if (showFilterSheet) FeedFilterSheet(
@@ -1160,6 +1180,7 @@ internal fun FeedRow(
 @Preview(name = "Feed populated", widthDp = 400, heightDp = 900, showBackground = true)
 @Preview(name = "Feed dark", widthDp = 400, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Feed font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f, showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedContentPreview() {
     val account = AccountEntity(1, "Credo GEL •0001", AccountType.BANK, currency = "GEL", iban = "GE00CD0000000000000001")

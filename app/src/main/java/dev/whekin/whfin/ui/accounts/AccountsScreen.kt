@@ -31,6 +31,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.AlertDialog
@@ -47,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -67,7 +70,6 @@ import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinStatePane
-import dev.whekin.whfin.core.ui.WhfinStatusBarProtection
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
@@ -75,6 +77,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
     onOpenStatements: () -> Unit = {},
@@ -99,6 +102,7 @@ fun AccountsScreen(
     var deleteFor by remember { mutableStateOf<AccountWithBalance?>(null) }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
+    val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val statementPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             showImportStatus = true
@@ -109,14 +113,15 @@ fun AccountsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize().nestedScroll(headerScrollBehavior.nestedScrollConnection),
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        val header: @Composable () -> Unit = {
+        topBar = {
             WhfinContextHeader(
                 label = stringResource(R.string.accounts_net_worth),
                 value = formatMinor(gelBalance, "GEL"),
+                scrollBehavior = headerScrollBehavior,
             ) {
                 WhfinIconButton(
                     Icons.Default.Add,
@@ -137,11 +142,11 @@ fun AccountsScreen(
                     outlined = false,
                 )
             }
-        }
+        },
+    ) { padding ->
         Box(Modifier.fillMaxSize()) {
             if (accounts.isEmpty() && debts.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(padding)) {
-                    header()
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,
                         title = stringResource(R.string.tab_accounts),
@@ -159,7 +164,6 @@ fun AccountsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp),
                 ) {
-                    item(key = "context-header") { header() }
                     item(key = "accounts-summary") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { AccountsSummary(accounts) }
                     }
@@ -186,7 +190,6 @@ fun AccountsScreen(
                     }
                 }
             }
-            WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
         }
     }
 
@@ -520,6 +523,7 @@ private fun AccountCard(item: AccountWithBalance, title: String = item.account.n
 @Preview(name = "Accounts populated", widthDp = 400, heightDp = 900, showBackground = true)
 @Preview(name = "Accounts dark", widthDp = 400, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Accounts font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f, showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AccountsContentPreview() {
     val accounts = listOf(
