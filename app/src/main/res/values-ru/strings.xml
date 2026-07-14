@@ -107,9 +107,10 @@
     <string name="credo_sync_error_blocked">Credo временно заблокировал этот вход. Не повторяйте попытки и используйте MyCredo или свяжитесь с банком.</string>
     <string name="credo_sync_error_expired">Сессия входа истекла. Подключитесь снова, чтобы начать новую.</string>
     <string name="credo_sync_error_network">Не удалось связаться с MyCredo. Ничего не импортировано; проверьте интернет и повторите.</string>
+    <string name="credo_sync_error_protection">Защита сайта MyCredo заблокировала прямое подключение. Не повторяйте попытки подряд; используйте импорт XLSX, пока WHFIN обновляет коннектор.</string>
     <string name="credo_sync_error_no_accounts">MyCredo не вернул доступных выписок для этого профиля.</string>
     <string name="credo_sync_error_statement">Credo вернул нечитаемую выписку. Остальные счета всё равно можно импортировать.</string>
-    <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ. WHFIN не повторял опасные запросы автоматически.</string>
+    <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>
     <string name="settings_sms_title">Импорт SMS Credo</string>
     <string name="settings_sms_body">WHFIN читает на устройстве только сообщения об операциях. OTP-коды, отказы и посторонние SMS игнорируются. WHFIN никуда не отправляет содержимое SMS.</string>
     <string name="settings_sms_disabled_body">Выключено. WHFIN игнорирует входящие SMS, пока вы снова не включите автоматический импорт.</string>

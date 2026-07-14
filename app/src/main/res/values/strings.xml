@@ -108,9 +108,10 @@
     <string name="credo_sync_error_blocked">Credo temporarily blocked this sign-in. Stop retrying and use MyCredo or contact the bank.</string>
     <string name="credo_sync_error_expired">This sign-in expired. Connect again to start a new session.</string>
     <string name="credo_sync_error_network">MyCredo could not be reached. Nothing was imported; check the connection and try again.</string>
+    <string name="credo_sync_error_protection">MyCredo’s website protection blocked the direct connection. Don’t keep retrying; use XLSX import while WHFIN updates the connector.</string>
     <string name="credo_sync_error_no_accounts">MyCredo returned no account statements for this profile.</string>
     <string name="credo_sync_error_statement">Credo returned an unreadable statement. Other account statements can still be imported.</string>
-    <string name="credo_sync_error_generic">MyCredo returned an unexpected response. Nothing unsafe was retried automatically.</string>
+    <string name="credo_sync_error_generic">MyCredo returned an unexpected response (reference: %1$s). Nothing unsafe was retried automatically.</string>
     <string name="settings_sms_title">Credo SMS import</string>
     <string name="settings_sms_body">WHFIN reads only transaction messages on this device. OTP codes, rejected payments, and unrelated messages are ignored. SMS content is never sent anywhere by WHFIN.</string>
     <string name="settings_sms_disabled_body">Off. WHFIN ignores incoming SMS until you turn automatic import back on.</string>

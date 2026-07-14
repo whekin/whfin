@@ -210,7 +210,12 @@
   последовательная загрузка XLSX через существующий `StatementImporter`. Payment API отсутствует;
   access/refresh tokens не персистятся. Optional пароль доступен только при App Lock и хранится как
   AES-GCM ciphertext с Android Keystore key в preferences вне Android/JSON backup. Контрактные тесты
-  проходят; реальный login/OTP/list/export должен проверить владелец на OnePlus без передачи секретов.
+  проходят. Первый реальный OnePlus login остановился до OTP на неизвестном ответе. Запрос сверен с
+  публичным web bundle от 2026-07-14: fingerprint-поля приведены к точным `ENGLISH`/`mobile`/`Android`
+  и CSS screen size, а export использует точное instant-окно минус 12 месяцев без лишних суток;
+  неизвестные ответы теперь показывают только стабильный reference-код без raw body,
+  а HTTP 403/429 явно объясняются как защита сайта. Следующий ручной retry владельца отделит старую
+  validation error от Cloudflare gate; login/OTP/list/export пока не считаются доказанными.
   Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
   package version/build, авторством `whekin` и локальным privacy-summary. Все иерархические Back-действия

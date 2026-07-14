@@ -13,6 +13,7 @@ import java.util.Locale
 import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -28,6 +29,11 @@ private fun credoDeviceHistoryId(context: Context): String =
             edit().putString("device_history_id", generated).apply()
         }
     }
+
+private fun credoDeviceScreenSize(context: Context): String = context.resources.displayMetrics.run {
+    val safeDensity = density.takeIf { it > 0f } ?: 1f
+    "${(widthPixels / safeDensity).roundToInt()}X${(heightPixels / safeDensity).roundToInt()}"
+}
 
 internal interface CredoTransport {
     fun post(url: String, headers: Map<String, String>, body: String): String
@@ -96,11 +102,11 @@ class MyCredoGateway internal constructor(
             .put("deviceName", "Chrome")
             .put("deviceOs", "Android")
             .put("deviceOsVersion", Build.VERSION.RELEASE)
-            .put("deviceScreenSize", "Android")
+            .put("deviceScreenSize", credoDeviceScreenSize(context))
             .put("userAgent", runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault("WHFIN Android"))
-            .put("deviceType", "Mobile")
-            .put("deviceModel", Build.MODEL)
-            .put("deviceLanguage", "English")
+            .put("deviceType", "mobile")
+            .put("deviceModel", "Android")
+            .put("deviceLanguage", "ENGLISH")
         val data = responseData(transport.post("$AUTH_URL/Initiate", emptyMap(), request.toString()))
         val operationData = data.optJSONObject("operationData") ?: JSONObject()
         CredoLoginChallenge(

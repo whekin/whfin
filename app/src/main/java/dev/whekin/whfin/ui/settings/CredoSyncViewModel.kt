@@ -14,8 +14,8 @@ import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.importer.StatementImporter
 import java.io.ByteArrayInputStream
-import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -242,10 +242,7 @@ class CredoSyncViewModel internal constructor(
 
     private fun statementRange(): Pair<String, String> {
         val zone = ZoneId.of("Asia/Tbilisi")
-        val today = LocalDate.now(zone)
-        val from = today.minusMonths(SYNC_MONTHS).atStartOfDay(zone).toInstant()
-        val to = today.plusDays(1).atStartOfDay(zone).minusNanos(1).toInstant()
-        return DateTimeFormatter.ISO_INSTANT.format(from) to DateTimeFormatter.ISO_INSTANT.format(to)
+        return credoStatementRange(ZonedDateTime.now(zone))
     }
 
     private fun CredoRemoteAccount.fileName(): String =
@@ -253,7 +250,10 @@ class CredoSyncViewModel internal constructor(
 
     private companion object {
         const val OTP_LENGTH = 4
-        const val SYNC_MONTHS = 12L
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")
     }
 }
+
+internal fun credoStatementRange(now: ZonedDateTime): Pair<String, String> =
+    DateTimeFormatter.ISO_INSTANT.format(now.minusMonths(12).toInstant()) to
+        DateTimeFormatter.ISO_INSTANT.format(now.toInstant())

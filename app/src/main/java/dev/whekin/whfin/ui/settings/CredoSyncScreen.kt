@@ -356,18 +356,17 @@ private fun ConnectedContent(
 }
 
 @Composable
-private fun credoErrorMessage(code: String): String = stringResource(
-    when (code) {
-        "CREDENTIALS_REQUIRED", "INVALID_INPUT_DATA" -> R.string.credo_sync_error_credentials
-        "INVALID_OTP" -> R.string.credo_sync_error_otp
-        "USER_IS_BLOCKED", "USER_OTP_BLOCKED" -> R.string.credo_sync_error_blocked
-        "UNAUTHORIZED", "LOGIN_EXPIRED" -> R.string.credo_sync_error_expired
-        "NETWORK_ERROR" -> R.string.credo_sync_error_network
-        "NO_ACCOUNTS" -> R.string.credo_sync_error_no_accounts
-        "EMPTY_STATEMENT", "INVALID_STATEMENT" -> R.string.credo_sync_error_statement
-        else -> R.string.credo_sync_error_generic
-    },
-)
+private fun credoErrorMessage(code: String): String = when (code) {
+    "CREDENTIALS_REQUIRED", "INVALID_INPUT_DATA" -> stringResource(R.string.credo_sync_error_credentials)
+    "INVALID_OTP" -> stringResource(R.string.credo_sync_error_otp)
+    "USER_IS_BLOCKED", "USER_OTP_BLOCKED" -> stringResource(R.string.credo_sync_error_blocked)
+    "UNAUTHORIZED", "LOGIN_EXPIRED" -> stringResource(R.string.credo_sync_error_expired)
+    "NETWORK_ERROR" -> stringResource(R.string.credo_sync_error_network)
+    "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
+    "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
+    "EMPTY_STATEMENT", "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_statement)
+    else -> stringResource(R.string.credo_sync_error_generic, code)
+}
 
 private fun StatementImporter.Phase?.phaseLabel(): Int = when (this) {
     StatementImporter.Phase.READING, null -> R.string.statements_phase_reading
@@ -438,6 +437,21 @@ private fun CredoUnavailablePreview() {
             CredoSyncScreen(
                 state = CredoSyncUiState(errorCode = "NETWORK_ERROR"),
                 appLockHasPin = false,
+                onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
+                onSync = {}, onDisconnect = {}, onDismissError = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Credo protocol error", widthDp = 400, heightDp = 800, showBackground = true)
+@Composable
+private fun CredoProtocolErrorPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            CredoSyncScreen(
+                state = CredoSyncUiState(errorCode = "INVALID_API_RESPONSE"),
+                appLockHasPin = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )

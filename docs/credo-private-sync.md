@@ -32,9 +32,18 @@ a new OTP.
 ## Failure policy
 
 The public web protocol can change without notice. Unknown responses become stable local error codes;
-raw responses and credentials are never shown or logged. Authentication failures are not automatically
-retried. A failed statement does not roll back successful imports from other ledgers, and the existing
-transaction deduplication makes a deliberate later retry safe.
+raw responses and credentials are never shown or logged. The UI shows the safe code for an otherwise
+unknown response; HTTP 403/429 is called out as website protection and tells the user not to retry in a
+loop. Authentication failures are not automatically retried. A failed statement does not roll back
+successful imports from other ledgers, and the existing transaction deduplication makes a deliberate
+later retry safe.
+
+The first OnePlus dogfood attempt on 2026-07-14 failed during `Auth/Initiate`, before OTP. The request
+fingerprint was then aligned with the current public web bundle (`ENGLISH`, `mobile`, `Android`, and the
+CSS-pixel screen size). The statement range also matches the observed web request exactly: current
+instant minus 12 calendar months through the same current instant, without day-boundary expansion. A
+second owner-driven attempt is required to determine whether the old request was rejected by validation
+or whether Cloudflare blocks a native direct client entirely.
 
 If real-device dogfood shows a changed request contract, capture only sanitized request/response shapes
 from the user's own browser session: remove credentials, OTP, cookies, authorization headers, account
