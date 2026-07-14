@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
@@ -532,6 +533,8 @@ fun WhfinField(
     singleLine: Boolean = true,
     keyboardType: KeyboardType = KeyboardType.Text,
     leadingIcon: ImageVector? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = value,
@@ -542,9 +545,11 @@ fun WhfinField(
         supportingText = supportingText?.let { { Text(it) } },
         suffix = suffix?.let { { Text(it) } },
         leadingIcon = leadingIcon?.let { { Icon(it, null) } },
+        trailingIcon = trailingIcon,
         isError = isError,
         singleLine = singleLine,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        visualTransformation = visualTransformation,
         shape = MaterialTheme.shapes.medium,
     )
 }

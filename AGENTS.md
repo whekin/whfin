@@ -203,6 +203,13 @@
 - [ ] Credo Open Banking: сначала sandbox feasibility gate и подтверждение production onboarding у
   Credo/NBG. Только официальный read-only Account Information API; без scraping MyCredo, хранения
   банковского пароля и молчаливой отправки OTP. SMS/XLSX остаются fallback и участвуют в реконсиляции
+- [~] Private MyCredo connector (явное исключение для личного dogfood): foreground-only вход по
+  текущему публичному веб-протоколу, явный 4-digit OTP, discovery всех account/currency ledger’ов и
+  последовательная загрузка XLSX через существующий `StatementImporter`. Payment API отсутствует;
+  access/refresh tokens не персистятся. Optional пароль доступен только при App Lock и хранится как
+  AES-GCM ciphertext с Android Keystore key в preferences вне Android/JSON backup. Контрактные тесты
+  проходят; реальный login/OTP/list/export должен проверить владелец на OnePlus без передачи секретов.
+  Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
   package version/build, авторством `whekin` и локальным privacy-summary. Все иерархические Back-действия
   используют единый borderless circular `WhfinBackButton`; закрытие форм остаётся отдельным Close.

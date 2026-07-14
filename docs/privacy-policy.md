@@ -72,11 +72,23 @@ Uninstalling WHFIN removes its local app data; Android may retain an encrypted s
 to the user's Android backup settings. A JSON file previously exported outside app-private storage is
 not removed by uninstalling the app.
 
-## Future Open Banking connection
+## Experimental MyCredo connection and future Open Banking
 
-Credo Open Banking synchronization is not active in WHFIN 0.1.0. Before it is enabled, WHFIN will
-require explicit user consent, document the data exchanged with Credo or an authorised provider,
-describe token retention, and update this policy. WHFIN will not store the user's MyCredo password.
+WHFIN 0.1.0 contains an optional private, unsupported MyCredo connector. When the user explicitly
+connects, the username, password and OTP are sent directly from the device to Credo's current MyCredo
+service. WHFIN has no intermediary server. The connector can only request account metadata and XLSX
+statements; it contains no payment action. Access and refresh tokens remain in memory for the current
+foreground session and are not backed up or exported.
+
+The user may opt in to remembering the MyCredo password after enabling WHFIN App Lock. The password is
+encrypted on the device with an Android Keystore AES-GCM key. Its ciphertext, username and key are
+excluded from Android cloud/device-transfer backup and WHFIN JSON export. Choosing “Forget MyCredo
+login” removes the saved ciphertext and username. OTP codes are never stored. Because this protocol is
+unsupported, Credo may change or block it without notice.
+
+Official Credo Open Banking synchronization is not active. Before it is enabled, WHFIN will require
+explicit consent, document the data exchanged with Credo or an authorised provider, describe token
+retention, and update this policy.
 
 ## Changes and contact
 

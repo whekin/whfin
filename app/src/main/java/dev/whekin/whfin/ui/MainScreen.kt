@@ -53,6 +53,7 @@ import dev.whekin.whfin.ui.settings.AboutScreen
 import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.AppLockScreen
 import dev.whekin.whfin.ui.settings.PrivacyScreen
+import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.WidgetColorMode
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -81,11 +82,12 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-private enum class SecondaryDestination { Settings, Statements, SmsDiagnostics, AccountOverview, Analytics, AppLock, Backup, Privacy, About }
+private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Analytics, AppLock, Backup, Privacy, About }
 
 private enum class ShellScene(val depth: Int) {
     Primary(0),
     Settings(1),
+    CredoSync(2),
     Statements(2),
     SmsDiagnostics(2),
     AccountOverview(1),
@@ -129,6 +131,7 @@ fun MainScreen(
     }
     val scene = when {
         secondaryDestination == SecondaryDestination.Settings -> ShellScene.Settings
+        secondaryDestination == SecondaryDestination.CredoSync -> ShellScene.CredoSync
         secondaryDestination == SecondaryDestination.Statements -> ShellScene.Statements
         secondaryDestination == SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
         secondaryDestination == SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
@@ -160,7 +163,8 @@ fun MainScreen(
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
             analyticsTransactions != null -> analyticsTransactions = null
-            secondaryDestination == SecondaryDestination.Statements ||
+            secondaryDestination == SecondaryDestination.CredoSync ||
+                secondaryDestination == SecondaryDestination.Statements ||
                 secondaryDestination == SecondaryDestination.SmsDiagnostics ||
                 secondaryDestination == SecondaryDestination.AppLock ||
                 secondaryDestination == SecondaryDestination.Backup ||
@@ -225,12 +229,22 @@ fun MainScreen(
                             onOpenSystemSettings = onOpenSystemSettings,
                             onOpenStatements = { open(SecondaryDestination.Statements) },
                             onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
+                            onOpenCredoSync = { open(SecondaryDestination.CredoSync) },
                             appLockTimeout = appLockTimeout,
                             onOpenAppLock = { open(SecondaryDestination.AppLock) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
                             onOpenPrivacy = { open(SecondaryDestination.Privacy) },
                             onOpenAbout = { open(SecondaryDestination.About) },
                             appVersion = appVersion,
+                        )
+                    }
+                    ShellScene.CredoSync -> SecondaryPage(
+                        title = stringResource(R.string.credo_sync_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) {
+                        CredoSyncRoute(
+                            appLockHasPin = appLockHasPin,
+                            onOpenAppLock = { open(SecondaryDestination.AppLock) },
                         )
                     }
                     ShellScene.Statements -> SecondaryPage(

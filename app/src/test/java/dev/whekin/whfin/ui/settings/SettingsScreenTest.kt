@@ -131,7 +131,7 @@ class SettingsScreenTest {
             }
         }
 
-        compose.onNodeWithContentDescription(description).assertIsOn().performClick()
+        compose.onNodeWithContentDescription(description).performScrollTo().assertIsOn().performClick()
         assertFalse(enabled)
         assertEquals(listOf(WhfinHaptics.toggle(false)), hapticEvents)
     }

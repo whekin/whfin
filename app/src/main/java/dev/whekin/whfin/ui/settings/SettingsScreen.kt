@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
@@ -54,6 +55,7 @@ fun SettingsScreen(
     onOpenPrivacy: () -> Unit,
     onOpenAbout: () -> Unit,
     appVersion: String,
+    onOpenCredoSync: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -92,6 +94,14 @@ fun SettingsScreen(
 
         WhfinSectionLabel(stringResource(R.string.settings_automation))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.credo_sync_title),
+                supportingText = stringResource(R.string.credo_sync_settings_summary),
+                icon = Icons.Default.CloudSync,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenCredoSync,
+                divider = true,
+            )
             WhfinLedgerRow(
                 title = stringResource(R.string.statements_title),
                 supportingText = stringResource(R.string.statements_settings_summary),
