@@ -225,8 +225,10 @@ class MyCredoGateway internal constructor(
     private fun responseData(raw: String): JSONObject {
         val response = runCatching { JSONObject(raw) }
             .getOrElse { throw CredoApiException("INVALID_API_RESPONSE", it) }
-        response.optString("errorCode").takeIf(String::isNotBlank)?.let { code ->
-            throw CredoApiException(if (code == "PERSON_NOT_FOUND") "INVALID_INPUT_DATA" else code)
+        if (!response.isNull("errorCode")) {
+            response.optString("errorCode").takeIf { it.isNotBlank() && it != "null" }?.let { code ->
+                throw CredoApiException(if (code == "PERSON_NOT_FOUND") "INVALID_INPUT_DATA" else code)
+            }
         }
         return response.optJSONObject("data") ?: throw CredoApiException("INVALID_API_RESPONSE")
     }

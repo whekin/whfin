@@ -45,6 +45,11 @@ instant minus 12 calendar months through the same current instant, without day-b
 second owner-driven attempt is required to determine whether the old request was rejected by validation
 or whether Cloudflare blocks a native direct client entirely.
 
+That attempt exposed the safe code `null`: successful REST envelopes include `"errorCode": null`, and
+`JSONObject.optString` had converted JSON null into the literal string `"null"`. The adapter now checks
+JSON null before interpreting a non-empty string as an error; the real envelope shape is a regression
+fixture. Login still requires another owner-driven attempt before it is considered proven.
+
 If real-device dogfood shows a changed request contract, capture only sanitized request/response shapes
 from the user's own browser session: remove credentials, OTP, cookies, authorization headers, account
 numbers, names, balances and transaction data before adding fixtures. Never commit a HAR file.

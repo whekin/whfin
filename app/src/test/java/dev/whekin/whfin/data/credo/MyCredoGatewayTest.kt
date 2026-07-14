@@ -21,9 +21,9 @@ class MyCredoGatewayTest {
     fun otpLogin_discoversLedgers_andDownloadsStatementReadOnly() = runBlocking {
         val xlsx = byteArrayOf(0x50, 0x4b, 0x03, 0x04)
         val transport = RecordingTransport(
-            """{"data":{"operationId":"op-1","requires2FA":true,"operationData":{"mobile":"***42"}}}""",
+            """{"errorCode":null,"data":{"operationId":"op-1","requires2FA":true,"operationData":{"mobile":"***42"}}}""",
             """{"data":{"operationSendChallenge":true}}""",
-            """{"data":{"operationData":{"token":"access-token","refreshToken":"refresh-token"}}}""",
+            """{"errorCode":null,"data":{"operationData":{"token":"access-token","refreshToken":"refresh-token"}}}""",
             """{"data":{"accounts":[
                 {"accountId":1,"accountNumber":"GE0012345678","currency":"gel","category":"Current"},
                 {"accountId":2,"accountNumber":"GE0012345678","currency":"USD","category":"Current"},
