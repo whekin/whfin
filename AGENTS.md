@@ -306,7 +306,9 @@
   byte-identical при входе/выходе; Android backup allowlist не включает demo DB/runtime flags. Live Credo
   и demo-facing SMS UI недоступны, а receiver/widget/quick entry всегда используют user DB. Instrumented
   regression проверяет изоляцию, насыщенность, foreign keys и повторный export; light/dark/font 1.5
-  визуально проверены на disposable Pixel, OnePlus не затронут.
+  визуально проверены на disposable Pixel. Переключение режима перезапускает foreground task, а не только
+  конфигурацию Activity: это сбрасывает Activity-scoped ViewModelStore и исключает наблюдение старой DB
+  после включения Demo (регрессия обнаружена на OnePlus и воспроизведена на чистом эмуляторе).
 - Вторая волна: крипта (TrustWallet watch — адрес кошелька уже вводится при создании CRYPTO-счёта),
   долги, теги на партнёра, AI-анализ
 - [x] Реализован единый паттерн контейнер→балансы. Для банка: FinancialGroup,

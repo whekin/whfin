@@ -1,6 +1,7 @@
 package dev.whekin.whfin
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -48,12 +49,19 @@ internal fun appStartupContent(
     savedTimeout: AppLockTimeout?,
     hasPin: Boolean,
     sessionLocked: Boolean,
+    runtimeModeRestart: Boolean = false,
 ): AppStartupContent = when {
     savedTimeout == null -> AppStartupContent.Loading
     !savedTimeout.enabled || !hasPin -> AppStartupContent.Main
+    runtimeModeRestart -> AppStartupContent.Main
     sessionLocked -> AppStartupContent.LockGate
     else -> AppStartupContent.Main
 }
+
+internal const val EXTRA_RUNTIME_MODE_RESTART = "dev.whekin.whfin.RUNTIME_MODE_RESTART"
+
+internal fun runtimeModeRestartIntent(componentName: ComponentName): Intent =
+    Intent.makeRestartActivityTask(componentName).putExtra(EXTRA_RUNTIME_MODE_RESTART, true)
 
 class MainActivity : FragmentActivity() {
     private var hasSmsPermission by mutableStateOf(false)
@@ -67,6 +75,8 @@ class MainActivity : FragmentActivity() {
     private var developerMode by mutableStateOf(false)
     private var runtimeModeBusy by mutableStateOf(false)
     private var runtimeModeProblem by mutableStateOf<String?>(null)
+    private var runtimeModeRestart by mutableStateOf(false)
+    private var runtimeModeRestarting = false
     private var resumed = false
     private val uiPreferences by lazy { UiPreferences(applicationContext) }
     private val pinStore by lazy { AppLockPinStore(applicationContext) }
@@ -78,6 +88,7 @@ class MainActivity : FragmentActivity() {
         val app = application as WhfinApp
         demoMode = app.isDemoMode
         developerMode = app.runtimeModes.developerMode
+        runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
         hasAppLockPin = pinStore.hasPin()
@@ -127,12 +138,23 @@ class MainActivity : FragmentActivity() {
                             uiPreferences.setAppLockTimeout(AppLockTimeout.Disabled)
                         }
                         appLock.configure(timeout, hasAppLockPin)
+                        if (runtimeModeRestart) {
+                            appLock.unlock()
+                            runtimeModeRestart = false
+                        }
                         updateWindowPrivacy()
                         if (resumed && appLock.locked && biometricEnabled == true) requestBiometricUnlock()
                     }
                 }
 
-                when (appStartupContent(savedTimeout, hasAppLockPin, appLock.locked)) {
+                when (
+                    appStartupContent(
+                        savedTimeout = savedTimeout,
+                        hasPin = hasAppLockPin,
+                        sessionLocked = appLock.locked,
+                        runtimeModeRestart = runtimeModeRestart,
+                    )
+                ) {
                     AppStartupContent.Loading -> Surface(
                         Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background,
@@ -214,7 +236,7 @@ class MainActivity : FragmentActivity() {
             runCatching { (application as WhfinApp).setDemoMode(enabled) }
                 .onSuccess {
                     demoMode = enabled
-                    recreate()
+                    restartForRuntimeMode()
                 }
                 .onFailure { error ->
                     runtimeModeProblem = getString(R.string.demo_mode_error, error.message ?: error::class.java.simpleName)
@@ -229,7 +251,7 @@ class MainActivity : FragmentActivity() {
         runtimeModeProblem = null
         lifecycleScope.launch {
             runCatching { (application as WhfinApp).resetDemoData() }
-                .onSuccess { recreate() }
+                .onSuccess { restartForRuntimeMode() }
                 .onFailure { error ->
                     runtimeModeProblem = getString(R.string.demo_mode_error, error.message ?: error::class.java.simpleName)
                 }
@@ -252,7 +274,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onPause() {
-        if (::appLock.isInitialized && appLock.timeout.enabled) {
+        if (::appLock.isInitialized && appLock.timeout.enabled && !runtimeModeRestarting) {
             // Set before Android captures the task thumbnail; clear only after a valid foreground session.
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
@@ -261,8 +283,15 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStop() {
-        if (::appLock.isInitialized && !isChangingConfigurations) appLock.background()
+        if (::appLock.isInitialized && !isChangingConfigurations && !runtimeModeRestarting) {
+            appLock.background()
+        }
         super.onStop()
+    }
+
+    private fun restartForRuntimeMode() {
+        runtimeModeRestarting = true
+        startActivity(runtimeModeRestartIntent(componentName))
     }
 
     override fun onRequestPermissionsResult(

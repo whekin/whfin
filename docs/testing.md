@@ -102,6 +102,9 @@ relative to the current day, and leaves `whfin-v2.db` untouched. Exiting returns
 database; Reset demo data replaces only the demo sandbox after confirmation. Credo sync and demo-facing
 SMS controls are unavailable while the sandbox is active. Incoming SMS, widgets, and quick entry remain
 explicitly wired to the personal database rather than silently writing into the demo.
+Switching or resetting Demo restarts the foreground task so every database-bound ViewModel is recreated
+against the selected database. A configuration-only `Activity.recreate()` is not sufficient: Android
+retains the Activity ViewModelStore and can leave Feed/Accounts observing the previous database.
 
 Android cloud/device-transfer rules allowlist only `whfin-v2.db`; `whfin-demo.db` and local
 `whfin_runtime` mode flags are not backed up. The instrumented installer regression seeds a sentinel in a
@@ -120,7 +123,9 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
 - `:app:connectedDebugAndroidTest`: 2/2 passed on Pixel 9 Pro API 36.1 (Room database and UI Automator journey).
 - `:app:assembleDebug`: passed.
 - Public demo mode: 234-row fixture restored into the isolated Room database; enable/exit left the
-  stopped user database byte-identical (SHA-256 comparison). Light/dark and font scale 1.5 renders passed.
+  stopped user database byte-identical (SHA-256 comparison). A clean empty-user → Demo → empty-user
+  switch was also rendered after a full foreground-task restart, covering the retained-ViewModel
+  regression found on OnePlus. Light/dark and font scale 1.5 renders passed.
 - Hidden Developer mode: five Version taps reveal the persistent device-local switch; light/dark and
   font scale 1.5 renders passed.
 - Room migration suite: v1 row preservation/debt-table migration and earliest→current schema validation

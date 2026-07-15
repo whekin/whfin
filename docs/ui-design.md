@@ -177,7 +177,9 @@ an isolated `whfin-demo.db` populated with rich synthetic data; the Feed and Acc
 “Demo data” so the mode cannot be mistaken for a personal ledger. The Settings notice explains the boundary,
 offers a confirmed demo-only reset, and marks live Credo/SMS surfaces unavailable. Backup/restore is also
 disabled there because its personal-data meaning would otherwise be ambiguous. Widgets, incoming SMS, and
-quick entry deliberately keep using the personal database.
+quick entry deliberately keep using the personal database. Changing the mode restarts the foreground task:
+this intentionally discards Activity-scoped ViewModels so no screen can continue observing the database
+that was active before the switch. The restart preserves the already unlocked foreground App Lock session.
 
 Five taps on Version still reveal the Quiet Ledger Easter egg. Its switch now persists a device-local
 Developer mode and reveals an experimental section in Settings. Developer mode is distinct from public Demo
