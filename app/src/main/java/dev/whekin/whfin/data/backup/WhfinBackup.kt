@@ -43,14 +43,41 @@ class WhfinBackupManager(private val database: WhfinDatabase) {
             }
         }
 
-    suspend fun restore(input: InputStream): WhfinBackupSummary = withContext(Dispatchers.IO) {
-        val snapshot = WhfinBackupCodec.read(input)
-        database.withTransaction {
-            WhfinBackupCodec.restore(database.openHelper.writableDatabase, snapshot)
+    suspend fun exportEncrypted(
+        output: OutputStream,
+        metadata: WhfinBackupMetadata,
+        passphrase: CharArray,
+    ): WhfinBackupSummary = withContext(Dispatchers.IO) {
+        WhfinEncryptedBackupEnvelope.encryptingStream(output, passphrase).use { encrypted ->
+            database.withTransaction {
+                WhfinBackupCodec.write(database.openHelper.writableDatabase, encrypted, metadata)
+            }
         }
-        database.invalidationTracker.refreshAsync()
-        snapshot.summary
     }
+
+    /** Быстрая проверка без восстановления: нужен ли passphrase для этого файла. */
+    suspend fun isEncrypted(input: InputStream): Boolean = withContext(Dispatchers.IO) {
+        WhfinEncryptedBackupEnvelope.detect(input).second
+    }
+
+    suspend fun restore(input: InputStream, passphrase: CharArray? = null): WhfinBackupSummary =
+        withContext(Dispatchers.IO) {
+            val (stream, encrypted) = WhfinEncryptedBackupEnvelope.detect(input)
+            val plain = if (encrypted) {
+                if (passphrase == null) {
+                    throw WhfinBackupPassphraseException("This backup is encrypted; a passphrase is required.")
+                }
+                WhfinEncryptedBackupEnvelope.decrypt(stream, passphrase)
+            } else {
+                stream
+            }
+            val snapshot = WhfinBackupCodec.read(plain)
+            database.withTransaction {
+                WhfinBackupCodec.restore(database.openHelper.writableDatabase, snapshot)
+            }
+            database.invalidationTracker.refreshAsync()
+            snapshot.summary
+        }
 }
 
 internal data class BackupTable(
