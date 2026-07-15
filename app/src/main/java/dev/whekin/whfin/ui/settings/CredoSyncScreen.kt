@@ -376,7 +376,7 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "CREDENTIALS_REQUIRED", "INVALID_INPUT_DATA" -> stringResource(R.string.credo_sync_error_credentials)
     "INVALID_OTP" -> stringResource(R.string.credo_sync_error_otp)
     "USER_IS_BLOCKED", "USER_OTP_BLOCKED" -> stringResource(R.string.credo_sync_error_blocked)
-    "UNAUTHORIZED", "LOGIN_EXPIRED" -> stringResource(R.string.credo_sync_error_expired)
+    "UNAUTHORIZED", "LOGIN_EXPIRED", "SESSION_EXPIRED" -> stringResource(R.string.credo_sync_error_expired)
     "NETWORK_ERROR" -> stringResource(R.string.credo_sync_error_network)
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)

@@ -38,6 +38,19 @@ loop. Authentication failures are not automatically retried. A failed statement 
 successful imports from other ledgers, and the existing transaction deduplication makes a deliberate
 later retry safe.
 
+Hardening (2026-07-16):
+
+- Transient failures (`NETWORK_ERROR`, HTTP 5xx) during a statement download are retried up to two
+  times per ledger with a short backoff. HTTP 403/429 is deliberately excluded from retries so WHFIN
+  does not behave like a bot against website protection.
+- An expired authorization (HTTP 401 / `UNAUTHORIZED` / GraphQL auth codes) stops the whole batch
+  instead of failing every remaining ledger with the same error. The in-memory session is dropped, the
+  partial per-ledger results stay visible, and the UI returns to the sign-in state with
+  `SESSION_EXPIRED`. Silent re-login is impossible by design: a fresh login requires an explicit OTP,
+  and WHFIN never triggers an OTP SMS without the user.
+- These paths are covered by Robolectric tests with a scripted gateway (retry exhaustion, permanent
+  errors, 401 mid-batch, partial success keeping the connected state).
+
 The first OnePlus dogfood attempt on 2026-07-14 failed during `Auth/Initiate`, before OTP. The request
 fingerprint was then aligned with the current public web bundle (`ENGLISH`, `mobile`, `Android`, and the
 CSS-pixel screen size). The statement range also matches the observed web request exactly: current

@@ -277,7 +277,11 @@
   где JSON `errorCode: null` ошибочно превращался `org.json` в строковую ошибку `"null"`; добавлен
   regression-test. Login/OTP/list/export ПОДТВЕРЖДЕНЫ на реальном устройстве (2026-07-15): полный sync
   успешно скачал все выписки по всем счетам/валютам и прогнал их через StatementImporter. Фича вышла из
-  experimental. Остаётся хардненинг edge-cases (истёкшая сессия, частичный сбой, ретраи) и наблюдение за
+  experimental. Sync-хардненинг сделан: transient сетевые сбои/5xx ретраятся до 2 раз с backoff
+  (403/429 намеренно не ретраятся — защита сайта), per-account ошибки не прерывают остальные счета,
+  а истёкшая авторизация (401/UNAUTHORIZED) останавливает прогон целиком, сбрасывает сессию и
+  переводит UI в повторный вход с кодом SESSION_EXPIRED — молчаливый re-login невозможен by design
+  (нужен OTP). Покрыто Robolectric-тестами со скриптованным gateway. Остаётся наблюдение за
   изменениями web-протокола. Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
   package version/build, авторством `whekin` и локальным privacy-summary. Все иерархические Back-действия

@@ -50,6 +50,8 @@ class CredoSyncViewModel internal constructor(
     app: Application,
     private val gateway: CredoGateway,
     private val secretStore: CredoSecretStore,
+    private val syncDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
+    private val retryDelayMillis: List<Long> = DEFAULT_RETRY_DELAYS,
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(
         app = app,
@@ -133,10 +135,10 @@ class CredoSyncViewModel internal constructor(
         val accounts = _state.value.accounts
         if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(syncDispatcher) {
             val (fromIso, toIso) = statementRange()
             val results = mutableListOf<CredoSyncFileResult>()
-            accounts.forEachIndexed { index, account ->
+            for ((index, account) in accounts.withIndex()) {
                 _state.value = _state.value.copy(
                     stage = CredoSyncStage.Syncing,
                     currentAccount = index + 1,
@@ -145,7 +147,7 @@ class CredoSyncViewModel internal constructor(
                     errorCode = null,
                 )
                 val fileResult = try {
-                    val bytes = gateway.downloadStatement(activeSession, account, fromIso, toIso)
+                    val bytes = downloadWithRetry(activeSession, account, fromIso, toIso)
                     val result = ByteArrayInputStream(bytes).use { input ->
                         StatementImporter(db).import(
                             input = input,
@@ -156,6 +158,20 @@ class CredoSyncViewModel internal constructor(
                         }
                     }
                     CredoSyncFileResult(account.maskedLabel, result = result)
+                } catch (error: CredoSessionExpiredException) {
+                    // Сессия умерла посреди прогона: остальные счета не молотим тем же 401,
+                    // молчаливый re-login невозможен (нужен OTP) — просим войти заново.
+                    results += CredoSyncFileResult(account.maskedLabel, errorCode = "SESSION_EXPIRED")
+                    session = null
+                    _state.value = _state.value.copy(
+                        stage = CredoSyncStage.Disconnected,
+                        accounts = emptyList(),
+                        currentAccount = 0,
+                        currentPhase = null,
+                        results = results.toList(),
+                        errorCode = "SESSION_EXPIRED",
+                    )
+                    return@launch
                 } catch (error: Exception) {
                     CredoSyncFileResult(account.maskedLabel, errorCode = error.safeCode())
                 }
@@ -168,6 +184,34 @@ class CredoSyncViewModel internal constructor(
                 results = results,
                 errorCode = null,
             )
+        }
+    }
+
+    /**
+     * Скачивание с ограниченными повторами: только на transient сетевых сбоях/5xx.
+     * HTTP 403/429 (защита сайта) не ретраим, чтобы не выглядеть ботом; истёкшая
+     * авторизация конвертируется в [CredoSessionExpiredException] и прерывает sync.
+     */
+    private suspend fun downloadWithRetry(
+        session: CredoSession,
+        account: CredoRemoteAccount,
+        fromIso: String,
+        toIso: String,
+    ): ByteArray {
+        var attempt = 0
+        while (true) {
+            try {
+                return gateway.downloadStatement(session, account, fromIso, toIso)
+            } catch (error: CredoApiException) {
+                when {
+                    error.code.isCredoAuthError() -> throw CredoSessionExpiredException(error)
+                    error.code.isCredoTransientError() && attempt < retryDelayMillis.size -> {
+                        kotlinx.coroutines.delay(retryDelayMillis[attempt])
+                        attempt += 1
+                    }
+                    else -> throw error
+                }
+            }
         }
     }
 
@@ -256,8 +300,18 @@ class CredoSyncViewModel internal constructor(
     private companion object {
         const val OTP_LENGTH = 4
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")
+        val DEFAULT_RETRY_DELAYS = listOf(2_000L, 5_000L)
     }
 }
+
+/** Авторизация протухла в середине sync — весь прогон останавливается. */
+internal class CredoSessionExpiredException(cause: Throwable) : Exception(cause)
+
+internal fun String.isCredoAuthError(): Boolean =
+    this == "HTTP_401" || this == "UNAUTHORIZED" || this == "AUTH_NOT_AUTHENTICATED" || this == "AUTH_NOT_AUTHORIZED"
+
+internal fun String.isCredoTransientError(): Boolean =
+    this == "NETWORK_ERROR" || this == "HTTP_500" || this == "HTTP_502" || this == "HTTP_503" || this == "HTTP_504"
 
 internal fun credoStatementRange(now: ZonedDateTime): Pair<String, String> =
     DateTimeFormatter.ISO_INSTANT.format(now.minusMonths(12).toInstant()) to
