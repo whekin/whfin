@@ -340,6 +340,24 @@
     <string name="category_create">Create category</string>
     <string name="categories_expense">Expense categories</string>
     <string name="categories_income">Income categories</string>
+    <string name="settings_catalog_section">Categories &amp; people</string>
+    <string name="categories_title">Categories</string>
+    <string name="categories_settings_summary">Rename, reorder, icons and colors</string>
+    <string name="categories_system_hint">System category, managed automatically</string>
+    <string name="categories_edit_title">Edit category</string>
+    <string name="categories_move_up">Move up</string>
+    <string name="categories_move_down">Move down</string>
+    <string name="categories_delete">Delete category</string>
+    <string name="categories_delete_confirm_title">Delete %1$s?</string>
+    <string name="categories_delete_confirm_body_unused">The category will be removed. No transactions use it.</string>
+    <plurals name="categories_usage">
+        <item quantity="one">%1$d transaction</item>
+        <item quantity="other">%1$d transactions</item>
+    </plurals>
+    <plurals name="categories_delete_confirm_body">
+        <item quantity="one">%1$d transaction uses this category and will become uncategorized. Learned merchant rules for it will be forgotten.</item>
+        <item quantity="other">%1$d transactions use this category and will become uncategorized. Learned merchant rules for it will be forgotten.</item>
+    </plurals>
     <string name="action_done">Done</string>
     <string name="statements_title">Bank statements</string>
     <string name="statements_settings_summary">Coverage, imports and items to review</string>

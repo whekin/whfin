@@ -343,6 +343,28 @@
     <string name="category_create">Создать категорию</string>
     <string name="categories_expense">Категории расходов</string>
     <string name="categories_income">Категории доходов</string>
+    <string name="settings_catalog_section">Категории и люди</string>
+    <string name="categories_title">Категории</string>
+    <string name="categories_settings_summary">Названия, порядок, иконки и цвета</string>
+    <string name="categories_system_hint">Системная категория, управляется автоматически</string>
+    <string name="categories_edit_title">Изменить категорию</string>
+    <string name="categories_move_up">Выше</string>
+    <string name="categories_move_down">Ниже</string>
+    <string name="categories_delete">Удалить категорию</string>
+    <string name="categories_delete_confirm_title">Удалить %1$s?</string>
+    <string name="categories_delete_confirm_body_unused">Категория будет удалена. Операций с ней нет.</string>
+    <plurals name="categories_usage">
+        <item quantity="one">%1$d операция</item>
+        <item quantity="few">%1$d операции</item>
+        <item quantity="many">%1$d операций</item>
+        <item quantity="other">%1$d операции</item>
+    </plurals>
+    <plurals name="categories_delete_confirm_body">
+        <item quantity="one">%1$d операция с этой категорией станет без категории. Выученные правила мерчантов забудутся.</item>
+        <item quantity="few">%1$d операции с этой категорией станут без категории. Выученные правила мерчантов забудутся.</item>
+        <item quantity="many">%1$d операций с этой категорией станут без категории. Выученные правила мерчантов забудутся.</item>
+        <item quantity="other">%1$d операции с этой категорией станут без категории. Выученные правила мерчантов забудутся.</item>
+    </plurals>
     <string name="action_done">Готово</string>
     <string name="statements_title">Выписки банка</string>
     <string name="statements_settings_summary">Покрытие, загрузки и операции на проверку</string>

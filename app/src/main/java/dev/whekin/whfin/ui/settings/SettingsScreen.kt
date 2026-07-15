@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -62,6 +63,7 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     appVersion: String,
     onOpenCredoSync: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -107,6 +109,17 @@ fun SettingsScreen(
                         contentDescription = stringResource(R.string.settings_dynamic_colors_toggle),
                     )
                 },
+            )
+        }
+
+        WhfinSectionLabel(stringResource(R.string.settings_catalog_section))
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.categories_title),
+                supportingText = stringResource(R.string.categories_settings_summary),
+                icon = Icons.Default.Category,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenCategories,
             )
         }
 
