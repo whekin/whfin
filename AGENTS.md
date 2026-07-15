@@ -241,7 +241,7 @@
   DB/backup v4 включает provenance выписки (`origin`); restore legacy backup v2–v3 добавляет только
   отсутствующий `origin=FILE`, а backup v4 без этого поля считается повреждённым. Полный emulator-only
   instrumentation прогон: 23 теста, включая 6 backup и 4 migration, проходит
-- [~] Шифрованный бэкап + Google Drive: бинарный конверт `WHFIN-ENC` v1 (PBKDF2-HmacSHA256 600k +
+- [x] Шифрованный бэкап + Google Drive: бинарный конверт `WHFIN-ENC` v1 (PBKDF2-HmacSHA256 600k +
   AES-256-GCM) поверх обычного backup-JSON; ключ из passphrase, НЕ из Keystore — копия обязана
   открываться на новом устройстве. Restore буферизует расшифровку целиком: GCM-тег проверяется до
   парсинга. Экспорт: encrypted primary + явный незашифрованный JSON; restore авто-детектит конверт и
@@ -251,8 +251,9 @@
   (`userDb`, demo не бэкапится), хранит 10 последних копий, из фона consent не запрашивает —
   выставляет needsReauth для UI. Passphrase для авто-бэкапа хранится Keystore-wrapped в prefs
   `whfin_drive_backup` вне Android allowlist и вне JSON. Unit+Robolectric: конверт, manager glue,
-  Drive REST на локальном HTTP, UI-стейты. Осталось: владелец создаёт Android OAuth client в
-  Google Cloud (package + SHA-1 debug/release) и первый end-to-end прогон на реальном аккаунте
+  Drive REST на локальном HTTP, UI-стейты. Android OAuth client создан владельцем в Google Cloud
+  (Google Auth Platform, Testing + test user; debug SHA-1), первый реальный аплоад на OnePlus
+  ПОДТВЕРЖДЁН (2026-07-16). Release-подпись потребует второй Android client с release SHA-1
 - [x] App Lock: собственный 4-значный код WHFIN с точками и цифровой клавиатурой, optional strong
   biometric через системный `BiometricPrompt`, timeout выключено/сразу/30 сек/1 мин/5 мин и защищённый
   recent-apps snapshot. Код не хранится: проверяется HMAC-ключом Android Keystore; после пяти ошибок
