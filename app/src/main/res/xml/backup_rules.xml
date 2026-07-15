@@ -3,7 +3,7 @@
     <!-- API 29–30: back up only user data and only with client-side encryption. -->
     <include
         domain="database"
-        path="."
+        path="whfin-v2.db"
         requireFlags="clientSideEncryption" />
     <include
         domain="file"

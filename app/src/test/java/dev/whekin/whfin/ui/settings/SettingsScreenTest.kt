@@ -226,7 +226,7 @@ class SettingsScreenTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.settings_theme_dark)).performClick()
-        compose.onNodeWithContentDescription(description).assertIsOn().performClick()
+        compose.onNodeWithContentDescription(description).performScrollTo().assertIsOn().performClick()
         assertEquals(AppThemeMode.Dark, selectedTheme)
         assertFalse(dynamicColors)
     }
@@ -299,5 +299,65 @@ class SettingsScreenTest {
         compose.onNodeWithText(context.getString(R.string.about_love_title)).performScrollTo().assertIsDisplayed()
         assertEquals("whekin", context.getString(R.string.about_author_value))
         compose.onNodeWithText(context.getString(R.string.about_author_value)).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun demoMode_isPublicAndResetRequiresConfirmation() {
+        var requestedMode: Boolean? = null
+        var reset = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsScreen(
+                    smsImportEnabled = true,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                    demoMode = true,
+                    onDemoModeChange = { requestedMode = it },
+                    onResetDemoData = { reset = true },
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription(context.getString(R.string.demo_mode_toggle)).assertIsOn().performClick()
+        assertEquals(false, requestedMode)
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_sms_toggle)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.demo_mode_reset)).performClick()
+        assertFalse(reset)
+        compose.onNodeWithText(context.getString(R.string.demo_mode_reset_confirm)).performClick()
+        assertTrue(reset)
+    }
+
+    @Test
+    fun easterEgg_unlocksPersistentDeveloperToggle() {
+        var requested = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val version = "Version 0.1.0 (1)"
+        compose.setContent {
+            WhfinTheme {
+                AboutScreen(
+                    appVersion = version,
+                    onDeveloperModeChange = { requested = it },
+                )
+            }
+        }
+
+        repeat(5) { compose.onNodeWithText(version).performClick() }
+        compose.onNodeWithContentDescription(context.getString(R.string.developer_mode_toggle))
+            .performScrollTo()
+            .assertIsOff()
+            .performClick()
+        assertTrue(requested)
     }
 }

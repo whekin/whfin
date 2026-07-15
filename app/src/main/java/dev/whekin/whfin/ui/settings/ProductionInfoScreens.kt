@@ -43,6 +43,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
@@ -131,9 +132,14 @@ fun PrivacyScreen(onOpenSystemSettings: () -> Unit) {
 }
 
 @Composable
-fun AboutScreen(appVersion: String) {
+fun AboutScreen(
+    appVersion: String,
+    developerMode: Boolean = false,
+    onDeveloperModeChange: (Boolean) -> Unit = {},
+    easterEggInitiallyUnlocked: Boolean = false,
+) {
     val uriHandler = LocalUriHandler.current
-    var versionTaps by rememberSaveable { mutableIntStateOf(0) }
+    var versionTaps by rememberSaveable { mutableIntStateOf(if (easterEggInitiallyUnlocked) 5 else 0) }
     Column(
         Modifier
             .fillMaxSize()
@@ -180,6 +186,13 @@ fun AboutScreen(appVersion: String) {
             icon = Icons.Default.Code,
             kind = WhfinNoticeKind.Info,
             modifier = Modifier.fillMaxWidth(),
+            trailing = {
+                WhfinSwitch(
+                    checked = developerMode,
+                    onCheckedChange = onDeveloperModeChange,
+                    contentDescription = stringResource(R.string.developer_mode_toggle),
+                )
+            },
         )
 
         WhfinSectionLabel(stringResource(R.string.about_open_source_section))
@@ -215,7 +228,11 @@ private fun PrivacyScreenPreview() {
 private fun AboutScreenPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AboutScreen(appVersion = "Version 0.1.0 (1)")
+            AboutScreen(
+                appVersion = "Version 0.1.0 (1)",
+                developerMode = true,
+                easterEggInitiallyUnlocked = true,
+            )
         }
     }
 }

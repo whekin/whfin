@@ -63,6 +63,10 @@ class MainActivity : FragmentActivity() {
     private var biometricAvailability by mutableStateOf(BiometricAvailability.Unsupported)
     private var biometricUnlockEnabled = true
     private var hasAppLockPin by mutableStateOf(false)
+    private var demoMode by mutableStateOf(false)
+    private var developerMode by mutableStateOf(false)
+    private var runtimeModeBusy by mutableStateOf(false)
+    private var runtimeModeProblem by mutableStateOf<String?>(null)
     private var resumed = false
     private val uiPreferences by lazy { UiPreferences(applicationContext) }
     private val pinStore by lazy { AppLockPinStore(applicationContext) }
@@ -71,6 +75,9 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val app = application as WhfinApp
+        demoMode = app.isDemoMode
+        developerMode = app.runtimeModes.developerMode
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
         hasAppLockPin = pinStore.hasPin()
@@ -99,7 +106,7 @@ class MainActivity : FragmentActivity() {
                 val smsPermissionPromptDismissed: Boolean? by uiPreferences.smsPermissionPromptDismissed
                     .collectAsState(initial = null)
                 val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
-                val configuredSmsCards: Int? by (application as WhfinApp).db.paymentInstrumentDao()
+                val configuredSmsCards: Int? by (application as WhfinApp).userDb.paymentInstrumentDao()
                     .observeConfiguredCount().collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
@@ -182,10 +189,51 @@ class MainActivity : FragmentActivity() {
                                 scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
                             },
                             onOpenBiometricSettings = ::openBiometricSettings,
+                            demoMode = demoMode,
+                            developerMode = developerMode,
+                            runtimeModeBusy = runtimeModeBusy,
+                            runtimeModeProblem = runtimeModeProblem,
+                            onDemoModeChange = ::changeDemoMode,
+                            onResetDemoData = ::resetDemoData,
+                            onDeveloperModeChange = { enabled ->
+                                developerMode = enabled
+                                app.setDeveloperMode(enabled)
+                            },
                         )
                     }
                 }
             }
+        }
+    }
+
+    private fun changeDemoMode(enabled: Boolean) {
+        if (runtimeModeBusy || enabled == demoMode) return
+        runtimeModeBusy = true
+        runtimeModeProblem = null
+        lifecycleScope.launch {
+            runCatching { (application as WhfinApp).setDemoMode(enabled) }
+                .onSuccess {
+                    demoMode = enabled
+                    recreate()
+                }
+                .onFailure { error ->
+                    runtimeModeProblem = getString(R.string.demo_mode_error, error.message ?: error::class.java.simpleName)
+                }
+            runtimeModeBusy = false
+        }
+    }
+
+    private fun resetDemoData() {
+        if (runtimeModeBusy || !demoMode) return
+        runtimeModeBusy = true
+        runtimeModeProblem = null
+        lifecycleScope.launch {
+            runCatching { (application as WhfinApp).resetDemoData() }
+                .onSuccess { recreate() }
+                .onFailure { error ->
+                    runtimeModeProblem = getString(R.string.demo_mode_error, error.message ?: error::class.java.simpleName)
+                }
+            runtimeModeBusy = false
         }
     }
 

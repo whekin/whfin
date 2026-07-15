@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 // Public fixture only: keep IBANs on the invalid GE00 checksum and cards in the 000x range.
 // Never copy rows, names, identifiers, or amounts from a physical device or private statement.
 
-const outputPath = resolve(process.argv[2] ?? "app/src/androidTest/assets/whfin-demo-v4.json");
+const outputPath = resolve(process.argv[2] ?? "app/src/main/assets/whfin-demo-v4.json");
 const anchor = process.argv[3] ?? "2026-07-15";
 
 if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) {

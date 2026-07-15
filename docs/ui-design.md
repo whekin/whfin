@@ -169,3 +169,16 @@ and the numeric IME already visible. Feed/Accounts switching was captured in rap
 the destination content changes immediately, while only the color emphasis of the two stationary dock items
 cross-fades for 140 ms; there is no persistent selected-item fill, and pressed states stay clipped to their
 item geometry.
+
+## Demo and developer modes
+
+Demo mode is a public Settings control, not a hidden debug shortcut. It opens the same product UI against
+an isolated `whfin-demo.db` populated with rich synthetic data; the Feed and Accounts context header says
+“Demo data” so the mode cannot be mistaken for a personal ledger. The Settings notice explains the boundary,
+offers a confirmed demo-only reset, and marks live Credo/SMS surfaces unavailable. Backup/restore is also
+disabled there because its personal-data meaning would otherwise be ambiguous. Widgets, incoming SMS, and
+quick entry deliberately keep using the personal database.
+
+Five taps on Version still reveal the Quiet Ledger Easter egg. Its switch now persists a device-local
+Developer mode and reveals an experimental section in Settings. Developer mode is distinct from public Demo
+mode: it may expose diagnostics later, but it never selects a data source or relaxes privacy boundaries.

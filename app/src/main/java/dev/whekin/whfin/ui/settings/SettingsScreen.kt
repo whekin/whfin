@@ -23,9 +23,15 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -66,7 +72,14 @@ fun SettingsScreen(
     onOpenCredoSync: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onOpenPeople: () -> Unit = {},
+    demoMode: Boolean = false,
+    developerMode: Boolean = false,
+    runtimeModeBusy: Boolean = false,
+    runtimeModeProblem: String? = null,
+    onDemoModeChange: (Boolean) -> Unit = {},
+    onResetDemoData: () -> Unit = {},
 ) {
+    var confirmDemoReset by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -75,6 +88,30 @@ fun SettingsScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        WhfinNotice(
+            title = stringResource(R.string.demo_mode_title),
+            body = stringResource(if (demoMode) R.string.demo_mode_active_body else R.string.demo_mode_body),
+            icon = Icons.Default.Science,
+            kind = if (demoMode) WhfinNoticeKind.Info else WhfinNoticeKind.Unavailable,
+            actionLabel = if (demoMode) stringResource(R.string.demo_mode_reset) else null,
+            onAction = if (demoMode) ({ confirmDemoReset = true }) else null,
+            trailing = {
+                WhfinSwitch(
+                    checked = demoMode,
+                    onCheckedChange = onDemoModeChange,
+                    contentDescription = stringResource(R.string.demo_mode_toggle),
+                    enabled = !runtimeModeBusy,
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (runtimeModeProblem != null) WhfinNotice(
+            title = stringResource(R.string.demo_mode_problem_title),
+            body = runtimeModeProblem,
+            kind = WhfinNoticeKind.Error,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         WhfinSectionLabel(stringResource(R.string.settings_appearance))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             listOf(
@@ -137,10 +174,13 @@ fun SettingsScreen(
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
                 title = stringResource(R.string.credo_sync_title),
-                supportingText = stringResource(R.string.credo_sync_settings_summary),
+                supportingText = stringResource(
+                    if (demoMode) R.string.demo_mode_live_import_unavailable else R.string.credo_sync_settings_summary,
+                ),
                 icon = Icons.Default.CloudSync,
-                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
-                onClick = onOpenCredoSync,
+                titleColor = if (demoMode) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                trailing = if (demoMode) null else ({ androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }),
+                onClick = if (demoMode) null else onOpenCredoSync,
                 divider = true,
             )
             WhfinLedgerRow(
@@ -153,13 +193,22 @@ fun SettingsScreen(
             )
             WhfinLedgerRow(
                 title = stringResource(R.string.sms_diagnostics_title),
-                supportingText = stringResource(R.string.sms_diagnostics_settings_summary),
+                supportingText = stringResource(
+                    if (demoMode) R.string.demo_mode_live_import_unavailable else R.string.sms_diagnostics_settings_summary,
+                ),
                 icon = Icons.Default.Sms,
-                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
-                onClick = onOpenSmsDiagnostics,
+                titleColor = if (demoMode) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                trailing = if (demoMode) null else ({ androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }),
+                onClick = if (demoMode) null else onOpenSmsDiagnostics,
             )
         }
-        WhfinNotice(
+        if (demoMode) WhfinNotice(
+            title = stringResource(R.string.demo_mode_automation_title),
+            body = stringResource(R.string.demo_mode_automation_body),
+            icon = Icons.Default.Sms,
+            kind = WhfinNoticeKind.Unavailable,
+            modifier = Modifier.fillMaxWidth(),
+        ) else WhfinNotice(
             title = stringResource(R.string.settings_sms_title),
             body = stringResource(
                 when {
@@ -222,10 +271,13 @@ fun SettingsScreen(
             )
             WhfinLedgerRow(
                 title = stringResource(R.string.backup_title),
-                supportingText = stringResource(R.string.backup_settings_summary),
+                supportingText = stringResource(
+                    if (demoMode) R.string.demo_mode_backup_unavailable else R.string.backup_settings_summary,
+                ),
                 icon = Icons.Default.SaveAlt,
-                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
-                onClick = onOpenBackup,
+                titleColor = if (demoMode) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                trailing = if (demoMode) null else ({ androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }),
+                onClick = if (demoMode) null else onOpenBackup,
                 divider = true,
             )
             WhfinLedgerRow(
@@ -234,6 +286,17 @@ fun SettingsScreen(
                 icon = Icons.Default.PrivacyTip,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenPrivacy,
+            )
+        }
+
+        if (developerMode) {
+            WhfinSectionLabel(stringResource(R.string.developer_mode_section))
+            WhfinNotice(
+                title = stringResource(R.string.developer_mode_enabled_title),
+                body = stringResource(R.string.developer_mode_enabled_body),
+                icon = Icons.Default.BugReport,
+                kind = WhfinNoticeKind.Info,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -248,6 +311,25 @@ fun SettingsScreen(
             )
         }
     }
+
+    if (confirmDemoReset) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmDemoReset = false },
+        title = { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_title)) },
+        text = { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_body)) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    confirmDemoReset = false
+                    onResetDemoData()
+                },
+            ) { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_confirm)) }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = { confirmDemoReset = false }) {
+                androidx.compose.material3.Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 @Preview(name = "Settings light", widthDp = 400, heightDp = 800, showBackground = true)
@@ -298,6 +380,33 @@ private fun SettingsSmsDisabledPreview() {
                 onOpenPrivacy = {},
                 onOpenAbout = {},
                 appVersion = "Version 0.1.0 (1)",
+            )
+        }
+    }
+}
+
+@Preview(name = "Settings demo active", widthDp = 400, heightDp = 800, showBackground = true)
+@Composable
+private fun SettingsDemoPreview() {
+    WhfinTheme {
+        androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.background) {
+            SettingsScreen(
+                smsImportEnabled = false,
+                hasSmsPermission = true,
+                canRequestSmsPermission = true,
+                onSmsImportEnabledChange = {},
+                onRequestSmsPermission = {},
+                onOpenSystemSettings = {},
+                onOpenStatements = {},
+                onOpenSmsDiagnostics = {},
+                appLockTimeout = AppLockTimeout.Disabled,
+                onOpenAppLock = {},
+                onOpenBackup = {},
+                onOpenPrivacy = {},
+                onOpenAbout = {},
+                appVersion = "Version 0.1.0 (1)",
+                demoMode = true,
+                developerMode = true,
             )
         }
     }

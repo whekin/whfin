@@ -72,7 +72,7 @@ class QuickExpenseActivity : ComponentActivity() {
 
     private fun save(amountMinor: Long, currency: String, accountId: Long?, description: String?) {
         lifecycleScope.launch {
-            val db = (application as WhfinApp).db
+            val db = (application as WhfinApp).userDb
             withContext(Dispatchers.IO) {
                 val requested = accountId?.let { db.accountDao().byId(it) }?.takeIf { it.currency == currency }
                 val account = requested ?: db.accountDao().allActive().firstOrNull { it.type == AccountType.CASH && it.currency == currency }

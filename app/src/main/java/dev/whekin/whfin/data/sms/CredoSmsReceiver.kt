@@ -17,13 +17,13 @@ class CredoSmsReceiver : BroadcastReceiver() {
         app.appScope.launch {
             try {
                 if (!UiPreferences(app).smsImportEnabled.first()) return@launch
-                if (app.db.paymentInstrumentDao().configuredCount() == 0) return@launch
+                if (app.userDb.paymentInstrumentDao().configuredCount() == 0) return@launch
                 val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                 val body = messages.joinToString("") { it.messageBody.orEmpty() }
                 if (!CredoSmsParser.isCredoCandidate(body)) return@launch
                 val receivedAt = messages.minOfOrNull { it.timestampMillis }
                     ?: System.currentTimeMillis()
-                SmsTransactionImporter(app.db).import(body, receivedAt)
+                SmsTransactionImporter(app.userDb).import(body, receivedAt)
             } finally {
                 pending.finish()
             }

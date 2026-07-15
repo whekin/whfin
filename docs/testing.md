@@ -68,9 +68,9 @@ and verify a restorable app-data backup before starting.
 
 ## Synthetic demo backup
 
-`app/src/androidTest/assets/whfin-demo-v4.json` is the canonical public-safe demo state for manual
-product QA, screenshots, and backup regression testing. It is packaged only in the Android test APK,
-never in the production application. The fixture currently contains 12 months of activity, two banks,
+`app/src/main/assets/whfin-demo-v4.json` is the canonical public-safe demo state for the in-app public
+demo mode, product QA, screenshots, and backup regression testing. It is intentionally packaged in the
+application because every row is synthetic. The fixture currently contains 12 months of activity, two banks,
 eight fiat ledgers, physical and virtual cards, Cash, reserve and goal savings, statement and MyCredo
 history, pending SMS drafts, manual entries, transfers, a conversion, shared spending, people, and open
 and closed debts.
@@ -84,7 +84,7 @@ new screenshot date with:
 
 ```bash
 node scripts/generate-demo-fixture.mjs \
-  app/src/androidTest/assets/whfin-demo-v4.json "$(date +%F)"
+  app/src/main/assets/whfin-demo-v4.json "$(date +%F)"
 ```
 
 Then run the real Room/backup validation on a disposable emulator:
@@ -97,29 +97,32 @@ adb -s emulator-5554 shell am instrument -w -r \
   dev.whekin.whfin.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-For visual QA, push the JSON to the disposable emulator and use the real Settings → Backup & export →
-Restore from JSON flow:
+For visual QA use Settings → Demo mode. The installer restores only `whfin-demo.db`, shifts fixture dates
+relative to the current day, and leaves `whfin-v2.db` untouched. Exiting returns to the same personal
+database; Reset demo data replaces only the demo sandbox after confirmation. Credo sync and demo-facing
+SMS controls are unavailable while the sandbox is active. Incoming SMS, widgets, and quick entry remain
+explicitly wired to the personal database rather than silently writing into the demo.
 
-```bash
-adb -s emulator-5554 push \
-  app/src/androidTest/assets/whfin-demo-v4.json \
-  /sdcard/Download/whfin-demo-v4.json
-```
-
-Restore is intentionally destructive. Never run this flow on the user's OnePlus or another data-bearing
-device. Screenshots produced from the fixture belong under ignored `artifacts/`, not in source control.
+Android cloud/device-transfer rules allowlist only `whfin-v2.db`; `whfin-demo.db` and local
+`whfin_runtime` mode flags are not backed up. The instrumented installer regression seeds a sentinel in a
+separate user database and verifies that demo installation never changes it. Screenshots belong under
+ignored `artifacts/`, not in source control.
 
 ## Required UI coverage
 
 Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, composer, Settings, Statistics, analytics-filtered transactions, and statement result states. The design-system screenshot suite validates the shared components in those configurations, including the selectable monthly chart. Device journeys remain intentionally few and cover launch/navigation plus database integration; detailed behavior stays in fast local tests.
 
-## Last verified run (2026-07-14)
+## Last verified run (2026-07-15)
 
 - `:app:testDebugUnitTest`: passed, including explicitly configured private Credo XLSX fixtures.
 - Widget picker previews: all four XML layouts apply successfully as `RemoteViews`; 4×1 addition was visually checked from picker → loading → populated on Pixel 9 Pro API 36.1.
 - `:core-ui:validateDebugScreenshotTest`: passed for light, dark, and font scale 1.5 references.
 - `:app:connectedDebugAndroidTest`: 2/2 passed on Pixel 9 Pro API 36.1 (Room database and UI Automator journey).
 - `:app:assembleDebug`: passed.
+- Public demo mode: 234-row fixture restored into the isolated Room database; enable/exit left the
+  stopped user database byte-identical (SHA-256 comparison). Light/dark and font scale 1.5 renders passed.
+- Hidden Developer mode: five Version taps reveal the persistent device-local switch; light/dark and
+  font scale 1.5 renders passed.
 - Room migration suite: v1 row preservation/debt-table migration and earliest→current schema validation
   both passed against real SQLite on disposable Pixel 9 Pro API 36.1. The Room 2.8.4 test bundle requires
   serialization 1.8.1, so that compatibility override is deliberately limited to Android-test configurations.

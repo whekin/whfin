@@ -56,11 +56,13 @@ abstract class WhfinDatabase : RoomDatabase() {
 
         fun get(context: Context): WhfinDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    WhfinDatabase::class.java,
-                    NAME,
-                ).addMigrations(*ALL_MIGRATIONS).build().also { instance = it }
+                instance ?: open(context, NAME).also { instance = it }
             }
+
+        fun open(context: Context, name: String): WhfinDatabase = Room.databaseBuilder(
+            context.applicationContext,
+            WhfinDatabase::class.java,
+            name,
+        ).addMigrations(*ALL_MIGRATIONS).build()
     }
 }

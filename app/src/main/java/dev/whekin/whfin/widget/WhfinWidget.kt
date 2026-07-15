@@ -256,7 +256,7 @@ private fun WidgetSegment(text: String, modifier: GlanceModifier, textColor: Col
 }
 
 private suspend fun loadSources(context: Context): List<WidgetSource> {
-    val db = (context.applicationContext as WhfinApp).db
+    val db = (context.applicationContext as WhfinApp).userDb
     val accounts = db.accountDao().allActive()
     val accountById = accounts.associateBy(AccountEntity::id)
     val links = db.paymentInstrumentDao().observeLinks().first()

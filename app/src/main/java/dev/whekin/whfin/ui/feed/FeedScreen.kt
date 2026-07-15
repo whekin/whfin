@@ -140,6 +140,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
+    demoMode: Boolean = false,
     showSmsOnboarding: Boolean,
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
@@ -281,7 +282,7 @@ fun FeedScreen(
                 }
             } else {
                 WhfinContextHeader(
-                    label = stringResource(R.string.balance_total),
+                    label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.balance_total),
                     value = formatMinor(balance, "GEL"),
                     scrollBehavior = headerScrollBehavior,
                 ) {

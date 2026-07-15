@@ -274,7 +274,7 @@
   Minified `:app:assembleRelease` проходит с R8/lintVital; packaged manifest проверен на version metadata
   и обе backup rules.
   Author `whekin` открывает `github.com/whekin`; пять нажатий на Version раскрывают локальную пасхалку
-  без debug-настроек и изменения состояния приложения.
+  с persistent device-local переключателем Developer mode и отдельной экспериментальной секцией Settings.
   Appearance хранит в DataStore независимые System/Light/Dark и wallpaper-derived System colors;
   выбранная тема сразу синхронизирует фон приложения и контраст edge-to-edge системных панелей.
   До публичного релиза остаются public policy URL/contact, полные third-party notices,
@@ -286,12 +286,15 @@
   personal paths/email, real-looking IBAN/card literals и tracked financial artifacts. Публичная
   история начинается с одного санитизированного root commit; содержательные ранние этапы сохранены
   в `HISTORY.md`, исходная приватная история — только в bundle вне репозитория.
-- [x] Публичный demo-backup для UI QA: `androidTest/assets/whfin-demo-v4.json` содержит 234 связанных
+- [x] Публичный demo mode и fixture для UI QA: `main/assets/whfin-demo-v4.json` содержит 234 связанных
   записи и 12 месяцев синтетической истории — два банка, восемь fiat-ledger, Cash, reserve/goal,
   physical/virtual cards, pending/manual, transfers/conversion, allocations, людей, долги и смешанную
-  историю FILE/MyCredo. Генератор принимает anchor-date; instrumented regression восстанавливает fixture
-  production-кодеком, проверяет насыщенность, foreign keys и повторный export. Реальный Settings/SAF
-  restore и Feed/Accounts/Statistics/тренд визуально проверены на disposable Pixel; OnePlus не затронут.
+  историю FILE/MyCredo. Settings включает его в отдельной `whfin-demo.db`, даты сдвигаются к текущему дню,
+  reset затрагивает только sandbox, а Feed/Accounts явно подписаны Demo data. `whfin-v2.db` остаётся
+  byte-identical при входе/выходе; Android backup allowlist не включает demo DB/runtime flags. Live Credo
+  и demo-facing SMS UI недоступны, а receiver/widget/quick entry всегда используют user DB. Instrumented
+  regression проверяет изоляцию, насыщенность, foreign keys и повторный export; light/dark/font 1.5
+  визуально проверены на disposable Pixel, OnePlus не затронут.
 - Вторая волна: крипта (TrustWallet watch — адрес кошелька уже вводится при создании CRYPTO-счёта),
   долги, теги на партнёра, AI-анализ
 - [x] Реализован единый паттерн контейнер→балансы. Для банка: FinancialGroup,

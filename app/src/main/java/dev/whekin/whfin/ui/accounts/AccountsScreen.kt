@@ -95,6 +95,7 @@ private data class AccountGroupSelection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
+    demoMode: Boolean = false,
     onOpenStatements: () -> Unit = {},
     onOpenOverview: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -142,7 +143,7 @@ fun AccountsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             WhfinContextHeader(
-                label = stringResource(R.string.accounts_net_worth),
+                label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.accounts_net_worth),
                 value = if (readyState == null) "—" else formatMinor(gelBalance, "GEL"),
                 scrollBehavior = headerScrollBehavior,
             ) {

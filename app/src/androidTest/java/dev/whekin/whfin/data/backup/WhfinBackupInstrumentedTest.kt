@@ -3,11 +3,13 @@ package dev.whekin.whfin.data.backup
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
+import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.db.WhfinDatabase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Instant
+import java.time.Clock
+import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -134,7 +136,7 @@ class WhfinBackupInstrumentedTest {
 
     @Test
     fun demoFixture_restoresRichPublicScenario() = runBlocking {
-        val context = InstrumentationRegistry.getInstrumentation().context
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val summary = context.assets.open("whfin-demo-v4.json").use { input ->
             WhfinBackupManager(target).restore(input)
         }
@@ -161,6 +163,23 @@ class WhfinBackupInstrumentedTest {
         val exported = export(target)
         val roundTrip = WhfinBackupCodec.read(ByteArrayInputStream(exported))
         assertEquals(summary.rowCount, roundTrip.summary.rowCount)
+    }
+
+    @Test
+    fun demoInstaller_shiftsFixtureWithoutTouchingUserDatabase() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        source.openHelper.writableDatabase.execSQL(
+            "INSERT INTO people (id, name, role, color, isArchived) VALUES (999, 'Keep me', NULL, 1, 0)",
+        )
+        val fixedClock = Clock.fixed(Instant.parse("2027-08-20T12:00:00Z"), ZoneOffset.UTC)
+
+        DemoDataInstaller(context, target, fixedClock).install()
+
+        assertEquals(1, source.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM people WHERE id = 999"))
+        assertEquals(0, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM people WHERE id = 999"))
+        assertEquals(143, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM transactions"))
+        val latest = target.openHelper.writableDatabase.longForQuery("SELECT MAX(occurredAt) FROM transactions")
+        assertEquals("2027-08-20", Instant.ofEpochMilli(latest).atZone(ZoneOffset.UTC).toLocalDate().toString())
     }
 
     private suspend fun export(db: WhfinDatabase): ByteArray {

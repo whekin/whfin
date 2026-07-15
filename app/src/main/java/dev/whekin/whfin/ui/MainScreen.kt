@@ -133,6 +133,13 @@ fun MainScreen(
     onAppLockPinCreated: (String, AppLockTimeout) -> Unit,
     onBiometricUnlockEnabledChange: (Boolean) -> Unit,
     onOpenBiometricSettings: () -> Unit,
+    demoMode: Boolean = false,
+    developerMode: Boolean = false,
+    runtimeModeBusy: Boolean = false,
+    runtimeModeProblem: String? = null,
+    onDemoModeChange: (Boolean) -> Unit = {},
+    onResetDemoData: () -> Unit = {},
+    onDeveloperModeChange: (Boolean) -> Unit = {},
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -229,6 +236,7 @@ fun MainScreen(
                     ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
                         Box(Modifier.fillMaxWidth().weight(1f)) {
                             if (tab == 0) FeedScreen(
+                                demoMode = demoMode,
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
@@ -237,6 +245,7 @@ fun MainScreen(
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,
                             ) else AccountsScreen(
+                                demoMode = demoMode,
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
                                 onOpenOverview = { open(SecondaryDestination.AccountOverview) },
                                 onOpenSettings = { open(SecondaryDestination.Settings) },
@@ -279,6 +288,12 @@ fun MainScreen(
                             onOpenCategories = { open(SecondaryDestination.Categories) },
                             onOpenPeople = { open(SecondaryDestination.People) },
                             appVersion = appVersion,
+                            demoMode = demoMode,
+                            developerMode = developerMode,
+                            runtimeModeBusy = runtimeModeBusy,
+                            runtimeModeProblem = runtimeModeProblem,
+                            onDemoModeChange = onDemoModeChange,
+                            onResetDemoData = onResetDemoData,
                         )
                     }
                     ShellScene.CredoSync -> SecondaryPage(
@@ -347,7 +362,13 @@ fun MainScreen(
                     ShellScene.About -> SecondaryPage(
                         title = stringResource(R.string.about_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { AboutScreen(appVersion = appVersion) }
+                    ) {
+                        AboutScreen(
+                            appVersion = appVersion,
+                            developerMode = developerMode,
+                            onDeveloperModeChange = onDeveloperModeChange,
+                        )
+                    }
                     ShellScene.Categories -> SecondaryPage(
                         title = stringResource(R.string.categories_title),
                         onBack = { goBack(withHaptic = true) },

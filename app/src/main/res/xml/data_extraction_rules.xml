@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup disableIfNoEncryptionCapabilities="true">
-        <include domain="database" path="." />
+        <include domain="database" path="whfin-v2.db" />
         <include domain="file" path="datastore/whfin_ui.preferences_pb" />
         <include domain="file" path="datastore/whfin_widget.preferences_pb" />
     </cloud-backup>
     <device-transfer>
-        <include domain="database" path="." />
+        <include domain="database" path="whfin-v2.db" />
         <include domain="file" path="datastore/whfin_ui.preferences_pb" />
         <include domain="file" path="datastore/whfin_widget.preferences_pb" />
     </device-transfer>
