@@ -80,6 +80,8 @@ dependencies {
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+    implementation(libs.play.services.auth)
+    implementation(libs.androidx.work.runtime)
 
     testImplementation(libs.junit)
     testImplementation(libs.kxml2)
