@@ -354,6 +354,25 @@
         <item quantity="one">%1$d transaction</item>
         <item quantity="other">%1$d transactions</item>
     </plurals>
+    <string name="people_title">People</string>
+    <string name="people_settings_summary">Debts, shared spending and roles</string>
+    <string name="people_new">New person</string>
+    <string name="people_create">Add person</string>
+    <string name="people_name">Name</string>
+    <string name="people_edit_title">Edit person</string>
+    <string name="people_empty">People appear here when you split a transaction or record a debt. You can also add someone now.</string>
+    <string name="people_owes_you">Owes you %1$s</string>
+    <string name="people_you_owe">You owe %1$s</string>
+    <string name="people_spent_month">This month %1$s</string>
+    <string name="people_archive">Archive person</string>
+    <string name="people_archive_confirm_title">Archive %1$s?</string>
+    <string name="people_archive_confirm_body">The person will be hidden from pickers and lists. Existing transactions keep their history.</string>
+    <string name="people_archive_confirm_body_debts">There are open debts with this person. They will stay recorded, but the person will be hidden from pickers and lists.</string>
+    <string name="person_role_partner">Partner</string>
+    <string name="person_role_family">Family</string>
+    <string name="person_role_friend">Friend</string>
+    <string name="person_role_colleague">Colleague</string>
+    <string name="person_role_other">Other</string>
     <plurals name="categories_delete_confirm_body">
         <item quantity="one">%1$d transaction uses this category and will become uncategorized. Learned merchant rules for it will be forgotten.</item>
         <item quantity="other">%1$d transactions use this category and will become uncategorized. Learned merchant rules for it will be forgotten.</item>

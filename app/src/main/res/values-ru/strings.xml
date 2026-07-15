@@ -359,6 +359,25 @@
         <item quantity="many">%1$d операций</item>
         <item quantity="other">%1$d операции</item>
     </plurals>
+    <string name="people_title">Люди</string>
+    <string name="people_settings_summary">Долги, совместные траты и роли</string>
+    <string name="people_new">Новый человек</string>
+    <string name="people_create">Добавить человека</string>
+    <string name="people_name">Имя</string>
+    <string name="people_edit_title">Изменить человека</string>
+    <string name="people_empty">Люди появляются здесь после сплита операции или записи долга. Можно добавить кого-то и сейчас.</string>
+    <string name="people_owes_you">Должен вам %1$s</string>
+    <string name="people_you_owe">Вы должны %1$s</string>
+    <string name="people_spent_month">В этом месяце %1$s</string>
+    <string name="people_archive">В архив</string>
+    <string name="people_archive_confirm_title">Убрать %1$s в архив?</string>
+    <string name="people_archive_confirm_body">Человек скроется из выбора и списков. История операций сохранится.</string>
+    <string name="people_archive_confirm_body_debts">С этим человеком есть открытые долги. Они останутся записанными, но человек скроется из выбора и списков.</string>
+    <string name="person_role_partner">Партнёр</string>
+    <string name="person_role_family">Семья</string>
+    <string name="person_role_friend">Друг</string>
+    <string name="person_role_colleague">Коллега</string>
+    <string name="person_role_other">Другое</string>
     <plurals name="categories_delete_confirm_body">
         <item quantity="one">%1$d операция с этой категорией станет без категории. Выученные правила мерчантов забудутся.</item>
         <item quantity="few">%1$d операции с этой категорией станут без категории. Выученные правила мерчантов забудутся.</item>

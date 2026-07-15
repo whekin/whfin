@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -64,6 +65,7 @@ fun SettingsScreen(
     appVersion: String,
     onOpenCredoSync: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
+    onOpenPeople: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -120,6 +122,14 @@ fun SettingsScreen(
                 icon = Icons.Default.Category,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenCategories,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.people_title),
+                supportingText = stringResource(R.string.people_settings_summary),
+                icon = Icons.Default.Group,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenPeople,
             )
         }
 

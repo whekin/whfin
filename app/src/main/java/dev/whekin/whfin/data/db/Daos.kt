@@ -413,7 +413,19 @@ interface TransactionAllocationDao {
         deleteForTransaction(transactionId)
         insertAll(allocations)
     }
+
+    /** Потрачено на человека (SHARED/GIFT) за период, по валютам; долги считаются отдельно через DebtCase. */
+    @Query(
+        "SELECT a.personId AS personId, t.currency AS currency, SUM(-a.amountMinor) AS spentMinor " +
+            "FROM transaction_allocations a JOIN transactions t ON t.id = a.transactionId " +
+            "WHERE a.personId IS NOT NULL AND a.purpose IN ('SHARED', 'GIFT') " +
+            "AND t.occurredAt >= :fromMillis AND t.occurredAt < :toMillis " +
+            "GROUP BY a.personId, t.currency"
+    )
+    fun observePersonSpending(fromMillis: Long, toMillis: Long): Flow<List<PersonSpending>>
 }
+
+data class PersonSpending(val personId: Long, val currency: String, val spentMinor: Long)
 
 @Dao
 interface DebtDao {

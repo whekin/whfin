@@ -58,6 +58,7 @@ import dev.whekin.whfin.ui.settings.AppLockScreen
 import dev.whekin.whfin.ui.settings.PrivacyScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.CategoriesRoute
+import dev.whekin.whfin.ui.settings.PeopleRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -87,7 +88,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About, Categories }
+private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About, Categories, People }
 
 private enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -103,6 +104,7 @@ private enum class ShellScene(val depth: Int) {
     Privacy(2),
     About(2),
     Categories(2),
+    People(2),
 }
 
 @Composable
@@ -153,6 +155,7 @@ fun MainScreen(
         secondaryDestination == SecondaryDestination.Privacy -> ShellScene.Privacy
         secondaryDestination == SecondaryDestination.About -> ShellScene.About
         secondaryDestination == SecondaryDestination.Categories -> ShellScene.Categories
+        secondaryDestination == SecondaryDestination.People -> ShellScene.People
         else -> ShellScene.Primary
     }
     val haptics = LocalHapticFeedback.current
@@ -195,7 +198,8 @@ fun MainScreen(
                 secondaryDestination == SecondaryDestination.Backup ||
                 secondaryDestination == SecondaryDestination.Privacy ||
                 secondaryDestination == SecondaryDestination.About ||
-                secondaryDestination == SecondaryDestination.Categories -> {
+                secondaryDestination == SecondaryDestination.Categories ||
+                secondaryDestination == SecondaryDestination.People -> {
                 secondaryDestination = SecondaryDestination.Settings
             }
             else -> secondaryDestination = null
@@ -273,6 +277,7 @@ fun MainScreen(
                             onOpenPrivacy = { open(SecondaryDestination.Privacy) },
                             onOpenAbout = { open(SecondaryDestination.About) },
                             onOpenCategories = { open(SecondaryDestination.Categories) },
+                            onOpenPeople = { open(SecondaryDestination.People) },
                             appVersion = appVersion,
                         )
                     }
@@ -347,6 +352,10 @@ fun MainScreen(
                         title = stringResource(R.string.categories_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { CategoriesRoute() }
+                    ShellScene.People -> SecondaryPage(
+                        title = stringResource(R.string.people_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) { PeopleRoute() }
                     ShellScene.Analytics -> Box(Modifier.fillMaxSize()) {
                         Box(
                             Modifier.fillMaxSize().then(
