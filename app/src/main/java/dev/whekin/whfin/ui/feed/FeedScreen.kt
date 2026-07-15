@@ -48,6 +48,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.ui.parseToMinor
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
@@ -153,6 +158,7 @@ fun FeedScreen(
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
+    var splitFor by remember { mutableStateOf<FeedItem?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
     var statusFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -470,8 +476,10 @@ fun FeedScreen(
                 details = null
                 editFor = item
             }} else null,
-            onDebt = if (item.tx.amountMinor < 0) {{ details = null; debtFor = item }} else null,
+            onDebt = if (item.tx.amountMinor < 0 && item.splitOnPeople.isEmpty()) {{ details = null; debtFor = item }} else null,
             onClearDebt = if (item.isDebt) {{ viewModel.clearAllocations(item); details = null }} else null,
+            onSplit = if (item.tx.amountMinor < 0 && !item.isDebt) {{ details = null; splitFor = item }} else null,
+            onClearSplit = if (item.splitOnPeople.isNotEmpty()) {{ viewModel.clearAllocations(item); details = null }} else null,
             onChangeStatus = {
                 details = null
                 statusFor = item
@@ -525,6 +533,15 @@ fun FeedScreen(
             onAdd = { viewModel.addPersonAndAssignDebt(item, it); debtFor = null },
         )
     }
+    splitFor?.let { item ->
+        SplitSheet(
+            item = item,
+            people = people,
+            onDismiss = { splitFor = null },
+            onAddPerson = { name, then -> viewModel.addPerson(name, then) },
+            onSave = { shares -> viewModel.saveSplit(item, shares); splitFor = null },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -537,6 +554,8 @@ internal fun TransactionDetailsSheet(
     onEdit: (() -> Unit)?,
     onDebt: (() -> Unit)?,
     onClearDebt: (() -> Unit)?,
+    onSplit: (() -> Unit)? = null,
+    onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
 ) {
     val tx = item.tx
@@ -550,7 +569,8 @@ internal fun TransactionDetailsSheet(
     val hasBankDetails = item.account?.iban != null || tx.source != dev.whekin.whfin.data.db.TxSource.MANUAL ||
         tx.rawCounterparty != null || tx.counterpartyIban != null || tx.note != null ||
         tx.origAmountMinor != null || item.fundedByConversionMinor != null
-    val hasActions = onEdit != null || onDelete != null || onDebt != null || onClearDebt != null
+    val hasActions = onEdit != null || onDelete != null || onDebt != null || onClearDebt != null ||
+        onSplit != null || onClearSplit != null
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -596,6 +616,12 @@ internal fun TransactionDetailsSheet(
                             stringResource(R.string.debt_label),
                             stringResource(R.string.debt_person_owes, item.debtPersonName ?: "—", formatMinor(item.debtMinor ?: 0L, tx.currency)),
                         )
+                        item.splitOnPeople.forEach { (name, amount) ->
+                            DetailRow(
+                                stringResource(R.string.split_on_person, name),
+                                formatMinor(amount, tx.currency),
+                            )
+                        }
                     }
                 }
             }
@@ -643,6 +669,11 @@ internal fun TransactionDetailsSheet(
                             DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)
                         } else if (onDebt != null) item {
                             DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
+                        }
+                        if (onClearSplit != null) item {
+                            DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_clear), onClearSplit)
+                        } else if (onSplit != null) item {
+                            DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_action_short), onSplit)
                         }
                         if (onDelete != null) item {
                             DetailQuickAction(
@@ -804,6 +835,131 @@ internal fun DebtPersonSheet(
             )
             if (name.isNotBlank()) WhfinButton(
                 stringResource(R.string.debt_add_and_select), { onAdd(name) }, Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+private enum class SplitMode { HALF, FULL, CUSTOM }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SplitSheet(
+    item: FeedItem,
+    people: List<PersonEntity>,
+    onDismiss: () -> Unit,
+    onAddPerson: (String, (Long) -> Unit) -> Unit,
+    onSave: (List<SplitShare>) -> Unit,
+) {
+    val total = kotlin.math.abs(item.tx.amountMinor)
+    // Предзаполнение из существующей разбивки (одна персона — быстрый путь)
+    val existing = item.splitOnPeople.firstOrNull()
+    var selectedPersonId by remember {
+        mutableStateOf(people.firstOrNull { it.name == existing?.first }?.id ?: people.firstOrNull()?.id)
+    }
+    var mode by remember {
+        mutableStateOf(
+            when (existing?.second) {
+                null -> SplitMode.HALF
+                total -> SplitMode.FULL
+                total / 2 -> SplitMode.HALF
+                else -> SplitMode.CUSTOM
+            },
+        )
+    }
+    var customText by remember {
+        mutableStateOf(existing?.second?.let { (it / 100.0).toString() } ?: "")
+    }
+    var newName by remember { mutableStateOf("") }
+
+    val onThemMinor = when (mode) {
+        SplitMode.HALF -> total / 2
+        SplitMode.FULL -> total
+        SplitMode.CUSTOM -> parseToMinor(customText)?.coerceIn(0, total) ?: 0L
+    }
+    val purpose = if (mode == SplitMode.FULL) AllocationPurpose.GIFT else AllocationPurpose.SHARED
+    val canSave = selectedPersonId != null && onThemMinor > 0
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding().padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(stringResource(R.string.split_title), style = MaterialTheme.typography.headlineSmall)
+            Text(
+                formatMinor(total, item.tx.currency),
+                style = MaterialTheme.typography.displaySmall,
+            )
+
+            Text(stringResource(R.string.split_with_whom), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(people, key = { it.id }) { person ->
+                    FilterChip(
+                        selected = selectedPersonId == person.id,
+                        onClick = { selectedPersonId = person.id },
+                        label = { Text(person.name) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = newName,
+                onValueChange = { newName = it },
+                label = { Text(stringResource(R.string.debt_new_person)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                trailingIcon = {
+                    if (newName.isNotBlank()) TextButton(onClick = {
+                        onAddPerson(newName.trim()) { id -> selectedPersonId = id; newName = "" }
+                    }) { Text(stringResource(R.string.action_add)) }
+                },
+            )
+
+            Text(stringResource(R.string.split_how_much), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(mode == SplitMode.HALF, { mode = SplitMode.HALF }, { Text(stringResource(R.string.split_half)) })
+                FilterChip(mode == SplitMode.FULL, { mode = SplitMode.FULL }, { Text(stringResource(R.string.split_full)) })
+                FilterChip(mode == SplitMode.CUSTOM, { mode = SplitMode.CUSTOM }, { Text(stringResource(R.string.split_custom)) })
+            }
+            if (mode == SplitMode.CUSTOM) {
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = { customText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12) },
+                    label = { Text(stringResource(R.string.split_amount_on_them)) },
+                    suffix = { Text(item.tx.currency) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                )
+            }
+
+            // Подсказка по итогу: на человека / на себя
+            if (canSave) {
+                val onMe = total - onThemMinor
+                Text(
+                    stringResource(
+                        R.string.split_preview,
+                        formatMinor(onThemMinor, item.tx.currency),
+                        formatMinor(onMe, item.tx.currency),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            WhfinButton(
+                stringResource(R.string.action_save),
+                onClick = {
+                    val id = selectedPersonId ?: return@WhfinButton
+                    onSave(listOf(SplitShare(personId = id, amountMinor = onThemMinor, purpose = purpose)))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = canSave,
             )
         }
     }
@@ -1372,7 +1528,10 @@ internal fun FeedRow(
     }
     // Источник: кеш/название счёта, для карточного счёта — маска карты
     val sourceHint = item.cardHint ?: item.account?.name
-    val subtitle = if (sourceHint != null) "$categoryName · $sourceHint" else categoryName
+    val splitHint = item.splitOnPeople.firstOrNull()?.let { (name, _) ->
+        if (item.splitOnPeople.size > 1) "$name +${item.splitOnPeople.size - 1}" else name
+    }
+    val subtitle = listOfNotNull(categoryName, sourceHint, splitHint).joinToString(" · ")
     val amountColor = when {
         tx.isTransfer || tx.transferGroupId != null -> MaterialTheme.colorScheme.onSurfaceVariant
         tx.amountMinor > 0 -> MaterialTheme.colorScheme.primary

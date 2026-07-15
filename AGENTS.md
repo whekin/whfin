@@ -249,8 +249,10 @@
   а HTTP 403/429 явно объясняются как защита сайта. Следующий ручной retry владельца отделит старую
   validation error от Cloudflare gate. Первый retry показал `reference: null`: исправлен parser bug,
   где JSON `errorCode: null` ошибочно превращался `org.json` в строковую ошибку `"null"`; добавлен
-  regression-test. Login/OTP/list/export пока не считаются доказанными до следующего ручного retry.
-  Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
+  regression-test. Login/OTP/list/export ПОДТВЕРЖДЕНЫ на реальном устройстве (2026-07-15): полный sync
+  успешно скачал все выписки по всем счетам/валютам и прогнал их через StatementImporter. Фича вышла из
+  experimental. Остаётся хардненинг edge-cases (истёкшая сессия, частичный сбой, ретраи) и наблюдение за
+  изменениями web-протокола. Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
   package version/build, авторством `whekin` и локальным privacy-summary. Все иерархические Back-действия
   используют единый borderless circular `WhfinBackButton`; закрытие форм остаётся отдельным Close.

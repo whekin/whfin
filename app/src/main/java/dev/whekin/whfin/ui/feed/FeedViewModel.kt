@@ -48,7 +48,16 @@ data class FeedItem(
     val debtPersonName: String? = null,
     val debtMinor: Long? = null,
     val isDebt: Boolean = false,
+    /** Доли на людей (SHARED/GIFT): имя → сумма на этого человека (abs, minor). */
+    val splitOnPeople: List<Pair<String, Long>> = emptyList(),
     val day: LocalDate,
+)
+
+/** Одна доля разбивки: сколько потрачено на человека и с каким смыслом. */
+data class SplitShare(
+    val personId: Long,
+    val amountMinor: Long,
+    val purpose: AllocationPurpose,
 )
 
 internal fun buildBaseFeedItems(
@@ -113,13 +122,24 @@ internal fun applyDebtAllocations(
     val personById = people.associateBy { it.id }
     val debtByTransaction = allocations.filter { it.purpose == AllocationPurpose.LOAN }
         .groupBy { it.transactionId }
+    // Доли на людей (совместное/подарок) — справочное измерение, не долг
+    val splitByTransaction = allocations
+        .filter { it.personId != null && (it.purpose == AllocationPurpose.SHARED || it.purpose == AllocationPurpose.GIFT) }
+        .groupBy { it.transactionId }
     return items.map { item ->
         val debts = debtByTransaction[item.tx.id].orEmpty()
         val debt = debts.firstOrNull()
+        val splits = splitByTransaction[item.tx.id].orEmpty()
+            .groupBy { it.personId }
+            .mapNotNull { (personId, allocs) ->
+                val name = personId?.let(personById::get)?.name ?: return@mapNotNull null
+                name to allocs.sumOf { kotlin.math.abs(it.amountMinor) }
+            }
         item.copy(
             debtPersonName = debt?.personId?.let(personById::get)?.name,
             debtMinor = debts.takeIf { it.isNotEmpty() }?.sumOf { kotlin.math.abs(it.amountMinor) },
             isDebt = debts.isNotEmpty(),
+            splitOnPeople = splits,
         )
     }
 }
@@ -411,6 +431,53 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearAllocations(item: FeedItem) {
         viewModelScope.launch { db.transactionAllocationDao().deleteForTransaction(item.tx.id) }
+    }
+
+    /**
+     * Разбить расход по людям (вариант 1: справочное измерение, свой расход не меняется).
+     * [onPeople] — сколько потрачено на каждого человека (положит. minor); purpose определяет,
+     * совместно (SHARED) или подарок (GIFT). Остаток идёт на себя (PERSONAL), без personId.
+     * Ноль долей — очистка разбивки.
+     */
+    fun saveSplit(item: FeedItem, onPeople: List<SplitShare>) {
+        if (item.tx.amountMinor >= 0) return
+        viewModelScope.launch {
+            val total = kotlin.math.abs(item.tx.amountMinor)
+            val assigned = onPeople.sumOf { it.amountMinor }.coerceIn(0, total)
+            if (assigned == 0L) {
+                db.transactionAllocationDao().deleteForTransaction(item.tx.id)
+                return@launch
+            }
+            val allocations = buildList {
+                onPeople.filter { it.amountMinor > 0 }.forEach { share ->
+                    add(TransactionAllocationEntity(
+                        transactionId = item.tx.id,
+                        amountMinor = -share.amountMinor,
+                        categoryId = item.tx.categoryId,
+                        personId = share.personId,
+                        purpose = share.purpose,
+                    ))
+                }
+                val remainder = total - assigned
+                if (remainder > 0) add(TransactionAllocationEntity(
+                    transactionId = item.tx.id,
+                    amountMinor = -remainder,
+                    categoryId = item.tx.categoryId,
+                    personId = null,
+                    purpose = AllocationPurpose.PERSONAL,
+                ))
+            }
+            db.transactionAllocationDao().replaceForTransaction(item.tx.id, allocations)
+        }
+    }
+
+    fun addPerson(name: String, onCreated: (Long) -> Unit) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch {
+            val id = db.personDao().insert(PersonEntity(name = clean, color = 0xFF78906F.toInt()))
+            onCreated(id)
+        }
     }
 
     fun updateStatus(item: FeedItem, status: TxStatus) {
