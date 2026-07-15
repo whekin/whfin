@@ -286,6 +286,12 @@
   personal paths/email, real-looking IBAN/card literals и tracked financial artifacts. Публичная
   история начинается с одного санитизированного root commit; содержательные ранние этапы сохранены
   в `HISTORY.md`, исходная приватная история — только в bundle вне репозитория.
+- [x] Публичный demo-backup для UI QA: `androidTest/assets/whfin-demo-v4.json` содержит 234 связанных
+  записи и 12 месяцев синтетической истории — два банка, восемь fiat-ledger, Cash, reserve/goal,
+  physical/virtual cards, pending/manual, transfers/conversion, allocations, людей, долги и смешанную
+  историю FILE/MyCredo. Генератор принимает anchor-date; instrumented regression восстанавливает fixture
+  production-кодеком, проверяет насыщенность, foreign keys и повторный export. Реальный Settings/SAF
+  restore и Feed/Accounts/Statistics/тренд визуально проверены на disposable Pixel; OnePlus не затронут.
 - Вторая волна: крипта (TrustWallet watch — адрес кошелька уже вводится при создании CRYPTO-счёта),
   долги, теги на партнёра, AI-анализ
 - [x] Реализован единый паттерн контейнер→балансы. Для банка: FinancialGroup,

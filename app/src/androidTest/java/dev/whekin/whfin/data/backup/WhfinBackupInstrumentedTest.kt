@@ -3,6 +3,7 @@ package dev.whekin.whfin.data.backup
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import dev.whekin.whfin.data.db.WhfinDatabase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -131,6 +132,37 @@ class WhfinBackupInstrumentedTest {
         Unit
     }
 
+    @Test
+    fun demoFixture_restoresRichPublicScenario() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val summary = context.assets.open("whfin-demo-v4.json").use { input ->
+            WhfinBackupManager(target).restore(input)
+        }
+        val sqlite = target.openHelper.writableDatabase
+
+        assertEquals(4, summary.databaseVersion)
+        check(summary.rowCount >= 200) { "Demo fixture became too small for representative UI states." }
+        assertEquals(8, sqlite.longForQuery("SELECT COUNT(*) FROM accounts"))
+        check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions") >= 120)
+        assertEquals(12, sqlite.longForQuery(
+            "SELECT COUNT(DISTINCT strftime('%Y-%m', occurredAt / 1000, 'unixepoch')) " +
+                "FROM transactions WHERE source != 'ADJUSTMENT'",
+        ))
+        assertEquals(2, sqlite.longForQuery("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING'"))
+        assertEquals(15, sqlite.longForQuery("SELECT COUNT(*) FROM transfer_groups"))
+        assertEquals(3, sqlite.longForQuery("SELECT COUNT(*) FROM debt_cases"))
+        assertEquals(4, sqlite.longForQuery("SELECT COUNT(*) FROM statement_imports"))
+        assertEquals(1, sqlite.longForQuery("SELECT COUNT(*) FROM reconciliation_issues WHERE state = 'OPEN'"))
+        assertEquals(0, sqlite.longForQuery("SELECT COUNT(*) FROM accounts WHERE iban IS NOT NULL AND iban NOT LIKE 'GE00%'"))
+        sqlite.query("PRAGMA foreign_key_check").use { cursor ->
+            check(!cursor.moveToFirst()) { "Demo fixture contains broken foreign keys." }
+        }
+
+        val exported = export(target)
+        val roundTrip = WhfinBackupCodec.read(ByteArrayInputStream(exported))
+        assertEquals(summary.rowCount, roundTrip.summary.rowCount)
+    }
+
     private suspend fun export(db: WhfinDatabase): ByteArray {
         val output = ByteArrayOutputStream()
         WhfinBackupManager(db).export(output, METADATA)
@@ -170,6 +202,12 @@ class WhfinBackupInstrumentedTest {
             sqlite.endTransaction()
         }
     }
+
+    private fun androidx.sqlite.db.SupportSQLiteDatabase.longForQuery(sql: String): Long =
+        query(sql).use { cursor ->
+            check(cursor.moveToFirst())
+            cursor.getLong(0)
+        }
 
     private companion object {
         val METADATA = WhfinBackupMetadata(

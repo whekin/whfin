@@ -66,6 +66,49 @@ and verify a restorable app-data backup before starting.
 - Screenshot preview tests: `core-ui/src/screenshotTest/kotlin`
 - Screenshot references: `core-ui/src/screenshotTestDebug/reference`
 
+## Synthetic demo backup
+
+`app/src/androidTest/assets/whfin-demo-v4.json` is the canonical public-safe demo state for manual
+product QA, screenshots, and backup regression testing. It is packaged only in the Android test APK,
+never in the production application. The fixture currently contains 12 months of activity, two banks,
+eight fiat ledgers, physical and virtual cards, Cash, reserve and goal savings, statement and MyCredo
+history, pending SMS drafts, manual entries, transfers, a conversion, shared spending, people, and open
+and closed debts.
+
+All identifiers and money are invented. IBANs use the intentionally invalid `GE00` checksum and card
+suffixes use the reserved `000x` range. Keep the same convention when extending the scenario; never
+derive a demo row from a physical phone, a real statement, or a screenshot.
+
+The checked-in fixture is anchored at 2026-07-15 for deterministic assertions. Regenerate it around a
+new screenshot date with:
+
+```bash
+node scripts/generate-demo-fixture.mjs \
+  app/src/androidTest/assets/whfin-demo-v4.json "$(date +%F)"
+```
+
+Then run the real Room/backup validation on a disposable emulator:
+
+```bash
+./gradlew :app:assembleDebugAndroidTest
+adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s emulator-5554 shell am instrument -w -r \
+  -e class dev.whekin.whfin.data.backup.WhfinBackupInstrumentedTest#demoFixture_restoresRichPublicScenario \
+  dev.whekin.whfin.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+For visual QA, push the JSON to the disposable emulator and use the real Settings → Backup & export →
+Restore from JSON flow:
+
+```bash
+adb -s emulator-5554 push \
+  app/src/androidTest/assets/whfin-demo-v4.json \
+  /sdcard/Download/whfin-demo-v4.json
+```
+
+Restore is intentionally destructive. Never run this flow on the user's OnePlus or another data-bearing
+device. Screenshots produced from the fixture belong under ignored `artifacts/`, not in source control.
+
 ## Required UI coverage
 
 Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, composer, Settings, Statistics, analytics-filtered transactions, and statement result states. The design-system screenshot suite validates the shared components in those configurations, including the selectable monthly chart. Device journeys remain intentionally few and cover launch/navigation plus database integration; detailed behavior stays in fast local tests.
@@ -87,6 +130,10 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   run. The Settings route, idle/working/success states and restore confirmation passed host Compose tests.
   A real SAF export produced a readable version-1 JSON file with 25 emulator records; the screen and
   system picker were rendered in dark 1.0 and light 1.5 with legible edge-to-edge system bars.
+- Synthetic demo backup: the 234-row public fixture restored through both the production codec test and
+  the real Settings/SAF flow on the disposable Pixel. Feed, Accounts, monthly category distribution, the
+  selectable groceries trend, pending/manual rows, transfers, debts and statement history all rendered
+  from the restored database. The physical phone was not modified.
 - SAF statement picker regression: the app pins `androidx.fragment:fragment` 1.8.9 because Biometric
   1.1.0 otherwise resolves Fragment 1.2.5, whose `FragmentActivity` rejects modern Activity Result request
   codes above 16 bits. On disposable Pixel API 36.1, Upload statement opened DocumentsUI and returned to

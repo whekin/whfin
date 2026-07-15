@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryKind
 import androidx.room.withTransaction
 import java.time.LocalTime
@@ -71,8 +72,11 @@ internal fun buildBaseFeedItems(
     val merchantById = merchants.associateBy { it.id }
     val categoryById = categories.associateBy { it.id }
     val accountById = accounts.associateBy { it.id }
-    fun accountLabel(account: AccountEntity): String =
-        "${account.currency} •${account.iban?.takeLast(4) ?: account.name.takeLast(4)}"
+    fun accountLabel(account: AccountEntity): String = when {
+        account.type == AccountType.CASH -> account.name
+        account.iban != null -> "${account.currency} •${account.iban.takeLast(4)}"
+        else -> account.name
+    }
     val transferLegs = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
     return transactions.filter { tx ->
         val legs = tx.transferGroupId?.let(transferLegs::get).orEmpty()
