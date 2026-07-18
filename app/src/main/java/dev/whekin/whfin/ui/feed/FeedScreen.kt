@@ -500,9 +500,13 @@ fun FeedScreen(
     }
 
     categoryFor?.let { item ->
+        val suggester by viewModel.categorySuggester.collectAsState()
         CategoryPickerSheet(
             item = item,
-            categories = categories,
+            // Сумма и валюта операции известны — пикер ранжируется умными подсказками.
+            categories = remember(categories, suggester, item.tx.id) {
+                suggester?.rankCategories(categories, item.tx.amountMinor, item.tx.currency) ?: categories
+            },
             onDismiss = { categoryFor = null },
             onSelect = { category ->
                 viewModel.assignCategory(item, category.id)

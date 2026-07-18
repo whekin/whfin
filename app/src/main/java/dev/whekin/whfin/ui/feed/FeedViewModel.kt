@@ -19,9 +19,11 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryKind
 import androidx.room.withTransaction
 import java.time.LocalTime
+import dev.whekin.whfin.data.categorization.CategorySuggester
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -238,13 +240,20 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         applyDebtAllocations(items, allocations, people)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Категории, отсортированные по частоте использования — для компактной формы добавления. */
+    /** Скоринг умных подсказок: частота с затуханием + совместимость суммы. */
+    val categorySuggester: StateFlow<CategorySuggester?> = db.transactionDao()
+        .observeCategorySamples(System.currentTimeMillis() - CategorySuggester.LOOKBACK_MILLIS)
+        .map<List<dev.whekin.whfin.data.db.CategorySample>, CategorySuggester?> {
+            CategorySuggester(it, System.currentTimeMillis())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Категории, отсортированные по уместности (без суммы) — для компактной формы добавления. */
     val categoriesByUsage: StateFlow<List<CategoryEntity>> = combine(
         categories,
-        db.transactionDao().observeCategoryUsage(),
-    ) { cats, usage ->
-        val rank = usage.withIndex().associate { (index, u) -> u.categoryId to index }
-        cats.sortedBy { rank[it.id] ?: Int.MAX_VALUE }
+        categorySuggester,
+    ) { cats, suggester ->
+        suggester?.rankCategories(cats) ?: cats
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totalBalanceMinor: StateFlow<Long> = combine(

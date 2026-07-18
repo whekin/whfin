@@ -339,6 +339,14 @@ interface TransactionDao {
     )
     fun observeCategoryUsage(): Flow<List<CategoryUsage>>
 
+    /** Сырьё для умных подсказок категорий: категоризированные расходы за период. */
+    @Query(
+        "SELECT categoryId, amountMinor, currency, occurredAt FROM transactions " +
+            "WHERE categoryId IS NOT NULL AND amountMinor < 0 AND isTransfer = 0 " +
+            "AND occurredAt >= :sinceMillis"
+    )
+    fun observeCategorySamples(sinceMillis: Long): Flow<List<CategorySample>>
+
     /** Итоги по категориям за период; переводы между своими счетами исключены. */
     @Query(
         "SELECT categoryId, SUM(amountMinor) AS totalMinor, COUNT(*) AS txCount FROM transactions " +
@@ -357,6 +365,13 @@ data class AccountBalance(
 data class CategoryUsage(
     val categoryId: Long,
     val cnt: Int,
+)
+
+data class CategorySample(
+    val categoryId: Long,
+    val amountMinor: Long,
+    val currency: String,
+    val occurredAt: Long,
 )
 
 data class CategoryTotal(

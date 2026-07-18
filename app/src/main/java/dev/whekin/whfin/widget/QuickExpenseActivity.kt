@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.categorization.CategorySuggester
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryEntity
@@ -62,20 +63,20 @@ class QuickExpenseActivity : ComponentActivity() {
         window.isNavigationBarContrastEnforced = false
         setContent {
             WhfinTheme {
-                // Категории грузятся асинхронно и не задерживают первый кадр с фокусом суммы.
-                val categories by produceState(emptyList<CategoryEntity>()) {
+                // Категории и статистика грузятся асинхронно и не задерживают
+                // первый кадр с фокусом суммы.
+                val suggestions by produceState<Pair<List<CategoryEntity>, CategorySuggester>?>(null) {
                     val db = (application as WhfinApp).userDb
                     value = withContext(Dispatchers.IO) {
-                        val counts = db.transactionDao().observeCategoryUsage()
+                        val now = System.currentTimeMillis()
+                        val samples = db.transactionDao()
+                            .observeCategorySamples(now - CategorySuggester.LOOKBACK_MILLIS)
                             .firstOrNull()
-                            ?.associate { it.categoryId to it.cnt }
                             .orEmpty()
-                        db.categoryDao().all()
+                        val suggester = CategorySuggester(samples, now)
+                        val expense = db.categoryDao().all()
                             .filter { it.kind == CategoryKind.EXPENSE && !it.isSystem }
-                            .sortedWith(
-                                compareByDescending<CategoryEntity> { counts[it.id] ?: 0 }
-                                    .thenBy { it.sortOrder },
-                            )
+                        suggester.rankCategories(expense) to suggester
                     }
                 }
                 QuickExpenseScreen(
@@ -83,7 +84,8 @@ class QuickExpenseActivity : ComponentActivity() {
                     sourceLabel = intent.getStringExtra(EXTRA_SOURCE_LABEL)
                         ?: getString(R.string.widget_source_cash),
                     sourceAccountId = intent.getLongExtra(EXTRA_ACCOUNT_ID, -1L).takeIf { it > 0 },
-                    categories = categories,
+                    categories = suggestions?.first.orEmpty(),
+                    suggester = suggestions?.second,
                     onDismiss = ::finish,
                     onSave = ::save,
                 )
@@ -131,6 +133,7 @@ private fun QuickExpenseScreen(
     sourceLabel: String,
     sourceAccountId: Long?,
     categories: List<CategoryEntity>,
+    suggester: CategorySuggester?,
     onDismiss: () -> Unit,
     onSave: (Long, String, Long?, String?, Long?) -> Unit,
 ) {
@@ -186,8 +189,16 @@ private fun QuickExpenseScreen(
                     Text(currency, style = MaterialTheme.typography.titleLarge)
                 }
                 if (categories.isNotEmpty()) {
+                    // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки,
+                    // но пока категория выбрана — порядок заморожен, чтобы выбор не прыгал.
+                    val ranked = remember(categories, suggester, minor, categoryId) {
+                        if (categoryId != null || suggester == null || minor == null) categories
+                        else suggester.rankCategories(categories, -minor, currency)
+                    }
+                    var frozen by remember { mutableStateOf(categories) }
+                    if (categoryId == null) frozen = ranked
                     QuickCategoryRow(
-                        categories = categories,
+                        categories = frozen,
                         selectedId = categoryId,
                         onSelect = { selected ->
                             categoryId = if (categoryId == selected.id) null else selected.id

@@ -178,9 +178,12 @@ internal fun AccountTransactionsScreen(
         }
     }
     categoryFor?.let { item ->
+        val suggester by feedViewModel.categorySuggester.collectAsState()
         CategoryPickerSheet(
             item = item,
-            categories = categories,
+            categories = androidx.compose.runtime.remember(categories, suggester, item.tx.id) {
+                suggester?.rankCategories(categories, item.tx.amountMinor, item.tx.currency) ?: categories
+            },
             onDismiss = { categoryFor = null },
             onSelect = { category ->
                 feedViewModel.assignCategory(item, category.id)
