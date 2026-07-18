@@ -234,6 +234,10 @@
   так как каталог не умеет wallpaper-reactive bitmap. Runtime System/WHFIN и system dark проверены
   на disposable Pixel 9 Pro API 36.1. В многоячеечных вариантах цветная поверхность `+` имеет
   размер 40dp и отступлена внутри отдельного 48dp touch target, поэтому не сливается с высотой панели.
+  Вечный `initialLayout` после in-place upgrade закрыт отдельным `MY_PACKAGE_REPLACED → updateAll()`:
+  ColorOS больше не зависит от необязательного provider update после замены APK. Первый Glance-кадр
+  также ограничивает ожидание Room/DataStore тремя секундами и при сбое показывает рабочий Cash-fallback,
+  поэтому системный loading layout не может остаться постоянным.
 - [x] Data Safety: destructive Room fallback удалён; v1→v2 оформлена явной migration, которая сохраняет
   существующие строки и создаёт debt-таблицы. Schema assets подключены к `MigrationTestHelper`; обе
   проверки прошли на disposable Pixel через адресный instrumented run. Любое будущее изменение от DB v2

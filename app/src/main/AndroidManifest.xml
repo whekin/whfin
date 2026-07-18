@@ -77,6 +77,13 @@
                 android:resource="@xml/whfin_widget_4_info" />
         </receiver>
         <receiver
+            android:name=".widget.WidgetPackageReplacedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name=".data.sms.CredoSmsReceiver"
             android:exported="true"
             android:permission="android.permission.BROADCAST_SMS">

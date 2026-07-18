@@ -2,6 +2,7 @@
 
 package dev.whekin.whfin.widget
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -13,6 +14,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -28,6 +30,7 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -48,12 +51,16 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 private val Context.widgetStore by preferencesDataStore("whfin_widget")
 private val SourceIndex = intPreferencesKey("source_index")
 private val CurrencyIndex = intPreferencesKey("currency_index")
+internal const val WidgetLoadTimeoutMillis = 3_000L
 
 // A launcher cell is usually ~80–100 dp wide after host padding. Keep breakpoints between cells,
 // not at the nominal XML minWidth, so a 2-cell widget never receives the 3-cell composition.
@@ -78,9 +85,13 @@ class WhfinWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(setOf(One, Two, Three, Four))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val sources = loadSources(context)
+        val sources = withWidgetFallback(fallback = { listOf(cashSource(context)) }) {
+            loadSources(context)
+        }
         val store = context.widgetStore
-        val initial = store.data.first()
+        val initial = withWidgetFallback(fallback = ::emptyPreferences) {
+            store.data.first()
+        }
         provideContent {
             val preferences by store.data.collectAsState(initial)
             val scope = rememberCoroutineScope()
@@ -144,6 +155,21 @@ class WhfinWidget3Receiver : GlanceAppWidgetReceiver() {
 
 class WhfinWidget4Receiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = WhfinWidget()
+}
+
+/** ColorOS may restore initialLayout after an in-place upgrade without requesting a fresh render. */
+class WidgetPackageReplacedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        val pending = goAsync()
+        (context.applicationContext as WhfinApp).appScope.launch {
+            try {
+                WhfinWidget().updateAll(context.applicationContext)
+            } finally {
+                pending.finish()
+            }
+        }
+    }
 }
 
 @Composable
@@ -265,11 +291,9 @@ private suspend fun loadSources(context: Context): List<WidgetSource> {
     val linkedAccountIds = links.mapTo(mutableSetOf()) { it.accountId }
 
     val result = mutableListOf(
-        WidgetSource(
-            compactLabel = context.getString(R.string.widget_source_cash),
-            fullLabel = context.getString(R.string.widget_source_cash),
-            accountByCurrency = accounts.filter { it.type == AccountType.CASH }.associate { it.currency to it.id },
-            cash = true,
+        cashSource(
+            context,
+            accounts.filter { it.type == AccountType.CASH }.associate { it.currency to it.id },
         ),
     )
     instruments.forEach { instrument ->
@@ -309,6 +333,28 @@ private suspend fun loadSources(context: Context): List<WidgetSource> {
             )
         }
     return result
+}
+
+private fun cashSource(context: Context, accountByCurrency: Map<String, Long> = emptyMap()) =
+    WidgetSource(
+        compactLabel = context.getString(R.string.widget_source_cash),
+        fullLabel = context.getString(R.string.widget_source_cash),
+        accountByCurrency = accountByCurrency,
+        cash = true,
+    )
+
+internal suspend fun <T> withWidgetFallback(
+    timeoutMillis: Long = WidgetLoadTimeoutMillis,
+    fallback: () -> T,
+    block: suspend () -> T,
+): T = try {
+    withTimeout(timeoutMillis) { block() }
+} catch (_: TimeoutCancellationException) {
+    fallback()
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    fallback()
 }
 
 private fun quickIntent(context: Context, currency: String, accountId: Long?, sourceLabel: String) =
