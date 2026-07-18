@@ -4,31 +4,23 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Стилизованный лари: стем сквозь чашу, чаша перетекает в базовую линию,
-         глиняная точка — свежая запись в книге. По утверждённой генерации владельца. -->
-    <group
-        android:scaleX="0.75"
-        android:scaleY="0.75"
-        android:pivotX="54"
-        android:pivotY="54"
-        android:translateX="-2.5">
-        <path
-            android:pathData="M54,44 A16,16 0 1 0 68.5,53.2"
-            android:strokeColor="#FFF7F1E5"
-            android:strokeWidth="6"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M54,22 L54,56"
-            android:strokeColor="#FFF7F1E5"
-            android:strokeWidth="6"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M30,76 L74,76"
-            android:strokeColor="#FFF7F1E5"
-            android:strokeWidth="6"
-            android:strokeLineCap="round" />
-        <path
-            android:fillColor="#FFC45F3C"
-            android:pathData="M81,72 m-5.5,0 a5.5,5.5 0 1 1 11,0 a5.5,5.5 0 1 1 -11,0 Z" />
-    </group>
+    <!-- A custom GEL-inspired mark. The ledger line flows directly into the
+         arch; both source columns rise through that same silhouette. -->
+    <path
+        android:pathData="M69,74
+            L39,74
+            C34,68 31,60 31,52
+            C31,39 41,30 54,30
+            C67,30 77,39 77,52
+            L77,56"
+        android:strokeColor="#FFF7F1E5"
+        android:strokeWidth="5.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M49,26 L49,56
+            M59,26 L59,56"
+        android:strokeColor="#FFF7F1E5"
+        android:strokeWidth="5.5"
+        android:strokeLineCap="round" />
 </vector>
