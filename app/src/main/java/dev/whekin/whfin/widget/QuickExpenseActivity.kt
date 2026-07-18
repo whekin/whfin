@@ -189,19 +189,24 @@ private fun QuickExpenseScreen(
                     Text(currency, style = MaterialTheme.typography.titleLarge)
                 }
                 if (categories.isNotEmpty()) {
-                    // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки,
-                    // но пока категория выбрана — порядок заморожен, чтобы выбор не прыгал.
-                    val ranked = remember(categories, suggester, minor, categoryId) {
-                        if (categoryId != null || suggester == null || minor == null) categories
+                    // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки.
+                    // Выбор фиксирует порядок на момент тапа, чтобы кружок не прыгал под пальцем.
+                    var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
+                    val displayed = lockedOrder ?: remember(categories, suggester, minor) {
+                        if (suggester == null || minor == null) categories
                         else suggester.rankCategories(categories, -minor, currency)
                     }
-                    var frozen by remember { mutableStateOf(categories) }
-                    if (categoryId == null) frozen = ranked
                     QuickCategoryRow(
-                        categories = frozen,
+                        categories = displayed,
                         selectedId = categoryId,
                         onSelect = { selected ->
-                            categoryId = if (categoryId == selected.id) null else selected.id
+                            if (categoryId == selected.id) {
+                                categoryId = null
+                                lockedOrder = null
+                            } else {
+                                categoryId = selected.id
+                                lockedOrder = displayed
+                            }
                         },
                     )
                 }
@@ -233,7 +238,14 @@ private fun QuickCategoryRow(
     selectedId: Long?,
     onSelect: (CategoryEntity) -> Unit,
 ) {
-    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // LazyRow якорит скролл за ключом первого видимого элемента: при пере-ранжировке
+    // новый лидер уезжает влево за viewport. Возвращаем ленту к началу.
+    LaunchedEffect(categories) { listState.scrollToItem(0) }
+    androidx.compose.foundation.lazy.LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         items(categories.size, key = { categories[it].id }) { index ->
             val category = categories[index]
             val selected = selectedId == category.id
