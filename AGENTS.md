@@ -2,6 +2,9 @@
 
 Личный финанс-трекер (Android native), замена ZenMoney. **Полная спека: [SPEC.md](SPEC.md)** — читать перед работой.
 
+После каждой завершённой и проверенной итерации сразу создавать git-коммит, если пользователь явно
+не попросил оставить изменения незакоммиченными.
+
 ## Статус (обновлять после каждого этапа!)
 
 - [x] Спека собрана из обсуждения (SPEC.md)
@@ -159,6 +162,15 @@
   собственная цифровая клавиатура с круглыми 68dp keys и haptics, явный Confirm и очистка при Resend.
   Тот же компонент теперь рендерит App Lock, поэтому геометрия PIN/OTP не расходится; OTP остаётся
   только в памяти текущей composition и не вызывает системную IME.
+  UI-refactor v4: рабочие sheets получили устойчивую композицию title/context → scrollable content →
+  pinned actions. Filter/Sort больше не переносит длинные RU/EN варианты на второй ряд: общий
+  `WhfinChoiceRail` сохраняет одну горизонтально прокручиваемую строку с видимым scroll cue.
+  `WhfinField` отказался от старого outlined/floating-label вида в пользу постоянной подписи,
+  мягкой tonal-поверхности и тихого focus accent; основные Feed/Accounts/debt/composer формы
+  переведены на новый компонент. Правила закреплены в локальном `whfin-ui-design` skill.
+  В Account activity частые Edit/Adjust оставлены компактной парой, а редкие Bank details и
+  destructive Delete перенесены в overflow заголовка счёта; неполная action-сетка больше не делает
+  удаление визуально крупнейшим действием.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

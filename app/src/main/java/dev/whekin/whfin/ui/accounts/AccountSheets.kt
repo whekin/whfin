@@ -47,6 +47,7 @@ import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 private val quickCurrencies = listOf("GEL", "USD", "EUR", "RUB")
@@ -114,13 +115,11 @@ fun AddAccountSheet(
                 )
             }
         }
-        OutlinedTextField(
+        WhfinField(
             value = name,
             onValueChange = { name = it },
-            label = { Text(stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name)) },
-            supportingText = if (type == AccountType.CASH) {{ Text(stringResource(R.string.cash_name_optional_hint)) }} else null,
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            label = stringResource(if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name),
+            supportingText = if (type == AccountType.CASH) stringResource(R.string.cash_name_optional_hint) else null,
             modifier = Modifier.fillMaxWidth(),
         )
         CurrencySelector(
@@ -129,13 +128,11 @@ fun AddAccountSheet(
             quick = if (type == AccountType.CRYPTO) cryptoQuickCurrencies else quickCurrencies,
         )
         if (type == AccountType.CRYPTO) {
-            OutlinedTextField(
+            WhfinField(
                 value = address,
                 onValueChange = { address = it.filterNot(Char::isWhitespace) },
-                label = { Text(stringResource(R.string.account_address)) },
-                supportingText = { Text(stringResource(R.string.account_address_hint)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
+                label = stringResource(R.string.account_address),
+                supportingText = stringResource(R.string.account_address_hint),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -164,13 +161,11 @@ fun EditAccountSheet(
             onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty), savingsMode)
         },
     ) {
-        OutlinedTextField(
+        WhfinField(
             value = name,
             onValueChange = { name = it },
-            label = { Text(stringResource(R.string.account_name)) },
-            supportingText = if (account.type == AccountType.CASH) {{ Text(stringResource(R.string.cash_name_optional_hint)) }} else null,
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            label = stringResource(R.string.account_name),
+            supportingText = if (account.type == AccountType.CASH) stringResource(R.string.cash_name_optional_hint) else null,
             modifier = Modifier.fillMaxWidth(),
         )
         if (account.type == AccountType.BANK || account.type == AccountType.SAVINGS || account.type == AccountType.CASH) {
@@ -189,12 +184,10 @@ fun EditAccountSheet(
             )
         }
         if (account.type == AccountType.CRYPTO) {
-            OutlinedTextField(
+            WhfinField(
                 value = address,
                 onValueChange = { address = it.filterNot(Char::isWhitespace) },
-                label = { Text(stringResource(R.string.account_address)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
+                label = stringResource(R.string.account_address),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -270,21 +263,17 @@ fun BankMappingSheet(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        OutlinedTextField(
+        WhfinField(
             value = iban,
             onValueChange = { iban = it.uppercase().filterNot(Char::isWhitespace) },
-            label = { Text(stringResource(R.string.account_iban)) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            label = stringResource(R.string.account_iban),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
+        WhfinField(
             value = cards,
             onValueChange = { cards = it.filter { ch -> ch.isDigit() || ch == ',' || ch == ' ' } },
-            label = { Text(stringResource(R.string.account_card_last4)) },
-            supportingText = { Text(stringResource(R.string.account_card_last4_hint)) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            label = stringResource(R.string.account_card_last4),
+            supportingText = stringResource(R.string.account_card_last4_hint),
             modifier = Modifier.fillMaxWidth(),
         )
         Text(stringResource(R.string.account_card_kind), style = MaterialTheme.typography.labelLarge)
@@ -388,12 +377,10 @@ private fun CurrencySelector(
             )
         }
         if (isCustom) {
-            OutlinedTextField(
+            WhfinField(
                 value = currency,
                 onValueChange = { onChange(it.take(6).uppercase().filter(Char::isLetterOrDigit)) },
-                label = { Text(stringResource(R.string.account_currency)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
+                label = stringResource(R.string.account_currency),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

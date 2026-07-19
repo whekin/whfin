@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -141,10 +142,10 @@ class BackupScreenTest {
         val continueLabel = context.getString(R.string.action_continue)
 
         compose.onNodeWithText(continueLabel).assertIsNotEnabled()
-        compose.onNodeWithText(context.getString(R.string.backup_passphrase)).performTextInput("secret1")
+        compose.onNodeWithContentDescription(context.getString(R.string.backup_passphrase)).performTextInput("secret1")
         // Пока подтверждение не совпало, primary остаётся выключенным.
         compose.onNodeWithText(continueLabel).assertIsNotEnabled()
-        compose.onNodeWithText(context.getString(R.string.backup_passphrase_repeat)).performTextInput("secret1")
+        compose.onNodeWithContentDescription(context.getString(R.string.backup_passphrase_repeat)).performTextInput("secret1")
         compose.onNodeWithText(continueLabel).performClick()
 
         assertArrayEquals("secret1".toCharArray(), submitted)

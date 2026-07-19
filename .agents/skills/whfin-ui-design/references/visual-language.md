@@ -60,6 +60,10 @@ Show primary-currency net worth first, foreign balances as compact secondary fig
 
 Account overview is a balance explanation, not monthly analytics. Compare assets, liabilities, available money, reserve, and source distribution only inside the primary currency. Until exchange rates and their timestamps exist, show other currencies as native amounts without percentages, converted totals, or donut segments.
 
+Keep destructive account-level actions out of the primary action rail. Place them behind a clearly
+labelled overflow or settings surface, followed by explicit confirmation; an incomplete adaptive row
+must never make deletion the visually largest action.
+
 ### Statistics
 
 Lead with the selected month's net result, income, and expenses. Category distribution supports rolling 1/3/6/12-month ranges; tapping a category changes a compact twelve-month trend instead of opening a decorative dashboard. Trend months are selectable and the selected month/category can open a focused transaction ledger; Back returns to the unchanged Statistics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
@@ -67,6 +71,14 @@ Lead with the selected month's net result, income, and expenses. Category distri
 ### Composer
 
 Treat the amount as the active focal field. Keep type selection explicit, account/category/date choices as compact decision rows, and the save action pinned above navigation/IME. Category selection is a full internal step, not a modal stacked over another modal.
+
+### Working sheets
+
+Treat filter, mapping, and compact-edit sheets as small working surfaces rather than plain stacks of
+Material controls. Give them a short title plus one line of useful context, keep dense choices in
+single-line horizontal rails when translations would wrap, and pin the final action area below the
+scrolling content. A partially visible next choice is the preferred scroll cue; do not add decorative
+arrows or a second row. Use motion and tonal emphasis only to clarify selection and continuity.
 
 ### Statements
 

@@ -624,6 +624,7 @@
     <string name="debt_repayment_action">Add repayment</string>
     <string name="feed_this_month">This month</string>
     <string name="feed_filter_sort">Filter and sort</string>
+    <string name="feed_filters_hint">Shape the ledger without losing your place</string>
     <string name="feed_filters_reset">Reset</string>
     <string name="feed_filters_apply">Apply</string>
     <string name="feed_categories_selected">%1$d selected</string>

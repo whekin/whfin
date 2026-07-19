@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +42,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,6 +70,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 
 enum class WhfinActionStyle { Primary, Secondary, Quiet, Destructive, DestructiveSecondary }
@@ -405,6 +409,7 @@ fun WhfinFilterPill(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
 ) {
     Surface(
         onClick = onClick,
@@ -417,10 +422,36 @@ fun WhfinFilterPill(
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
         ),
     ) {
-        Box(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            if (leadingIcon != null) {
+                Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(17.dp))
+            }
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
+}
+
+/**
+ * One-dimensional choice rail for labels that must remain readable in RU/EN and at large font scale.
+ * The trailing inset intentionally leaves the next item partially visible as a scrolling cue.
+ */
+@Composable
+fun WhfinChoiceRail(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(end = 28.dp),
+    itemSpacing: Dp = 8.dp,
+    content: LazyListScope.() -> Unit,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = contentPadding,
+        horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+        content = content,
+    )
 }
 
 @Composable
@@ -525,7 +556,7 @@ fun WhfinLedgerRow(
 fun WhfinField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    label: String?,
     modifier: Modifier = Modifier,
     placeholder: String? = null,
     supportingText: String? = null,
@@ -537,22 +568,51 @@ fun WhfinField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it) } },
-        supportingText = supportingText?.let { { Text(it) } },
-        suffix = suffix?.let { { Text(it) } },
-        leadingIcon = leadingIcon?.let { { Icon(it, null) } },
-        trailingIcon = trailingIcon,
-        isError = isError,
-        singleLine = singleLine,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        visualTransformation = visualTransformation,
-        shape = MaterialTheme.shapes.medium,
-    )
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (!label.isNullOrBlank()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isError) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth().semantics {
+                if (!label.isNullOrBlank()) contentDescription = label
+            },
+            placeholder = placeholder?.let { { Text(it) } },
+            suffix = suffix?.let { { Text(it, style = MaterialTheme.typography.labelLarge) } },
+            leadingIcon = leadingIcon?.let { { Icon(it, null) } },
+            trailingIcon = trailingIcon,
+            isError = isError,
+            singleLine = singleLine,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            visualTransformation = visualTransformation,
+            shape = MaterialTheme.shapes.medium,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .55f),
+                errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = .42f),
+                focusedIndicatorColor = MaterialTheme.colorScheme.tertiary,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+                errorIndicatorColor = MaterialTheme.colorScheme.error,
+            ),
+        )
+        if (supportingText != null) {
+            Text(
+                supportingText,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isError) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

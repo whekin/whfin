@@ -22,8 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinBackButton
+import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
@@ -407,39 +411,82 @@ private fun AccountTransactionsScope(
     val accountDetail = account.iban?.let {
         stringResource(R.string.account_transactions_iban_currency, it.takeLast(4), account.currency)
     } ?: account.currency
+    var accountMenuExpanded by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        WhfinSectionHeader(title = account.name, supportingText = accountDetail)
+        WhfinSectionHeader(
+            title = account.name,
+            supportingText = accountDetail,
+            trailing = if (accountRow == null) null else {
+                {
+                    Box {
+                        WhfinIconButton(
+                            icon = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.account_actions),
+                            onClick = { accountMenuExpanded = true },
+                            outlined = false,
+                        )
+                        DropdownMenu(
+                            expanded = accountMenuExpanded,
+                            onDismissRequest = { accountMenuExpanded = false },
+                        ) {
+                            if (account.type == AccountType.BANK) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.account_bank_mapping)) },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.AccountBalance, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        accountMenuExpanded = false
+                                        onBankMapping()
+                                    },
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.account_delete),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    onDelete()
+                                },
+                            )
+                        }
+                    }
+                }
+            },
+        )
         WhfinSectionLabel(stringResource(R.string.account_transactions_balance))
         Text(
             formatMinor(balanceMinor, account.currency),
             style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
         )
         if (accountRow != null) {
-            val actions = buildList {
-                add(AccountActivityActionSpec(Icons.Default.Edit, stringResource(R.string.account_edit), onEdit))
-                if (account.type == AccountType.BANK) {
-                    add(AccountActivityActionSpec(Icons.Default.AccountBalance, stringResource(R.string.account_bank_mapping), onBankMapping))
-                }
-                add(AccountActivityActionSpec(Icons.Default.Tune, stringResource(R.string.account_adjust_currency, account.currency), onAdjust))
-                add(AccountActivityActionSpec(Icons.Default.DeleteOutline, stringResource(R.string.account_delete), onDelete, true))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                actions.chunked(2).forEach { rowActions ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowActions.forEach { action ->
-                            AccountActivityAction(
-                                icon = action.icon,
-                                label = action.label,
-                                onClick = action.onClick,
-                                destructive = action.destructive,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AccountActivityAction(
+                    icon = Icons.Default.Edit,
+                    label = stringResource(R.string.account_edit),
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f),
+                )
+                AccountActivityAction(
+                    icon = Icons.Default.Tune,
+                    label = stringResource(R.string.account_adjust_currency, account.currency),
+                    onClick = onAdjust,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -451,16 +498,15 @@ private fun AccountActivityAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    destructive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val color = MaterialTheme.colorScheme.primary
     Surface(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = androidx.compose.ui.graphics.Color.Transparent,
-        border = BorderStroke(1.dp, if (destructive) color.copy(alpha = .45f) else MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
@@ -472,13 +518,6 @@ private fun AccountActivityAction(
         }
     }
 }
-
-private data class AccountActivityActionSpec(
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val label: String,
-    val onClick: () -> Unit,
-    val destructive: Boolean = false,
-)
 
 @Preview(name = "Account transactions", widthDp = 400, heightDp = 880, showBackground = true)
 @Preview(name = "Account transactions dark", widthDp = 400, heightDp = 880, uiMode = Configuration.UI_MODE_NIGHT_YES)

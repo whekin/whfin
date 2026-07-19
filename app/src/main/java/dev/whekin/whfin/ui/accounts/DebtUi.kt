@@ -38,6 +38,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
@@ -158,20 +159,18 @@ fun DebtLedgerDialog(
                 FilterChip(personId == person.id, { personId = person.id; personName = "" }, { Text(person.name) })
             }
         }
-        OutlinedTextField(
+        WhfinField(
             personName,
             { personName = it; if (it.isNotBlank()) personId = null },
-            label = { Text(stringResource(R.string.debt_new_person)) },
-            singleLine = true,
+            stringResource(R.string.debt_new_person),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
+        WhfinField(
             amount,
             { amount = it },
-            label = { Text(stringResource(R.string.tx_amount)) },
-            suffix = { Text(currency) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
+            stringResource(R.string.tx_amount),
+            suffix = currency,
+            keyboardType = KeyboardType.Decimal,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
@@ -229,12 +228,22 @@ fun DebtLedgerDialog(
             Text(stringResource(R.string.debt_outstanding, formatMinor(item.remainingMinor, item.debt.currency)))
             Row { FilterChip(movement, { movement = true }, { Text(stringResource(R.string.debt_through_account)) }); Spacer(Modifier.width(8.dp)); FilterChip(!movement, { movement = false }, { Text(stringResource(R.string.debt_no_movement)) }) }
             if (movement) {
-                OutlinedTextField(amount, { amount = it }, label = { Text(stringResource(R.string.debt_actual_paid)) }, suffix = { Text(currency) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                WhfinField(
+                    amount,
+                    { amount = it },
+                    stringResource(R.string.debt_actual_paid),
+                    suffix = currency,
+                    keyboardType = KeyboardType.Decimal,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("GEL", "USD", "EUR").forEach { c -> FilterChip(currency == c, { currency = c; accountId = accounts.firstOrNull { it.currency == c }?.id }, { Text(c) }) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { accounts.filter { it.currency == currency }.take(3).forEach { a -> FilterChip(accountId == a.id, { accountId = a.id }, { Text(a.name) }) } }
             }
             Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(close, { close = it }); Text(stringResource(R.string.debt_close_completely)) }
-            if (!close) OutlinedTextField(debtCredit, { debtCredit = it }, label = { Text(stringResource(R.string.debt_credit_toward, item.debt.currency)) })
+            if (!close) WhfinField(
+                debtCredit,
+                { debtCredit = it },
+                stringResource(R.string.debt_credit_toward, item.debt.currency),
+            )
             Text(stringResource(R.string.debt_close_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

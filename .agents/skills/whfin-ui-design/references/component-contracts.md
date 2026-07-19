@@ -22,7 +22,13 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinHaptics`: restrained action semantics, not custom vibration waveforms. Use a subtle segment tick for in-app destination changes and platform toggle-on/off effects for switches; do not add feedback to passive scrolling or duplicate the system Back gesture.
 - `WhfinStatePane`: loading, empty, error, and unavailable presentation with compact guidance and optional retry/action.
 - `WhfinFilterBar`: horizontally resilient filters and search affordance.
-- `WhfinField`: common field shape/colors/supporting/error behavior while retaining Material text-field semantics.
+- `WhfinChoiceRail`: a single horizontal scrolling line for mutually exclusive or compact multi-select
+  choices whose translated labels cannot safely fit. Do not use `FlowRow` for these controls: wrapping
+  changes their reading order and makes the sheet height unstable. Keep a partial next item visible as
+  a scroll cue and preserve 48 dp targets.
+- `WhfinField`: a persistent label above a softly tonal input surface, with a quiet bottom focus accent
+  and shared supporting/error behavior. Keep Material text-field semantics and IME integration, but do
+  not expose default outlined/floating-label fields in feature UI.
 - `WhfinCodeDots` + `WhfinNumericKeypad`: secure four-digit entry shared by App Lock and bank OTP.
   Use circular 68 dp targets, a real Backspace icon, clipped pressed states and keyboard-tap haptics.
   The feature owns code lifetime and submission policy; OTP must stay in memory, clear when its challenge

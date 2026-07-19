@@ -4,12 +4,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,6 +57,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
@@ -94,9 +96,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -119,6 +123,8 @@ import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import dev.whekin.whfin.core.ui.WhfinFilterPill
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinContextHeader
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -830,13 +836,11 @@ internal fun DebtPersonSheet(
                     }
                 }
             }
-            OutlinedTextField(
+            WhfinField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(stringResource(R.string.debt_new_person)) },
-                singleLine = true,
+                label = stringResource(R.string.debt_new_person),
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
             )
             if (name.isNotBlank()) WhfinButton(
                 stringResource(R.string.debt_add_and_select), { onAdd(name) }, Modifier.fillMaxWidth(),
@@ -910,13 +914,11 @@ internal fun SplitSheet(
                     )
                 }
             }
-            OutlinedTextField(
+            WhfinField(
                 value = newName,
                 onValueChange = { newName = it },
-                label = { Text(stringResource(R.string.debt_new_person)) },
-                singleLine = true,
+                label = stringResource(R.string.debt_new_person),
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
                 trailingIcon = {
                     if (newName.isNotBlank()) TextButton(onClick = {
                         onAddPerson(newName.trim()) { id -> selectedPersonId = id; newName = "" }
@@ -931,15 +933,13 @@ internal fun SplitSheet(
                 FilterChip(mode == SplitMode.CUSTOM, { mode = SplitMode.CUSTOM }, { Text(stringResource(R.string.split_custom)) })
             }
             if (mode == SplitMode.CUSTOM) {
-                OutlinedTextField(
+                WhfinField(
                     value = customText,
                     onValueChange = { customText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12) },
-                    label = { Text(stringResource(R.string.split_amount_on_them)) },
-                    suffix = { Text(item.tx.currency) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    label = stringResource(R.string.split_amount_on_them),
+                    suffix = item.tx.currency,
+                    keyboardType = KeyboardType.Decimal,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
                 )
             }
 
@@ -986,13 +986,12 @@ private fun FeedSearch(
         focusRequester.requestFocus()
         keyboard?.show()
     }
-    OutlinedTextField(
+    WhfinField(
         value = search,
         onValueChange = onSearchChange,
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        placeholder = { Text(stringResource(R.string.feed_search_hint)) },
-        singleLine = true,
-        shape = MaterialTheme.shapes.extraLarge,
+        label = null,
+        leadingIcon = Icons.Default.Search,
+        placeholder = stringResource(R.string.feed_search_hint),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).focusRequester(focusRequester),
     )
 }
@@ -1024,7 +1023,7 @@ private fun FeedFilterSheet(
     val quickCategories = remember(eligibleCategories, draftCategories) {
         (eligibleCategories.filter { it.id in draftCategories } + eligibleCategories)
             .distinctBy { it.id }
-            .take(3)
+            .take(4)
     }
 
     if (showAllCategories) {
@@ -1051,31 +1050,64 @@ private fun FeedFilterSheet(
         Column(
             Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxHeight(.66f)
+                .navigationBarsPadding(),
         ) {
-            Text(
-                stringResource(R.string.feed_filter_sort),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
-            )
-            WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 2.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                listOf(
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.feed_filter_sort),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    Text(
+                        stringResource(R.string.feed_filters_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                val activeCount = (if (draftFilter != FeedFilter.ALL) 1 else 0) +
+                    (if (draftSort != FeedSort.NEWEST) 1 else 0) + draftCategories.size
+                if (activeCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ) {
+                        Text(
+                            activeCount.toString(),
+                            Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, top = 18.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                WhfinSectionLabel(stringResource(R.string.feed_transaction_type))
+                val filterOptions = listOf(
                     FeedFilter.ALL to R.string.feed_filter_all,
                     FeedFilter.EXPENSES to R.string.feed_filter_expenses,
                     FeedFilter.INCOME to R.string.feed_filter_income,
                     FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
-                ).forEach { (value, label) ->
+                )
+                WhfinChoiceRail {
+                    items(filterOptions, key = { it.first.name }) { (value, label) ->
                     WhfinFilterPill(
                         label = stringResource(label),
                         selected = draftFilter == value,
+                        leadingIcon = when (value) {
+                            FeedFilter.ALL -> Icons.Default.SelectAll
+                            FeedFilter.EXPENSES -> Icons.Default.ArrowUpward
+                            FeedFilter.INCOME -> Icons.Default.ArrowDownward
+                            FeedFilter.TRANSFERS -> Icons.Default.SwapHoriz
+                        },
                         onClick = {
                             draftFilter = value
                             draftCategories = when (value) {
@@ -1090,74 +1122,86 @@ private fun FeedFilterSheet(
                             }
                         },
                     )
-                }
-            }
-
-            if (draftFilter != FeedFilter.TRANSFERS && quickCategories.isNotEmpty()) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    WhfinSectionLabel(
-                        stringResource(R.string.tx_detail_category),
-                        Modifier.weight(1f),
-                    )
-                    if (draftCategories.isNotEmpty()) {
-                        Text(
-                            stringResource(R.string.feed_categories_selected, draftCategories.size),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
                     }
                 }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    quickCategories.forEach { category ->
-                        FilterCategoryTile(
-                            category = category,
-                            selected = category.id in draftCategories,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                draftCategories = if (category.id in draftCategories) {
-                                    draftCategories - category.id
-                                } else {
-                                    draftCategories + category.id
-                                }
-                            },
-                        )
-                    }
-                    FilterCategoryTile(
-                        category = null,
-                        selected = draftCategories.any { id -> quickCategories.none { it.id == id } },
-                        modifier = Modifier.weight(1f),
-                        onClick = { showAllCategories = true },
-                    )
-                }
-            }
 
-            WhfinSectionLabel(stringResource(R.string.feed_sort_by))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(
+                if (draftFilter != FeedFilter.TRANSFERS && quickCategories.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(end = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        WhfinSectionLabel(
+                            stringResource(R.string.tx_detail_category),
+                            Modifier.weight(1f),
+                        )
+                        if (draftCategories.isNotEmpty()) {
+                            Text(
+                                stringResource(R.string.feed_categories_selected, draftCategories.size),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(end = 20.dp)) {
+                        val minSlotWidth = if (LocalDensity.current.fontScale >= 1.3f) 96.dp else 64.dp
+                        val slotCount = (maxWidth.value / minSlotWidth.value).toInt().coerceIn(2, 5)
+                        val visibleQuickCategories = quickCategories.take(slotCount - 1)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            visibleQuickCategories.forEach { category ->
+                            FilterCategoryTile(
+                                category = category,
+                                selected = category.id in draftCategories,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    draftCategories = if (category.id in draftCategories) {
+                                        draftCategories - category.id
+                                    } else {
+                                        draftCategories + category.id
+                                    }
+                                },
+                            )
+                            }
+                            FilterCategoryTile(
+                                category = null,
+                                selected = draftCategories.any { id ->
+                                    visibleQuickCategories.none { it.id == id }
+                                },
+                                modifier = Modifier.weight(1f),
+                                onClick = { showAllCategories = true },
+                            )
+                        }
+                    }
+                }
+
+                WhfinSectionLabel(stringResource(R.string.feed_sort_by))
+                val sortOptions = listOf(
                     FeedSort.NEWEST to R.string.feed_sort_newest,
                     FeedSort.OLDEST to R.string.feed_sort_oldest,
                     FeedSort.AMOUNT to R.string.feed_sort_amount,
-                ).forEach { (value, label) ->
-                    WhfinFilterPill(
-                        label = stringResource(label),
-                        selected = draftSort == value,
-                        onClick = { draftSort = value },
-                    )
+                )
+                WhfinChoiceRail {
+                    items(sortOptions, key = { it.first.name }) { (value, label) ->
+                        WhfinFilterPill(
+                            label = stringResource(label),
+                            selected = draftSort == value,
+                            leadingIcon = when (value) {
+                                FeedSort.NEWEST -> Icons.Default.ArrowDownward
+                                FeedSort.OLDEST -> Icons.Default.ArrowUpward
+                                FeedSort.AMOUNT -> Icons.Default.TrendingUp
+                            },
+                            onClick = { draftSort = value },
+                        )
+                    }
                 }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 WhfinButton(
@@ -1190,7 +1234,7 @@ private fun FilterCategoryTile(
     val tint = category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 76.dp),
+        modifier = modifier.heightIn(min = 88.dp),
         shape = MaterialTheme.shapes.medium,
         color = if (selected) tint.copy(alpha = .12f) else Color.Transparent,
         border = if (selected) BorderStroke(1.dp, tint.copy(alpha = .7f)) else null,
@@ -1198,20 +1242,21 @@ private fun FilterCategoryTile(
         Column(
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Surface(shape = CircleShape, color = tint.copy(alpha = .14f)) {
                 Icon(
                     imageVector = category?.let { CategoryIcons.resolve(it.icon) } ?: Icons.Default.MoreHoriz,
                     contentDescription = null,
                     tint = tint,
-                    modifier = Modifier.padding(8.dp).size(19.dp),
+                    modifier = Modifier.padding(10.dp).size(24.dp),
                 )
             }
             Text(
                 category?.name ?: stringResource(R.string.categories_more),
                 style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
         }
@@ -1350,8 +1395,12 @@ internal fun CategoryPickerSheet(
             Text(stringResource(if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income),
                 style = MaterialTheme.typography.titleMedium)
             if (creating) {
-                OutlinedTextField(name, { name = it.take(32) }, label = { Text(stringResource(R.string.category_name)) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                WhfinField(
+                    name,
+                    { name = it.take(32) },
+                    stringResource(R.string.category_name),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
                 CategoryAppearancePicker(customIcon, customColor, { customIcon = it }, { customColor = it })
                 WhfinButton(label = stringResource(R.string.category_create), onClick = {
                     onCreateCategory(name.trim(), kind, customIcon, customColor)

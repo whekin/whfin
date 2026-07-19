@@ -1,9 +1,7 @@
 package dev.whekin.whfin.ui.accounts
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.whekin.whfin.R
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.parseToMinor
@@ -52,14 +51,12 @@ fun AdjustBalanceSheet(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        OutlinedTextField(
+        WhfinField(
             value = actualText,
             onValueChange = { actualText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == '-' }.take(14) },
-            label = { Text(stringResource(R.string.adjust_actual)) },
-            suffix = { Text(item.account.currency) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            shape = MaterialTheme.shapes.medium,
+            label = stringResource(R.string.adjust_actual),
+            suffix = item.account.currency,
+            keyboardType = KeyboardType.Decimal,
             modifier = Modifier.fillMaxWidth(),
         )
         if (delta != null && delta != 0L) {

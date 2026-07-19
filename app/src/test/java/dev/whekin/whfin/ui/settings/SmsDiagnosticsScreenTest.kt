@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
@@ -241,9 +242,9 @@ class SmsDiagnosticsScreenTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.sms_add_card_action)).performClick()
-        compose.onNodeWithText(context.getString(R.string.sms_last_four_label)).performTextInput("25")
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label)).performTextInput("25")
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).assertIsNotEnabled()
-        compose.onNodeWithText(context.getString(R.string.sms_last_four_label)).performTextInput("33")
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label)).performTextInput("33")
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).performClick()
 
         assertEquals(Triple(11L, "2533", PaymentInstrumentType.PHYSICAL_CARD), saved)

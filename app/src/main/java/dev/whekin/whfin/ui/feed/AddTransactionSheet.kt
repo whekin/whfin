@@ -58,6 +58,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinMotion
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinField
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -343,7 +344,12 @@ private fun minorInput(value: Long): String {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(people) { person -> FilterChip(personId == person.id, { onPerson(person.id) }, { Text(person.name) }) }
     }
-    OutlinedTextField(personName, onPersonName, label = { Text(stringResource(R.string.debt_new_person)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    WhfinField(
+        personName,
+        onPersonName,
+        stringResource(R.string.debt_new_person),
+        modifier = Modifier.fillMaxWidth(),
+    )
     SectionLabel(stringResource(R.string.debt_money_movement))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(hasMovement, { onMovement(true) }, { Text(stringResource(R.string.debt_through_account)) })
@@ -444,9 +450,14 @@ private fun minorInput(value: Long): String {
         IconButton(onClick = onSwap, enabled = to != null) { Icon(Icons.Default.SwapVert, null) }
     }
     CompactAccountSelector(stringResource(R.string.to_account), sources, to, Modifier.fillMaxWidth(), onTo, exclude = from, onCreateCashCurrency = onCreateCashCurrency)
-    if (conversion) OutlinedTextField(received, { onDestinationAmount(it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12)) },
-        label = { Text(stringResource(R.string.tx_amount_received)) }, suffix = { Text(destination?.currency.orEmpty()) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
+    if (conversion) WhfinField(
+        received,
+        { onDestinationAmount(it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12)) },
+        stringResource(R.string.tx_amount_received),
+        suffix = destination?.currency.orEmpty(),
+        keyboardType = KeyboardType.Decimal,
+        modifier = Modifier.fillMaxWidth(),
+    )
     DateTile(day, Modifier.fillMaxWidth(), onDate)
     NoteField(note, onNote)
 }
@@ -549,9 +560,10 @@ private fun minorInput(value: Long): String {
                         }
                     }
                     if (isCash) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            customCurrency, { customCurrency = it.filter(Char::isLetter).uppercase().take(8) },
-                            label = { Text(stringResource(R.string.currency_add)) }, singleLine = true,
+                        WhfinField(
+                            customCurrency,
+                            { customCurrency = it.filter(Char::isLetter).uppercase().take(8) },
+                            stringResource(R.string.currency_add),
                             modifier = Modifier.weight(1f),
                         )
                         FilledIconButton(
@@ -585,15 +597,15 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
 @Composable private fun NoteField(value: String, onValue: (String) -> Unit) {
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    OutlinedTextField(
-        value, onValue,
-        placeholder = { Text(stringResource(R.string.tx_note)) },
-        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, null) },
-        singleLine = true,
+    WhfinField(
+        value = value,
+        onValueChange = onValue,
+        label = null,
+        placeholder = stringResource(R.string.tx_note),
+        leadingIcon = Icons.AutoMirrored.Filled.Notes,
         modifier = Modifier.fillMaxWidth().bringIntoViewRequester(bringIntoView).onFocusChanged {
             if (it.isFocused) scope.launch { delay(280); bringIntoView.bringIntoView() }
         },
-        shape = MaterialTheme.shapes.medium,
     )
 }
 
@@ -618,8 +630,12 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
         if (creating) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(stringResource(R.string.category_new), style = MaterialTheme.typography.headlineMedium)
-                OutlinedTextField(name, { name = it.take(32) }, label = { Text(stringResource(R.string.category_name)) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                WhfinField(
+                    name,
+                    { name = it.take(32) },
+                    stringResource(R.string.category_name),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Surface(shape = androidx.compose.foundation.shape.CircleShape, color = Color(color).copy(alpha = .16f)) {
                         Icon(CategoryIcons.resolve(icon), null, tint = Color(color), modifier = Modifier.padding(14.dp))

@@ -112,3 +112,24 @@ private fun CodeInputScreenshotContent() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "input_choice_light", widthDp = 400, heightDp = 390)
+@Composable
+fun inputChoiceLightScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinInputChoiceGallery() }
+}
+
+@PreviewTest
+@Preview(name = "input_choice_dark", widthDp = 400, heightDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun inputChoiceDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { WhfinInputChoiceGallery() }
+}
+
+@PreviewTest
+@Preview(name = "input_choice_font_150", widthDp = 400, heightDp = 500, fontScale = 1.5f)
+@Composable
+fun inputChoiceLargeFontScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinInputChoiceGallery() }
+}
