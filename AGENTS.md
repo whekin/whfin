@@ -171,6 +171,10 @@
   В Account activity частые Edit/Adjust оставлены компактной парой, а редкие Bank details и
   destructive Delete перенесены в overflow заголовка счёта; неполная action-сетка больше не делает
   удаление визуально крупнейшим действием.
+  Feed Search/Filter используют более уверенный 26dp glyph внутри прежнего 48dp target.
+  Transaction details собраны как компактная receipt-композиция: category/counterparty → signed amount
+  → date/account, Status/Category стали плоскими ledger rows, отсутствие description не становится
+  заголовком, Delete перенесён в overflow с прежним подтверждением.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

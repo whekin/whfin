@@ -155,6 +155,7 @@ fun WhfinIconButton(
     outlined: Boolean = true,
     selected: Boolean = false,
     enabled: Boolean = true,
+    prominent: Boolean = false,
     style: WhfinActionStyle = WhfinActionStyle.Quiet,
 ) {
     Surface(
@@ -185,7 +186,13 @@ fun WhfinIconButton(
         ) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription, modifier = Modifier.size(WhfinThemeTokens.sizes.icon))
+            Icon(
+                icon,
+                contentDescription,
+                modifier = Modifier.size(
+                    if (prominent) WhfinThemeTokens.sizes.prominentIcon else WhfinThemeTokens.sizes.icon,
+                ),
+            )
         }
     }
 }

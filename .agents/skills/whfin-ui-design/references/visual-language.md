@@ -54,6 +54,11 @@ Dark mode uses deep green-black canvas and mineral, desaturated surfaces. Preser
 
 Make the monthly result the hero, then income/expense context, then search/filter tools. Keep the transaction ledger dense. Transfers are neutral; pending and debt annotations are secondary lines. A permission prompt is an inline notice, not a competing hero card. It must be dismissible, remember that choice, and leave the same control discoverable in Settings.
 
+Transaction details should read like a compact receipt, not a database record: lead with category or
+counterparty, signed amount, date and account; keep editable status/category as flat ledger rows.
+Never promote a missing description to the title, and keep destructive actions behind overflow plus
+confirmation.
+
 ### Accounts
 
 Show primary-currency net worth first, foreign balances as compact secondary figures, then available/reserve. Represent the real hierarchy as bank heading → IBAN group → currency ledger rows. Cash and wallets use the same container→balances grammar.

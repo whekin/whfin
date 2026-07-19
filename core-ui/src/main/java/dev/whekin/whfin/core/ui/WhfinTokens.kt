@@ -38,6 +38,7 @@ data class WhfinSpacing(
 data class WhfinSizes(
     val minTouchTarget: Dp = 48.dp,
     val icon: Dp = 20.dp,
+    val prominentIcon: Dp = 26.dp,
     val iconContainer: Dp = 40.dp,
     val buttonHeight: Dp = 52.dp,
     val dockHeight: Dp = 64.dp,

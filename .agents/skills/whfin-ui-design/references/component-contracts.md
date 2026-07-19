@@ -12,7 +12,8 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinStatusBarProtection`: an opaque background mask exactly as tall as the status-bar inset. Use it only on long reading surfaces whose heading intentionally remains a list item; primary Feed and Accounts use `WhfinContextHeader` as their system-inset owner instead.
 - `WhfinDock`: primary destinations with clear selected state and 48 dp targets.
 - `WhfinButton`: primary, secondary, quiet, and destructive variants with consistent enabled/loading behavior.
-- `WhfinIconButton`: standard and quiet variants; never smaller than the minimum target.
+- `WhfinIconButton`: standard and quiet variants; never smaller than the minimum target. Context-header
+  search/filter affordances may use the prominent icon size without enlarging or crowding their targets.
 - `WhfinBackButton`: the single borderless circular treatment for hierarchical Back navigation. Use a close icon only for dismissing a modal/form; do not restyle Back per feature.
 - `WhfinSectionHeader`: optional eyebrow, title, supporting text, and trailing action.
 - `WhfinLedgerGroup`: one outlined/tonal grouping surface with internal rules; do not nest it.

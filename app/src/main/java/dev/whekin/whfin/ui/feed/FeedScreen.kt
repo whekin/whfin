@@ -60,10 +60,13 @@ import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -301,6 +304,7 @@ fun FeedScreen(
                         },
                         outlined = false,
                         selected = showSearch,
+                        prominent = true,
                     )
                     WhfinIconButton(
                         icon = Icons.Default.FilterAlt,
@@ -308,6 +312,7 @@ fun FeedScreen(
                         onClick = { showFilterSheet = true },
                         outlined = false,
                         selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST || categoryFilters.isNotEmpty(),
+                        prominent = true,
                     )
                 }
             }
@@ -569,134 +574,311 @@ internal fun TransactionDetailsSheet(
     onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
 ) {
-    val tx = item.tx
-    val isTransfer = tx.isTransfer || tx.transferGroupId != null
-    var showBankDetails by remember(tx.id) { mutableStateOf(false) }
-    val title = item.transferSummary
-        ?: item.merchant?.displayName
-        ?: tx.rawCounterparty
-        ?: tx.note
-        ?: stringResource(R.string.feed_no_description)
-    val hasBankDetails = item.account?.iban != null || tx.source != dev.whekin.whfin.data.db.TxSource.MANUAL ||
-        tx.rawCounterparty != null || tx.counterpartyIban != null || tx.note != null ||
-        tx.origAmountMinor != null || item.fundedByConversionMinor != null
-    val hasActions = onEdit != null || onDelete != null || onDebt != null || onClearDebt != null ||
-        onSplit != null || onClearSplit != null
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        LazyColumn(
-            Modifier.fillMaxWidth().heightIn(max = 680.dp).navigationBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "transaction-heading") {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(title, style = MaterialTheme.typography.headlineSmall)
+        TransactionDetailsContent(
+            item = item,
+            modifier = Modifier.navigationBarsPadding(),
+            onChangeCategory = onChangeCategory,
+            onDelete = onDelete,
+            onEdit = onEdit,
+            onDebt = onDebt,
+            onClearDebt = onClearDebt,
+            onSplit = onSplit,
+            onClearSplit = onClearSplit,
+            onChangeStatus = onChangeStatus,
+        )
+    }
+}
+
+@Composable
+private fun TransactionDetailsContent(
+    item: FeedItem,
+    modifier: Modifier = Modifier,
+    onChangeCategory: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onDebt: (() -> Unit)?,
+    onClearDebt: (() -> Unit)?,
+    onSplit: (() -> Unit)? = null,
+    onClearSplit: (() -> Unit)? = null,
+    onChangeStatus: (() -> Unit)? = null,
+) {
+    val tx = item.tx
+    val isTransfer = tx.isTransfer || tx.transferGroupId != null
+    var showBankDetails by remember(tx.id) { mutableStateOf(false) }
+    var actionMenuExpanded by remember(tx.id) { mutableStateOf(false) }
+    val genericTitle = stringResource(
+        when {
+            isTransfer -> R.string.tx_transfer
+            tx.amountMinor >= 0 -> R.string.tx_income
+            else -> R.string.tx_expense
+        },
+    )
+    val title = item.transferSummary
+        ?: item.merchant?.displayName
+        ?: tx.rawCounterparty
+        ?: tx.note?.takeIf { it.isNotBlank() }
+        ?: item.category?.name
+        ?: genericTitle
+    val dateAndAccount = listOfNotNull(
+        item.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
+        item.account?.name,
+    ).joinToString(" · ")
+    val accent = item.category?.let { Color(it.color) } ?: when {
+        isTransfer -> MaterialTheme.colorScheme.onSurfaceVariant
+        tx.amountMinor >= 0 -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.tertiary
+    }
+    val hasBankDetails = item.account?.iban != null || tx.source != dev.whekin.whfin.data.db.TxSource.MANUAL ||
+        tx.rawCounterparty != null || tx.counterpartyIban != null || tx.note != null ||
+        tx.origAmountMinor != null || item.fundedByConversionMinor != null
+    val hasQuickActions = onEdit != null || onDebt != null || onClearDebt != null ||
+        onSplit != null || onClearSplit != null
+
+    LazyColumn(
+        modifier.fillMaxWidth().heightIn(max = 680.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item(key = "transaction-heading") {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = CircleShape,
+                    color = accent.copy(alpha = .14f),
+                    contentColor = accent,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            CategoryIcons.resolve(item.category?.icon, isTransfer = isTransfer),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                }
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
                     Text(
-                        formatMinor(kotlin.math.abs(tx.amountMinor), tx.currency),
-                        style = MaterialTheme.typography.displaySmall,
+                        formatMinor(tx.amountMinor, tx.currency),
+                        style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
                     )
                     if (item.destinationAmountMinor != null && item.destinationCurrency != null) {
                         Text(
                             "→ ${formatMinor(item.destinationAmountMinor, item.destinationCurrency)}",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
-                }
-            }
-            item(key = "transaction-summary") {
-                WhfinLedgerGroup(tonal = true) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
-                        DetailRow(stringResource(R.string.tx_detail_date), item.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)))
-                        DetailRow(stringResource(R.string.tx_detail_account), item.account?.name ?: "—")
-                        DetailEditableRow(
-                            label = stringResource(R.string.tx_detail_status),
-                            value = tx.status.label(),
-                            onClick = onChangeStatus,
-                        )
-                        if (!isTransfer) DetailEditableRow(
-                            label = stringResource(R.string.tx_detail_category),
-                            value = item.category?.name ?: stringResource(R.string.feed_uncategorized),
-                            onClick = onChangeCategory,
-                        )
-                        if (item.isDebt) DetailRow(
-                            stringResource(R.string.debt_label),
-                            stringResource(R.string.debt_person_owes, item.debtPersonName ?: "—", formatMinor(item.debtMinor ?: 0L, tx.currency)),
-                        )
-                        item.splitOnPeople.forEach { (name, amount) ->
-                            DetailRow(
-                                stringResource(R.string.split_on_person, name),
-                                formatMinor(amount, tx.currency),
-                            )
-                        }
-                    }
-                }
-            }
-            if (hasBankDetails) item(key = "transaction-bank-details-toggle") {
-                TextButton(onClick = { showBankDetails = !showBankDetails }) {
-                    Icon(
-                        Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.graphicsLayer(rotationZ = if (showBankDetails) 180f else 0f),
-                    )
-                    Text(stringResource(R.string.tx_detail_more))
-                }
-            }
-            if (hasBankDetails && showBankDetails) item(key = "transaction-bank-details") {
-                WhfinLedgerGroup {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
-                        item.account?.iban?.let { DetailRow("IBAN", it) }
-                        DetailRow(stringResource(R.string.tx_detail_source), tx.source.name.lowercase().replaceFirstChar(Char::titlecase))
-                        tx.rawCounterparty?.let { DetailRow(stringResource(R.string.tx_detail_counterparty), it) }
-                        tx.counterpartyIban?.let { DetailRow(stringResource(R.string.tx_detail_counterparty_iban), it) }
-                        tx.note?.let { DetailRow(stringResource(R.string.tx_detail_bank_description), it) }
-                        if (tx.origAmountMinor != null && tx.origCurrency != null) DetailRow(
-                            stringResource(R.string.tx_detail_original_amount),
-                            formatMinor(kotlin.math.abs(tx.origAmountMinor), tx.origCurrency),
-                        )
-                        if (item.fundedByConversionMinor != null && item.fundedByConversionCurrency != null) DetailRow(
-                            stringResource(R.string.tx_detail_converted_from),
-                            formatMinor(item.fundedByConversionMinor, item.fundedByConversionCurrency),
-                        )
-                    }
-                }
-            }
-            if (hasActions) item(key = "transaction-actions") {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(
-                        stringResource(R.string.transaction_actions),
-                        style = MaterialTheme.typography.labelLarge,
+                        dateAndAccount,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (onEdit != null) item {
-                            DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
-                        }
-                        if (onClearDebt != null) item {
-                            DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)
-                        } else if (onDebt != null) item {
-                            DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
-                        }
-                        if (onClearSplit != null) item {
-                            DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_clear), onClearSplit)
-                        } else if (onSplit != null) item {
-                            DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_action_short), onSplit)
-                        }
-                        if (onDelete != null) item {
-                            DetailQuickAction(
-                                Icons.Default.DeleteOutline,
-                                stringResource(R.string.action_delete),
-                                onDelete,
-                                destructive = true,
+                }
+                if (onDelete != null) {
+                    Box {
+                        WhfinIconButton(
+                            icon = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.transaction_actions),
+                            onClick = { actionMenuExpanded = true },
+                            outlined = false,
+                        )
+                        DropdownMenu(
+                            expanded = actionMenuExpanded,
+                            onDismissRequest = { actionMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.transaction_delete),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    onDelete()
+                                },
                             )
                         }
                     }
                 }
             }
+        }
+        item(key = "transaction-summary") {
+            Column(Modifier.fillMaxWidth()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                DetailEditableRow(
+                    label = stringResource(R.string.tx_detail_status),
+                    value = tx.status.label(),
+                    onClick = onChangeStatus,
+                )
+                if (!isTransfer) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    DetailEditableRow(
+                        label = stringResource(R.string.tx_detail_category),
+                        value = item.category?.name ?: stringResource(R.string.feed_uncategorized),
+                        onClick = onChangeCategory,
+                    )
+                }
+                if (item.isDebt) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    DetailRow(
+                        stringResource(R.string.debt_label),
+                        stringResource(
+                            R.string.debt_person_owes,
+                            item.debtPersonName ?: "—",
+                            formatMinor(item.debtMinor ?: 0L, tx.currency),
+                        ),
+                    )
+                }
+                item.splitOnPeople.forEach { (name, amount) ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    DetailRow(
+                        stringResource(R.string.split_on_person, name),
+                        formatMinor(amount, tx.currency),
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+        if (tx.note?.isNotBlank() == true && tx.note != title) {
+            item(key = "transaction-note") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    WhfinSectionLabel(stringResource(R.string.tx_note))
+                    Text(tx.note, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+        if (hasBankDetails) item(key = "transaction-bank-details-toggle") {
+            TextButton(onClick = { showBankDetails = !showBankDetails }) {
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.graphicsLayer(rotationZ = if (showBankDetails) 180f else 0f),
+                )
+                Text(stringResource(R.string.tx_detail_more))
+            }
+        }
+        if (hasBankDetails && showBankDetails) item(key = "transaction-bank-details") {
+            WhfinLedgerGroup {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
+                    item.account?.iban?.let { DetailRow("IBAN", it) }
+                    DetailRow(stringResource(R.string.tx_detail_source), tx.source.name.lowercase().replaceFirstChar(Char::titlecase))
+                    tx.rawCounterparty?.let { DetailRow(stringResource(R.string.tx_detail_counterparty), it) }
+                    tx.counterpartyIban?.let { DetailRow(stringResource(R.string.tx_detail_counterparty_iban), it) }
+                    tx.note?.let { DetailRow(stringResource(R.string.tx_detail_bank_description), it) }
+                    if (tx.origAmountMinor != null && tx.origCurrency != null) DetailRow(
+                        stringResource(R.string.tx_detail_original_amount),
+                        formatMinor(kotlin.math.abs(tx.origAmountMinor), tx.origCurrency),
+                    )
+                    if (item.fundedByConversionMinor != null && item.fundedByConversionCurrency != null) DetailRow(
+                        stringResource(R.string.tx_detail_converted_from),
+                        formatMinor(item.fundedByConversionMinor, item.fundedByConversionCurrency),
+                    )
+                }
+            }
+        }
+        if (hasQuickActions) item(key = "transaction-actions") {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                WhfinSectionLabel(stringResource(R.string.transaction_actions))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (onEdit != null) item {
+                        DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
+                    }
+                    if (onClearDebt != null) item {
+                        DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)
+                    } else if (onDebt != null) item {
+                        DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
+                    }
+                    if (onClearSplit != null) item {
+                        DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_clear), onClearSplit)
+                    } else if (onSplit != null) item {
+                        DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_action_short), onSplit)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Transaction details", widthDp = 400, heightDp = 620, showBackground = true)
+@Preview(
+    name = "Transaction details dark",
+    widthDp = 400,
+    heightDp = 620,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(
+    name = "Transaction details font 1.5",
+    widthDp = 400,
+    heightDp = 780,
+    fontScale = 1.5f,
+    showBackground = true,
+)
+@Preview(name = "Transaction details compact", widthDp = 400, heightDp = 480, showBackground = true)
+@Composable
+private fun TransactionDetailsPreview() {
+    val account = AccountEntity(
+        id = 1,
+        name = "Cash",
+        type = AccountType.CASH,
+        currency = "GEL",
+    )
+    val category = CategoryEntity(
+        id = 1,
+        name = "Eating out",
+        kind = CategoryKind.EXPENSE,
+        icon = "Restaurant",
+        color = 0xFFC45D3A.toInt(),
+    )
+    val item = FeedItem(
+        tx = TransactionEntity(
+            id = 1,
+            accountId = account.id,
+            amountMinor = -2_000,
+            currency = "GEL",
+            occurredAt = System.currentTimeMillis(),
+            categoryId = category.id,
+            status = TxStatus.MANUAL,
+            source = TxSource.MANUAL,
+        ),
+        merchant = null,
+        category = category,
+        account = account,
+        cardHint = null,
+        day = LocalDate.of(2026, 7, 19),
+    )
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            TransactionDetailsContent(
+                item = item,
+                modifier = Modifier.fillMaxSize(),
+                onChangeCategory = {},
+                onDelete = {},
+                onEdit = {},
+                onDebt = {},
+                onClearDebt = null,
+                onSplit = {},
+                onChangeStatus = {},
+            )
         }
     }
 }
@@ -751,7 +933,11 @@ private fun TxStatus.descriptionResource(): Int = when (this) {
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(.42f))
         Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(.58f))
     }
@@ -761,7 +947,7 @@ private fun DetailRow(label: String, value: String) {
 private fun DetailEditableRow(label: String, value: String, onClick: (() -> Unit)?) {
     val modifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
     Row(
-        modifier.padding(vertical = 8.dp),
+        modifier.heightIn(min = 48.dp).padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -775,14 +961,13 @@ private fun DetailQuickAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    destructive: Boolean = false,
 ) {
-    val contentColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val contentColor = MaterialTheme.colorScheme.primary
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = Color.Transparent,
-        border = BorderStroke(1.dp, if (destructive) contentColor.copy(alpha = .45f) else MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
