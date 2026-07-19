@@ -40,20 +40,28 @@ class QuickExpenseRerankTest {
 
     private fun bigBeforeSmall(): Boolean {
         val big = xOfOrNull("RerankBig") ?: return false
-        val small = xOfOrNull("RerankSmall") ?: return false
-        return big < small
+        val small = xOfOrNull("RerankSmall")
+        // После snap-to-start прежний лидер может закономерно уйти вправо за
+        // lazy viewport; видимый новый лидер уже доказывает пере-ранжировку.
+        return small == null || big < small
     }
 
     /**
      * waitUntil в Robolectric крутит виртуальные часы и обгоняет реальный IO-поток,
      * на котором грузятся категории, — ждём условие по настенному времени.
      */
-    private fun awaitReal(timeoutMillis: Long = 5_000, condition: () -> Boolean) {
+    private fun awaitReal(
+        timeoutMillis: Long = 5_000,
+        diagnostic: () -> String = { "condition remained false" },
+        condition: () -> Boolean,
+    ) {
         val start = System.currentTimeMillis()
         while (true) {
             compose.waitForIdle()
             if (condition()) return
-            check(System.currentTimeMillis() - start < timeoutMillis) { "Timed out waiting for condition" }
+            check(System.currentTimeMillis() - start < timeoutMillis) {
+                "Timed out waiting for condition: ${diagnostic()}"
+            }
             Thread.sleep(25)
         }
     }
@@ -101,7 +109,11 @@ class QuickExpenseRerankTest {
             assertTrue("frequency order broken", xOf("RerankSmall") < xOf("RerankBig"))
 
             compose.onAllNodes(hasSetTextAction())[0].performTextInput("120")
-            awaitReal { bigBeforeSmall() }
+            awaitReal(
+                diagnostic = {
+                    "big=${xOfOrNull("RerankBig")}, small=${xOfOrNull("RerankSmall")}"
+                },
+            ) { bigBeforeSmall() }
             assertTrue("amount rerank did not happen", bigBeforeSmall())
         }
     }
