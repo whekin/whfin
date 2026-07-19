@@ -179,7 +179,8 @@
   Все consequential confirmations (удаление transaction/account/category/import record, архив человека,
   reset demo и discard composer) переведены с системного AlertDialog на общий `WhfinConfirmDialog`:
   тёплый Quiet Ledger decision block, семантический маркер, равная геометрия действий и вертикальный
-  reflow при font scale 1.5.
+  reflow при font scale 1.5. Фон диалога использует тот же screen canvas без Material tonal overlay,
+  поэтому dynamic colors не уводят его в отдельный пыльно-лиловый карточный слой.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

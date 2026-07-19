@@ -205,9 +205,9 @@ internal fun WhfinConfirmDialogContent(
     Surface(
         modifier = modifier.fillMaxWidth().widthIn(max = 440.dp),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.background,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        tonalElevation = 6.dp,
+        tonalElevation = 0.dp,
         shadowElevation = 10.dp,
     ) {
         Column(Modifier.padding(20.dp)) {

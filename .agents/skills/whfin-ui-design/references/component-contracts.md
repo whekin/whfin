@@ -38,8 +38,9 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinFormSheet`: scrollable, IME-safe input sheet with explicit primary/secondary action hierarchy.
 - `WhfinFullScreenForm`: edge-to-edge complex editor with pinned action area and IME-safe content.
 - `WhfinConfirmDialog`: the single decision surface for delete, archive, reset, and discard confirmation.
-  It uses a semantic ledger marker, warm tonal surface, equal action geometry, and reflows actions at
-  large font scales. Feature code owns strings and side effects; do not expose Material `AlertDialog`.
+  It uses a semantic ledger marker, the screen canvas without tonal-elevation tint, equal action
+  geometry, and reflows actions at large font scales. Feature code owns strings and side effects; do
+  not expose Material `AlertDialog`.
 - `WhfinAmount`: tabular money typography and semantic color without embedding formatting policy.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.
