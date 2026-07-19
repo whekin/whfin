@@ -53,9 +53,11 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,6 +76,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 
 enum class WhfinActionStyle { Primary, Secondary, Quiet, Destructive, DestructiveSecondary }
+
+private val LocalProminentIconButtons = staticCompositionLocalOf { false }
 
 @Composable
 fun WhfinButton(
@@ -155,9 +159,10 @@ fun WhfinIconButton(
     outlined: Boolean = true,
     selected: Boolean = false,
     enabled: Boolean = true,
-    prominent: Boolean = false,
+    prominent: Boolean? = null,
     style: WhfinActionStyle = WhfinActionStyle.Quiet,
 ) {
+    val useProminentIcon = prominent ?: LocalProminentIconButtons.current
     Surface(
         onClick = onClick,
         enabled = enabled,
@@ -190,7 +195,7 @@ fun WhfinIconButton(
                 icon,
                 contentDescription,
                 modifier = Modifier.size(
-                    if (prominent) WhfinThemeTokens.sizes.prominentIcon else WhfinThemeTokens.sizes.icon,
+                    if (useProminentIcon) WhfinThemeTokens.sizes.prominentIcon else WhfinThemeTokens.sizes.icon,
                 ),
             )
         }
@@ -247,12 +252,14 @@ fun WhfinContextHeader(
                 }
             },
             actions = {
-                Row(
-                    modifier = Modifier.padding(end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    content = actions,
-                )
+                CompositionLocalProvider(LocalProminentIconButtons provides true) {
+                    Row(
+                        modifier = Modifier.padding(end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        content = actions,
+                    )
+                }
             },
             expandedHeight = 84.dp,
             windowInsets = TopAppBarDefaults.windowInsets,

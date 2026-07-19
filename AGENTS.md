@@ -171,7 +171,8 @@
   В Account activity частые Edit/Adjust оставлены компактной парой, а редкие Bank details и
   destructive Delete перенесены в overflow заголовка счёта; неполная action-сетка больше не делает
   удаление визуально крупнейшим действием.
-  Feed Search/Filter используют более уверенный 26dp glyph внутри прежнего 48dp target.
+  Все действия общего `WhfinContextHeader` автоматически используют уверенный 26dp glyph внутри
+  прежнего 48dp target — одинаково в Feed, Accounts, previews и selection mode.
   Transaction details собраны как компактная receipt-композиция: category/counterparty → signed amount
   → date/account, Status/Category стали плоскими ledger rows, отсутствие description не становится
   заголовком, Delete перенесён в overflow с прежним подтверждением.

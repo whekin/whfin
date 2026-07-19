@@ -304,7 +304,6 @@ fun FeedScreen(
                         },
                         outlined = false,
                         selected = showSearch,
-                        prominent = true,
                     )
                     WhfinIconButton(
                         icon = Icons.Default.FilterAlt,
@@ -312,7 +311,6 @@ fun FeedScreen(
                         onClick = { showFilterSheet = true },
                         outlined = false,
                         selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST || categoryFilters.isNotEmpty(),
-                        prominent = true,
                     )
                 }
             }
