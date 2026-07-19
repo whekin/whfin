@@ -53,6 +53,7 @@ import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -299,12 +300,13 @@ fun AddTransactionSheet(
         }
     }
     if (showDatePicker) DateSelector(day, { showDatePicker = false }) { day = it; showDatePicker = false }
-    if (confirmDiscard) AlertDialog(
-        onDismissRequest = { confirmDiscard = false },
-        title = { Text(stringResource(R.string.discard_transaction_title)) },
-        text = { Text(stringResource(R.string.discard_transaction_body)) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.discard_action), color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.action_cancel)) } },
+    if (confirmDiscard) WhfinConfirmDialog(
+        title = stringResource(R.string.discard_transaction_title),
+        body = stringResource(R.string.discard_transaction_body),
+        confirmLabel = stringResource(R.string.discard_action),
+        dismissLabel = stringResource(R.string.action_cancel),
+        onConfirm = onDismiss,
+        onDismiss = { confirmDiscard = false },
     )
 }
 

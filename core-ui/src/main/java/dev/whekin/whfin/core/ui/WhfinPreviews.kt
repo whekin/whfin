@@ -161,3 +161,30 @@ fun WhfinInputChoiceGallery() {
 private fun WhfinInputChoicePreview() {
     WhfinTheme { WhfinInputChoiceGallery() }
 }
+
+@Composable
+fun WhfinConfirmDialogGallery() {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.padding(20.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center,
+        ) {
+            WhfinConfirmDialogContent(
+                title = "Delete transaction?",
+                body = "This manual transaction will be removed permanently. Your account balance will change.",
+                confirmLabel = "Delete",
+                dismissLabel = "Keep transaction",
+                onConfirm = {},
+                onDismiss = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Decision light", widthDp = 400, heightDp = 420, showBackground = true)
+@Preview(name = "Decision dark", widthDp = 400, heightDp = 420, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Decision font 1.5", widthDp = 400, heightDp = 540, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun WhfinConfirmDialogPreview() {
+    WhfinTheme { WhfinConfirmDialogGallery() }
+}

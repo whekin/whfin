@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
@@ -312,23 +313,16 @@ fun SettingsScreen(
         }
     }
 
-    if (confirmDemoReset) androidx.compose.material3.AlertDialog(
-        onDismissRequest = { confirmDemoReset = false },
-        title = { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_title)) },
-        text = { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_body)) },
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                onClick = {
+    if (confirmDemoReset) WhfinConfirmDialog(
+        title = stringResource(R.string.demo_mode_reset_title),
+        body = stringResource(R.string.demo_mode_reset_body),
+        confirmLabel = stringResource(R.string.demo_mode_reset_confirm),
+        dismissLabel = stringResource(R.string.action_cancel),
+        onConfirm = {
                     confirmDemoReset = false
                     onResetDemoData()
-                },
-            ) { androidx.compose.material3.Text(stringResource(R.string.demo_mode_reset_confirm)) }
         },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = { confirmDemoReset = false }) {
-                androidx.compose.material3.Text(stringResource(R.string.action_cancel))
-            }
-        },
+        onDismiss = { confirmDemoReset = false },
     )
 }
 

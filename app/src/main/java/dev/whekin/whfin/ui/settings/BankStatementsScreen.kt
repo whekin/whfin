@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +48,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -129,27 +129,16 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
         )
     }
     removing?.let { item ->
-        AlertDialog(
-            onDismissRequest = { removing = null },
-            title = { Text(stringResource(R.string.statements_remove_title)) },
-            text = { Text(stringResource(R.string.statements_remove_body)) },
-            confirmButton = {
-                WhfinButton(
-                    label = stringResource(R.string.statements_remove_action),
-                    onClick = {
+        WhfinConfirmDialog(
+            title = stringResource(R.string.statements_remove_title),
+            body = stringResource(R.string.statements_remove_body),
+            confirmLabel = stringResource(R.string.statements_remove_action),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
                         viewModel.removeNoEffectImport(item)
                         removing = null
-                    },
-                    style = WhfinActionStyle.Destructive,
-                )
             },
-            dismissButton = {
-                WhfinButton(
-                    label = stringResource(R.string.action_cancel),
-                    onClick = { removing = null },
-                    style = WhfinActionStyle.Quiet,
-                )
-            },
+            onDismiss = { removing = null },
         )
     }
 }

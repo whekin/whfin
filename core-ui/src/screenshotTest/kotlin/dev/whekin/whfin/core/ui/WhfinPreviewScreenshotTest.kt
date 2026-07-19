@@ -133,3 +133,24 @@ fun inputChoiceDarkScreenshot() {
 fun inputChoiceLargeFontScreenshot() {
     WhfinTheme(darkTheme = false) { WhfinInputChoiceGallery() }
 }
+
+@PreviewTest
+@Preview(name = "decision_dialog_light", widthDp = 400, heightDp = 420)
+@Composable
+fun decisionDialogLightScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinConfirmDialogGallery() }
+}
+
+@PreviewTest
+@Preview(name = "decision_dialog_dark", widthDp = 400, heightDp = 420, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun decisionDialogDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { WhfinConfirmDialogGallery() }
+}
+
+@PreviewTest
+@Preview(name = "decision_dialog_font_150", widthDp = 400, heightDp = 540, fontScale = 1.5f)
+@Composable
+fun decisionDialogLargeFontScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinConfirmDialogGallery() }
+}

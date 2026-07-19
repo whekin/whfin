@@ -37,6 +37,9 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   leaves the screen, and require explicit user submission rather than automatic SMS confirmation.
 - `WhfinFormSheet`: scrollable, IME-safe input sheet with explicit primary/secondary action hierarchy.
 - `WhfinFullScreenForm`: edge-to-edge complex editor with pinned action area and IME-safe content.
+- `WhfinConfirmDialog`: the single decision surface for delete, archive, reset, and discard confirmation.
+  It uses a semantic ledger marker, warm tonal surface, equal action geometry, and reflows actions at
+  large font scales. Feature code owns strings and side effects; do not expose Material `AlertDialog`.
 - `WhfinAmount`: tabular money typography and semantic color without embedding formatting policy.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.
@@ -49,7 +52,9 @@ Destination chrome and destination content must share one layout owner. Do not c
 
 Keep Room entities, repositories, app resources, navigation routes, and feature-specific strings out of `:core-ui`. Pass text, icons, state, and callbacks into shared components. Category data adapters and money formatting remain in the app layer because they encode product/domain policy.
 
-Use Material `AlertDialog` for destructive confirmation. Use Material sheets, fields, and accessibility behavior internally, styled through WHFIN components. Direct Material usage is acceptable for invisible layout primitives or one-off behavior that has no product appearance.
+Use `WhfinConfirmDialog` for consequential confirmation. Use Material sheets, fields, dialogs, and
+accessibility behavior internally, styled through WHFIN components. Direct Material usage is acceptable
+for invisible layout primitives or one-off behavior that has no product appearance.
 
 ## State pattern
 

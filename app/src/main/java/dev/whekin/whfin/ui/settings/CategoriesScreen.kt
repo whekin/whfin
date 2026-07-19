@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -207,27 +207,20 @@ private fun EditCategorySheet(
     }
 
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.categories_delete_confirm_title, row.category.name)) },
-            text = {
-                Text(
-                    if (row.uses > 0) {
-                        pluralStringResource(R.plurals.categories_delete_confirm_body, row.uses, row.uses)
-                    } else {
-                        stringResource(R.string.categories_delete_confirm_body_unused)
-                    },
-                )
+        WhfinConfirmDialog(
+            title = stringResource(R.string.categories_delete_confirm_title, row.category.name),
+            body = if (row.uses > 0) {
+                pluralStringResource(R.plurals.categories_delete_confirm_body, row.uses, row.uses)
+            } else {
+                stringResource(R.string.categories_delete_confirm_body_unused)
             },
-            confirmButton = {
-                TextButton(onClick = {
+            confirmLabel = stringResource(R.string.categories_delete),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
                     confirmDelete = false
                     onDelete()
-                }) { Text(stringResource(R.string.categories_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+            onDismiss = { confirmDelete = false },
         )
     }
 }

@@ -176,6 +176,10 @@
   Transaction details собраны как компактная receipt-композиция: category/counterparty → signed amount
   → date/account, Status/Category стали плоскими ledger rows, отсутствие description не становится
   заголовком, Delete перенесён в overflow с прежним подтверждением.
+  Все consequential confirmations (удаление transaction/account/category/import record, архив человека,
+  reset demo и discard composer) переведены с системного AlertDialog на общий `WhfinConfirmDialog`:
+  тёплый Quiet Ledger decision block, семантический маркер, равная геометрия действий и вертикальный
+  reflow при font scale 1.5.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

@@ -85,6 +85,14 @@ single-line horizontal rails when translations would wrap, and pin the final act
 scrolling content. A partially visible next choice is the preferred scroll cue; do not add decorative
 arrows or a second row. Use motion and tonal emphasis only to clarify selection and continuity.
 
+### Decision dialogs
+
+Confirmation is a compact ledger decision block, not a stock system modal. Use one warm tonal surface,
+a short semantic marker, direct title/body copy, and two actions with equal geometry. Oxide belongs only
+to irreversible or data-losing confirmation. At large font scales, actions reflow into equal full-width
+rows; essential labels must not truncate. Keep routine destructive actions behind overflow or a
+secondary surface before showing the dialog.
+
 ### Statements
 
 Emphasize truth, coverage, gaps, and review status. File names are metadata and must ellipsize; they must never dominate import results. Prefer a timeline/register over repeated large cards.

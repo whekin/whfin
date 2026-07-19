@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -242,26 +242,19 @@ private fun PersonSheet(
     }
 
     if (confirmArchive && archiveRow != null && onArchive != null) {
-        AlertDialog(
-            onDismissRequest = { confirmArchive = false },
-            title = { Text(stringResource(R.string.people_archive_confirm_title, archiveRow.person.name)) },
-            text = {
-                Text(
-                    stringResource(
-                        if (archiveRow.hasOpenDebts) R.string.people_archive_confirm_body_debts
-                        else R.string.people_archive_confirm_body,
-                    ),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
+        WhfinConfirmDialog(
+            title = stringResource(R.string.people_archive_confirm_title, archiveRow.person.name),
+            body = stringResource(
+                if (archiveRow.hasOpenDebts) R.string.people_archive_confirm_body_debts
+                else R.string.people_archive_confirm_body,
+            ),
+            confirmLabel = stringResource(R.string.people_archive),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
                     confirmArchive = false
                     onArchive()
-                }) { Text(stringResource(R.string.people_archive), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmArchive = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+            onDismiss = { confirmArchive = false },
         )
     }
 }

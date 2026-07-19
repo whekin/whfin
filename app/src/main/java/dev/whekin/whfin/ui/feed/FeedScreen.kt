@@ -63,7 +63,6 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -129,6 +128,7 @@ import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinContextHeader
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -421,22 +421,17 @@ fun FeedScreen(
         },
     )
 
-    if (showBatchDelete) AlertDialog(
-        onDismissRequest = { showBatchDelete = false },
-        title = { Text(stringResource(R.string.transactions_delete_selected)) },
-        text = { Text(stringResource(R.string.transactions_delete_selected_body, selectedItems.size)) },
-        confirmButton = {
-            TextButton(onClick = {
+    if (showBatchDelete) WhfinConfirmDialog(
+        title = stringResource(R.string.transactions_delete_selected),
+        body = stringResource(R.string.transactions_delete_selected_body, selectedItems.size),
+        confirmLabel = stringResource(R.string.action_delete),
+        dismissLabel = stringResource(R.string.action_cancel),
+        onConfirm = {
                 viewModel.deleteItems(selectedItems)
                 showBatchDelete = false
                 selectedIds = emptySet()
-            }) {
-                Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-            }
         },
-        dismissButton = {
-            TextButton(onClick = { showBatchDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-        },
+        onDismiss = { showBatchDelete = false },
     )
 
     if (showAdd) {
@@ -526,16 +521,16 @@ fun FeedScreen(
     }
 
     deleteFor?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deleteFor = null },
-            title = { Text(stringResource(R.string.transaction_delete)) },
-            text = { Text(stringResource(if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body else R.string.transaction_delete_body)) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.deleteManual(item); deleteFor = null }) {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { deleteFor = null }) { Text(stringResource(R.string.action_cancel)) } },
+        WhfinConfirmDialog(
+            title = stringResource(R.string.transaction_delete),
+            body = stringResource(
+                if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
+                else R.string.transaction_delete_body,
+            ),
+            confirmLabel = stringResource(R.string.action_delete),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = { viewModel.deleteManual(item); deleteFor = null },
+            onDismiss = { deleteFor = null },
         )
     }
     debtFor?.let { item ->

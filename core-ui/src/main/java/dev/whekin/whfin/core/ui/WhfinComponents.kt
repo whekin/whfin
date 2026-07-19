@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -68,12 +70,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 enum class WhfinActionStyle { Primary, Secondary, Quiet, Destructive, DestructiveSecondary }
 
@@ -147,6 +152,127 @@ fun WhfinButton(
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
         )
+    }
+}
+
+@Composable
+fun WhfinConfirmDialog(
+    title: String,
+    body: String,
+    confirmLabel: String,
+    dismissLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    confirmStyle: WhfinActionStyle = WhfinActionStyle.Destructive,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            WhfinConfirmDialogContent(
+                title = title,
+                body = body,
+                confirmLabel = confirmLabel,
+                dismissLabel = dismissLabel,
+                onConfirm = onConfirm,
+                onDismiss = onDismiss,
+                confirmStyle = confirmStyle,
+                modifier = modifier,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun WhfinConfirmDialogContent(
+    title: String,
+    body: String,
+    confirmLabel: String,
+    dismissLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    confirmStyle: WhfinActionStyle = WhfinActionStyle.Destructive,
+) {
+    val largeText = LocalDensity.current.fontScale >= 1.3f
+    val consequential = confirmStyle == WhfinActionStyle.Destructive ||
+        confirmStyle == WhfinActionStyle.DestructiveSecondary
+    Surface(
+        modifier = modifier.fillMaxWidth().widthIn(max = 440.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        tonalElevation = 6.dp,
+        shadowElevation = 10.dp,
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Spacer(
+                    Modifier
+                        .width(4.dp)
+                        .height(52.dp)
+                        .background(
+                            if (consequential) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.tertiary,
+                            CircleShape,
+                        ),
+                )
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            HorizontalDivider(
+                Modifier.padding(top = 20.dp, bottom = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            if (largeText) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WhfinButton(
+                        label = dismissLabel,
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = WhfinActionStyle.Secondary,
+                    )
+                    WhfinButton(
+                        label = confirmLabel,
+                        onClick = onConfirm,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = confirmStyle,
+                    )
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    WhfinButton(
+                        label = dismissLabel,
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        style = WhfinActionStyle.Secondary,
+                    )
+                    WhfinButton(
+                        label = confirmLabel,
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                        style = confirmStyle,
+                    )
+                }
+            }
+        }
     }
 }
 

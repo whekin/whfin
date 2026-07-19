@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinBackButton
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
@@ -214,19 +214,19 @@ internal fun AccountTransactionsScreen(
         )
     }
     deleteTransactionFor?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deleteTransactionFor = null },
-            title = { Text(stringResource(R.string.transaction_delete)) },
-            text = { Text(stringResource(if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body else R.string.transaction_delete_body)) },
-            confirmButton = {
-                TextButton(onClick = {
+        WhfinConfirmDialog(
+            title = stringResource(R.string.transaction_delete),
+            body = stringResource(
+                if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
+                else R.string.transaction_delete_body,
+            ),
+            confirmLabel = stringResource(R.string.action_delete),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
                     feedViewModel.deleteManual(item)
                     deleteTransactionFor = null
-                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { deleteTransactionFor = null }) { Text(stringResource(R.string.action_cancel)) }
-            },
+            onDismiss = { deleteTransactionFor = null },
         )
     }
     debtFor?.let { item ->
@@ -272,20 +272,17 @@ internal fun AccountTransactionsScreen(
                 bankMapping = false
             },
         )
-        if (deleteAccount) AlertDialog(
-            onDismissRequest = { deleteAccount = false },
-            title = { Text(stringResource(R.string.account_delete)) },
-            text = { Text(stringResource(R.string.account_delete_confirmation, item.account.name)) },
-            confirmButton = {
-                TextButton(onClick = {
+        if (deleteAccount) WhfinConfirmDialog(
+            title = stringResource(R.string.account_delete),
+            body = stringResource(R.string.account_delete_confirmation, item.account.name),
+            confirmLabel = stringResource(R.string.account_delete),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
                     accountsViewModel.deleteAccountContainer(containerRows.map { it.account })
                     deleteAccount = false
                     onBack()
-                }) { Text(stringResource(R.string.account_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = {
-                TextButton(onClick = { deleteAccount = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+            onDismiss = { deleteAccount = false },
         )
     }
 }
