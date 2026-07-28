@@ -147,6 +147,7 @@ fun AccountsScreen(
             WhfinContextHeader(
                 label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.accounts_net_worth),
                 value = if (readyState == null) "—" else formatMinor(gelBalance, "GEL"),
+                valueSymbol = currencySymbol("GEL"),
                 scrollBehavior = headerScrollBehavior,
             ) {
                 WhfinIconButton(
@@ -663,7 +664,11 @@ private fun AccountsContentPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                WhfinContextHeader(stringResource(R.string.accounts_net_worth), formatMinor(559_417, "GEL")) {
+                WhfinContextHeader(
+                    stringResource(R.string.accounts_net_worth),
+                    formatMinor(559_417, "GEL"),
+                    valueSymbol = currencySymbol("GEL"),
+                ) {
                     WhfinIconButton(Icons.Default.Add, "Add", {}, outlined = false)
                     WhfinIconButton(Icons.Default.BarChart, "Overview", {}, outlined = false)
                     WhfinIconButton(Icons.Default.Settings, "Settings", {}, outlined = false)

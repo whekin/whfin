@@ -12,26 +12,20 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import dev.whekin.whfin.R
@@ -42,9 +36,10 @@ import dev.whekin.whfin.ui.analytics.AnalyticsScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsRequest
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsScreen
 import dev.whekin.whfin.ui.components.LedgerIconButton
+import dev.whekin.whfin.core.ui.WhfinDock
+import dev.whekin.whfin.core.ui.WhfinDockDestination
 import dev.whekin.whfin.core.ui.WhfinMotion
 import dev.whekin.whfin.core.ui.WhfinHaptics
-import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import androidx.activity.compose.BackHandler
 import dev.whekin.whfin.ui.feed.FeedScreen
@@ -464,74 +459,23 @@ private fun SecondaryPage(
 }
 
 @Composable internal fun LedgerDock(selected: Int, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxWidth()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                DockItem(
-                    Icons.AutoMirrored.Filled.ReceiptLong,
-                    stringResource(R.string.tab_feed),
-                    selected == 0,
-                    Modifier.weight(1f).testTag("dock-feed"),
-                ) { onSelect(0) }
-                Surface(
-                    onClick = onAdd,
-                    modifier = Modifier.size(52.dp).testTag("dock-add"),
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = androidx.compose.ui.graphics.Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Add, stringResource(R.string.add_transaction), Modifier.size(24.dp))
-                    }
-                }
-                DockItem(
-                    Icons.Default.AccountBalanceWallet,
-                    stringResource(R.string.tab_accounts),
-                    selected == 1,
-                    Modifier.weight(1f).testTag("dock-accounts"),
-                ) { onSelect(1) }
-            }
-        }
-    }
-}
-
-@Composable private fun DockItem(icon: ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Surface(
-        onClick = {
-            if (!selected) haptics.performHapticFeedback(WhfinHaptics.navigation)
-            onClick()
-        },
-        modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).semantics {
-            role = Role.Tab
-            this.selected = selected
-        },
-        shape = MaterialTheme.shapes.medium,
-        color = androidx.compose.ui.graphics.Color.Transparent,
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Icon(icon, null, modifier = Modifier.size(20.dp), tint = contentColor)
-            Text(
-                label,
-                modifier = Modifier.padding(top = 3.dp),
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
-        }
-    }
+    WhfinDock(
+        leading = WhfinDockDestination(
+            icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+            label = stringResource(R.string.tab_feed),
+            testTag = "dock-feed",
+        ),
+        trailing = WhfinDockDestination(
+            icon = Icons.Outlined.AccountBalanceWallet,
+            label = stringResource(R.string.tab_accounts),
+            testTag = "dock-accounts",
+        ),
+        selectedIndex = selected,
+        addIcon = Icons.Default.Add,
+        addContentDescription = stringResource(R.string.add_transaction),
+        onAdd = onAdd,
+        onSelect = onSelect,
+    )
 }
 
 @Preview(name = "Dock light", widthDp = 400, heightDp = 96, showBackground = true)

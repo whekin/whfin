@@ -383,15 +383,17 @@ fun WhfinContextHeader(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
+    valueSymbol: String? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     actions: @Composable RowScope.() -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
         TopAppBar(
             title = {
-                Column(Modifier.padding(top = 4.dp)) {
-                    Text(
-                        value,
+                Column(Modifier.padding(start = 4.dp, top = 4.dp)) {
+                    WhfinAmount(
+                        text = value,
+                        symbol = valueSymbol,
                         style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -407,12 +409,16 @@ fun WhfinContextHeader(
             },
             actions = {
                 CompositionLocalProvider(LocalProminentIconButtons provides true) {
-                    Row(
-                        modifier = Modifier.padding(end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        content = actions,
-                    )
+                    Surface(
+                        modifier = Modifier.padding(end = 16.dp),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = actions,
+                        )
+                    }
                 }
             },
             expandedHeight = 84.dp,
@@ -423,7 +429,10 @@ fun WhfinContextHeader(
             ),
             scrollBehavior = scrollBehavior,
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = WhfinThemeTokens.spacing.rail),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
     }
 }
 
@@ -690,6 +699,7 @@ fun WhfinAmount(
     fontWeight: FontWeight = FontWeight.Normal,
     maxLines: Int = 1,
     textAlign: TextAlign? = null,
+    overflow: TextOverflow = TextOverflow.Clip,
 ) {
     val resolved = color.takeOrElse { LocalContentColor.current }
     // lastIndexOf: у валюты без своего знака символ — это код («1 000.00 AMD»), и такой же код
@@ -722,6 +732,7 @@ fun WhfinAmount(
         fontWeight = fontWeight,
         maxLines = maxLines,
         textAlign = textAlign,
+        overflow = overflow,
     )
 }
 

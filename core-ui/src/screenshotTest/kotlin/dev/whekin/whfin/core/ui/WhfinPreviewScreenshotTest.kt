@@ -50,6 +50,27 @@ fun typographyDeviceScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "shell_light", widthDp = 400, heightDp = 320)
+@Composable
+fun shellLightScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinShellChromeGallery() }
+}
+
+@PreviewTest
+@Preview(name = "shell_dark", widthDp = 400, heightDp = 320, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun shellDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { WhfinShellChromeGallery() }
+}
+
+@PreviewTest
+@Preview(name = "shell_font_150", widthDp = 400, heightDp = 380, fontScale = 1.5f)
+@Composable
+fun shellLargeFontScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinShellChromeGallery() }
+}
+
+@PreviewTest
 @Preview(name = "monthly_chart_light", widthDp = 400, heightDp = 230)
 @Composable
 fun monthlyChartLightScreenshot() {

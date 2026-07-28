@@ -38,7 +38,8 @@ class LedgerDockTest {
         compose.onNodeWithTag("dock-accounts").assertIsSelected()
         compose.onNodeWithTag("dock-feed").performClick()
         compose.onNodeWithTag("dock-feed").assertIsSelected()
+        compose.onNodeWithTag("dock-add").performClick()
         assertEquals(0, selected)
-        assertEquals(0, addRequests)
+        assertEquals(1, addRequests)
     }
 }

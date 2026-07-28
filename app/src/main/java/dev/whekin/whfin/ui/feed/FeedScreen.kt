@@ -294,6 +294,7 @@ fun FeedScreen(
                 WhfinContextHeader(
                     label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.balance_total),
                     value = formatMinor(balance, "GEL"),
+                    valueSymbol = currencySymbol("GEL"),
                     scrollBehavior = headerScrollBehavior,
                 ) {
                     WhfinIconButton(
@@ -2069,7 +2070,11 @@ private fun FeedContentPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                WhfinContextHeader(stringResource(R.string.balance_total), formatMinor(559_417, "GEL")) {
+                WhfinContextHeader(
+                    stringResource(R.string.balance_total),
+                    formatMinor(559_417, "GEL"),
+                    valueSymbol = currencySymbol("GEL"),
+                ) {
                     WhfinIconButton(Icons.Default.Search, "Search", {}, outlined = false)
                     WhfinIconButton(Icons.Default.FilterAlt, "Filter", {}, outlined = false)
                 }

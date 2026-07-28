@@ -148,7 +148,7 @@
   больше не могут на кадр получить геометрию разных destinations. Forward/Back получили короткое направленное
   движение; dock Feed/Accounts не двигает indicator между уже сменившимися экранами: каждый пункт локально
   и за 140ms меняет только цвет иконки/подписи, оставаясь на месте; центральный `+` — отдельная
-  контурная primary-кнопка без заливки, ripple обрезан формой 48dp target. Add-request после открытия
+  primary-кнопка с 48dp target. Add-request после открытия
   composer сразу потребляется и не повторяется при возврате Accounts→Transactions.
   Launch/splash следует системной light/dark-теме без белого
   кадра; bootstrap App Lock до чтения DataStore показывает нейтральный фон и не может мигнуть PIN-экраном,
@@ -216,6 +216,15 @@
   `WhfinTotalRule` под итогом месяца в ленте и в статистике; заголовок дня показывает день недели
   (`SUN, 26 JUL`), год — только для прошлых лет. Light/dark EN и RU при font scale 1.5 проверены
   на disposable Pixel 9 Pro API 36.1; пять dark screenshot references перегенерированы.
+  Shell polish (2026-07-29): общий `WhfinDock` перенесён в `:core-ui`; полноширинный dock получил
+  inset-rule, outlined 22dp glyphs и короткий локальный selection-rule без движущейся подложки.
+  Центральный `+` — плоский залитый primary-круг 48dp, поднятый внутри собственного 64dp slot без
+  outline/notch/shadow. `WhfinContextHeader` выравнивает метрику по 20dp rail, набирает её через
+  `WhfinAmount` и собирает 48dp действия в единый low-tonal action rail. Контракт и screenshot gallery
+  закреплены в локальном `whfin-ui-design` skill и `:core-ui`. Screenshot references проверены в
+  light/dark/font scale 1.5; на disposable Pixel 9 Pro API 36.1 проверены populated Feed/Accounts,
+  три header actions, переключение dock и RU при dark + font scale 1.5. APK установлен на OnePlus
+  через `install -r` без очистки данных.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
@@ -415,9 +424,9 @@
 - [x] Feed UX: поиск по операции/счёту/IBAN и единый компактный фильтр по типу, нескольким
   категориям и сортировке; обычный sheet показывает три наиболее используемые подходящие категории
   и `Ещё`, а полный lazy-список категорий открывается отдельным экраном; быстрые чипы и Settings убраны с рабочей поверхности Transactions,
-  а глобальное добавление операции встроено отдельной 52dp-кнопкой в центр dock. Пункты dock используют
-  icon-over-label, сохраняют однострочные названия при font scale 1.5 и выделяют активный раздел только
-  цветом иконки/подписи без постоянной подложки;
+  а глобальное добавление операции встроено отдельной залитой 48dp-кнопкой в центр dock. Пункты dock используют
+  icon-over-label, сохраняют однострочные названия при font scale 1.5 и выделяют активный раздел цветом
+  и короткой ledger-чертой без постоянной подложки;
   свои переводы не показывают сырое грузинское банковское описание и оформлены отдельными tonal-карточками.
   Long-press включает multi-select без отдельного режима в меню: выбранным операциям можно пакетно
   назначить Pending/Confirmed/Manual или удалить их после явного предупреждения; у transfer/conversion
