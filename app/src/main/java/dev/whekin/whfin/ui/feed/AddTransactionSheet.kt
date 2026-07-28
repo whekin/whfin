@@ -100,17 +100,12 @@ private fun accountSources(accounts: List<AccountEntity>) = accounts.groupBy { a
     )
 }
 
-private fun suggestedCategories(categories: List<CategoryEntity>, amount: Long?): List<CategoryEntity> {
-    val large = setOf("Home", "Devices", "LocalShipping", "Savings")
-    val small = setOf("ShoppingCart", "DirectionsBus", "Restaurant", "DeliveryDining")
-    return categories.withIndex().sortedByDescending { (index, item) ->
-        var score = 1000 - index * 10
-        if (amount != null && amount in 1..3_000 && item.icon in large) score -= 600
-        if ((amount ?: 0) >= 30_000 && item.icon in large) score += 450
-        if ((amount ?: 0) >= 30_000 && item.icon in small) score -= 280
-        score
-    }.take(3).map { it.value }
-}
+/**
+ * Ранжирование категорий для формы. По умолчанию — порядок, полученный от вызывающего
+ * (`categoriesByUsage`); экран может подставить `CategorySuggester`, чтобы учитывать введённую
+ * сумму и валюту так же, как quick-entry из виджета.
+ */
+typealias CategoryRanker = (List<CategoryEntity>, Long?, String?) -> List<CategoryEntity>
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,6 +120,7 @@ fun AddTransactionSheet(
     onUpdate: (FeedItem, ManualTransaction) -> Unit = { _, _ -> },
     onCreateCategory: (String, CategoryKind, String, Int) -> Unit = { _, _, _, _ -> },
     onCreateCashCurrency: (String) -> Unit = {},
+    rankCategories: CategoryRanker = { list, _, _ -> list },
 ) {
     val sources = remember(accounts) { accountSources(accounts) }
     val initial = sources.firstOrNull()?.accounts?.firstOrNull { it.currency == "GEL" }
@@ -231,15 +227,14 @@ fun AddTransactionSheet(
                             value = amountText,
                             onValue = { amountText = it },
                             account = account,
-                            source = sources.firstOrNull { source -> source.accounts.any { it.id == accountId } },
                             autoFocus = shouldAutoFocusAmount,
                             onAutoFocused = { shouldAutoFocusAmount = false },
-                            onCurrency = { accountId = it.id },
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         when (current) {
                             ManualKind.EXPENSE -> ExpenseLayout(
                                 categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem }, categoryId, amountMinor,
+                                account?.currency, rankCategories,
                                 sources, accountId, day, note,
                                 onCategory = { categoryId = it }, onMore = { showAllCategories = true },
                                 onAccount = { accountId = it }, onCreateCashCurrency = createCashCurrency,
@@ -410,14 +405,17 @@ private fun minorInput(value: Long): String {
     }
 }
 
+/**
+ * Валюта здесь только показывается. Раньше рядом с суммой стоял второй «переключатель», который
+ * молча прокручивал ledger’ы того же источника — при живом выборе источник→валюта ниже это давало
+ * два разных способа поменять одно и то же и незаметную подмену счёта.
+ */
 @Composable private fun AmountEditor(
     value: String,
     onValue: (String) -> Unit,
     account: AccountEntity?,
-    source: AccountSource?,
     autoFocus: Boolean = false,
     onAutoFocused: () -> Unit = {},
-    onCurrency: (AccountEntity) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -431,35 +429,43 @@ private fun minorInput(value: Long): String {
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(value, { onValue(it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12)) },
-            placeholder = { Text("0.00", style = MaterialTheme.typography.displayLarge) },
+            placeholder = {
+                Text(
+                    "0.00",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .38f),
+                )
+            },
             textStyle = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent),
             modifier = Modifier.weight(1f).focusRequester(focusRequester))
-        Row(
-            modifier = Modifier.clip(MaterialTheme.shapes.small).clickable(enabled = (source?.accounts?.size ?: 0) > 1) {
-                val list = source!!.accounts
-                val index = list.indexOfFirst { it.id == account?.id }.coerceAtLeast(0)
-                onCurrency(list[(index + 1) % list.size])
-            }.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(account?.currency.orEmpty(), style = MaterialTheme.typography.titleMedium)
-            if ((source?.accounts?.size ?: 0) > 1) Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp))
-        }
+        Text(
+            account?.currency.orEmpty(),
+            Modifier.padding(horizontal = 12.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
-@Composable private fun ExpenseLayout(categories: List<CategoryEntity>, selected: Long?, amount: Long?, sources: List<AccountSource>, accountId: Long?, day: LocalDate, note: String,
+@Composable private fun ExpenseLayout(categories: List<CategoryEntity>, selected: Long?, amount: Long?,
+    currency: String?, rankCategories: CategoryRanker,
+    sources: List<AccountSource>, accountId: Long?, day: LocalDate, note: String,
     onCategory: (Long) -> Unit, onMore: () -> Unit, onAccount: (Long) -> Unit, onCreateCashCurrency: (String) -> Unit,
     onDate: () -> Unit, onNote: (String) -> Unit) {
+    // Один механизм выбора: выбранная категория и подсказки живут в одном ряду, «Ещё» открывает
+    // полный список. Прежде над этим рядом стояла ещё и отдельная строка «Выбрать категорию».
     val chosen = categories.firstOrNull { it.id == selected }
+    val suggestions = remember(categories, chosen?.id, amount, currency) {
+        val ranked = rankCategories(categories, amount, currency)
+        (listOfNotNull(chosen) + ranked.filterNot { it.id == chosen?.id }).take(3)
+    }
     SectionLabel(stringResource(R.string.tx_detail_category))
-    SelectorRow(chosen?.name ?: stringResource(R.string.category_choose), chosen?.let { CategoryIcons.resolve(it.icon) } ?: Icons.Default.Category,
-        chosen?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary, onMore)
-    SectionLabel(stringResource(R.string.recent_categories))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        suggestedCategories(categories, amount).forEach { item -> CategoryTile(item, Modifier.weight(1f)) { onCategory(item.id) } }
+        suggestions.forEach { item ->
+            CategoryTile(item, Modifier.weight(1f), selected = item.id == selected) { onCategory(item.id) }
+        }
         MoreTile(Modifier.weight(1f), onMore)
     }
     Column(Modifier.fillMaxWidth()) {
@@ -516,23 +522,37 @@ private fun minorInput(value: Long): String {
     }
 }
 
-@Composable private fun CategoryTile(item: CategoryEntity, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+@Composable private fun CategoryTile(item: CategoryEntity, modifier: Modifier, selected: Boolean = false, onClick: () -> Unit) {
+    Column(modifier.clip(MaterialTheme.shapes.medium).height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)) {
-        Surface(shape = androidx.compose.foundation.shape.CircleShape, color = Color(item.color).copy(alpha = .14f)) {
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = Color(item.color).copy(alpha = if (selected) .24f else .14f),
+            border = if (selected) BorderStroke(1.5.dp, Color(item.color)) else null,
+        ) {
             Icon(CategoryIcons.resolve(item.icon), null, tint = Color(item.color), modifier = Modifier.padding(10.dp).size(22.dp))
         }
-        Text(item.name, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            item.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 @Composable private fun MoreTile(modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+    Column(modifier.clip(MaterialTheme.shapes.medium).height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)) {
         Surface(shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surfaceContainer) {
             Icon(Icons.Default.MoreHoriz, null, modifier = Modifier.padding(10.dp).size(22.dp))
         }
-        Text(stringResource(R.string.categories_more), style = MaterialTheme.typography.labelSmall)
+        Text(
+            stringResource(R.string.categories_more),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -664,11 +684,19 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             WhfinBackButton(stringResource(R.string.action_back), onBack)
-            Column(Modifier.padding(start = 8.dp)) {
+            Column(Modifier.padding(start = 8.dp).weight(1f)) {
                 Text(stringResource(R.string.category_choose), style = MaterialTheme.typography.headlineSmall)
                 Text(stringResource(if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // Создание — компактное действие заголовка: раньше внизу висела широкая кнопка,
+            // из-за которой сетка из десяти категорий разъезжалась половиной пустого экрана.
+            if (!creating && categories.isNotEmpty()) WhfinIconButton(
+                Icons.Default.Add,
+                stringResource(R.string.category_new),
+                { creating = true },
+                outlined = false,
+            )
         }
         if (creating) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -695,10 +723,9 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
                 )
             }
         } else {
-            CategoryGrid(categories, selected, onSelect, maxHeight = 560.dp,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp))
-            Spacer(Modifier.weight(1f))
-            WhfinButton(
+            CategoryGrid(categories, selected, onSelect,
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 12.dp))
+            if (categories.isEmpty()) WhfinButton(
                 stringResource(R.string.category_new),
                 { creating = true },
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
@@ -735,9 +762,12 @@ private fun ComposerContentPreview() {
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
-                    AmountEditor("23.60", {}, account, source, onCurrency = {})
+                    AmountEditor("23.60", {}, account)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ExpenseLayout(categories, 1, 2_360, listOf(source), 1, LocalDate.now(), "", {}, {}, {}, {}, {}, {})
+                    ExpenseLayout(
+                        categories, 1, 2_360, "GEL", { list, _, _ -> list },
+                        listOf(source), 1, LocalDate.now(), "", {}, {}, {}, {}, {}, {},
+                    )
                 }
                 WhfinButton("Save", {}, Modifier.fillMaxWidth().padding(20.dp))
             }

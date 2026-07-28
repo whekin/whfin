@@ -360,14 +360,17 @@ private fun AccountGroupCard(
     onAccountSettings: (List<AccountWithBalance>) -> Unit,
     onOpenGroupDetails: () -> Unit,
 ) {
+    val containers = accounts
+        .groupBy { it.account.iban ?: "account-${it.account.id}" }
+        .toList()
+        .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
     Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             WhfinSectionHeader(
                 title = name,
-                supportingText = run {
-                    val accountCount = accounts.map { it.account.iban ?: "account-${it.account.id}" }.distinct().size
-                    val currencyCount = accounts.map { it.account.currency }.distinct().size
-                    pluralStringResource(R.plurals.accounts_container_count, accountCount, accountCount) +
-                        " · " + pluralStringResource(R.plurals.accounts_currency_count, currencyCount, currencyCount)
+                // Счётчик показываем только когда у банка правда несколько счетов: «1 счёт ·
+                // 2 валюты» ничего не добавляет к строкам, которые тут же перечислены ниже.
+                supportingText = containers.size.takeIf { it > 1 }?.let { count ->
+                    pluralStringResource(R.plurals.accounts_container_count, count, count)
                 },
                 trailing = {
                     WhfinIconButton(
@@ -378,13 +381,16 @@ private fun AccountGroupCard(
                     )
                 },
             )
-            accounts
-                .groupBy { it.account.iban ?: "account-${it.account.id}" }
-                .toList()
-                .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
-                .forEach { (_, ibanAccounts) ->
-                    IbanCard(ibanAccounts, onOpenTransactions, onAccountSettings)
-                }
+            containers.forEach { (_, ibanAccounts) ->
+                IbanCard(
+                    accounts = ibanAccounts,
+                    // Один счёт в банке — заголовок группы уже назвал его; вторая строка с тем же
+                    // именем и полным IBAN была чистым повтором.
+                    showContainerHeader = containers.size > 1,
+                    onOpenTransactions = onOpenTransactions,
+                    onAccountSettings = onAccountSettings,
+                )
+            }
     }
 }
 
@@ -475,52 +481,57 @@ private fun AccountGroupDetailsDialog(
 @Composable
 private fun IbanCard(
     accounts: List<AccountWithBalance>,
+    showContainerHeader: Boolean,
     onOpenTransactions: (AccountWithBalance) -> Unit,
     onAccountSettings: (List<AccountWithBalance>) -> Unit,
 ) {
     val iban = accounts.first().account.iban
     WhfinLedgerGroup {
         Column(Modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(38.dp),
+            if (showContainerHeader) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            accountTypeIcon(accounts.first().account.type),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(19.dp),
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(38.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                accountTypeIcon(accounts.first().account.type),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(19.dp),
+                            )
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            accounts.first().account.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        // Полный IBAN — метаданные банка: он остаётся в реквизитах и обзоре
+                        // источника, а рабочая поверхность различает счета по хвосту.
+                        if (iban != null) Text(
+                            stringResource(R.string.account_iban_short, iban.takeLast(4)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
                         )
                     }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        accounts.first().account.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    if (iban != null) Text(
-                        iban,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                    WhfinIconButton(
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.account_transactions_title),
+                        onClick = { onAccountSettings(accounts) },
+                        outlined = false,
                     )
                 }
-                WhfinIconButton(
-                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.account_transactions_title),
-                    onClick = { onAccountSettings(accounts) },
-                    outlined = false,
-                )
+                HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
-            HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
             accounts.sortedWith(compareBy<AccountWithBalance> { if (it.account.currency == "GEL") 0 else 1 }
                 .thenBy { it.account.currency }).forEachIndexed { index, item ->
                 CurrencyAccountRow(
@@ -552,17 +563,20 @@ private fun CurrencyAccountRow(
         ))
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(item.account.currency, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            val cards = item.cardMasks.map { "••$it" } + item.virtualCardMasks.map { "${stringResource(R.string.account_card_virtual)} ••$it" }
-            val detail = cards.joinToString(" · ").ifBlank {
-                when (item.account.savingsMode) {
-                    SavingsMode.FLEXIBLE_RESERVE -> stringResource(R.string.account_purpose_reserve)
-                    SavingsMode.TERM_DEPOSIT -> stringResource(R.string.account_purpose_deposit)
-                    SavingsMode.GOAL -> stringResource(R.string.account_purpose_goal)
-                    null -> item.account.name.takeIf { it != item.account.currency }
-                        ?: stringResource(R.string.accounts_currency_balance)
-                }
+            // Маски карт относятся ко всему счёту, поэтому в каждой валютной строке они повторялись
+            // одинаково. Здесь остаётся только то, что действительно отличает эту строку:
+            // назначение (резерв/депозит/цель) или собственное имя счёта.
+            val detail = when (item.account.savingsMode) {
+                SavingsMode.FLEXIBLE_RESERVE -> stringResource(R.string.account_purpose_reserve)
+                SavingsMode.TERM_DEPOSIT -> stringResource(R.string.account_purpose_deposit)
+                SavingsMode.GOAL -> stringResource(R.string.account_purpose_goal)
+                null -> item.account.name.takeIf { it != item.account.currency }
             }
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (detail != null) Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Text(
             formatMinor(item.balanceMinor, item.account.currency),

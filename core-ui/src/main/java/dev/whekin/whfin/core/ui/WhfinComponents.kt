@@ -469,7 +469,10 @@ fun WhfinMonthlyBarChart(
         verticalAlignment = Alignment.Bottom,
     ) {
         itemsIndexed(bars) { index, bar ->
-            val fraction = (bar.value.toFloat() / maximum).coerceIn(0.025f, 1f)
+            // Столбец должен читаться как столбец: узкая 9dp полоса внутри 48dp слота выглядела
+            // палочкой-засечкой. Пустой месяц рисуется базовой чертой, а не почти невидимым
+            // огрызком столбца.
+            val fraction = (bar.value.toFloat() / maximum).coerceIn(0f, 1f)
             val itemModifier = Modifier
                 .width(48.dp)
                 .fillMaxHeight()
@@ -485,13 +488,18 @@ fun WhfinMonthlyBarChart(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                        Box(
+                        if (bar.value <= 0L) Box(
                             Modifier
-                                .width(if (bar.selected) 14.dp else 9.dp)
-                                .fillMaxHeight(fraction)
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                        ) else Box(
+                            Modifier
+                                .fillMaxWidth(if (bar.selected) .82f else .66f)
+                                .fillMaxHeight(fraction.coerceAtLeast(0.02f))
                                 .background(
                                     if (bar.selected) color else color.copy(alpha = .38f),
-                                    RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp),
+                                    RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp),
                                 ),
                         )
                     }

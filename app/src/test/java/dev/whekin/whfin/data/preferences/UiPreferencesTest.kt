@@ -95,13 +95,13 @@ class UiPreferencesTest {
 
         try {
             assertEquals(AppThemeMode.System, preferences.appThemeMode.first())
-            assertTrue(preferences.dynamicColorsEnabled.first())
+            assertFalse(preferences.dynamicColorsEnabled.first())
             assertFalse(preferences.useSystemFont.first())
             preferences.setAppThemeMode(AppThemeMode.Dark)
-            preferences.setDynamicColorsEnabled(false)
+            preferences.setDynamicColorsEnabled(true)
             preferences.setUseSystemFont(true)
             assertEquals(AppThemeMode.Dark, preferences.appThemeMode.first())
-            assertFalse(preferences.dynamicColorsEnabled.first())
+            assertTrue(preferences.dynamicColorsEnabled.first())
             assertTrue(preferences.useSystemFont.first())
         } finally {
             scope.cancel()

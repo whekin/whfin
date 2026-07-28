@@ -4,10 +4,6 @@
         <item quantity="one">%1$d account</item>
         <item quantity="other">%1$d accounts</item>
     </plurals>
-    <plurals name="accounts_currency_count">
-        <item quantity="one">%1$d currency</item>
-        <item quantity="other">%1$d currencies</item>
-    </plurals>
     <string name="app_name" translatable="false">whfin</string>
     <string name="tab_feed">Transactions</string>
     <string name="tab_accounts">Accounts</string>
@@ -48,9 +44,7 @@
     <string name="account_card_kind">Card type for this account</string>
     <string name="account_card_physical">Physical</string>
     <string name="account_card_virtual">Virtual</string>
-    <string name="accounts_bank_structure">%1$d accounts · %2$d currencies</string>
     <string name="account_iban_short">Account •%1$s</string>
-    <string name="accounts_currency_balance">Currency balance</string>
     <string name="feed_search">Search transactions</string>
     <string name="feed_search_open">Search</string>
     <string name="feed_search_close">Close search</string>
@@ -542,7 +536,6 @@
     <string name="new_expense">New expense</string>
     <string name="new_income">New income</string>
     <string name="new_transfer">New transfer</string>
-    <string name="recent_categories">Recent</string>
     <string name="income_source">Source</string>
     <string name="from_account">From account</string>
     <string name="to_account">To account</string>
@@ -573,6 +566,7 @@
     <string name="transaction_delete">Delete transaction</string>
     <string name="transaction_edit">Edit transaction</string>
     <string name="transaction_actions">ACTIONS</string>
+    <string name="transaction_confirm">Confirm</string>
     <string name="transaction_manual_hint">Amount, account, date and note</string>
     <string name="transaction_delete_body">This manual transaction will be permanently deleted.</string>
     <string name="transaction_delete_transfer_body">Both sides of this manual transfer will be permanently deleted.</string>
@@ -662,7 +656,6 @@
     <string name="analytics_previous_month_expenses">Previous month</string>
     <string name="analytics_changes_title">What changed</string>
     <string name="analytics_changes_hint">Largest category shifts since last month</string>
-    <string name="analytics_change_vs_previous">Change: %1$s</string>
     <string name="analytics_categories">Expense categories</string>
     <string name="analytics_categories_hint">Tap a category to see its year trend</string>
     <string name="analytics_range_1">1 mo</string>
@@ -672,7 +665,6 @@
     <string name="analytics_uncategorized">Uncategorized</string>
     <string name="analytics_year_trend">Year trend</string>
     <string name="analytics_all_expenses">All expenses</string>
-    <string name="analytics_trend_hint">Tap a month to inspect it · Swipe to move through the year</string>
     <string name="analytics_view_transactions">View transactions</string>
     <string name="analytics_transactions_title">Transactions</string>
     <string name="analytics_transactions_total">Selected expenses</string>

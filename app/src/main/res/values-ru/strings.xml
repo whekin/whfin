@@ -6,12 +6,6 @@
         <item quantity="many">%1$d счетов</item>
         <item quantity="other">%1$d счёта</item>
     </plurals>
-    <plurals name="accounts_currency_count">
-        <item quantity="one">%1$d валюта</item>
-        <item quantity="few">%1$d валюты</item>
-        <item quantity="many">%1$d валют</item>
-        <item quantity="other">%1$d валюты</item>
-    </plurals>
     <string name="tab_feed">Транзакции</string>
     <string name="tab_accounts">Счета</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
@@ -51,9 +45,7 @@
     <string name="account_card_kind">Тип карты для этого счёта</string>
     <string name="account_card_physical">Физическая</string>
     <string name="account_card_virtual">Виртуальная</string>
-    <string name="accounts_bank_structure">Счетов: %1$d · валют: %2$d</string>
     <string name="account_iban_short">Счёт •%1$s</string>
-    <string name="accounts_currency_balance">Валютный баланс</string>
     <string name="feed_search">Поиск операций</string>
     <string name="feed_search_open">Поиск</string>
     <string name="feed_search_close">Закрыть поиск</string>
@@ -549,7 +541,6 @@
     <string name="new_expense">Новый расход</string>
     <string name="new_income">Новый доход</string>
     <string name="new_transfer">Новый перевод</string>
-    <string name="recent_categories">Недавние</string>
     <string name="income_source">Источник</string>
     <string name="from_account">Со счёта</string>
     <string name="to_account">На счёт</string>
@@ -580,6 +571,7 @@
     <string name="transaction_delete">Удалить операцию</string>
     <string name="transaction_edit">Изменить операцию</string>
     <string name="transaction_actions">ДЕЙСТВИЯ</string>
+    <string name="transaction_confirm">Подтвердить</string>
     <string name="transaction_manual_hint">Сумма, счёт, дата и заметка</string>
     <string name="transaction_delete_body">Ручная операция будет удалена без возможности восстановления.</string>
     <string name="transaction_delete_transfer_body">Обе стороны ручного перевода будут удалены без возможности восстановления.</string>
@@ -669,7 +661,6 @@
     <string name="analytics_previous_month_expenses">Прошлый месяц</string>
     <string name="analytics_changes_title">Что изменилось</string>
     <string name="analytics_changes_hint">Самые заметные изменения категорий с прошлого месяца</string>
-    <string name="analytics_change_vs_previous">Изменение: %1$s</string>
     <string name="analytics_categories">Категории расходов</string>
     <string name="analytics_categories_hint">Нажмите категорию, чтобы увидеть её тренд за год</string>
     <string name="analytics_range_1">1 мес.</string>
@@ -679,7 +670,6 @@
     <string name="analytics_uncategorized">Без категории</string>
     <string name="analytics_year_trend">Тренд за год</string>
     <string name="analytics_all_expenses">Все расходы</string>
-    <string name="analytics_trend_hint">Нажмите месяц, чтобы выбрать его · Листайте график по году</string>
     <string name="analytics_view_transactions">Показать транзакции</string>
     <string name="analytics_transactions_title">Транзакции</string>
     <string name="analytics_transactions_total">Выбранные расходы</string>

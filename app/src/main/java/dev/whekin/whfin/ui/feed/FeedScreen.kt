@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -430,6 +431,15 @@ fun FeedScreen(
         onDismiss = { showBatchDelete = false },
     )
 
+    // Форма получает то же умное ранжирование, что quick-entry: подсказки пере-считываются
+    // по введённой сумме и валюте выбранного ledger'а.
+    val suggester by viewModel.categorySuggester.collectAsState()
+    val rankCategories: CategoryRanker = remember(suggester) {
+        { list, amountMinor, currency ->
+            suggester?.rankCategories(list, amountMinor?.let { -kotlin.math.abs(it) }, currency) ?: list
+        }
+    }
+
     if (showAdd) {
         AddTransactionSheet(
             accounts = accounts,
@@ -443,6 +453,7 @@ fun FeedScreen(
             onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
+            rankCategories = rankCategories,
         )
     }
 
@@ -458,6 +469,7 @@ fun FeedScreen(
             onUpdate = { original, value -> viewModel.updateManual(original, value); editFor = null },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
+            rankCategories = rankCategories,
         )
     }
 
@@ -485,6 +497,10 @@ fun FeedScreen(
                 details = null
                 statusFor = item
             },
+            onConfirm = {
+                viewModel.updateStatus(item, TxStatus.CONFIRMED)
+                details = null
+            },
         )
     }
 
@@ -500,7 +516,6 @@ fun FeedScreen(
     }
 
     categoryFor?.let { item ->
-        val suggester by viewModel.categorySuggester.collectAsState()
         CategoryPickerSheet(
             item = item,
             // Сумма и валюта операции известны — пикер ранжируется умными подсказками.
@@ -562,6 +577,7 @@ internal fun TransactionDetailsSheet(
     onSplit: (() -> Unit)? = null,
     onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
+    onConfirm: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -579,6 +595,7 @@ internal fun TransactionDetailsSheet(
             onSplit = onSplit,
             onClearSplit = onClearSplit,
             onChangeStatus = onChangeStatus,
+            onConfirm = onConfirm,
         )
     }
 }
@@ -595,6 +612,7 @@ private fun TransactionDetailsContent(
     onSplit: (() -> Unit)? = null,
     onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
+    onConfirm: (() -> Unit)? = null,
 ) {
     val tx = item.tx
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
@@ -625,8 +643,11 @@ private fun TransactionDetailsContent(
     val hasBankDetails = item.account?.iban != null || tx.source != dev.whekin.whfin.data.db.TxSource.MANUAL ||
         tx.rawCounterparty != null || tx.counterpartyIban != null || tx.note != null ||
         tx.origAmountMinor != null || item.fundedByConversionMinor != null
-    val hasQuickActions = onEdit != null || onDebt != null || onClearDebt != null ||
-        onSplit != null || onClearSplit != null
+    // Подтверждение pending-черновика — самое частое решение в этой раскладке, поэтому он
+    // стоит первым и единственным залитым действием, а не спрятан за отдельным status-листом.
+    val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING }
+    val hasQuickActions = confirmPending != null || onEdit != null || onDebt != null ||
+        onClearDebt != null || onSplit != null || onClearSplit != null
 
     LazyColumn(
         modifier.fillMaxWidth().heightIn(max = 680.dp),
@@ -789,6 +810,14 @@ private fun TransactionDetailsContent(
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 WhfinSectionLabel(stringResource(R.string.transaction_actions))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (confirmPending != null) item {
+                        DetailQuickAction(
+                            Icons.Default.CheckCircle,
+                            stringResource(R.string.transaction_confirm),
+                            confirmPending,
+                            filled = true,
+                        )
+                    }
                     if (onEdit != null) item {
                         DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
                     }
@@ -872,6 +901,72 @@ private fun TransactionDetailsPreview() {
     }
 }
 
+@Preview(name = "Transaction details pending", widthDp = 400, heightDp = 620, showBackground = true)
+@Preview(
+    name = "Transaction details pending dark",
+    widthDp = 400,
+    heightDp = 620,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(
+    name = "Transaction details pending font 1.5",
+    widthDp = 400,
+    heightDp = 780,
+    fontScale = 1.5f,
+    showBackground = true,
+)
+@Composable
+private fun TransactionDetailsPendingPreview() {
+    val account = AccountEntity(
+        id = 1,
+        name = "Everyday",
+        type = AccountType.BANK,
+        currency = "GEL",
+        iban = "GE00CD0000000000000001",
+    )
+    val category = CategoryEntity(
+        id = 1,
+        name = "Eating out",
+        kind = CategoryKind.EXPENSE,
+        icon = "Restaurant",
+        color = 0xFFC45D3A.toInt(),
+    )
+    val item = FeedItem(
+        tx = TransactionEntity(
+            id = 2,
+            accountId = account.id,
+            amountMinor = -1_270,
+            currency = "GEL",
+            occurredAt = System.currentTimeMillis(),
+            rawCounterparty = "COURTYARD COFFEE",
+            categoryId = category.id,
+            status = TxStatus.PENDING,
+            source = TxSource.SMS,
+        ),
+        merchant = null,
+        category = category,
+        account = account,
+        cardHint = "••0000",
+        day = LocalDate.of(2026, 7, 19),
+    )
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            TransactionDetailsContent(
+                item = item,
+                modifier = Modifier.fillMaxSize(),
+                onChangeCategory = {},
+                onDelete = null,
+                onEdit = null,
+                onDebt = {},
+                onClearDebt = null,
+                onSplit = {},
+                onChangeStatus = {},
+                onConfirm = {},
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TransactionStatusSheet(
@@ -932,6 +1027,10 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
+/**
+ * Редактируемая строка сводки без chevron читалась как статичная запись базы, поэтому статус
+ * и категорию не находили. Тихий chevron возвращает affordance, не превращая строку в кнопку.
+ */
 @Composable
 private fun DetailEditableRow(label: String, value: String, onClick: (() -> Unit)?) {
     val modifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
@@ -942,6 +1041,12 @@ private fun DetailEditableRow(label: String, value: String, onClick: (() -> Unit
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(.42f))
         Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(.58f))
+        if (onClick != null) Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -950,13 +1055,14 @@ private fun DetailQuickAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
+    filled: Boolean = false,
 ) {
-    val contentColor = MaterialTheme.colorScheme.primary
+    val contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = if (filled) MaterialTheme.colorScheme.primary else Color.Transparent,
+        border = if (filled) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
@@ -1632,16 +1738,23 @@ private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit
                     modifier = Modifier.size(18.dp),
                 )
             }
+            // Результат месяца — герой блока; доход/расход остаются контекстом под ним.
+            val net = income - expenses
+            Text(
+                formatMinor(net, "GEL", withSign = true),
+                style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
+                color = if (net < 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 SummaryValue(
                     Modifier.weight(1f),
                     stringResource(R.string.summary_income), income,
-                    Icons.Default.ArrowDownward, MaterialTheme.colorScheme.primary,
+                    MaterialTheme.colorScheme.primary,
                 )
                 SummaryValue(
                     Modifier.weight(1f),
-                    stringResource(R.string.summary_expenses), expenses,
-                    Icons.Default.ArrowUpward, MaterialTheme.colorScheme.tertiary,
+                    stringResource(R.string.summary_expenses), -expenses,
+                    MaterialTheme.colorScheme.tertiary,
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1649,20 +1762,24 @@ private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit
     }
 }
 
+/**
+ * Знак вместо стрелки: направленные глифы читались двусмысленно ("вниз" одновременно значит
+ * и «пришло на счёт», и «стало меньше"). Подписанная табличная сумма однозначна и тише.
+ */
 @Composable
 private fun SummaryValue(
     modifier: Modifier,
     label: String,
     value: Long,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
 ) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(formatMinor(value, "GEL"), style = MaterialTheme.typography.titleMedium, color = color)
-        }
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            formatMinor(value, "GEL", withSign = true),
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+            color = color,
+        )
     }
 }
 
@@ -1698,6 +1815,16 @@ internal fun DayHeader(
     val directGel = expensesByCurrency["GEL"] ?: 0L
     val totalGel = directGel + gelFromConversions
     val hasBreakdown = expensesByCurrency.keys.any { it != "GEL" } || gelFromConversions > 0L
+    // День без расходов (только переводы/доход) не должен печатать бессмысленный "0.00 ₾".
+    // Если в GEL нечего показать, ведём итогом единственную иностранную валюту дня.
+    val foreignTotals = expensesByCurrency.filterKeys { it != "GEL" }
+    val totalText = when {
+        totalGel > 0L -> formatMinor(totalGel, "GEL")
+        foreignTotals.size == 1 -> foreignTotals.entries.first()
+            .let { (currency, total) -> formatMinor(total, currency) }
+        else -> null
+    }
+    val showBreakdown = hasBreakdown && (totalText != null || foreignTotals.size > 1)
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 26.dp, bottom = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
@@ -1705,20 +1832,20 @@ internal fun DayHeader(
                 Box(Modifier.width(3.dp).height(18.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
                 Text(label.uppercase(), Modifier.padding(start = 9.dp), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(
-                Modifier.then(if (hasBreakdown) Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onToggle) else Modifier)
+            if (totalText != null || showBreakdown) Row(
+                Modifier.then(if (showBreakdown) Modifier.clip(MaterialTheme.shapes.small).clickable(onClick = onToggle) else Modifier)
                     .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text(formatMinor(totalGel, "GEL"),
+                if (totalText != null) Text(totalText,
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
-                if (hasBreakdown) Icon(Icons.Default.ExpandMore, null,
+                if (showBreakdown) Icon(Icons.Default.ExpandMore, null,
                     modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = if (expanded) 180f else 0f },
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        if (expanded && hasBreakdown) Text(
+        if (expanded && showBreakdown) Text(
             buildList {
                 if (directGel > 0L) add(formatMinor(directGel, "GEL"))
                 if (gelFromConversions > 0L) add("FX ${formatMinor(gelFromConversions, "GEL")}")
@@ -1799,12 +1926,12 @@ internal fun FeedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Surface(shape = MaterialTheme.shapes.small,
+            // Маркер категории — круг с тихой заливкой, как в статистике и формах. Обведённый
+            // квадрат делал иконку самым тяжёлым элементом строки и спорил с ledger-сеткой.
+            Surface(shape = CircleShape,
                 color = if (selected) MaterialTheme.colorScheme.primary else
-                    item.category?.let { Color(it.color).copy(alpha = .12f) } ?: MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else
-                    item.category?.let { Color(it.color).copy(alpha = .28f) } ?: MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.size(44.dp)) {
+                    item.category?.let { Color(it.color).copy(alpha = .14f) } ?: MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.size(40.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         if (selected) Icons.Default.CheckCircle else
@@ -1812,7 +1939,7 @@ internal fun FeedRow(
                         contentDescription = if (selected) stringResource(R.string.transactions_selected) else null,
                         tint = if (selected) MaterialTheme.colorScheme.onPrimary else
                             item.category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(21.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }

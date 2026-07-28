@@ -82,11 +82,16 @@ internal class UiPreferences(
         }
         .map { preferences -> AppThemeMode.fromStoredValue(preferences[AppThemeModeKey] ?: 0) }
 
+    /**
+     * Defaults off: the WHFIN Quiet Ledger palette is product identity and must be what a first run
+     * shows. Wallpaper-derived colors stay an explicit Appearance opt-in; the widget always follows
+     * the system palette because it lives on the launcher surface.
+     */
     val dynamicColorsEnabled: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
         }
-        .map { preferences -> preferences[DynamicColorsEnabledKey] ?: true }
+        .map { preferences -> preferences[DynamicColorsEnabledKey] ?: false }
 
     val useSystemFont: Flow<Boolean> = dataStore.data
         .catch { error ->

@@ -11,7 +11,7 @@ import org.junit.Test
 
 class FeedTransferSummaryTest {
     @Test
-    fun bankToCashTransfer_usesCashAliasInsteadOfTruncatedSuffix() {
+    fun bankToCashTransfer_usesAccountNamesWithIbanTail() {
         val accounts = listOf(
             AccountEntity(
                 id = 1,
@@ -41,7 +41,42 @@ class FeedTransferSummaryTest {
             zone = ZoneOffset.UTC,
         ).single()
 
-        assertEquals("GEL •0001 → Pocket money", item.transferSummary)
+        // Своё имя счёта впереди: валюта уже видна по сумме строки, хвост IBAN остаётся различителем.
+        assertEquals("Everyday •0001 → Pocket money", item.transferSummary)
+    }
+
+    @Test
+    fun bankAccountWithoutName_fallsBackToCurrencyAndIbanTail() {
+        val accounts = listOf(
+            AccountEntity(
+                id = 1,
+                name = "",
+                type = AccountType.BANK,
+                currency = "GEL",
+                iban = "GE00CD0000000000000002",
+            ),
+            AccountEntity(
+                id = 2,
+                name = "Pocket money",
+                type = AccountType.CASH,
+                currency = "GEL",
+            ),
+        )
+        val transactions = listOf(
+            transferLeg(id = 1, accountId = 1, amountMinor = -5_000),
+            transferLeg(id = 2, accountId = 2, amountMinor = 5_000),
+        )
+
+        val item = buildBaseFeedItems(
+            transactions = transactions,
+            merchants = emptyList(),
+            categories = emptyList(),
+            accounts = accounts,
+            masksByAccount = emptyMap(),
+            zone = ZoneOffset.UTC,
+        ).single()
+
+        assertEquals("GEL •0002 → Pocket money", item.transferSummary)
     }
 
     private fun transferLeg(id: Long, accountId: Long, amountMinor: Long) = TransactionEntity(

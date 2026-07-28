@@ -74,10 +74,13 @@ internal fun buildBaseFeedItems(
     val merchantById = merchants.associateBy { it.id }
     val categoryById = categories.associateBy { it.id }
     val accountById = accounts.associateBy { it.id }
+    // Своё имя счёта читается лучше технического "GEL •0001": валюта уже видна по сумме строки,
+    // а хвост IBAN оставляем как различитель между счетами одного банка.
     fun accountLabel(account: AccountEntity): String = when {
         account.type == AccountType.CASH -> account.name
-        account.iban != null -> "${account.currency} •${account.iban.takeLast(4)}"
-        else -> account.name
+        account.iban == null -> account.name
+        account.name.isBlank() -> "${account.currency} •${account.iban.takeLast(4)}"
+        else -> "${account.name} •${account.iban.takeLast(4)}"
     }
     val transferLegs = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
     return transactions.filter { tx ->

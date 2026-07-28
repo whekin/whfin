@@ -31,7 +31,8 @@ The app shell navigates between complete opaque destination scenes. A secondary 
 ## Visual rules
 
 - Paper and green-black ink form the canvas; bottle green means trust/confirmation, clay means expense/attention, oxide is reserved for destructive/error states.
-- Category color stays local to a marker or icon.
+- Category color stays local to a marker or icon. That marker is a circle with a quiet tonal fill and no
+  border — the same shape in ledger rows, statistics rows, and composer tiles.
 - Prefer a section heading plus whitespace/rule before adding a container.
 - One coherent group may have one outline or tonal surface; never create card-in-card hierarchies.
 - Keep routine rows dense with at least 48 dp interaction targets.
@@ -47,9 +48,17 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Feed and Accounts open with a compact context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes only search and one filter action; Settings remains discoverable from Accounts rather than competing with ledger work. The filter owns transaction type, multi-category selection and sort order in one fully expanded sheet, with draft changes applied explicitly. Quick filter chips are intentionally absent from the reading surface. Accounts exposes add, Account overview, and settings. The bar leaves the viewport while scrolling down and returns immediately on upward intent. During transaction selection it stays fixed; selecting only pending rows replaces the generic status action with a direct Confirm action. Every icon action remains a 48 dp touch target.
 
+The Feed month block leads with the month's own result: a signed GEL net figure, then income and expenses
+as signed context values below it. Directional arrows were removed because "down" read both as *money
+arrived* and as *value fell*; a sign on a tabular figure carries the same meaning without that ambiguity.
+Day headers print a spend total only when the day actually has expenses, and fall back to a single foreign
+currency total instead of a meaningless `0.00 ₾`.
+
 Appearance separates brightness, palette, and editorial typography. System/Light/Dark is persisted in
 DataStore and can override device brightness, while System colors independently applies Android 12+
-wallpaper-derived Material roles to the app canvas, surfaces and semantic accents. WHFIN bundles Noto
+wallpaper-derived Material roles to the app canvas, surfaces and semantic accents. System colors defaults
+to **off**: the Quiet Ledger palette is product identity and must be what a first run shows, so
+wallpaper-derived color stays an explicit opt-in. WHFIN bundles Noto
 Serif for consistent screen titles and large totals across OEMs; the independent Device font switch
 replaces those roles with Android's default family for people who prefer their system typography. Body,
 row, form, and control text remains neutral system sans in both modes. Edge-to-edge system icon contrast
@@ -69,6 +78,14 @@ Currency rows only open their own transaction ledger. Container-wide edit, bank 
 and destructive removal live behind the account header settings action. The source header opens a full-screen
 overview: bank/Cash details, account aliases, IBAN/card metadata, currencies, and statement coverage. Currency
 codes are not repeated in the account header because the ledger rows immediately below already own them.
+
+The Accounts list carries only what distinguishes a row. A source with exactly one account container has no
+repeated container row: the source heading already names it, and every currency row still opens Account
+activity. A container row appears when a source holds several accounts, and identifies them by the IBAN tail
+rather than the full number — the full IBAN belongs to bank details and the source overview. Card masks are
+account-wide, so they never repeat inside each currency row; a currency row shows only its purpose
+(Reserve/Deposit/Goal) or its own alias. The `N accounts` counter appears only when the count is greater
+than one.
 
 Debt creation remains a scrollable WHFIN form. Direction and currency choices may scroll horizontally, but
 Money movement is a vertical ledger choice (`No movement` plus every matching account), so long aliases and
@@ -91,8 +108,23 @@ lazy category list; the ordinary sheet never composes every category or reserves
 Transaction details prioritize the amount and four routine facts. Status and category become the action when
 they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
 default, and infrequent edit/debt/delete actions share one horizontally resilient 48 dp action rail. Editable
-summary rows do not add trailing pencil icons that disturb the value column. The sheet uses lazy content so
-long bank descriptions do not turn scrolling into a full-column remeasure.
+summary rows do not add trailing pencil icons that disturb the value column; they close with one quiet
+chevron after the value, because a row with no affordance at all was read as a static database record. The
+sheet uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
+
+Confirming a pending draft is the most repeated decision in the two-layer SMS/statement model, so it is a
+single filled action at the head of that rail rather than a trip through the status sheet. It is the only
+filled action in the sheet and appears only while the transaction is actually pending; the status row still
+opens the full picker for the remaining transitions.
+
+The composer keeps exactly one control per decision. Currency next to the amount is a label, not a second
+picker: source → currency is chosen in the money-source row, and the previous amount-side control silently
+cycled the ledgers of the same source. The empty amount uses a dimmed hint rather than a semantic accent, so
+`0.00` never reads as income on an expense screen. Category is one mechanism too — the ranked suggestion row
+with More, using the same `CategorySuggester` amount/currency ranking as widget quick entry, instead of a
+separate "choose category" row stacked above a "recent" row. Creating a category inside the full-screen
+picker is a compact header action; the wide bottom button it replaced looked like the screen's primary action
+and pushed a short grid into half a screen of emptiness.
 
 Account activity is the single owner of one currency ledger and its account-container actions. Edit account,
 bank details, balance adjustment and delete live beside the balance in a wrapping two-column action area;
@@ -102,7 +134,11 @@ details, category/status editing, manual composer, debt and delete paths as Feed
 
 Account overview explains the current balance rather than pretending to be analytics. Assets, liabilities, available funds, reserve, and source distribution are calculated only in GEL. Other currencies remain separate native amounts until WHFIN has exchange rates with provenance and timestamps; they are never mixed into the GEL net worth or distribution percentages.
 
-Monthly Statistics opens from the Feed's month summary rather than adding another dock destination or header icon. It combines a selected-month net result, rolling 1/3/6/12-month category distribution, and a twelve-month bar trend. Selecting a category highlights the row and changes the year graph; the all-expenses scope remains one tap away. Each trend month has a selectable 48 dp target and updates the amount/comparison below the chart. “View transactions” opens a focused ledger filtered by that trend month and the active category, while Back restores the unchanged Statistics context. The drill-down queries the full month rather than Feed's bounded recent-history window. Transfers and debt allocations are excluded. Linked automatic conversion funding is attributed to the purchase category in GEL, while unconverted foreign expenses stay in native-currency rows. System Unaccounted adjustments are visible in a separate section but excluded from income, expenses, category shares, and trends.
+Monthly Statistics opens from the Feed's month summary rather than adding another dock destination or header icon. It combines a selected-month net result, rolling 1/3/6/12-month category distribution, and a twelve-month bar trend. Selecting a category highlights the row and changes the year graph; the all-expenses scope remains one tap away. Each trend month has a selectable 48 dp target and updates the amount/comparison below the chart. A bar fills
+most of its slot so the chart reads as a chart rather than a row of tally marks, the selected month widens and
+takes a tonal slot, and a month with no expenses draws a quiet baseline rule instead of a near-invisible stub.
+The chart carries no instructional caption: selection and swipe are evident from the emphasized month and the
+amount that follows it. “View transactions” opens a focused ledger filtered by that trend month and the active category, while Back restores the unchanged Statistics context. The drill-down queries the full month rather than Feed's bounded recent-history window. Transfers and debt allocations are excluded. Linked automatic conversion funding is attributed to the purchase category in GEL, while unconverted foreign expenses stay in native-currency rows. System Unaccounted adjustments are visible in a separate section but excluded from income, expenses, category shares, and trends.
 
 ## Widget loading contract
 
@@ -196,3 +232,16 @@ that was active before the switch. The restart preserves the already unlocked fo
 Five taps on Version still reveal the Quiet Ledger Easter egg. Its switch now persists a device-local
 Developer mode and reveals an experimental section in Settings. Developer mode is distinct from public Demo
 mode: it may expose diagnostics later, but it never selects a data source or relaxes privacy boundaries.
+
+## Simplification pass (2026-07-28)
+
+Rendered on a disposable Pixel 9 Pro API 36.1 AVD in demo mode. Verified in dark EN, light EN, and light
+RU at font scale 1.5: Feed month result, day headers, ledger rows with circular category markers, pending
+transaction details with one-tap Confirm and chevron affordances, the composer with a single currency
+control and one category mechanism, the full-screen category picker with header creation, Accounts with
+collapsed single-account sources, Account overview, and the Statistics year trend. One-tap Confirm was
+exercised end to end: the pending row lost its `Pending` annotation without a second sheet.
+
+`:app:testDebugUnitTest` passes, including two new details-sheet tests (confirm in one tap, no Confirm
+action once confirmed). The monthly-chart screenshot references were regenerated for the wider bars and
+zero-month baseline in light, dark, and font scale 1.5.

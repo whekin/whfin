@@ -489,12 +489,11 @@ private fun CategoryChangeRow(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.titleMedium)
+                    // Раздел уже подписан «Крупнейшие сдвиги категорий с прошлого месяца»,
+                    // поэтому префикс «Изменение:» в каждой строке только удлинял её.
                     Text(
-                        stringResource(
-                            R.string.analytics_change_vs_previous,
-                            formatMinor(change.deltaMinor, "GEL", withSign = true),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
+                        formatMinor(change.deltaMinor, "GEL", withSign = true),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                         color = deltaColor,
                     )
                 }
@@ -662,11 +661,6 @@ private fun YearTrend(
                 WhfinFilterPill(filterName, selected = true, onClick = {})
             }
         }
-        Text(
-            stringResource(R.string.analytics_trend_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 WhfinMonthlyBarChart(

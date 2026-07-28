@@ -38,12 +38,13 @@ fun CategoryGrid(
     categories: List<CategoryEntity>,
     selectedId: Long?,
     onSelect: (CategoryEntity) -> Unit,
-    maxHeight: Dp = 420.dp,
+    /** [Dp.Unspecified] — сетка занимает высоту, отданную ей родителем (например `weight`). */
+    maxHeight: Dp = Dp.Unspecified,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(72.dp),
-        modifier = modifier.heightIn(max = maxHeight),
+        modifier = modifier.then(if (maxHeight == Dp.Unspecified) Modifier else Modifier.heightIn(max = maxHeight)),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

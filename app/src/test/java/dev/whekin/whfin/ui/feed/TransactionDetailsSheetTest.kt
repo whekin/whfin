@@ -72,6 +72,87 @@ class TransactionDetailsSheetTest {
     }
 
     @Test
+    fun pendingTransaction_confirmsInOneTap() {
+        var confirmed = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val confirm = context.getString(R.string.transaction_confirm)
+        compose.setContent {
+            WhfinTheme {
+                TransactionDetailsSheet(
+                    item = FeedItem(
+                        tx = TransactionEntity(
+                            id = 1,
+                            accountId = 1,
+                            amountMinor = -1_250,
+                            currency = "GEL",
+                            occurredAt = 1_000,
+                            rawCounterparty = "Example",
+                            status = TxStatus.PENDING,
+                            source = TxSource.SMS,
+                        ),
+                        merchant = null,
+                        category = null,
+                        account = null,
+                        cardHint = null,
+                        day = LocalDate.of(2026, 7, 14),
+                    ),
+                    onDismiss = {},
+                    onChangeCategory = null,
+                    onDelete = null,
+                    onEdit = null,
+                    onDebt = null,
+                    onClearDebt = null,
+                    onChangeStatus = {},
+                    onConfirm = { confirmed = true },
+                )
+            }
+        }
+
+        compose.onNode(hasText(confirm) and hasClickAction())
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.runOnIdle { assertTrue(confirmed) }
+    }
+
+    @Test
+    fun confirmedTransaction_hidesConfirmAction() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val confirm = context.getString(R.string.transaction_confirm)
+        compose.setContent {
+            WhfinTheme {
+                TransactionDetailsSheet(
+                    item = FeedItem(
+                        tx = TransactionEntity(
+                            id = 3,
+                            accountId = 1,
+                            amountMinor = -1_250,
+                            currency = "GEL",
+                            occurredAt = 1_000,
+                            rawCounterparty = "Example",
+                            status = TxStatus.CONFIRMED,
+                            source = TxSource.STATEMENT,
+                        ),
+                        merchant = null,
+                        category = null,
+                        account = null,
+                        cardHint = null,
+                        day = LocalDate.of(2026, 7, 14),
+                    ),
+                    onDismiss = {},
+                    onChangeCategory = null,
+                    onDelete = null,
+                    onEdit = null,
+                    onDebt = null,
+                    onClearDebt = null,
+                    onChangeStatus = {},
+                    onConfirm = {},
+                )
+            }
+        }
+
+        compose.onNode(hasText(confirm)).assertDoesNotExist()
+    }
+
+    @Test
     fun missingDescription_usesCategoryAndKeepsDeleteInOverflow() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val noDescription = context.getString(R.string.feed_no_description)

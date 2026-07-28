@@ -53,7 +53,7 @@ import dev.whekin.whfin.data.preferences.AppThemeMode
 @Composable
 fun SettingsScreen(
     appThemeMode: AppThemeMode = AppThemeMode.System,
-    dynamicColorsEnabled: Boolean = true,
+    dynamicColorsEnabled: Boolean = false,
     useSystemFont: Boolean = false,
     onAppThemeModeChange: (AppThemeMode) -> Unit = {},
     onDynamicColorsEnabledChange: (Boolean) -> Unit = {},

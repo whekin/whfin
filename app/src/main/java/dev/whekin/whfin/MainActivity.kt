@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
         window.isNavigationBarContrastEnforced = false
         setContent {
             val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
-            val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = true)
+            val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = false)
             val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
             val systemDark = isSystemInDarkTheme()
             val effectiveDark = when (appThemeMode) {
