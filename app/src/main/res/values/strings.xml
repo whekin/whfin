@@ -614,6 +614,7 @@
     <string name="debt_history">History</string>
     <string name="debt_closed">closed</string>
     <string name="debt_empty_body">Add a debt with an account movement or keep it as a standalone obligation.</string>
+    <string name="debt_empty_action">Add first debt</string>
     <string name="debt_repayment_from">Repayment from %1$s</string>
     <string name="debt_outstanding">Outstanding %1$s</string>
     <string name="debt_actual_paid">Actually paid</string>

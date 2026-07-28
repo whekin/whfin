@@ -621,6 +621,7 @@
     <string name="debt_history">История</string>
     <string name="debt_closed">закрыт</string>
     <string name="debt_empty_body">Добавь долг с движением по счёту или как отдельное обязательство.</string>
+    <string name="debt_empty_action">Добавить первый долг</string>
     <string name="debt_repayment_from">Погашение от %1$s</string>
     <string name="debt_outstanding">Осталось %1$s</string>
     <string name="debt_actual_paid">Фактически получено</string>

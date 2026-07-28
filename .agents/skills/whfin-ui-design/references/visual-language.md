@@ -69,6 +69,10 @@ Keep destructive account-level actions out of the primary action rail. Place the
 labelled overflow or settings surface, followed by explicit confirmation; an incomplete adaptive row
 must never make deletion the visually largest action.
 
+On secondary ledger lists, keep creation as a compact icon action in the header rather than a text
+button competing with the editorial title or a FAB covering rows. When the list is empty, repeat the
+action with a clear text label inside the empty state.
+
 ### Statistics
 
 Lead with the selected month's net result, income, and expenses. Category distribution supports rolling 1/3/6/12-month ranges; tapping a category changes a compact twelve-month trend instead of opening a decorative dashboard. Trend months are selectable and the selected month/category can open a focused transaction ledger; Back returns to the unchanged Statistics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.

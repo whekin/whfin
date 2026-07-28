@@ -27,8 +27,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import androidx.compose.ui.res.stringResource
 import dev.whekin.whfin.R
-import dev.whekin.whfin.core.ui.WhfinActionStyle
-import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -85,47 +83,101 @@ fun DebtLedgerDialog(
     var settling by remember { mutableStateOf<DebtCaseUi?>(null) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         WhfinDialogSystemBars()
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    WhfinIconButton(Icons.Default.Close, stringResource(R.string.action_cancel), onDismiss, outlined = false)
-                    Text(stringResource(R.string.debts_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    WhfinButton(stringResource(R.string.new_debt), { adding = true }, style = WhfinActionStyle.Quiet)
+        DebtLedgerContent(
+            debts = debts,
+            onDismiss = onDismiss,
+            onAdd = { adding = true },
+            onSettle = { settling = it },
+        )
+    }
+    if (adding) NewDebtDialog(people, accounts, { adding = false }) { onOpen(it); adding = false }
+    settling?.let { item -> SettlementDialog(item, accounts, { settling = null }) { onSettle(it); settling = null } }
+}
+
+@Composable
+private fun DebtLedgerContent(
+    debts: List<DebtCaseUi>,
+    onDismiss: () -> Unit,
+    onAdd: () -> Unit,
+    onSettle: (DebtCaseUi) -> Unit,
+) {
+    val open = debts.filter { it.debt.status == DebtStatus.OPEN }
+    val closed = debts.filter { it.debt.status == DebtStatus.CLOSED }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                WhfinIconButton(
+                    Icons.Default.Close,
+                    stringResource(R.string.action_cancel),
+                    onDismiss,
+                    outlined = false,
+                )
+                Text(
+                    stringResource(R.string.debts_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                WhfinIconButton(
+                    Icons.Default.Add,
+                    stringResource(R.string.new_debt),
+                    onAdd,
+                    outlined = false,
+                )
+            }
+            LazyColumn(
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (open.isEmpty()) item {
+                    WhfinStatePane(
+                        WhfinPaneState.Empty,
+                        stringResource(R.string.debts_none),
+                        stringResource(R.string.debt_empty_body),
+                        actionLabel = stringResource(R.string.debt_empty_action),
+                        onAction = onAdd,
+                    )
                 }
-                LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val open = debts.filter { it.debt.status == DebtStatus.OPEN }
-                    if (open.isEmpty()) item {
-                        WhfinStatePane(
-                            WhfinPaneState.Empty,
-                            stringResource(R.string.debts_none),
-                            stringResource(R.string.debt_empty_body),
+                items(open, key = { it.debt.id }) { item ->
+                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                        WhfinLedgerRow(
+                            title = item.person.name,
+                            supportingText = stringResource(
+                                if (item.debt.direction == DebtDirection.THEY_OWE_ME) {
+                                    R.string.debt_owes_you
+                                } else {
+                                    R.string.debts_you_owe
+                                },
+                            ),
+                            trailing = {
+                                Text(
+                                    formatMinor(item.remainingMinor, item.debt.currency),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            },
+                            onClick = { onSettle(item) },
                         )
                     }
-                    items(open, key = { it.debt.id }) { item ->
-                        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                            WhfinLedgerRow(
-                                title = item.person.name,
-                                supportingText = stringResource(
-                                    if (item.debt.direction == DebtDirection.THEY_OWE_ME) R.string.debt_owes_you else R.string.debts_you_owe,
-                                ),
-                                trailing = { Text(formatMinor(item.remainingMinor, item.debt.currency), style = MaterialTheme.typography.titleMedium) },
-                                onClick = { settling = item },
-                            )
-                        }
+                }
+                if (closed.isNotEmpty()) {
+                    item {
+                        WhfinSectionLabel(
+                            stringResource(R.string.debt_history),
+                            Modifier.padding(top = 18.dp),
+                        )
                     }
-                    val closed = debts.filter { it.debt.status == DebtStatus.CLOSED }
-                    if (closed.isNotEmpty()) {
-                        item { WhfinSectionLabel(stringResource(R.string.debt_history), Modifier.padding(top = 18.dp)) }
-                        items(closed, key = { "closed-${it.debt.id}" }) {
-                            Text("${it.person.name} · ${formatMinor(it.debt.originalAmountMinor, it.debt.currency)} · ${stringResource(R.string.debt_closed)}")
-                        }
+                    items(closed, key = { "closed-${it.debt.id}" }) {
+                        Text(
+                            "${it.person.name} · ${formatMinor(it.debt.originalAmountMinor, it.debt.currency)} · " +
+                                stringResource(R.string.debt_closed),
+                        )
                     }
                 }
             }
         }
     }
-    if (adding) NewDebtDialog(people, accounts, { adding = false }) { onOpen(it); adding = false }
-    settling?.let { item -> SettlementDialog(item, accounts, { settling = null }) { onSettle(it); settling = null } }
 }
 
 @Composable private fun NewDebtDialog(people: List<PersonEntity>, accounts: List<AccountEntity>, dismiss: () -> Unit, save: (NewDebt) -> Unit) {
@@ -304,6 +356,69 @@ fun DebtLedgerDialog(
             )
             Text(stringResource(R.string.debt_close_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Preview(name = "Debt ledger light", widthDp = 400, heightDp = 800, showBackground = true)
+@Preview(name = "Debt ledger dark", widthDp = 400, heightDp = 800, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Debt ledger font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun DebtLedgerContentPreview() {
+    val luka = PersonEntity(id = 1, name = "Luka", color = 0xFF6D806F.toInt())
+    val nino = PersonEntity(id = 2, name = "Nino", color = 0xFF9A6A55.toInt())
+    val maya = PersonEntity(id = 3, name = "Maya", color = 0xFF6D6A91.toInt())
+    val debts = listOf(
+        DebtCaseUi(
+            debt = DebtCaseEntity(
+                id = 1,
+                personId = luka.id,
+                direction = DebtDirection.I_OWE_THEM,
+                originalAmountMinor = 15_000,
+                currency = "GEL",
+                openedAt = 0,
+            ),
+            person = luka,
+            remainingMinor = 15_000,
+            events = emptyList(),
+        ),
+        DebtCaseUi(
+            debt = DebtCaseEntity(
+                id = 2,
+                personId = nino.id,
+                direction = DebtDirection.THEY_OWE_ME,
+                originalAmountMinor = 20_000,
+                currency = "GEL",
+                openedAt = 0,
+            ),
+            person = nino,
+            remainingMinor = 20_000,
+            events = emptyList(),
+        ),
+        DebtCaseUi(
+            debt = DebtCaseEntity(
+                id = 3,
+                personId = maya.id,
+                direction = DebtDirection.THEY_OWE_ME,
+                originalAmountMinor = 20_000,
+                currency = "GEL",
+                openedAt = 0,
+                status = DebtStatus.CLOSED,
+            ),
+            person = maya,
+            remainingMinor = 0,
+            events = emptyList(),
+        ),
+    )
+    WhfinTheme {
+        DebtLedgerContent(debts, {}, {}, {})
+    }
+}
+
+@Preview(name = "Debt ledger empty compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Composable
+private fun DebtLedgerEmptyPreview() {
+    WhfinTheme {
+        DebtLedgerContent(emptyList(), {}, {}, {})
     }
 }
 

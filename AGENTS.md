@@ -186,6 +186,8 @@
   крупными `WhfinFilterPill`, одной строкой и горизонтальным scroll cue. В settlement обычный Checkbox
   заменён на подписанный `WhfinSwitch`. Account activity и Transaction details используют общий
   `WhfinActionMenu` на screen canvas без tonal overlay, поэтому overflow не выглядит чужим Material-окном.
+  На полноэкранном ledger долгов текстовая кнопка `New debt` убрана из шапки: создание открывается
+  компактным 48dp `+`, а пустое состояние повторяет действие явной текстовой кнопкой.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
