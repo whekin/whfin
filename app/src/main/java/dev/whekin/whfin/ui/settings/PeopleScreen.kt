@@ -1,6 +1,5 @@
 package dev.whekin.whfin.ui.settings
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,12 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +37,8 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -198,15 +199,12 @@ private fun PersonSheet(
             label = stringResource(R.string.people_name),
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PersonRole.entries.forEach { value ->
-                FilterChip(
+        WhfinChoiceRail {
+            items(PersonRole.entries, key = { it.name }) { value ->
+                WhfinFilterPill(
+                    label = stringResource(value.labelResource()),
                     selected = role == value,
                     onClick = { role = if (role == value) null else value },
-                    label = { Text(stringResource(value.labelResource())) },
                 )
             }
         }

@@ -41,6 +41,8 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   It uses a semantic ledger marker, the screen canvas without tonal-elevation tint, equal action
   geometry, and reflows actions at large font scales. Feature code owns strings and side effects; do
   not expose Material `AlertDialog`.
+- `WhfinActionMenu`: the shared compact overflow surface. It uses the screen canvas, a quiet rule,
+  and no Material tonal tint; feature code owns menu items and action semantics.
 - `WhfinAmount`: tabular money typography and semantic color without embedding formatting policy.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.

@@ -2,14 +2,13 @@ package dev.whekin.whfin.ui.accounts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CurrencyBitcoin
@@ -18,12 +17,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +43,8 @@ import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 private val quickCurrencies = listOf("GEL", "USD", "EUR", "RUB")
@@ -100,19 +97,21 @@ fun AddAccountSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(stringResource(R.string.account_bank_provider), style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Credo", "TBC").forEach { bank ->
-                    FilterChip(
+            WhfinChoiceRail {
+                items(listOf("Credo", "TBC"), key = { it }) { bank ->
+                    WhfinFilterPill(
+                        label = bank,
                         selected = !customBank && bankProvider == bank,
                         onClick = { customBank = false; bankProvider = bank; if (name.isBlank()) name = bank },
-                        label = { Text(bank) },
                     )
                 }
-                FilterChip(
-                    selected = customBank,
-                    onClick = { customBank = true; bankProvider = null; name = "" },
-                    label = { Text(stringResource(R.string.account_bank_other)) },
-                )
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.account_bank_other),
+                        selected = customBank,
+                        onClick = { customBank = true; bankProvider = null; name = "" },
+                    )
+                }
             }
         }
         WhfinField(
@@ -201,19 +200,17 @@ private fun AccountPurposeSelector(
     allowDeposit: Boolean = true,
     onSelect: (SavingsMode?) -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        buildList {
-            if (allowEveryday) add(null to R.string.account_purpose_everyday)
-            add(SavingsMode.FLEXIBLE_RESERVE to R.string.account_purpose_reserve)
-            if (allowDeposit) add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
-        }.forEach { (mode, label) ->
-            FilterChip(
+    val options = buildList {
+        if (allowEveryday) add(null to R.string.account_purpose_everyday)
+        add(SavingsMode.FLEXIBLE_RESERVE to R.string.account_purpose_reserve)
+        if (allowDeposit) add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
+    }
+    WhfinChoiceRail {
+        items(options, key = { it.second }) { (mode, label) ->
+            WhfinFilterPill(
+                label = stringResource(label),
                 selected = selected == mode,
                 onClick = { onSelect(mode) },
-                label = { Text(stringResource(label)) },
             )
         }
     }
@@ -277,17 +274,21 @@ fun BankMappingSheet(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(stringResource(R.string.account_card_kind), style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+        WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                label = stringResource(R.string.account_card_physical),
                 selected = !isVirtual,
                 onClick = { isVirtual = false },
-                label = { Text(stringResource(R.string.account_card_physical)) },
-            )
-            FilterChip(
+                )
+            }
+            item {
+                WhfinFilterPill(
+                label = stringResource(R.string.account_card_virtual),
                 selected = isVirtual,
                 onClick = { isVirtual = true },
-                label = { Text(stringResource(R.string.account_card_virtual)) },
-            )
+                )
+            }
         }
     }
 }
@@ -354,27 +355,21 @@ private fun CurrencySelector(
 ) {
     val isCustom = currency !in quick
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-        ) {
-            quick.forEach { code ->
-                FilterChip(
+        WhfinChoiceRail {
+            items(quick, key = { it }) { code ->
+                WhfinFilterPill(
+                    label = code,
                     selected = currency == code,
                     onClick = { onChange(code) },
-                    label = { Text(code) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
                 )
             }
-            FilterChip(
-                selected = isCustom,
-                onClick = { if (!isCustom) onChange("") },
-                label = { Text(stringResource(R.string.account_currency_other)) },
-            )
+            item {
+                WhfinFilterPill(
+                    label = stringResource(R.string.account_currency_other),
+                    selected = isCustom,
+                    onClick = { if (!isCustom) onChange("") },
+                )
+            }
         }
         if (isCustom) {
             WhfinField(

@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -64,7 +63,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -74,9 +72,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
@@ -121,6 +116,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
+import dev.whekin.whfin.core.ui.WhfinActionMenu
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
@@ -687,7 +683,7 @@ private fun TransactionDetailsContent(
                             onClick = { actionMenuExpanded = true },
                             outlined = false,
                         )
-                        DropdownMenu(
+                        WhfinActionMenu(
                             expanded = actionMenuExpanded,
                             onDismissRequest = { actionMenuExpanded = false },
                         ) {
@@ -1083,12 +1079,12 @@ internal fun SplitSheet(
             )
 
             Text(stringResource(R.string.split_with_whom), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WhfinChoiceRail {
                 items(people, key = { it.id }) { person ->
-                    FilterChip(
+                    WhfinFilterPill(
+                        label = person.name,
                         selected = selectedPersonId == person.id,
                         onClick = { selectedPersonId = person.id },
-                        label = { Text(person.name) },
                     )
                 }
             }
@@ -1105,10 +1101,28 @@ internal fun SplitSheet(
             )
 
             Text(stringResource(R.string.split_how_much), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(mode == SplitMode.HALF, { mode = SplitMode.HALF }, { Text(stringResource(R.string.split_half)) })
-                FilterChip(mode == SplitMode.FULL, { mode = SplitMode.FULL }, { Text(stringResource(R.string.split_full)) })
-                FilterChip(mode == SplitMode.CUSTOM, { mode = SplitMode.CUSTOM }, { Text(stringResource(R.string.split_custom)) })
+            WhfinChoiceRail {
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.split_half),
+                        selected = mode == SplitMode.HALF,
+                        onClick = { mode = SplitMode.HALF },
+                    )
+                }
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.split_full),
+                        selected = mode == SplitMode.FULL,
+                        onClick = { mode = SplitMode.FULL },
+                    )
+                }
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.split_custom),
+                        selected = mode == SplitMode.CUSTOM,
+                        onClick = { mode = SplitMode.CUSTOM },
+                    )
+                }
             }
             if (mode == SplitMode.CUSTOM) {
                 WhfinField(

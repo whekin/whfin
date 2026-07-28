@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -39,6 +37,9 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
+import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
@@ -144,19 +145,29 @@ fun DebtLedgerDialog(
             save(NewDebt(personId, personName.takeIf { personId == null }, direction, minor!!, currency, accountId, LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()))
         },
     ) {
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(direction == DebtDirection.THEY_OWE_ME, { direction = DebtDirection.THEY_OWE_ME }, { Text(stringResource(R.string.debt_they_owe)) })
-            FilterChip(direction == DebtDirection.I_OWE_THEM, { direction = DebtDirection.I_OWE_THEM }, { Text(stringResource(R.string.debt_i_owe)) })
+        WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                    label = stringResource(R.string.debt_they_owe),
+                    selected = direction == DebtDirection.THEY_OWE_ME,
+                    onClick = { direction = DebtDirection.THEY_OWE_ME },
+                )
+            }
+            item {
+                WhfinFilterPill(
+                    label = stringResource(R.string.debt_i_owe),
+                    selected = direction == DebtDirection.I_OWE_THEM,
+                    onClick = { direction = DebtDirection.I_OWE_THEM },
+                )
+            }
         }
-        if (people.isNotEmpty()) Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            people.forEach { person ->
-                FilterChip(personId == person.id, { personId = person.id; personName = "" }, { Text(person.name) })
+        if (people.isNotEmpty()) WhfinChoiceRail {
+            items(people, key = { it.id }) { person ->
+                WhfinFilterPill(
+                    label = person.name,
+                    selected = personId == person.id,
+                    onClick = { personId = person.id; personName = "" },
+                )
             }
         }
         WhfinField(
@@ -173,12 +184,13 @@ fun DebtLedgerDialog(
             keyboardType = KeyboardType.Decimal,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf("GEL", "USD", "EUR").forEach { code ->
-                FilterChip(currency == code, { currency = code; accountId = null }, { Text(code) })
+        WhfinChoiceRail {
+            items(listOf("GEL", "USD", "EUR"), key = { it }) { code ->
+                WhfinFilterPill(
+                    label = code,
+                    selected = currency == code,
+                    onClick = { currency = code; accountId = null },
+                )
             }
         }
         WhfinSectionLabel(stringResource(R.string.debt_money_movement))
@@ -226,7 +238,22 @@ fun DebtLedgerDialog(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.debt_outstanding, formatMinor(item.remainingMinor, item.debt.currency)))
-            Row { FilterChip(movement, { movement = true }, { Text(stringResource(R.string.debt_through_account)) }); Spacer(Modifier.width(8.dp)); FilterChip(!movement, { movement = false }, { Text(stringResource(R.string.debt_no_movement)) }) }
+            WhfinChoiceRail {
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.debt_through_account),
+                        selected = movement,
+                        onClick = { movement = true },
+                    )
+                }
+                item {
+                    WhfinFilterPill(
+                        label = stringResource(R.string.debt_no_movement),
+                        selected = !movement,
+                        onClick = { movement = false },
+                    )
+                }
+            }
             if (movement) {
                 WhfinField(
                     amount,
@@ -235,10 +262,41 @@ fun DebtLedgerDialog(
                     suffix = currency,
                     keyboardType = KeyboardType.Decimal,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("GEL", "USD", "EUR").forEach { c -> FilterChip(currency == c, { currency = c; accountId = accounts.firstOrNull { it.currency == c }?.id }, { Text(c) }) } }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { accounts.filter { it.currency == currency }.take(3).forEach { a -> FilterChip(accountId == a.id, { accountId = a.id }, { Text(a.name) }) } }
+                WhfinChoiceRail {
+                    items(listOf("GEL", "USD", "EUR"), key = { it }) { code ->
+                        WhfinFilterPill(
+                            label = code,
+                            selected = currency == code,
+                            onClick = {
+                                currency = code
+                                accountId = accounts.firstOrNull { it.currency == code }?.id
+                            },
+                        )
+                    }
+                }
+                val matchingAccounts = accounts.filter { it.currency == currency }
+                if (matchingAccounts.isNotEmpty()) WhfinChoiceRail {
+                    items(matchingAccounts, key = { it.id }) { account ->
+                        WhfinFilterPill(
+                            label = account.name,
+                            selected = accountId == account.id,
+                            onClick = { accountId = account.id },
+                        )
+                    }
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(close, { close = it }); Text(stringResource(R.string.debt_close_completely)) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.debt_close_completely),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                WhfinSwitch(
+                    checked = close,
+                    onCheckedChange = { close = it },
+                    contentDescription = stringResource(R.string.debt_close_completely),
+                )
+            }
             if (!close) WhfinField(
                 debtCredit,
                 { debtCredit = it },

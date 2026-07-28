@@ -181,6 +181,11 @@
   тёплый Quiet Ledger decision block, семантический маркер, равная геометрия действий и вертикальный
   reflow при font scale 1.5. Фон диалога использует тот же screen canvas без Material tonal overlay,
   поэтому dynamic colors не уводят его в отдельный пыльно-лиловый карточный слой.
+  Финальный controls pass убрал прямые Material `FilterChip` из feature UI: выборы банка, назначения
+  счёта, валюты, типа карты, роли человека, split и debt-flow используют один `WhfinChoiceRail` с
+  крупными `WhfinFilterPill`, одной строкой и горизонтальным scroll cue. В settlement обычный Checkbox
+  заменён на подписанный `WhfinSwitch`. Account activity и Transaction details используют общий
+  `WhfinActionMenu` на screen canvas без tonal overlay, поэтому overflow не выглядит чужим Material-окном.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;

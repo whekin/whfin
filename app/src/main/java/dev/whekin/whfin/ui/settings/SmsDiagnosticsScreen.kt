@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.SmsFailed
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +61,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinIconButton
@@ -394,17 +395,21 @@ private fun AddCardMappingSheet(
             }
         }
         WhfinSectionLabel(stringResource(R.string.sms_card_type))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+        WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                label = stringResource(R.string.sms_card_physical),
                 selected = cardType == PaymentInstrumentType.PHYSICAL_CARD,
                 onClick = { cardType = PaymentInstrumentType.PHYSICAL_CARD },
-                label = { Text(stringResource(R.string.sms_card_physical)) },
-            )
-            FilterChip(
+                )
+            }
+            item {
+                WhfinFilterPill(
+                label = stringResource(R.string.sms_card_virtual),
                 selected = cardType == PaymentInstrumentType.VIRTUAL_CARD,
                 onClick = { cardType = PaymentInstrumentType.VIRTUAL_CARD },
-                label = { Text(stringResource(R.string.sms_card_virtual)) },
-            )
+                )
+            }
         }
     }
 }
@@ -711,17 +716,21 @@ private fun AccountMappingSheet(
         }
         if (diagnostic.cardLast4 != null) {
             WhfinSectionLabel(stringResource(R.string.sms_card_type))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
+            WhfinChoiceRail {
+                item {
+                    WhfinFilterPill(
+                    label = stringResource(R.string.sms_card_physical),
                     selected = cardType == PaymentInstrumentType.PHYSICAL_CARD,
                     onClick = { cardType = PaymentInstrumentType.PHYSICAL_CARD },
-                    label = { Text(stringResource(R.string.sms_card_physical)) },
-                )
-                FilterChip(
+                    )
+                }
+                item {
+                    WhfinFilterPill(
+                    label = stringResource(R.string.sms_card_virtual),
                     selected = cardType == PaymentInstrumentType.VIRTUAL_CARD,
                     onClick = { cardType = PaymentInstrumentType.VIRTUAL_CARD },
-                    label = { Text(stringResource(R.string.sms_card_virtual)) },
-                )
+                    )
+                }
             }
         }
     }

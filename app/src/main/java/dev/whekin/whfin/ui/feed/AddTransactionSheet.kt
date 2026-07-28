@@ -9,12 +9,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
@@ -60,6 +58,8 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinMotion
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -326,7 +326,15 @@ private fun minorInput(value: Long): String {
                 colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent), modifier = Modifier.weight(1f))
             Text(currency, style = MaterialTheme.typography.titleMedium)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("GEL", "USD", "EUR").forEach { item -> FilterChip(currency == item, { onCurrency(item) }, { Text(item) }) } }
+        WhfinChoiceRail {
+            items(listOf("GEL", "USD", "EUR"), key = { it }) { item ->
+                WhfinFilterPill(
+                    label = item,
+                    selected = currency == item,
+                    onClick = { onCurrency(item) },
+                )
+            }
+        }
     }
 }
 
@@ -338,13 +346,31 @@ private fun minorInput(value: Long): String {
     onDate: () -> Unit, onNote: (String) -> Unit,
 ) {
     SectionLabel(stringResource(R.string.debt_direction))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(direction == DebtDirection.THEY_OWE_ME, { onDirection(DebtDirection.THEY_OWE_ME) }, { Text(stringResource(R.string.debt_they_owe)) })
-        FilterChip(direction == DebtDirection.I_OWE_THEM, { onDirection(DebtDirection.I_OWE_THEM) }, { Text(stringResource(R.string.debt_i_owe)) })
+    WhfinChoiceRail {
+        item {
+            WhfinFilterPill(
+                label = stringResource(R.string.debt_they_owe),
+                selected = direction == DebtDirection.THEY_OWE_ME,
+                onClick = { onDirection(DebtDirection.THEY_OWE_ME) },
+            )
+        }
+        item {
+            WhfinFilterPill(
+                label = stringResource(R.string.debt_i_owe),
+                selected = direction == DebtDirection.I_OWE_THEM,
+                onClick = { onDirection(DebtDirection.I_OWE_THEM) },
+            )
+        }
     }
     SectionLabel(stringResource(R.string.debt_person))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(people) { person -> FilterChip(personId == person.id, { onPerson(person.id) }, { Text(person.name) }) }
+    WhfinChoiceRail {
+        items(people, key = { it.id }) { person ->
+            WhfinFilterPill(
+                label = person.name,
+                selected = personId == person.id,
+                onClick = { onPerson(person.id) },
+            )
+        }
     }
     WhfinField(
         personName,
@@ -353,9 +379,21 @@ private fun minorInput(value: Long): String {
         modifier = Modifier.fillMaxWidth(),
     )
     SectionLabel(stringResource(R.string.debt_money_movement))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(hasMovement, { onMovement(true) }, { Text(stringResource(R.string.debt_through_account)) })
-        FilterChip(!hasMovement, { onMovement(false) }, { Text(stringResource(R.string.debt_no_movement)) })
+    WhfinChoiceRail {
+        item {
+            WhfinFilterPill(
+                label = stringResource(R.string.debt_through_account),
+                selected = hasMovement,
+                onClick = { onMovement(true) },
+            )
+        }
+        item {
+            WhfinFilterPill(
+                label = stringResource(R.string.debt_no_movement),
+                selected = !hasMovement,
+                onClick = { onMovement(false) },
+            )
+        }
     }
     if (hasMovement) CompactAccountSelector(stringResource(R.string.tx_account), sources, accountId, Modifier.fillMaxWidth(), onAccount, onCreateCashCurrency = onCreateCashCurrency)
     DateTile(day, Modifier.fillMaxWidth(), onDate)
@@ -546,18 +584,21 @@ private fun minorInput(value: Long): String {
                         Icon(accountIcon(item.accounts.firstOrNull()?.type), null, tint = MaterialTheme.colorScheme.primary)
                         Text(item.label, style = MaterialTheme.typography.titleMedium)
                     }
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val currencies = if (isCash) (listOf("GEL", "USD", "EUR") + available.map { it.currency }).distinct()
-                            else available.map { it.currency }
-                        currencies.forEach { currency ->
+                    val currencies = if (isCash) {
+                        (listOf("GEL", "USD", "EUR") + available.map { it.currency }).distinct()
+                    } else {
+                        available.map { it.currency }
+                    }
+                    WhfinChoiceRail {
+                        items(currencies, key = { it }) { currency ->
                             val ledger = available.firstOrNull { it.currency == currency }
-                            FilterChip(
+                            WhfinFilterPill(
+                                label = currency,
                                 selected = ledger?.id == selectedId,
                                 onClick = {
                                     if (ledger != null) onSelect(ledger.id) else onCreateCashCurrency(currency)
                                     open = false
                                 },
-                                label = { Text(currency) },
                             )
                         }
                     }

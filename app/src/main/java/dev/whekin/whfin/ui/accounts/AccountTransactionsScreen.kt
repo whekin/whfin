@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinBackButton
+import dev.whekin.whfin.core.ui.WhfinActionMenu
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
@@ -425,7 +425,7 @@ private fun AccountTransactionsScope(
                             onClick = { accountMenuExpanded = true },
                             outlined = false,
                         )
-                        DropdownMenu(
+                        WhfinActionMenu(
                             expanded = accountMenuExpanded,
                             onDismissRequest = { accountMenuExpanded = false },
                         ) {
