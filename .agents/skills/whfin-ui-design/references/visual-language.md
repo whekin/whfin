@@ -77,6 +77,13 @@ action with a clear text label inside the empty state.
 
 Lead with the selected month's net result, income, and expenses. Category distribution supports rolling 1/3/6/12-month ranges; tapping a category changes a compact twelve-month trend instead of opening a decorative dashboard. Trend months are selectable and the selected month/category can open a focused transaction ledger; Back returns to the unchanged Statistics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
 
+For the current month, place one spending-pace block after the result: show the elapsed day count,
+a simple month-end expense projection, and the previous full month's expense total. Never project a
+historical month. Follow it with at most three largest absolute category changes among categories
+that have current-month spending; each row opens that category's current-month transaction ledger.
+Keep this sequence as result → pace → drivers → category detail → year trend, without dashboard tiles
+or a second competing hero.
+
 ### Composer
 
 Treat the amount as the active focal field. Keep type selection explicit, account/category/date choices as compact decision rows, and the save action pinned above navigation/IME. Category selection is a full internal step, not a modal stacked over another modal.

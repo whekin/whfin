@@ -108,6 +108,73 @@ class AnalyticsCalculatorTest {
         assertEquals(listOf(AnalyticsCurrencyValue("USD", 2_360)), data.otherCurrencyExpenses)
     }
 
+    @Test
+    fun projectsCurrentMonthPaceAndFindsLargestCategoryDrivers() {
+        val transactions = listOf(
+            tx(1, -20_000, "GEL", LocalDate.of(2026, 6, 4), categoryId = food.id),
+            tx(2, -10_000, "GEL", LocalDate.of(2026, 6, 8), categoryId = transport.id),
+            tx(3, -10_000, "GEL", LocalDate.of(2026, 7, 3), categoryId = food.id),
+            tx(4, -30_000, "GEL", LocalDate.of(2026, 7, 8), categoryId = transport.id),
+        )
+        val data = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food, transport),
+            allocations = emptyList(),
+            selectedMonth = YearMonth.of(2026, 7),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2026, 7, 10),
+        )
+
+        assertEquals(
+            AnalyticsPace(
+                daysElapsed = 10,
+                daysInMonth = 31,
+                projectedExpenseMinor = 124_000,
+                previousMonthExpenseMinor = 30_000,
+            ),
+            data.pace,
+        )
+        assertEquals(
+            listOf(
+                AnalyticsCategoryChange(
+                    categoryId = transport.id,
+                    name = transport.name,
+                    icon = transport.icon,
+                    color = transport.color,
+                    expenseMinor = 30_000,
+                    previousExpenseMinor = 10_000,
+                ),
+                AnalyticsCategoryChange(
+                    categoryId = food.id,
+                    name = food.name,
+                    icon = food.icon,
+                    color = food.color,
+                    expenseMinor = 10_000,
+                    previousExpenseMinor = 20_000,
+                ),
+            ),
+            data.categoryChanges,
+        )
+    }
+
+    @Test
+    fun doesNotProjectHistoricalMonths() {
+        val data = calculateAnalytics(
+            transactions = listOf(tx(1, -10_000, "GEL", LocalDate.of(2026, 6, 3), categoryId = food.id)),
+            categories = listOf(food),
+            allocations = emptyList(),
+            selectedMonth = YearMonth.of(2026, 6),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2026, 7, 10),
+        )
+
+        assertEquals(null, data.pace)
+    }
+
     private fun tx(
         id: Long,
         amount: Long,

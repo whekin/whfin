@@ -2,7 +2,6 @@ package dev.whekin.whfin.ui.analytics
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -55,6 +54,7 @@ import dev.whekin.whfin.core.ui.WhfinDistributionSegment
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -168,6 +168,9 @@ internal fun AnalyticsContent(
     val selectedTrendMonth = remember(data.selectedMonth.year, selectedTrendMonthNumber) {
         YearMonth.of(data.selectedMonth.year, selectedTrendMonthNumber)
     }
+    val trendItemIndex = 3 +
+        (if (data.pace != null) 1 else 0) +
+        (if (data.categoryChanges.isNotEmpty()) 1 else 0)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize().testTag("analytics-list"),
@@ -180,6 +183,24 @@ internal fun AnalyticsContent(
                     MonthResult(data, onPreviousMonth, onNextMonth)
                 }
             }
+            data.pace?.let { pace ->
+                item(key = "pace") {
+                    Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                        SpendingPace(data.expenseMinor, pace)
+                    }
+                }
+            }
+            if (data.categoryChanges.isNotEmpty()) {
+                item(key = "changes") {
+                    Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                        CategoryChanges(
+                            changes = data.categoryChanges,
+                            month = data.selectedMonth,
+                            onOpenTransactions = onOpenTransactions,
+                        )
+                    }
+                }
+            }
             item(key = "categories") {
                 Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                     CategoryBreakdown(
@@ -187,13 +208,18 @@ internal fun AnalyticsContent(
                         onRangeChange = onRangeChange,
                         onCategoryClick = { categoryId ->
                             onShowCategoryTrend(categoryId)
-                            scope.launch { listState.animateScrollToItem(TREND_ITEM_INDEX) }
+                            scope.launch { listState.animateScrollToItem(trendItemIndex) }
                         },
                     )
                 }
             }
             item(key = "trend") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
+                        .testTag("analytics-trend"),
+                ) {
                     YearTrend(
                         data = data,
                         selectedMonth = selectedTrendMonth,
@@ -319,6 +345,175 @@ private fun AnalyticsMetric(label: String, value: String, color: Color, modifier
 }
 
 @Composable
+private fun SpendingPace(
+    expenseMinor: Long,
+    pace: AnalyticsPace,
+) {
+    Column(
+        Modifier.testTag("analytics-pace"),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        WhfinSectionHeader(
+            title = stringResource(R.string.analytics_pace_title),
+            supportingText = stringResource(
+                R.string.analytics_pace_hint,
+                pace.daysElapsed,
+                pace.daysInMonth,
+            ),
+        )
+        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    WhfinSectionLabel(stringResource(R.string.analytics_projected))
+                    Text(
+                        formatMinor(pace.projectedExpenseMinor, "GEL"),
+                        style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                    Text(
+                        comparisonText(
+                            pace.projectedExpenseMinor,
+                            pace.previousMonthExpenseMinor,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    AnalyticsMetric(
+                        stringResource(R.string.analytics_spent_so_far),
+                        formatMinor(expenseMinor, "GEL"),
+                        MaterialTheme.colorScheme.onSurface,
+                        Modifier.weight(1f),
+                    )
+                    AnalyticsMetric(
+                        stringResource(R.string.analytics_previous_month_expenses),
+                        formatMinor(pace.previousMonthExpenseMinor, "GEL"),
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                        Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryChanges(
+    changes: List<AnalyticsCategoryChange>,
+    month: YearMonth,
+    onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
+) {
+    val fallbackColors = listOf(
+        WhfinThemeTokens.colors.clay,
+        WhfinThemeTokens.colors.bottle,
+        MaterialTheme.colorScheme.secondary,
+    )
+    Column(
+        Modifier.testTag("analytics-changes"),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        WhfinSectionHeader(
+            title = stringResource(R.string.analytics_changes_title),
+            supportingText = stringResource(R.string.analytics_changes_hint),
+        )
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            changes.forEachIndexed { index, change ->
+                val name = change.name ?: stringResource(R.string.analytics_uncategorized)
+                CategoryChangeRow(
+                    change = change,
+                    name = name,
+                    color = change.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
+                    divider = index < changes.lastIndex,
+                    onClick = {
+                        onOpenTransactions(
+                            AnalyticsTransactionsRequest(
+                                month = month,
+                                categoryFilterEnabled = true,
+                                categoryId = change.categoryId,
+                                filterName = name,
+                                expectedExpenseMinor = change.expenseMinor,
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryChangeRow(
+    change: AnalyticsCategoryChange,
+    name: String,
+    color: Color,
+    divider: Boolean,
+    onClick: () -> Unit,
+) {
+    val deltaColor = if (change.deltaMinor > 0L) {
+        MaterialTheme.colorScheme.tertiary
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("analytics-change-${change.categoryId ?: "none"}"),
+        shape = androidx.compose.ui.graphics.RectangleShape,
+        color = Color.Transparent,
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    Modifier.size(38.dp).background(color.copy(alpha = .14f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        CategoryIcons.resolve(change.icon),
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(
+                            R.string.analytics_change_vs_previous,
+                            formatMinor(change.deltaMinor, "GEL", withSign = true),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = deltaColor,
+                    )
+                }
+                Text(
+                    formatMinor(change.expenseMinor, "GEL"),
+                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
+            if (divider) HorizontalDivider(
+                Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
+    }
+}
+
+@Composable
 private fun CategoryBreakdown(
     data: AnalyticsData,
     onRangeChange: (Int) -> Unit,
@@ -336,11 +531,8 @@ private fun CategoryBreakdown(
             title = stringResource(R.string.analytics_categories),
             supportingText = stringResource(R.string.analytics_categories_hint),
         )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf(1, 3, 6, 12).forEach { months ->
+        WhfinChoiceRail {
+            items(listOf(1, 3, 6, 12), key = { it }) { months ->
                 WhfinFilterPill(
                     label = stringResource(
                         when (months) {
@@ -458,12 +650,17 @@ private fun YearTrend(
     val previousValue = data.trendValues.firstOrNull { it.month == selectedMonth.minusMonths(1) }?.expenseMinor ?: 0L
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(title = stringResource(R.string.analytics_year_trend), supportingText = filterName)
-        if (data.trendFilter is AnalyticsTrendFilter.Category) Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            WhfinFilterPill(stringResource(R.string.analytics_all_expenses), selected = false, onClick = onShowAllTrend)
-            WhfinFilterPill(filterName, selected = true, onClick = {})
+        if (data.trendFilter is AnalyticsTrendFilter.Category) WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                    stringResource(R.string.analytics_all_expenses),
+                    selected = false,
+                    onClick = onShowAllTrend,
+                )
+            }
+            item {
+                WhfinFilterPill(filterName, selected = true, onClick = {})
+            }
         }
         Text(
             stringResource(R.string.analytics_trend_hint),
@@ -606,8 +803,6 @@ internal fun monthTitle(month: YearMonth): String {
 @Composable
 private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 
-private const val TREND_ITEM_INDEX = 3
-
 private val previewData = AnalyticsData(
     selectedMonth = YearMonth.of(2026, 7),
     incomeMinor = 730_800,
@@ -630,6 +825,17 @@ private val previewData = AnalyticsData(
     otherCurrencyExpenses = listOf(AnalyticsCurrencyValue("USD", 6_900)),
     pendingCount = 2,
     hasAnyTransactions = true,
+    pace = AnalyticsPace(
+        daysElapsed = 20,
+        daysInMonth = 31,
+        projectedExpenseMinor = 169_147,
+        previousMonthExpenseMinor = 96_000,
+    ),
+    categoryChanges = listOf(
+        AnalyticsCategoryChange(1, "Groceries", "ShoppingCart", 0xff4f725f.toInt(), 38_200, 22_400),
+        AnalyticsCategoryChange(2, "Eating out", "Restaurant", 0xffc96d4f.toInt(), 27_840, 41_500),
+        AnalyticsCategoryChange(3, "Transport", "DirectionsBus", 0xff788a67.toInt(), 18_400, 12_000),
+    ),
 )
 
 @Preview(name = "Analytics populated", widthDp = 400, heightDp = 1000, showBackground = true)

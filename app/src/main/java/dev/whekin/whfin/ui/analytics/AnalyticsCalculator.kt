@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -35,6 +36,24 @@ internal data class AnalyticsCurrencyValue(
     val expenseMinor: Long,
 )
 
+internal data class AnalyticsPace(
+    val daysElapsed: Int,
+    val daysInMonth: Int,
+    val projectedExpenseMinor: Long,
+    val previousMonthExpenseMinor: Long,
+)
+
+internal data class AnalyticsCategoryChange(
+    val categoryId: Long?,
+    val name: String?,
+    val icon: String?,
+    val color: Int?,
+    val expenseMinor: Long,
+    val previousExpenseMinor: Long,
+) {
+    val deltaMinor: Long get() = expenseMinor - previousExpenseMinor
+}
+
 internal data class AnalyticsData(
     val selectedMonth: YearMonth,
     val incomeMinor: Long,
@@ -50,6 +69,8 @@ internal data class AnalyticsData(
     val otherCurrencyExpenses: List<AnalyticsCurrencyValue>,
     val pendingCount: Int,
     val hasAnyTransactions: Boolean,
+    val pace: AnalyticsPace? = null,
+    val categoryChanges: List<AnalyticsCategoryChange> = emptyList(),
 ) {
     val deltaMinor: Long get() = incomeMinor - expenseMinor
 }
@@ -77,6 +98,7 @@ internal fun calculateAnalytics(
     categoryRangeMonths: Int,
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate = LocalDate.now(zoneId),
 ): AnalyticsData {
     require(categoryRangeMonths in setOf(1, 3, 6, 12))
     val categoryById = categories.associateBy { it.id }
@@ -124,6 +146,42 @@ internal fun calculateAnalytics(
     val selectedBase = baseSlices.filter { it.month == selectedMonth }
     val income = selectedBase.sumOf { it.amountMinor.coerceAtLeast(0L) }
     val expenses = -selectedBase.sumOf { it.amountMinor.coerceAtMost(0L) }
+    val previousMonth = selectedMonth.minusMonths(1)
+    val previousBase = baseSlices.filter { it.month == previousMonth }
+    val previousExpenses = -previousBase.sumOf { it.amountMinor.coerceAtMost(0L) }
+    val pace = if (selectedMonth == YearMonth.from(today)) {
+        AnalyticsPace(
+            daysElapsed = today.dayOfMonth,
+            daysInMonth = selectedMonth.lengthOfMonth(),
+            projectedExpenseMinor = expenses * selectedMonth.lengthOfMonth() / today.dayOfMonth,
+            previousMonthExpenseMinor = previousExpenses,
+        )
+    } else {
+        null
+    }
+    val currentCategoryExpenses = selectedBase
+        .filter { it.amountMinor < 0L }
+        .groupBy { it.categoryId }
+        .mapValues { (_, values) -> -values.sumOf { it.amountMinor } }
+    val previousCategoryExpenses = previousBase
+        .filter { it.amountMinor < 0L }
+        .groupBy { it.categoryId }
+        .mapValues { (_, values) -> -values.sumOf { it.amountMinor } }
+    val categoryChanges = currentCategoryExpenses
+        .map { (categoryId, expenseMinor) ->
+            val category = categoryId?.let(categoryById::get)
+            AnalyticsCategoryChange(
+                categoryId = categoryId,
+                name = category?.name,
+                icon = category?.icon,
+                color = category?.color,
+                expenseMinor = expenseMinor,
+                previousExpenseMinor = previousCategoryExpenses[categoryId] ?: 0L,
+            )
+        }
+        .filter { it.deltaMinor != 0L }
+        .sortedByDescending { abs(it.deltaMinor) }
+        .take(3)
 
     val rangeStart = selectedMonth.minusMonths((categoryRangeMonths - 1).toLong())
     val rangeExpenses = baseSlices.filter {
@@ -189,6 +247,8 @@ internal fun calculateAnalytics(
         otherCurrencyExpenses = otherCurrencies,
         pendingCount = slices.filter { it.month == selectedMonth && it.pending }.map { it.transactionId }.distinct().size,
         hasAnyTransactions = slices.isNotEmpty(),
+        pace = pace,
+        categoryChanges = categoryChanges,
     )
 }
 

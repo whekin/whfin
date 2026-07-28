@@ -55,7 +55,8 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithText("3 months").performClick()
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithText("3 mo").performClick()
         compose.runOnIdle { assertEquals(3, range) }
 
         compose.onNodeWithTag("analytics-category-1").performScrollTo().performClick()
@@ -86,7 +87,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(3)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
         compose.waitForIdle()
@@ -98,6 +99,39 @@ class AnalyticsScreenTest {
             assertEquals(true, opened?.categoryFilterEnabled)
             assertEquals(1L, opened?.categoryId)
             assertEquals(6_000L, opened?.expectedExpenseMinor)
+        }
+    }
+
+    @Test
+    fun categoryDriverOpensCurrentMonthTransactions() {
+        var opened: AnalyticsTransactionsRequest? = null
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        data = contentData,
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onRangeChange = {},
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenTransactions = { opened = it },
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(3)
+        compose.onNodeWithTag("analytics-change-2").performClick()
+        compose.waitForIdle()
+
+        compose.runOnIdle {
+            assertEquals(YearMonth.of(2026, 7), opened?.month)
+            assertEquals(true, opened?.categoryFilterEnabled)
+            assertEquals(2L, opened?.categoryId)
+            assertEquals("Transport", opened?.filterName)
+            assertEquals(30_000L, opened?.expectedExpenseMinor)
         }
     }
 
@@ -119,5 +153,14 @@ class AnalyticsScreenTest {
         otherCurrencyExpenses = emptyList(),
         pendingCount = 0,
         hasAnyTransactions = true,
+        pace = AnalyticsPace(
+            daysElapsed = 20,
+            daysInMonth = 31,
+            projectedExpenseMinor = 124_000,
+            previousMonthExpenseMinor = 70_000,
+        ),
+        categoryChanges = listOf(
+            AnalyticsCategoryChange(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 20_000),
+        ),
     )
 }
