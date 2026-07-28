@@ -31,8 +31,20 @@ The app shell navigates between complete opaque destination scenes. A secondary 
 ## Visual rules
 
 - Paper and green-black ink form the canvas; bottle green means trust/confirmation, clay means expense/attention, oxide is reserved for destructive/error states.
+- Dark mode is dark paper, not neutral black: canvas and containers carry a warm olive-umber cast so cream
+  ink and clay stay in the same family as the light theme.
 - Category color stays local to a marker or icon. That marker is a circle with a quiet tonal fill and no
   border — the same shape in ledger rows, statistics rows, and composer tiles.
+- Category icons are **outlined**. Filled glyphs made a colored blob the loudest element of every row and
+  read as stock Material under a custom visual language; contours belong to the same family as hairline
+  rules. Icon names in the database are unchanged, so the set can be swapped without a migration.
+- Money is set in the editorial serif with tabular figures through `WhfinAmount`, never in the row's sans.
+  The numeric column is the heart of a ledger and must have its own voice; the currency symbol is set
+  smaller and quieter so digits align into a column. `Device font` switches these figures too, because
+  the family is read from the theme.
+- Caps with tracking is a landmark (a day, a screen section), not a label. Inside a block, field and
+  subsection labels use `WhfinFieldLabel` in sentence case.
+- `WhfinTotalRule` — the accounting double rule — closes a result. Ordinary separators stay single.
 - Prefer a section heading plus whitespace/rule before adding a container.
 - One coherent group may have one outline or tonal surface; never create card-in-card hierarchies.
 - Keep routine rows dense with at least 48 dp interaction targets.
@@ -52,7 +64,8 @@ The Feed month block leads with the month's own result: a signed GEL net figure,
 as signed context values below it. Directional arrows were removed because "down" read both as *money
 arrived* and as *value fell*; a sign on a tabular figure carries the same meaning without that ambiguity.
 Day headers print a spend total only when the day actually has expenses, and fall back to a single foreign
-currency total instead of a meaningless `0.00 ₾`.
+currency total instead of a meaningless `0.00 ₾`. They also carry the weekday (`SAT, 26 JUL`), because
+transactions are remembered as "on Saturday"; the year appears only for past years.
 
 Appearance separates brightness, palette, and editorial typography. System/Light/Dark is persisted in
 DataStore and can override device brightness, while System colors independently applies Android 12+
@@ -245,3 +258,24 @@ exercised end to end: the pending row lost its `Pending` annotation without a se
 `:app:testDebugUnitTest` passes, including two new details-sheet tests (confirm in one tap, no Confirm
 action once confirmed). The monthly-chart screenshot references were regenerated for the wider bars and
 zero-month baseline in light, dark, and font scale 1.5.
+
+## Aesthetic pass (2026-07-29)
+
+Five moves, in order of visual weight:
+
+1. **Money got its own voice.** `WhfinAmount` sets every figure in the bundled editorial serif with
+   tabular figures and quietens the currency symbol (0.82 em, 80% alpha). Before this, an amount was the
+   same sans as the merchant name and differed only by weight, so the ledger had no numeric column.
+   Because the serif has one weight, amounts never request SemiBold — presence comes from size and color.
+2. **Category icons are outlined.** The 24 filled Material glyphs were the loudest, most stock-looking
+   element on every screen.
+3. **Dark mode warmed up.** The canvas moved from `#101612` to `#14160F` with olive-umber containers.
+4. **Caps became a landmark again.** `WhfinFieldLabel` carries field/subsection labels in sentence case;
+   `ACTIONS` above the details rail was dropped entirely.
+5. **`WhfinTotalRule`** closes the Feed month block and the Statistics month result, and day headers now
+   name the weekday.
+
+Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: Feed, Accounts, Statistics in light and
+dark EN, plus Accounts in light RU at font scale 1.5 — serif digits are wider than sans, and neither the
+two-column summary nor the currency rows truncate. `:app:testDebugUnitTest` passes; five dark screenshot
+references were regenerated for the warm palette and the chart.

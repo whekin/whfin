@@ -74,19 +74,22 @@ val WhfinDarkColorScheme = darkColorScheme(
     onError = Color(0xFF650008),
     errorContainer = Color(0xFF85221C),
     onErrorContainer = Color(0xFFFFDAD4),
-    background = Color(0xFF101612),
+    // Тёмная тема — «тёмная бумага», а не нейтральный чёрный: канва и поверхности уведены в
+    // тёплый оливково-умбровый, поэтому кремовые чернила и глина остаются в одной семье с
+    // светлой темой вместо того, чтобы читаться как generic dark.
+    background = Color(0xFF14160F),
     onBackground = Color(0xFFF2ECDF),
-    surface = Color(0xFF101612),
+    surface = Color(0xFF14160F),
     onSurface = Color(0xFFF2ECDF),
-    surfaceVariant = Color(0xFF343A34),
-    onSurfaceVariant = Color(0xFFBEC5BA),
-    surfaceContainerLowest = Color(0xFF0A0F0C),
-    surfaceContainerLow = Color(0xFF161D18),
-    surfaceContainer = Color(0xFF1A211C),
-    surfaceContainerHigh = Color(0xFF242C26),
-    surfaceContainerHighest = Color(0xFF2E3730),
-    outline = Color(0xFF929B91),
-    outlineVariant = Color(0xFF3C463E),
+    surfaceVariant = Color(0xFF393A2E),
+    onSurfaceVariant = Color(0xFFC3C3B1),
+    surfaceContainerLowest = Color(0xFF0D0F09),
+    surfaceContainerLow = Color(0xFF1B1D14),
+    surfaceContainer = Color(0xFF202218),
+    surfaceContainerHigh = Color(0xFF2A2D21),
+    surfaceContainerHighest = Color(0xFF35392B),
+    outline = Color(0xFF98998A),
+    outlineVariant = Color(0xFF444636),
 )
 
 private val WhfinShapes = Shapes(

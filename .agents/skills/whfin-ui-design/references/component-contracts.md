@@ -43,7 +43,14 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   not expose Material `AlertDialog`.
 - `WhfinActionMenu`: the shared compact overflow surface. It uses the screen canvas, a quiet rule,
   and no Material tonal tint; feature code owns menu items and action semantics.
-- `WhfinAmount`: tabular money typography and semantic color without embedding formatting policy.
+- `WhfinAmount`: editorial-serif tabular money typography and semantic color without embedding formatting
+  policy. It receives an already formatted string plus the currency symbol to set quieter, and reads the
+  editorial family from the theme so `Device font` applies to figures too. The bundled serif has a single
+  weight, so amounts must not request a bold weight.
+- `WhfinFieldLabel`: sentence-case label for a field or subsection. `WhfinSectionLabel` (caps with tracking)
+  is reserved for landmarks — a day header or a screen section.
+- `WhfinTotalRule`: the accounting double rule that closes a result block. Ordinary row separators stay
+  single `HorizontalDivider`s.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.
 

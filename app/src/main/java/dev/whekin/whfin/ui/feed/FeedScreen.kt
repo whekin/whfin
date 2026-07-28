@@ -112,12 +112,16 @@ import dev.whekin.whfin.ui.CategoryIcons
 import dev.whekin.whfin.ui.components.CategoryGrid
 import dev.whekin.whfin.ui.components.CategoryAppearancePicker
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinActionMenu
+import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinTotalRule
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
@@ -679,14 +683,16 @@ private fun TransactionDetailsContent(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
-                    Text(
+                    WhfinAmount(
                         formatMinor(tx.amountMinor, tx.currency),
-                        style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
+                        symbol = currencySymbol(tx.currency),
+                        style = MaterialTheme.typography.headlineLarge,
                     )
                     if (item.destinationAmountMinor != null && item.destinationCurrency != null) {
-                        Text(
+                        WhfinAmount(
                             "→ ${formatMinor(item.destinationAmountMinor, item.destinationCurrency)}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+                            symbol = currencySymbol(item.destinationCurrency),
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -807,8 +813,9 @@ private fun TransactionDetailsContent(
             }
         }
         if (hasQuickActions) item(key = "transaction-actions") {
+            // Капс-подпись «ДЕЙСТВИЯ» над рядом кнопок ничего не добавляла: рельс из подписанных
+            // действий уже очевиден, а капс тратил строку и телеграфировал.
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                WhfinSectionLabel(stringResource(R.string.transaction_actions))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (confirmPending != null) item {
                         DetailQuickAction(
@@ -1740,9 +1747,10 @@ private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit
             }
             // Результат месяца — герой блока; доход/расход остаются контекстом под ним.
             val net = income - expenses
-            Text(
+            WhfinAmount(
                 formatMinor(net, "GEL", withSign = true),
-                style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
+                symbol = currencySymbol("GEL"),
+                style = MaterialTheme.typography.headlineMedium,
                 color = if (net < 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -1757,7 +1765,9 @@ private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit
                     MaterialTheme.colorScheme.tertiary,
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // Итоговая черта книги: блок месяца закрывается двойной линейкой, обычные разделители
+            // ленты остаются одинарными.
+            WhfinTotalRule()
         }
     }
 }
@@ -1775,9 +1785,10 @@ private fun SummaryValue(
 ) {
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
+        WhfinAmount(
             formatMinor(value, "GEL", withSign = true),
-            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+            symbol = currencySymbol("GEL"),
+            style = MaterialTheme.typography.titleMedium,
             color = color,
         )
     }
@@ -1807,10 +1818,16 @@ internal fun DayHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
+    // День недели полезен: операции вспоминают как «в субботу», а не по номеру дня. Год печатаем
+    // только для прошлых лет, иначе он занимает место в каждом заголовке текущего года.
     val label = when (day) {
         LocalDate.now() -> stringResource(R.string.date_today)
         LocalDate.now().minusDays(1) -> stringResource(R.string.date_yesterday)
-        else -> day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        else -> day.format(
+            DateTimeFormatter.ofPattern(
+                if (day.year == LocalDate.now().year) "EEE, d MMM" else "EEE, d MMM yyyy",
+            ),
+        )
     }
     val directGel = expensesByCurrency["GEL"] ?: 0L
     val totalGel = directGel + gelFromConversions
@@ -1818,6 +1835,11 @@ internal fun DayHeader(
     // День без расходов (только переводы/доход) не должен печатать бессмысленный "0.00 ₾".
     // Если в GEL нечего показать, ведём итогом единственную иностранную валюту дня.
     val foreignTotals = expensesByCurrency.filterKeys { it != "GEL" }
+    val totalCurrency = when {
+        totalGel > 0L -> "GEL"
+        foreignTotals.size == 1 -> foreignTotals.keys.first()
+        else -> null
+    }
     val totalText = when {
         totalGel > 0L -> formatMinor(totalGel, "GEL")
         foreignTotals.size == 1 -> foreignTotals.entries.first()
@@ -1838,7 +1860,8 @@ internal fun DayHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                if (totalText != null) Text(totalText,
+                if (totalText != null) WhfinAmount(totalText,
+                    symbol = totalCurrency?.let(::currencySymbol),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
                 if (showBreakdown) Icon(Icons.Default.ExpandMore, null,
                     modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = if (expanded) 180f else 0f },
@@ -1964,22 +1987,20 @@ internal fun FeedRow(
                 )
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
+                WhfinAmount(
                     formatMinor(
                         if (isTransfer) kotlin.math.abs(tx.amountMinor) else tx.amountMinor,
                         tx.currency,
                         withSign = !isTransfer,
                     ),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFeatureSettings = "tnum",
-                    ),
-                    fontWeight = if (isTransfer) FontWeight.Normal else FontWeight.SemiBold,
+                    symbol = currencySymbol(tx.currency),
                     color = amountColor,
                 )
                 if (isTransfer && item.destinationAmountMinor != null && item.destinationCurrency != null &&
                     item.destinationCurrency != tx.currency) {
-                    Text(
+                    WhfinAmount(
                         "→ ${formatMinor(item.destinationAmountMinor, item.destinationCurrency)}",
+                        symbol = currencySymbol(item.destinationCurrency),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

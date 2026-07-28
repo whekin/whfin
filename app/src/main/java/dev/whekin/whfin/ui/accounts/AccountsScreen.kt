@@ -64,11 +64,14 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.settings.BankStatementsViewModel
 import dev.whekin.whfin.ui.settings.StatementImportStatusSheet
 import dev.whekin.whfin.ui.settings.StatementImportUiState
 import dev.whekin.whfin.ui.settings.statementFileName
+import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinContextHeader
@@ -318,8 +321,9 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
                             color = Color.Transparent,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         ) {
-                            Text(
+                            WhfinAmount(
                                 "$currency   ${formatMinor(amount, currency)}",
+                                symbol = currencySymbol(currency),
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             )
@@ -332,11 +336,13 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
                 SummaryColumn(
                     stringResource(R.string.accounts_available),
                     formatMinor(available["GEL"] ?: 0L, "GEL"),
+                    currencySymbol("GEL"),
                     Modifier.weight(1f),
                 )
                 SummaryColumn(
                     stringResource(R.string.accounts_reserve),
                     reserve["GEL"]?.let { formatMinor(it, "GEL") } ?: "—",
+                    reserve["GEL"]?.let { currencySymbol("GEL") },
                     Modifier.weight(1f),
                 )
             }
@@ -344,11 +350,10 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
 }
 
 @Composable
-private fun SummaryColumn(label: String, value: String, modifier: Modifier) {
+private fun SummaryColumn(label: String, value: String, symbol: String?, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"))
+        WhfinFieldLabel(label)
+        WhfinAmount(value, symbol = symbol, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -578,10 +583,10 @@ private fun CurrencyAccountRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
+        WhfinAmount(
             formatMinor(item.balanceMinor, item.account.currency),
-            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-            fontWeight = FontWeight.SemiBold,
+            symbol = currencySymbol(item.account.currency),
+            style = MaterialTheme.typography.titleMedium,
         )
     }
 }

@@ -51,7 +51,8 @@ import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
-import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinStatusBarProtection
 import dev.whekin.whfin.data.db.AccountEntity
@@ -68,6 +69,7 @@ import dev.whekin.whfin.ui.feed.CategoryPickerSheet
 import dev.whekin.whfin.ui.feed.DebtPersonSheet
 import dev.whekin.whfin.ui.feed.AddTransactionSheet
 import dev.whekin.whfin.ui.feed.FeedViewModel
+import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
@@ -465,10 +467,11 @@ private fun AccountTransactionsScope(
                 }
             },
         )
-        WhfinSectionLabel(stringResource(R.string.account_transactions_balance))
-        Text(
+        WhfinFieldLabel(stringResource(R.string.account_transactions_balance))
+        WhfinAmount(
             formatMinor(balanceMinor, account.currency),
-            style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
+            symbol = currencySymbol(account.currency),
+            style = MaterialTheme.typography.headlineLarge,
         )
         if (accountRow != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

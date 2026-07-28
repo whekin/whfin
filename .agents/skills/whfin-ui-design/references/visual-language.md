@@ -26,7 +26,12 @@ The language may recall a well-kept ledger through alignment, hairlines, warm pa
 - **Oxide**: destructive action and errors; keep distinct from ordinary clay expense.
 - **Rule**: warm low-contrast divider; the main grouping device.
 
-Dark mode uses deep green-black canvas and mineral, desaturated surfaces. Preserve semantic contrast instead of mechanically inverting light colors.
+Dark mode uses a warm olive-umber canvas with mineral, desaturated surfaces: dark paper rather than neutral
+black, so cream ink and clay stay in the same family as the light theme. Preserve semantic contrast instead
+of mechanically inverting light colors.
+
+Category icons are outlined. Filled glyphs turn each row's marker into the loudest element and read as stock
+Material beneath a custom language.
 
 ## Typography
 
@@ -35,7 +40,12 @@ Dark mode uses deep green-black canvas and mineral, desaturated surfaces. Preser
 - Appearance may replace those editorial roles with `FontFamily.Default` for people who prefer their
   device font. Keep this choice persistent and global; do not mix both title families on one screen.
 - Use a neutral sans for controls, rows, forms, and long text.
-- Use tabular figures for every money amount and numeric summary.
+- Use tabular figures for every money amount and numeric summary. Money belongs to the editorial register,
+  not to the row's sans: the numeric column is the heart of a ledger and needs its own voice. Set the
+  currency symbol smaller and quieter than the digits so amounts align into a column.
+- Caps with measured tracking marks a landmark — a day header or a screen section. A field or subsection
+  label inside a block stays sentence case; when every block is shouted, the screen telegraphs.
+- A result may be closed by an accounting double rule. Ordinary separators stay single hairlines.
 - Keep transaction amounts and titles visually stronger than metadata, but smaller than screen totals.
 - Avoid all-caps paragraphs. Short ledger labels may use uppercase with measured tracking.
 - Let font scale grow; do not pin text to fixed-height containers.

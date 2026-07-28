@@ -56,7 +56,7 @@ import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinMotion
-import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
@@ -508,7 +508,11 @@ private fun minorInput(value: Long): String {
     NoteField(note, onNote)
 }
 
-@Composable private fun SectionLabel(text: String) = WhfinSectionLabel(text)
+/**
+ * Внутри формы подписи полей тихие: капс с трекингом остаётся ярлыком книги (день, раздел экрана).
+ * Раньше `КАТЕГОРИЯ`, `НАПРАВЛЕНИЕ`, `ЧЕЛОВЕК`, `ДВИЖЕНИЕ ДЕНЕГ` капсом шли подряд и телеграфировали.
+ */
+@Composable private fun SectionLabel(text: String) = WhfinFieldLabel(text)
 
 @Composable private fun SelectorRow(label: String, icon: ImageVector, tint: Color, onClick: () -> Unit, selected: Boolean = false) {
     WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = selected) {

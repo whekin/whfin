@@ -64,11 +64,15 @@ import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
+import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinTotalRule
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinStatusBarProtection
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.ui.CategoryIcons
+import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.text.NumberFormat
@@ -266,10 +270,11 @@ private fun MonthResult(data: AnalyticsData, onPreviousMonth: () -> Unit, onNext
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         MonthSelector(data.selectedMonth, onPreviousMonth, onNextMonth)
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            WhfinSectionLabel(stringResource(R.string.analytics_month_result))
-            Text(
+            WhfinFieldLabel(stringResource(R.string.analytics_month_result))
+            WhfinAmount(
                 formatMinor(data.deltaMinor, "GEL", withSign = true),
-                style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum"),
+                symbol = currencySymbol("GEL"),
+                style = MaterialTheme.typography.displayMedium,
                 color = if (data.deltaMinor >= 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
             )
             Text(
@@ -278,7 +283,8 @@ private fun MonthResult(data: AnalyticsData, onPreviousMonth: () -> Unit, onNext
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Итог месяца закрывается бухгалтерской двойной чертой, как и блок месяца в ленте.
+        WhfinTotalRule()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             AnalyticsMetric(
                 stringResource(R.string.summary_income),
@@ -335,11 +341,11 @@ private fun MonthSelector(
 private fun AnalyticsMetric(label: String, value: String, color: Color, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
+        WhfinAmount(
             value,
-            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+            symbol = currencySymbol("GEL"),
+            style = MaterialTheme.typography.titleLarge,
             color = color,
-            maxLines = 1,
         )
     }
 }
@@ -367,10 +373,11 @@ private fun SpendingPace(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    WhfinSectionLabel(stringResource(R.string.analytics_projected))
-                    Text(
+                    WhfinFieldLabel(stringResource(R.string.analytics_projected))
+                    WhfinAmount(
                         formatMinor(pace.projectedExpenseMinor, "GEL"),
-                        style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
+                        symbol = currencySymbol("GEL"),
+                        style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
                     Text(
@@ -491,17 +498,17 @@ private fun CategoryChangeRow(
                     Text(name, style = MaterialTheme.typography.titleMedium)
                     // Раздел уже подписан «Крупнейшие сдвиги категорий с прошлого месяца»,
                     // поэтому префикс «Изменение:» в каждой строке только удлинял её.
-                    Text(
+                    WhfinAmount(
                         formatMinor(change.deltaMinor, "GEL", withSign = true),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                        symbol = currencySymbol("GEL"),
+                        style = MaterialTheme.typography.bodySmall,
                         color = deltaColor,
                     )
                 }
-                Text(
+                WhfinAmount(
                     formatMinor(change.expenseMinor, "GEL"),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    symbol = currencySymbol("GEL"),
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             if (divider) HorizontalDivider(
@@ -618,10 +625,10 @@ private fun CategoryRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
+                WhfinAmount(
                     formatMinor(value.expenseMinor, "GEL"),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.SemiBold,
+                    symbol = currencySymbol("GEL"),
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             if (divider) HorizontalDivider(
@@ -678,10 +685,11 @@ private fun YearTrend(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
                         Text(monthTitle(selectedMonth), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
+                        WhfinAmount(
                             formatMinor(selectedValue, "GEL"),
+                            symbol = currencySymbol("GEL"),
                             modifier = Modifier.testTag("analytics-selected-trend-amount"),
-                            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+                            style = MaterialTheme.typography.titleLarge,
                         )
                     }
                     Text(
@@ -728,10 +736,11 @@ private fun UnaccountedSection(amountMinor: Long) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
+                WhfinAmount(
                     formatMinor(amountMinor, "GEL", withSign = true),
+                    symbol = currencySymbol("GEL"),
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.titleLarge,
                     textAlign = androidx.compose.ui.text.style.TextAlign.End,
                 )
             }
@@ -753,10 +762,10 @@ private fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(value.currency, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                    Text(
+                    WhfinAmount(
                         formatMinor(value.expenseMinor, value.currency),
-                        style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                        fontWeight = FontWeight.SemiBold,
+                        symbol = currencySymbol(value.currency),
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 if (index < values.lastIndex) HorizontalDivider(

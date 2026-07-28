@@ -1,66 +1,73 @@
 package dev.whekin.whfin.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Chair
-import androidx.compose.material.icons.filled.DeliveryDining
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.PedalBike
-import androidx.compose.material.icons.filled.Percent
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Subscriptions
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Terrain
-import androidx.compose.material.icons.filled.Work
-import androidx.compose.material.icons.filled.VolunteerActivism
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Chair
+import androidx.compose.material.icons.outlined.DeliveryDining
+import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.DirectionsBus
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.PedalBike
+import androidx.compose.material.icons.outlined.Percent
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.Subscriptions
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Terrain
+import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.VolunteerActivism
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/** Маппинг строкового имени иконки категории (в БД) на Material-иконку. */
+/**
+ * Маппинг строкового имени иконки категории (в БД) на Material-иконку.
+ *
+ * Набор намеренно outlined: залитые цветные фигуры были самым громким элементом ленты и читались
+ * как стандартный Material поверх собственного визуального языка. Контурные иконки живут в одной
+ * логике с hairline-линейками Quiet Ledger и оставляют цвет категории тихим акцентом.
+ * Имена в БД не меняются, поэтому переключение набора не требует миграции.
+ */
 object CategoryIcons {
 
     private val byName: Map<String, ImageVector> = mapOf(
-        "ShoppingCart" to Icons.Default.ShoppingCart,
-        "Restaurant" to Icons.Default.Restaurant,
-        "DeliveryDining" to Icons.Default.DeliveryDining,
-        "Home" to Icons.Default.Home,
-        "Bolt" to Icons.Default.Bolt,
-        "DirectionsBus" to Icons.Default.DirectionsBus,
-        "Subscriptions" to Icons.Default.Subscriptions,
-        "PedalBike" to Icons.Default.PedalBike,
-        "Terrain" to Icons.Default.Terrain,
-        "LocalShipping" to Icons.Default.LocalShipping,
-        "MedicalServices" to Icons.Default.MedicalServices,
-        "Devices" to Icons.Default.Devices,
-        "Chair" to Icons.Default.Chair,
-        "AccountBalance" to Icons.Default.AccountBalance,
-        "Savings" to Icons.Default.Savings,
-        "Category" to Icons.Default.Category,
-        "Payments" to Icons.Default.Payments,
-        "Work" to Icons.Default.Work,
-        "Sell" to Icons.Default.Sell,
-        "Percent" to Icons.Default.Percent,
-        "VolunteerActivism" to Icons.Default.VolunteerActivism,
-        "Favorite" to Icons.Default.Favorite,
-        "CardGiftcard" to Icons.Default.CardGiftcard,
-        "HelpOutline" to Icons.AutoMirrored.Filled.Help,
+        "ShoppingCart" to Icons.Outlined.ShoppingCart,
+        "Restaurant" to Icons.Outlined.Restaurant,
+        "DeliveryDining" to Icons.Outlined.DeliveryDining,
+        "Home" to Icons.Outlined.Home,
+        "Bolt" to Icons.Outlined.Bolt,
+        "DirectionsBus" to Icons.Outlined.DirectionsBus,
+        "Subscriptions" to Icons.Outlined.Subscriptions,
+        "PedalBike" to Icons.Outlined.PedalBike,
+        "Terrain" to Icons.Outlined.Terrain,
+        "LocalShipping" to Icons.Outlined.LocalShipping,
+        "MedicalServices" to Icons.Outlined.MedicalServices,
+        "Devices" to Icons.Outlined.Devices,
+        "Chair" to Icons.Outlined.Chair,
+        "AccountBalance" to Icons.Outlined.AccountBalance,
+        "Savings" to Icons.Outlined.Savings,
+        "Category" to Icons.Outlined.Category,
+        "Payments" to Icons.Outlined.Payments,
+        "Work" to Icons.Outlined.Work,
+        "Sell" to Icons.Outlined.Sell,
+        "Percent" to Icons.Outlined.Percent,
+        "VolunteerActivism" to Icons.Outlined.VolunteerActivism,
+        "Favorite" to Icons.Outlined.FavoriteBorder,
+        "CardGiftcard" to Icons.Outlined.CardGiftcard,
+        "HelpOutline" to Icons.AutoMirrored.Outlined.Help,
     )
 
     fun resolve(name: String?, isTransfer: Boolean = false): ImageVector = when {
-        isTransfer -> Icons.Default.SwapHoriz
-        name != null -> byName[name] ?: Icons.Default.Category
-        else -> Icons.Default.Category
+        isTransfer -> Icons.Outlined.SwapHoriz
+        name != null -> byName[name] ?: Icons.Outlined.Category
+        else -> Icons.Outlined.Category
     }
 }

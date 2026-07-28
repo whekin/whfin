@@ -14,6 +14,15 @@ fun parseToMinor(text: String): Long? {
         ?.takeIf { it != 0L }
 }
 
+/** Символ валюты, который [formatMinor] подставляет в строку; нужен для тихого набора символа. */
+fun currencySymbol(currency: String): String = when (currency.uppercase()) {
+    "GEL" -> "₾"
+    "USD" -> "$"
+    "EUR" -> "€"
+    "GBP" -> "£"
+    else -> currency
+}
+
 fun formatMinor(amountMinor: Long, currency: String, withSign: Boolean = false): String {
     val value = BigDecimal(amountMinor).movePointLeft(2).abs()
     val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
@@ -26,13 +35,7 @@ fun formatMinor(amountMinor: Long, currency: String, withSign: Boolean = false):
         else -> ""
     }
     val normalizedCurrency = currency.uppercase()
-    val symbol = when (normalizedCurrency) {
-        "GEL" -> "₾"
-        "USD" -> "$"
-        "EUR" -> "€"
-        "GBP" -> "£"
-        else -> currency
-    }
+    val symbol = currencySymbol(currency)
     val amount = formatter.format(value)
     return when (normalizedCurrency) {
         "USD", "GBP" -> "$sign$symbol$amount"

@@ -64,8 +64,15 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
@@ -631,6 +638,90 @@ fun WhfinSectionLabel(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.1.sp,
+    )
+}
+
+/**
+ * Подпись поля или подраздела. Отличается от [WhfinSectionLabel] намеренно: капс с трекингом —
+ * ярлык книги (день, раздел экрана), и когда им подписан каждый второй блок, экран начинает
+ * телеграфировать. Для служебных подписей внутри блока нужен тихий регистр.
+ */
+@Composable
+fun WhfinFieldLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        modifier,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Бухгалтерская итоговая черта: две тонкие линии под результатом. Типографский приём книги,
+ * а не имитация бумаги — одинарная линейка остаётся обычным разделителем.
+ */
+@Composable
+fun WhfinTotalRule(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * Денежная сумма в редакционном (серифном) регистре с табличными цифрами: числовой столбец
+ * получает собственный голос и не сливается с sans-текстом строки. Валютный символ набирается
+ * тише и мельче, чтобы цифры выстраивались в колонку.
+ *
+ * Форматирование остаётся в app-слое: сюда приходит готовая строка и символ, который нужно
+ * приглушить. Семантика цвета задаётся вызывающим.
+ */
+@Composable
+fun WhfinAmount(
+    text: String,
+    modifier: Modifier = Modifier,
+    symbol: String? = null,
+    style: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+    color: Color = Color.Unspecified,
+    /**
+     * Bundled Noto Serif имеет единственное начертание, поэтому по умолчанию вес нормальный:
+     * запрос SemiBold дал бы синтетический faux-bold. Присутствие суммы задаётся кеглем и цветом.
+     */
+    fontWeight: FontWeight = FontWeight.Normal,
+    maxLines: Int = 1,
+    textAlign: TextAlign? = null,
+) {
+    val resolved = color.takeOrElse { LocalContentColor.current }
+    // lastIndexOf: у валюты без своего знака символ — это код («1 000.00 AMD»), и такой же код
+    // может стоять подписью перед суммой. Тише набираем именно тот, что стоит при числе.
+    val symbolRange = symbol?.let { value ->
+        text.lastIndexOf(value).takeIf { it >= 0 }?.let { it..(it + value.length) }
+    }
+    val annotated = buildAnnotatedString {
+        append(text)
+        if (symbolRange != null) addStyle(
+            SpanStyle(
+                // Тише, но не бледнее необходимого: символ валюты остаётся читаемым,
+                // просто перестаёт спорить с цифрами за внимание.
+                fontSize = style.fontSize * .82f,
+                color = resolved.copy(alpha = .8f),
+            ),
+            symbolRange.first,
+            symbolRange.last,
+        )
+    }
+    Text(
+        annotated,
+        modifier,
+        // Редакционная гарнитура берётся из темы, поэтому `Device font` переключает и суммы.
+        style = style.copy(
+            fontFamily = MaterialTheme.typography.headlineSmall.fontFamily,
+            fontFeatureSettings = "tnum",
+        ),
+        color = resolved,
+        fontWeight = fontWeight,
+        maxLines = maxLines,
+        textAlign = textAlign,
     )
 }
 

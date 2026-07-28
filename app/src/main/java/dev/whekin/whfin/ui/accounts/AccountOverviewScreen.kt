@@ -37,12 +37,14 @@ import dev.whekin.whfin.core.ui.WhfinDistributionSegment
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
-import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.text.NumberFormat
@@ -129,10 +131,11 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
     ) {
         item(key = "net-worth") {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                WhfinSectionLabel(stringResource(R.string.account_overview_net_worth))
-                Text(
+                WhfinFieldLabel(stringResource(R.string.account_overview_net_worth))
+                WhfinAmount(
                     formatMinor(data.netWorthMinor, "GEL"),
-                    style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum"),
+                    symbol = currencySymbol("GEL"),
+                    style = MaterialTheme.typography.displayMedium,
                 )
             }
         }
@@ -208,10 +211,10 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                             WhfinLedgerRow(
                                 title = currency.currency,
                                 trailing = {
-                                    Text(
+                                    WhfinAmount(
                                         formatMinor(currency.balanceMinor, currency.currency),
-                                        style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                                        fontWeight = FontWeight.SemiBold,
+                                        symbol = currencySymbol(currency.currency),
+                                        style = MaterialTheme.typography.titleMedium,
                                     )
                                 },
                                 divider = index < data.otherCurrencies.lastIndex,
@@ -244,7 +247,8 @@ private fun OverviewMetricPair(
 private fun OverviewMetric(label: String, value: String, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"), maxLines = 1)
+        // Обзор считается только в основной валюте, поэтому символ здесь всегда GEL.
+        WhfinAmount(value, symbol = currencySymbol("GEL"), style = MaterialTheme.typography.titleLarge)
     }
 }
 
@@ -269,10 +273,10 @@ private fun SourceRow(source: AccountSourceShare, totalMinor: Long, color: Color
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
+        WhfinAmount(
             formatMinor(source.balanceMinor, "GEL"),
-            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-            fontWeight = FontWeight.SemiBold,
+            symbol = currencySymbol("GEL"),
+            style = MaterialTheme.typography.titleMedium,
         )
     }
 }
