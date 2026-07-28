@@ -99,6 +99,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
             val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = true)
+            val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
             val systemDark = isSystemInDarkTheme()
             val effectiveDark = when (appThemeMode) {
                 AppThemeMode.System -> systemDark
@@ -113,7 +114,11 @@ class MainActivity : FragmentActivity() {
                 )
                 window.isNavigationBarContrastEnforced = false
             }
-            WhfinTheme(themeMode = appThemeMode, dynamicColor = dynamicColorsEnabled) {
+            WhfinTheme(
+                themeMode = appThemeMode,
+                dynamicColor = dynamicColorsEnabled,
+                useSystemFont = useSystemFont,
+            ) {
                 val smsPermissionPromptDismissed: Boolean? by uiPreferences.smsPermissionPromptDismissed
                     .collectAsState(initial = null)
                 val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
@@ -170,11 +175,15 @@ class MainActivity : FragmentActivity() {
                         MainScreen(
                             appThemeMode = appThemeMode,
                             dynamicColorsEnabled = dynamicColorsEnabled,
+                            useSystemFont = useSystemFont,
                             onAppThemeModeChange = { mode ->
                                 scope.launch { uiPreferences.setAppThemeMode(mode) }
                             },
                             onDynamicColorsEnabledChange = { enabled ->
                                 scope.launch { uiPreferences.setDynamicColorsEnabled(enabled) }
+                            },
+                            onUseSystemFontChange = { enabled ->
+                                scope.launch { uiPreferences.setUseSystemFont(enabled) }
                             },
                             smsImportEnabled = smsImportEnabled == true && (configuredSmsCards ?: 0) > 0,
                             hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,

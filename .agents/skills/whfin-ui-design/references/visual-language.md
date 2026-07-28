@@ -30,7 +30,10 @@ Dark mode uses deep green-black canvas and mineral, desaturated surfaces. Preser
 
 ## Typography
 
-- Use an editorial serif only for screen titles, key totals, and rare section landmarks.
+- Use the bundled WHFIN editorial serif only for screen titles, key totals, and rare section landmarks.
+  It is the default so those product-defining roles do not change across OEMs.
+- Appearance may replace those editorial roles with `FontFamily.Default` for people who prefer their
+  device font. Keep this choice persistent and global; do not mix both title families on one screen.
 - Use a neutral sans for controls, rows, forms, and long text.
 - Use tabular figures for every money amount and numeric summary.
 - Keep transaction amounts and titles visually stronger than metadata, but smaller than screen totals.

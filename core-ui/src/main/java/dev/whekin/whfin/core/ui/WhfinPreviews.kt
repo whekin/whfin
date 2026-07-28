@@ -55,6 +55,32 @@ private fun WhfinDesignSystemPreview() {
     WhfinTheme { WhfinDesignSystemGallery() }
 }
 
+@Composable
+fun WhfinTypographyGallery() {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxWidth().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("All accounts", style = MaterialTheme.typography.headlineSmall)
+            Text("₾ 12,480", style = MaterialTheme.typography.displayMedium)
+            Text("Все счета · July 2026", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Preview(name = "Typography · WHFIN", widthDp = 400, heightDp = 180, showBackground = true)
+@Composable
+private fun WhfinTypographyPreview() {
+    WhfinTheme { WhfinTypographyGallery() }
+}
+
+@Preview(name = "Typography · device", widthDp = 400, heightDp = 180, showBackground = true)
+@Composable
+private fun SystemTypographyPreview() {
+    WhfinTheme(useSystemFont = true) { WhfinTypographyGallery() }
+}
+
 @Preview(name = "Back light", widthDp = 160, heightDp = 80, showBackground = true)
 @Preview(name = "Back dark", widthDp = 160, heightDp = 80, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Back font 1.5", widthDp = 200, heightDp = 96, fontScale = 1.5f, showBackground = true)

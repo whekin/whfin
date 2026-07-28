@@ -195,18 +195,22 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun appearanceControls_selectThemeAndToggleSystemColors() {
+    fun appearanceControls_selectThemeAndToggleOptions() {
         var selectedTheme = AppThemeMode.System
         var dynamicColors = true
+        var useSystemFont = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val description = context.getString(R.string.settings_dynamic_colors_toggle)
+        val dynamicColorsDescription = context.getString(R.string.settings_dynamic_colors_toggle)
+        val systemFontDescription = context.getString(R.string.settings_system_font_toggle)
         compose.setContent {
             WhfinTheme {
                 SettingsScreen(
                     appThemeMode = selectedTheme,
                     dynamicColorsEnabled = dynamicColors,
+                    useSystemFont = useSystemFont,
                     onAppThemeModeChange = { selectedTheme = it },
                     onDynamicColorsEnabledChange = { dynamicColors = it },
+                    onUseSystemFontChange = { useSystemFont = it },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -226,9 +230,11 @@ class SettingsScreenTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.settings_theme_dark)).performClick()
-        compose.onNodeWithContentDescription(description).performScrollTo().assertIsOn().performClick()
+        compose.onNodeWithContentDescription(dynamicColorsDescription).performScrollTo().assertIsOn().performClick()
+        compose.onNodeWithContentDescription(systemFontDescription).performScrollTo().assertIsOff().performClick()
         assertEquals(AppThemeMode.Dark, selectedTheme)
         assertFalse(dynamicColors)
+        assertTrue(useSystemFont)
     }
 
     @Test

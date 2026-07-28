@@ -106,6 +106,9 @@
     <string name="settings_dynamic_colors">Системные цвета</string>
     <string name="settings_dynamic_colors_body">Использовать палитру обоев в приложении. Виджет всегда использует системные цвета.</string>
     <string name="settings_dynamic_colors_toggle">Использовать системные цвета в приложении</string>
+    <string name="settings_system_font">Шрифт устройства</string>
+    <string name="settings_system_font_body">Для заголовков и крупных итогов — шрифт устройства вместо фирменного WHFIN</string>
+    <string name="settings_system_font_toggle">Использовать шрифт устройства</string>
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
     <string name="credo_sync_settings_summary">Войти один раз и импортировать выписки всех счетов</string>

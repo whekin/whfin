@@ -13,6 +13,7 @@ fun WhfinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     themeMode: AppThemeMode? = null,
     dynamicColor: Boolean = false,
+    useSystemFont: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val useDark = when (themeMode) {
@@ -27,6 +28,7 @@ fun WhfinTheme(
     dev.whekin.whfin.core.ui.WhfinTheme(
         darkTheme = useDark,
         colorScheme = dynamicScheme,
+        useSystemFont = useSystemFont,
         content = content,
     )
 }

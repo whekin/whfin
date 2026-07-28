@@ -88,6 +88,12 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[DynamicColorsEnabledKey] ?: true }
 
+    val useSystemFont: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[UseSystemFontKey] ?: false }
+
     suspend fun dismissSmsPermissionPrompt() {
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
     }
@@ -115,6 +121,10 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[DynamicColorsEnabledKey] = enabled }
     }
 
+    suspend fun setUseSystemFont(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[UseSystemFontKey] = enabled }
+    }
+
     private companion object {
         val SmsPermissionPromptDismissed = booleanPreferencesKey("sms_permission_prompt_dismissed")
         val SmsImportEnabled = booleanPreferencesKey("sms_import_enabled")
@@ -122,5 +132,6 @@ internal class UiPreferences(
         val BiometricUnlockEnabled = booleanPreferencesKey("biometric_unlock_enabled")
         val AppThemeModeKey = intPreferencesKey("app_theme_mode")
         val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
+        val UseSystemFontKey = booleanPreferencesKey("use_system_font")
     }
 }

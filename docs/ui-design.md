@@ -11,7 +11,7 @@ Material 3 remains the behavioral layer for accessibility, text fields, dialogs,
 The `:core-ui` Android library owns:
 
 - light/dark color roles and extended semantic colors;
-- typography with editorial headings and tabular money figures;
+- bundled Noto Serif typography for deterministic editorial headings and tabular money figures;
 - spacing, size, shape, and motion tokens;
 - primary/secondary/quiet/destructive actions, including a lower-emphasis outlined destructive variant;
 - contextual metric headers, icon actions, filters, ledger groups and rows;
@@ -47,7 +47,14 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Feed and Accounts open with a compact context header: the current GEL total anchors the left side and screen-specific actions occupy the right side. Feed exposes only search and one filter action; Settings remains discoverable from Accounts rather than competing with ledger work. The filter owns transaction type, multi-category selection and sort order in one fully expanded sheet, with draft changes applied explicitly. Quick filter chips are intentionally absent from the reading surface. Accounts exposes add, Account overview, and settings. The bar leaves the viewport while scrolling down and returns immediately on upward intent. During transaction selection it stays fixed; selecting only pending rows replaces the generic status action with a direct Confirm action. Every icon action remains a 48 dp touch target.
 
-Appearance separates brightness from palette. System/Light/Dark is persisted in DataStore and can override device brightness, while System colors independently applies Android 12+ wallpaper-derived Material roles to the app canvas, surfaces and semantic accents. Edge-to-edge system icon contrast follows the effective app brightness. The widget always uses the system Glance palette and exposes no competing WHFIN palette override.
+Appearance separates brightness, palette, and editorial typography. System/Light/Dark is persisted in
+DataStore and can override device brightness, while System colors independently applies Android 12+
+wallpaper-derived Material roles to the app canvas, surfaces and semantic accents. WHFIN bundles Noto
+Serif for consistent screen titles and large totals across OEMs; the independent Device font switch
+replaces those roles with Android's default family for people who prefer their system typography. Body,
+row, form, and control text remains neutral system sans in both modes. Edge-to-edge system icon contrast
+follows the effective app brightness. The widget always uses the system Glance palette and exposes no
+competing WHFIN palette override.
 
 Accounts and Account overview keep Room loading distinct from an empty ledger. Accounts publishes its
 account and debt rows as one ready snapshot; until that snapshot exists, the context total is a dash and the
@@ -134,6 +141,11 @@ The selectable year trend and its filtered ledger were additionally exercised en
 The dismissible Feed SMS proposal was rendered in dark mode and in light mode at font scale 1.5. Its close action was exercised through the accessibility node, the app was force-stopped and relaunched to verify persistent dismissal, and Settings was reopened to confirm that SMS permission remains available there.
 
 The Settings SMS switch was rendered enabled, disabled, and permission-blocked; its state persisted through process restart, and the disabled state removed the Feed proposal. Re-enabling launched the Android permission dialog, while disabling after permission grant kept the OS grant intact. Final Settings renders were inspected in RU light mode, EN dark mode, and EN at font scale 1.5.
+
+The editorial typography contract was rendered as paired Compose screenshot references: bundled WHFIN
+serif and Android device font. The Appearance switch defaults to the bundled family, updates the whole
+composition immediately, persists in DataStore, and was checked in Settings in light/dark and at font
+scale 1.5 before an in-place OnePlus upgrade.
 
 Backup & export uses one primary export action and an outlined destructive restore action so the rare
 replacement flow cannot compete visually with routine backup. The screen permanently warns that JSON

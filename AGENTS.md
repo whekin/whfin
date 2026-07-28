@@ -188,6 +188,11 @@
   `WhfinActionMenu` на screen canvas без tonal overlay, поэтому overflow не выглядит чужим Material-окном.
   На полноэкранном ledger долгов текстовая кнопка `New debt` убрана из шапки: создание открывается
   компактным 48dp `+`, а пустое состояние повторяет действие явной текстовой кнопкой.
+  Редакционные заголовки и крупные итоги используют bundled Noto Serif, поэтому их рисунок больше
+  не зависит от OEM-подстановки generic serif. В Settings → Appearance есть отдельный persistent
+  `Device font`: он глобально возвращает заголовки/итоги к предпочитаемой Android-гарнитуре, не меняя
+  нейтральный sans основного текста. Оба режима закреплены Compose screenshot references; лицензия
+  хранится в `docs/licenses/NotoSerif-OFL.txt`.
   Физический телефон пользователя считать data-bearing production-like устройством: только
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
@@ -353,7 +358,8 @@
   и обе backup rules.
   Author `whekin` открывает `github.com/whekin`; пять нажатий на Version раскрывают локальную пасхалку
   с persistent device-local переключателем Developer mode и отдельной экспериментальной секцией Settings.
-  Appearance хранит в DataStore независимые System/Light/Dark и wallpaper-derived System colors;
+  Appearance хранит в DataStore независимые System/Light/Dark, wallpaper-derived System colors и
+  Device font для отказа от bundled editorial serif;
   выбранная тема сразу синхронизирует фон приложения и контраст edge-to-edge системных панелей.
   До публичного релиза остаются public policy URL/contact, полные third-party notices,
   encrypted backup option, signing, Play Data safety + SMS declaration и release QA. Детали:

@@ -36,6 +36,20 @@ fun galleryLargeFontScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "typography_whfin", widthDp = 400, heightDp = 180)
+@Composable
+fun typographyWhfinScreenshot() {
+    WhfinTheme(darkTheme = false) { WhfinTypographyGallery() }
+}
+
+@PreviewTest
+@Preview(name = "typography_device", widthDp = 400, heightDp = 180)
+@Composable
+fun typographyDeviceScreenshot() {
+    WhfinTheme(darkTheme = false, useSystemFont = true) { WhfinTypographyGallery() }
+}
+
+@PreviewTest
 @Preview(name = "monthly_chart_light", widthDp = 400, heightDp = 230)
 @Composable
 fun monthlyChartLightScreenshot() {

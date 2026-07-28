@@ -87,7 +87,7 @@ class UiPreferencesTest {
     }
 
     @Test
-    fun appearance_defaultsToSystemAndPersistsThemeAndDynamicColors() = runBlocking {
+    fun appearance_defaultsAndPersistsThemeColorsAndFont() = runBlocking {
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
@@ -96,10 +96,13 @@ class UiPreferencesTest {
         try {
             assertEquals(AppThemeMode.System, preferences.appThemeMode.first())
             assertTrue(preferences.dynamicColorsEnabled.first())
+            assertFalse(preferences.useSystemFont.first())
             preferences.setAppThemeMode(AppThemeMode.Dark)
             preferences.setDynamicColorsEnabled(false)
+            preferences.setUseSystemFont(true)
             assertEquals(AppThemeMode.Dark, preferences.appThemeMode.first())
             assertFalse(preferences.dynamicColorsEnabled.first())
+            assertTrue(preferences.useSystemFont.first())
         } finally {
             scope.cancel()
             file.delete()

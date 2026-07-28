@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,15 +97,18 @@ private val WhfinShapes = Shapes(
     extraLarge = RoundedCornerShape(24.dp),
 )
 
-private val Serif = FontFamily.Serif
+private val WhfinSerif = FontFamily(
+    Font(R.font.noto_serif, weight = FontWeight.Normal),
+)
+private val SystemFont = FontFamily.Default
 private val Sans = FontFamily.SansSerif
-private val WhfinTypography = Typography(
-    displayLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-1.2).sp, fontFeatureSettings = "tnum"),
-    displayMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-.7).sp, fontFeatureSettings = "tnum"),
-    displaySmall = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 37.sp, fontFeatureSettings = "tnum"),
-    headlineLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 34.sp, lineHeight = 39.sp, letterSpacing = (-.35).sp),
-    headlineMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
-    headlineSmall = TextStyle(fontFamily = Serif, fontWeight = FontWeight.Normal, fontSize = 23.sp, lineHeight = 29.sp),
+private fun whfinTypography(editorialFont: FontFamily) = Typography(
+    displayLarge = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-1.2).sp, fontFeatureSettings = "tnum"),
+    displayMedium = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-.7).sp, fontFeatureSettings = "tnum"),
+    displaySmall = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 37.sp, fontFeatureSettings = "tnum"),
+    headlineLarge = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 34.sp, lineHeight = 39.sp, letterSpacing = (-.35).sp),
+    headlineMedium = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
+    headlineSmall = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 23.sp, lineHeight = 29.sp),
     titleLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
     titleMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 21.sp),
     titleSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp),
@@ -115,11 +119,14 @@ private val WhfinTypography = Typography(
     labelMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 17.sp, letterSpacing = .25.sp),
     labelSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = .2.sp),
 )
+private val WhfinTypography = whfinTypography(WhfinSerif)
+private val SystemTypography = whfinTypography(SystemFont)
 
 @Composable
 fun WhfinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     colorScheme: ColorScheme? = null,
+    useSystemFont: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val scheme = colorScheme ?: if (darkTheme) WhfinDarkColorScheme else WhfinLightColorScheme
@@ -157,7 +164,7 @@ fun WhfinTheme(
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            typography = WhfinTypography,
+            typography = if (useSystemFont) SystemTypography else WhfinTypography,
             shapes = WhfinShapes,
             content = content,
         )

@@ -9,6 +9,7 @@ This checklist tracks the difference between a good prototype and a build safe t
 - [x] Author, independent-project context and restrained "made with love" attribution are visible.
 - [x] In-app copy accurately distinguishes local processing from Android's encrypted system backup.
 - [x] A source privacy policy exists in `docs/privacy-policy.md`.
+- [x] The bundled Noto Serif license text is tracked at `docs/licenses/NotoSerif-OFL.txt`.
 - [ ] Publish the privacy policy at a stable HTTPS URL and add a real developer support contact.
 - [ ] Add complete generated third-party notices before external distribution; the current About copy
   is a summary, not a substitute for licence texts.

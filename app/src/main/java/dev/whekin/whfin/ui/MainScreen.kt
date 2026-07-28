@@ -111,8 +111,10 @@ private enum class ShellScene(val depth: Int) {
 fun MainScreen(
     appThemeMode: AppThemeMode,
     dynamicColorsEnabled: Boolean,
+    useSystemFont: Boolean,
     onAppThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorsEnabledChange: (Boolean) -> Unit,
+    onUseSystemFontChange: (Boolean) -> Unit,
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean,
     hasSmsPermission: Boolean,
@@ -268,8 +270,10 @@ fun MainScreen(
                         SettingsScreen(
                             appThemeMode = appThemeMode,
                             dynamicColorsEnabled = dynamicColorsEnabled,
+                            useSystemFont = useSystemFont,
                             onAppThemeModeChange = onAppThemeModeChange,
                             onDynamicColorsEnabledChange = onDynamicColorsEnabledChange,
+                            onUseSystemFontChange = onUseSystemFontChange,
                             smsImportEnabled = smsImportEnabled,
                             hasSmsCardMapping = hasSmsCardMapping,
                             hasSmsPermission = hasSmsPermission,

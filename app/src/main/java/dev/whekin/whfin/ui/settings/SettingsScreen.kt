@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
@@ -53,8 +54,10 @@ import dev.whekin.whfin.data.preferences.AppThemeMode
 fun SettingsScreen(
     appThemeMode: AppThemeMode = AppThemeMode.System,
     dynamicColorsEnabled: Boolean = true,
+    useSystemFont: Boolean = false,
     onAppThemeModeChange: (AppThemeMode) -> Unit = {},
     onDynamicColorsEnabledChange: (Boolean) -> Unit = {},
+    onUseSystemFontChange: (Boolean) -> Unit = {},
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean = true,
     hasSmsPermission: Boolean,
@@ -147,6 +150,20 @@ fun SettingsScreen(
                         checked = dynamicColorsEnabled,
                         onCheckedChange = onDynamicColorsEnabledChange,
                         contentDescription = stringResource(R.string.settings_dynamic_colors_toggle),
+                    )
+                },
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.settings_system_font),
+                supportingText = stringResource(R.string.settings_system_font_body),
+                supportingMaxLines = 3,
+                icon = Icons.Default.TextFields,
+                trailing = {
+                    WhfinSwitch(
+                        checked = useSystemFont,
+                        onCheckedChange = onUseSystemFontChange,
+                        contentDescription = stringResource(R.string.settings_system_font_toggle),
                     )
                 },
             )
