@@ -5,6 +5,21 @@
 После каждой завершённой и проверенной итерации сразу создавать git-коммит, если пользователь явно
 не попросил оставить изменения незакоммиченными.
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `whekin/whfin`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five-role triage vocabulary is used. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository with root domain documentation and system-wide ADRs. See
+`docs/agents/domain.md`.
+
 ## Статус (обновлять после каждого этапа!)
 
 - [x] Спека собрана из обсуждения (SPEC.md)
