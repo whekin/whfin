@@ -51,7 +51,7 @@ This is a single-context repository with root domain documentation and system-wi
 - [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
-  choose account/error. Settings → SMS diagnostics показывает каждый исход; неизвестную карту или
+  choose account/error. Settings → Bank SMS показывает каждый исход; неизвестную карту или
   неоднозначный перевод можно привязать к валютному ledger и повторить import. Отдельный `READ_SMS`
   flow проверяет не более 500 Credo-кандидатов за 90 дней: сначала dry-run, запись только после
   подтверждения; исходный текст отдельного результата можно прочитать из Android inbox по запросу,
@@ -63,7 +63,7 @@ This is a single-context repository with root domain documentation and system-wi
   importer/backup tests, light/dark/font 1.5 и реальный injected-SMS path проверены на disposable Pixel.
   SMS monitoring по умолчанию выключен, но теперь включается до настройки карт: receiver сохраняет
   structured outcome каждого Credo-кандидата, а отсутствие routing оставляет его вне ledger вместо
-  потери сообщения. Привязками можно управлять постоянно из SMS diagnostics, ввод строго состоит из
+  потери сообщения. Привязками можно управлять постоянно из Bank SMS, ввод строго состоит из
   четырёх цифр. Карта моделируется как
   physical/virtual PaymentInstrument и связывается со всеми валютными ledger одного bank + IBAN;
   валюта конкретного SMS выбирает нужный ledger уже при импорте.
@@ -88,8 +88,12 @@ This is a single-context repository with root domain documentation and system-wi
   импорт выписки также автоматически забирает сильное совпадение из Unrouted. Проверено 11 importer
   instrumentation tests и synthetic currency exchange → Feed → grouped resolver на disposable Pixel
   при RU + dark + font 1.5.
-  Следом пользовательский экран становится Bank SMS вместо diagnostics.
-  После этого добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
+  Пользовательский экран перестроен из diagnostics в Bank SMS: сначала monitoring с одним прямым
+  действием, затем Needs action, Recent activity, Cards & accounts и необязательный history scan.
+  Grouped unresolved возвращает в contextual Feed resolver, а карты добавляются компактной строкой,
+  не блокируя весь экран. Compose tests и реальный RU + dark + font 1.5 render проверены на disposable
+  Pixel.
+  Следом добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
   workspace без глобального switch. Контракт: `CONTEXT.md`,
   `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,
   `docs/first-run-demo-and-bank-sms.md`.

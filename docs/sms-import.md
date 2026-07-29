@@ -18,7 +18,7 @@ dropping the message.
   on a complete route.
 - A mapping is the exact four digits printed after the masked Credo card number plus its physical or
   virtual card type. The card is linked to every currency ledger under the selected bank + IBAN;
-  the currency parsed from each SMS chooses the ledger at import time. Settings → SMS diagnostics is
+  the currency parsed from each SMS chooses the ledger at import time. Settings → Bank SMS is
   the permanent place to add another card; resolving a “Needs card mapping” outcome saves the same rule.
 - Any imported pending transaction exposes an explicit status action in transaction details. A selection
   containing only pending rows gets a direct Confirm action in the pinned selection bar. Marking it
@@ -40,7 +40,10 @@ implementation order: `docs/first-run-demo-and-bank-sms.md`.
 
 ## Product behavior
 
-SMS diagnostics is a local audit surface, not an inbox replacement and not analytics.
+Bank SMS is a local operations workspace, not an inbox replacement and not analytics. Its hierarchy is
+monitoring status, items that need action, recent processing activity, card/account routes, and the
+optional bounded history scan. Parser diagnostics remain available as details of an individual result,
+without defining the user-facing destination.
 
 Each candidate message gets exactly one visible outcome:
 
@@ -114,7 +117,8 @@ Grouped own-account transfers and currency conversions stay one provisional Feed
 selects different `from`/`to` ledgers in the same bank group, can add a missing Credo currency ledger
 without leaving the sheet, and creates a normal `TRANSFER` or `CONVERSION` group plus both signed legs
 inside one Room transaction. The generic one-account resolution path rejects grouped diagnostics, so
-neither an older diagnostics surface nor a partial choice can create a one-legged transfer.
+neither a legacy one-account route nor a partial choice can create a one-legged transfer. Bank SMS sends
+grouped unresolved items back to their contextual Feed resolver.
 
 ## Verification order
 

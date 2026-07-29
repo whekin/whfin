@@ -316,8 +316,25 @@ fun MainScreen(
                             appVersion = portableAppVersion,
                             smsImportEnabled = smsImportEnabled,
                             hasReceivePermission = hasSmsPermission,
+                            canRequestReceivePermission = canRequestSmsPermission,
                             hasHistoryPermission = hasSmsHistoryPermission,
                             canRequestHistoryPermission = canRequestSmsHistoryPermission,
+                            onEnableMonitoring = {
+                                onSmsImportEnabledChange(true)
+                                if (!hasSmsPermission) {
+                                    if (canRequestSmsPermission) {
+                                        onRequestSmsPermission()
+                                    } else {
+                                        onOpenSystemSettings()
+                                    }
+                                }
+                            },
+                            onRequestReceivePermission = onRequestSmsPermission,
+                            onOpenFeed = {
+                                haptics.performHapticFeedback(WhfinHaptics.navigation)
+                                tab = 0
+                                secondaryDestination = null
+                            },
                             onRequestHistoryPermission = onRequestSmsHistoryPermission,
                             onOpenSystemSettings = onOpenSystemSettings,
                         )

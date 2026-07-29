@@ -18,9 +18,9 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
@@ -95,8 +95,12 @@ fun SmsDiagnosticsRoute(
     appVersion: String,
     smsImportEnabled: Boolean,
     hasReceivePermission: Boolean,
+    canRequestReceivePermission: Boolean,
     hasHistoryPermission: Boolean,
     canRequestHistoryPermission: Boolean,
+    onEnableMonitoring: () -> Unit,
+    onRequestReceivePermission: () -> Unit,
+    onOpenFeed: () -> Unit,
     onRequestHistoryPermission: () -> Unit,
     onOpenSystemSettings: () -> Unit,
     viewModel: SmsDiagnosticsViewModel = viewModel(),
@@ -142,8 +146,13 @@ fun SmsDiagnosticsRoute(
         shareMessageState = shareMessageState,
         smsImportEnabled = smsImportEnabled,
         hasReceivePermission = hasReceivePermission,
+        canRequestReceivePermission = canRequestReceivePermission,
         hasHistoryPermission = hasHistoryPermission,
         canRequestHistoryPermission = canRequestHistoryPermission,
+        onEnableMonitoring = onEnableMonitoring,
+        onRequestReceivePermission = onRequestReceivePermission,
+        onOpenSystemSettings = onOpenSystemSettings,
+        onOpenFeed = onOpenFeed,
         onScanHistory = {
             if (hasHistoryPermission) viewModel.scanHistory() else {
                 scanAfterPermission = true
@@ -192,8 +201,13 @@ internal fun SmsDiagnosticsScreen(
     shareMessageState: SmsShareMessageState = SmsShareMessageState.Hidden,
     smsImportEnabled: Boolean,
     hasReceivePermission: Boolean,
+    canRequestReceivePermission: Boolean = true,
     hasHistoryPermission: Boolean,
     canRequestHistoryPermission: Boolean,
+    onEnableMonitoring: () -> Unit = {},
+    onRequestReceivePermission: () -> Unit = {},
+    onOpenSystemSettings: () -> Unit = {},
+    onOpenFeed: () -> Unit = {},
     onScanHistory: () -> Unit,
     onConfirmHistoryImport: () -> Unit,
     onCancelHistoryImport: () -> Unit,
@@ -234,27 +248,13 @@ internal fun SmsDiagnosticsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item("monitoring") {
-            MonitoringNotice(smsImportEnabled, hasReceivePermission)
-        }
-        if (content != null) {
-            item("card-mappings-label") {
-                WhfinSectionLabel(stringResource(R.string.sms_card_mappings_title))
-            }
-            item("card-mappings") {
-                CardMappings(
-                    mappings = content.cardMappings,
-                    onAdd = { showAddCard = true },
-                )
-            }
-        }
-        item("history") {
-            HistoryControl(
-                state = scanState,
-                hasHistoryPermission = hasHistoryPermission,
-                canRequestHistoryPermission = canRequestHistoryPermission,
-                onScan = onScanHistory,
-                onConfirm = onConfirmHistoryImport,
-                onCancel = onCancelHistoryImport,
+            MonitoringNotice(
+                enabled = smsImportEnabled,
+                hasPermission = hasReceivePermission,
+                canRequestPermission = canRequestReceivePermission,
+                onEnable = onEnableMonitoring,
+                onRequestPermission = onRequestReceivePermission,
+                onOpenSystemSettings = onOpenSystemSettings,
             )
         }
         when (loadState) {
@@ -293,6 +293,7 @@ internal fun SmsDiagnosticsScreen(
                         DiagnosticGroup(
                             items = attention,
                             onResolve = { selectedDiagnosticId = it.id },
+                            onOpenFeed = onOpenFeed,
                             onViewMessage = onViewMessage,
                             onShareProblem = { diagnostic ->
                                 onDismissShareMessage()
@@ -305,20 +306,46 @@ internal fun SmsDiagnosticsScreen(
                 }
                 if (recent.isNotEmpty()) {
                     item("recent-label") { WhfinSectionLabel(stringResource(R.string.sms_diagnostics_recent)) }
-                    items(recent, key = { "diagnostic-${it.id}" }) { item ->
-                        DiagnosticRow(
-                            item,
-                            onViewMessage = { onViewMessage(item) },
-                            onShareProblem = {
+                    item("recent-group") {
+                        DiagnosticGroup(
+                            items = recent.take(20),
+                            onResolve = { selectedDiagnosticId = it.id },
+                            onOpenFeed = onOpenFeed,
+                            onViewMessage = onViewMessage,
+                            onShareProblem = { diagnostic ->
                                 onDismissShareMessage()
-                                shareDiagnosticId = item.id
-                                shareText = SmsProblemReport.redacted(appVersion, item)
+                                shareDiagnosticId = diagnostic.id
+                                shareText = SmsProblemReport.redacted(appVersion, diagnostic)
                                 shareIncludesOriginal = false
                             },
                         )
                     }
                 }
             }
+        }
+        if (content != null) {
+            item("card-mappings-label") {
+                WhfinSectionLabel(stringResource(R.string.sms_card_mappings_title))
+            }
+            item("card-mappings") {
+                CardMappings(
+                    mappings = content.cardMappings,
+                    onAdd = { showAddCard = true },
+                )
+            }
+        }
+        item("history-label") {
+            WhfinSectionLabel(stringResource(R.string.sms_history_section))
+        }
+        item("history") {
+            HistoryControl(
+                state = scanState,
+                hasHistoryPermission = hasHistoryPermission,
+                canRequestHistoryPermission = canRequestHistoryPermission,
+                onScan = onScanHistory,
+                onConfirm = onConfirmHistoryImport,
+                onCancel = onCancelHistoryImport,
+            )
         }
     }
 
@@ -399,45 +426,48 @@ private fun CardMappings(
     onAdd: () -> Unit,
 ) {
     if (mappings.isEmpty()) {
-        WhfinNotice(
-            title = stringResource(R.string.sms_card_required_title),
-            body = stringResource(R.string.sms_card_required_body),
-            icon = Icons.Default.CreditCard,
-            kind = WhfinNoticeKind.Attention,
-            actionLabel = stringResource(R.string.sms_add_card_action),
-            onAction = onAdd,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    } else {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                mappings.forEachIndexed { index, mapping ->
-                    WhfinLedgerRow(
-                        title = stringResource(R.string.sms_card_suffix, mapping.instrument.last4),
-                        supportingText = listOf(
-                            mapping.family.groupName,
-                            listOfNotNull(
-                                mapping.family.iban?.takeLast(4)?.let { "••$it" },
-                                mapping.family.currencies.joinToString("/"),
-                            ).joinToString(" · "),
-                            stringResource(
-                                if (mapping.instrument.type == PaymentInstrumentType.VIRTUAL_CARD) {
-                                    R.string.sms_card_virtual
-                                } else {
-                                    R.string.sms_card_physical
-                                },
-                            ),
-                        ).joinToString(" · "),
-                        icon = Icons.Default.CreditCard,
-                        divider = index != mappings.lastIndex,
-                    )
-                }
-            }
-            WhfinButton(
-                label = stringResource(R.string.sms_add_another_card_action),
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.sms_card_required_title),
+                supportingText = stringResource(R.string.sms_card_required_compact_body),
+                supportingMaxLines = 3,
+                icon = Icons.Default.CreditCard,
+                trailing = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
                 onClick = onAdd,
-                style = WhfinActionStyle.Secondary,
-                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    } else {
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            mappings.forEach { mapping ->
+                WhfinLedgerRow(
+                    title = stringResource(R.string.sms_card_suffix, mapping.instrument.last4),
+                    supportingText = listOf(
+                        mapping.family.groupName,
+                        listOfNotNull(
+                            mapping.family.iban?.takeLast(4)?.let { "••$it" },
+                            mapping.family.currencies.joinToString("/"),
+                        ).joinToString(" · "),
+                        stringResource(
+                            if (mapping.instrument.type == PaymentInstrumentType.VIRTUAL_CARD) {
+                                R.string.sms_card_virtual
+                            } else {
+                                R.string.sms_card_physical
+                            },
+                        ),
+                    ).joinToString(" · "),
+                    icon = Icons.Default.CreditCard,
+                    divider = true,
+                )
+            }
+            WhfinLedgerRow(
+                title = stringResource(R.string.sms_add_another_card_action),
+                icon = Icons.Default.AddCard,
+                trailing = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                onClick = onAdd,
             )
         }
     }
@@ -528,7 +558,14 @@ private fun AddCardMappingSheet(
 }
 
 @Composable
-private fun MonitoringNotice(enabled: Boolean, hasPermission: Boolean) {
+private fun MonitoringNotice(
+    enabled: Boolean,
+    hasPermission: Boolean,
+    canRequestPermission: Boolean,
+    onEnable: () -> Unit,
+    onRequestPermission: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+) {
     val (title, body, kind) = when {
         !enabled -> Triple(
             stringResource(R.string.sms_monitoring_off),
@@ -551,6 +588,18 @@ private fun MonitoringNotice(enabled: Boolean, hasPermission: Boolean) {
         body = body,
         icon = Icons.Default.MarkEmailRead,
         kind = kind,
+        actionLabel = when {
+            !enabled -> stringResource(R.string.sms_monitoring_enable_action)
+            !hasPermission -> stringResource(
+                if (canRequestPermission) R.string.permission_allow else R.string.permission_open_settings,
+            )
+            else -> null
+        },
+        onAction = when {
+            !enabled -> onEnable
+            !hasPermission -> if (canRequestPermission) onRequestPermission else onOpenSystemSettings
+            else -> null
+        },
         modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -565,21 +614,24 @@ private fun HistoryControl(
     onCancel: () -> Unit,
 ) {
     when (state) {
-        SmsScanState.Idle -> WhfinNotice(
-            title = stringResource(R.string.sms_history_title),
-            body = stringResource(R.string.sms_history_body),
-            icon = Icons.Default.History,
-            kind = if (hasHistoryPermission) WhfinNoticeKind.Info else WhfinNoticeKind.Attention,
-            actionLabel = if (!hasHistoryPermission && !canRequestHistoryPermission) {
-                stringResource(R.string.permission_open_settings)
-            } else if (!hasHistoryPermission) {
-                stringResource(R.string.sms_read_permission)
-            } else {
-                stringResource(R.string.sms_history_action)
-            },
-            onAction = onScan,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        SmsScanState.Idle -> WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.sms_history_title),
+                supportingText = stringResource(
+                    if (hasHistoryPermission) {
+                        R.string.sms_history_compact_body
+                    } else {
+                        R.string.sms_history_permission_compact_body
+                    },
+                ),
+                supportingMaxLines = 3,
+                icon = Icons.Default.History,
+                trailing = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                onClick = onScan,
+            )
+        }
         SmsScanState.Scanning, SmsScanState.Importing -> WhfinNotice(
             title = stringResource(R.string.sms_history_title),
             body = stringResource(
@@ -637,6 +689,7 @@ private fun HistoryControl(
 private fun DiagnosticGroup(
     items: List<SmsDiagnosticEntity>,
     onResolve: (SmsDiagnosticEntity) -> Unit,
+    onOpenFeed: () -> Unit,
     onViewMessage: (SmsDiagnosticEntity) -> Unit,
     onShareProblem: (SmsDiagnosticEntity) -> Unit,
 ) {
@@ -648,11 +701,22 @@ private fun DiagnosticGroup(
             ) &&
                 item.kind != SmsDiagnosticKind.OWN_TRANSFER &&
                 item.kind != SmsDiagnosticKind.CURRENCY_EXCHANGE
+            val grouped = item.kind == SmsDiagnosticKind.OWN_TRANSFER ||
+                item.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
             DiagnosticRow(
                 item,
                 onViewMessage = { onViewMessage(item) },
                 onShareProblem = { onShareProblem(item) },
-                onResolve = if (canResolve) {{ onResolve(item) }} else null,
+                onResolve = when {
+                    canResolve -> { { onResolve(item) } }
+                    grouped && item.needsAttention() -> onOpenFeed
+                    else -> null
+                },
+                resolveContentDescription = if (grouped) {
+                    stringResource(R.string.sms_resolve_in_feed_action)
+                } else {
+                    stringResource(R.string.sms_link_action)
+                },
                 divider = index != items.lastIndex,
             )
         }
@@ -665,6 +729,7 @@ private fun DiagnosticRow(
     onViewMessage: () -> Unit,
     onShareProblem: (() -> Unit)? = null,
     onResolve: (() -> Unit)? = null,
+    resolveContentDescription: String = "",
     divider: Boolean = false,
 ) {
     val presentation = diagnosticPresentation(item)
@@ -709,7 +774,7 @@ private fun DiagnosticRow(
                 }
                 if (onResolve != null) WhfinIconButton(
                     icon = Icons.Default.Link,
-                    contentDescription = stringResource(R.string.sms_link_action),
+                    contentDescription = resolveContentDescription,
                     onClick = onResolve,
                     outlined = false,
                 )
@@ -1049,10 +1114,10 @@ private val previewDiagnostics = listOf(
     ),
 )
 
-@Preview(name = "SMS diagnostics light", widthDp = 400, heightDp = 850, showBackground = true)
-@Preview(name = "SMS diagnostics dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "SMS diagnostics font 1.5", widthDp = 400, heightDp = 950, fontScale = 1.5f, showBackground = true)
-@Preview(name = "SMS diagnostics compact", widthDp = 400, heightDp = 500, showBackground = true)
+@Preview(name = "Bank SMS light", widthDp = 400, heightDp = 850, showBackground = true)
+@Preview(name = "Bank SMS dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Bank SMS font 1.5", widthDp = 400, heightDp = 950, fontScale = 1.5f, showBackground = true)
+@Preview(name = "Bank SMS compact", widthDp = 400, heightDp = 500, showBackground = true)
 @Composable
 private fun SmsDiagnosticsPreview() {
     WhfinTheme {
@@ -1108,8 +1173,8 @@ private fun SmsDiagnosticsPreview() {
     }
 }
 
-@Preview(name = "SMS diagnostics empty", widthDp = 400, heightDp = 700, showBackground = true)
-@Preview(name = "SMS diagnostics unavailable", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(name = "Bank SMS empty", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(name = "Bank SMS unavailable", widthDp = 400, heightDp = 700, showBackground = true)
 @Composable
 private fun SmsDiagnosticsEmptyPreview() {
     WhfinTheme {

@@ -66,7 +66,7 @@ class SmsDiagnosticsScreenTest {
             }
         }
 
-        val historyAction = context.getString(R.string.sms_read_permission)
+        val historyAction = context.getString(R.string.sms_history_title)
         compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(historyAction))
         compose.onNodeWithText(historyAction).performClick()
         assertTrue(requested)
@@ -246,13 +246,92 @@ class SmsDiagnosticsScreenTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.sms_add_card_action)).performClick()
+        compose.onNodeWithText(context.getString(R.string.sms_card_required_title)).performClick()
         compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label)).performTextInput("25")
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).assertIsNotEnabled()
         compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label)).performTextInput("33")
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).performClick()
 
         assertEquals(Triple(11L, "2533", PaymentInstrumentType.PHYSICAL_CARD), saved)
+    }
+
+    @Test
+    fun monitoringOff_hasOneDirectEnableAction() {
+        var enabled = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData()),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = false,
+                    hasReceivePermission = false,
+                    hasHistoryPermission = false,
+                    canRequestHistoryPermission = true,
+                    onEnableMonitoring = { enabled = true },
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_monitoring_enable_action)).performClick()
+        compose.runOnIdle { assertTrue(enabled) }
+    }
+
+    @Test
+    fun groupedAttention_routesBackToFeedInsteadOfOneAccountSheet() {
+        var openedFeed = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(
+            id = 18,
+            externalKey = "sms|grouped",
+            kind = SmsDiagnosticKind.CURRENCY_EXCHANGE,
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            reason = SmsDiagnosticReason.NO_ACCOUNT,
+            receivedAt = 1_000,
+            occurredAt = 1_000,
+            amountMinor = 5_000,
+            currency = "GEL",
+            secondaryAmountMinor = 1_800,
+            secondaryCurrency = "USD",
+            updatedAt = 1_000,
+        )
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(diagnostics = listOf(diagnostic)),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onOpenFeed = { openedFeed = true },
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> error("Grouped SMS cannot use one-account routing") },
+                    onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        val action = context.getString(R.string.sms_resolve_in_feed_action)
+        compose.onNodeWithTag("sms-diagnostics-list")
+            .performScrollToNode(hasContentDescription(action))
+        compose.onNodeWithContentDescription(action).performClick()
+        compose.runOnIdle { assertTrue(openedFeed) }
     }
 
     @Test
