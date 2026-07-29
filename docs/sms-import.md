@@ -33,6 +33,11 @@ Parser-failure sharing is explicit and local. The first editor payload contains 
 the structured outcome, but no original message or parsed private fields. Android Sharesheet opens only
 after the user reviews that payload and presses Share; there is no automatic telemetry or upload.
 
+The bullets above describe the current shipped gate. The accepted next slice separates SMS monitoring,
+routing, and import: monitoring may retain a structured Unrouted operation before any card mapping, while
+ledger mutation still waits for explicit routing. Product behavior and implementation order:
+`docs/first-run-demo-and-bank-sms.md`.
+
 ## Product behavior
 
 SMS diagnostics is a local audit surface, not an inbox replacement and not analytics.

@@ -73,6 +73,13 @@ This is a single-context repository with root domain documentation and system-wi
   и end-to-end synthetic failure → editor → raw confirmation → Android Sharesheet проверены на disposable
   Pixel при dark + RU + font scale 1.5.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
+  Следующий согласованный slice заменяет setup gate на отдельные monitoring/routing/import: parsed
+  Unrouted operation видна в Feed, но не участвует в ledger totals; contextual resolver завершает
+  одиночные и grouped операции, а пользовательский экран становится Bank SMS вместо diagnostics.
+  После этого добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
+  workspace без глобального switch. Контракт: `CONTEXT.md`,
+  `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,
+  `docs/first-run-demo-and-bank-sms.md`.
   Детали: `docs/sms-import.md`
 - [~] Core UI: есть лента (группировка по дням, иконки категорий, переводы серым), счета (баланс
   реактивно, диалог добавления), импорт через SAF-пикер, EN+RU, тёмная тема, сидер 20 категорий

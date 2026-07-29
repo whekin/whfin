@@ -90,6 +90,14 @@ hash, тип, masked/parsed поля и результат. История чи�
 - Jetpack Compose, Material 3, светлая/тёмная/системная тема (DataStore)
 - Локализация EN + RU с первого дня
 - Просто и красиво — дизайн приоритет
+- Первый нетронутый запуск показывает один Welcome choice: Personal setup или изолированный Demo
+  workspace, без permission-карусели. Personal setup строится вокруг поддерживаемого банка и его
+  реальных каналов; statement-файл остаётся запасным ручным путём.
+- SMS monitoring, routing и import — разные состояния. Parsed SMS без выбранного ledger показывается
+  в Feed как приглушённая Unrouted operation, не влияет на balance/statistics и открывает contextual
+  resolver. Пользовательская поверхность называется Bank SMS, а parser diagnostics остаётся деталями.
+- Demo workspace не является глобальным switch: вход находится вторичной строкой Settings, активный
+  workspace явно обозначен по всему приложению, а новый Demo visit начинается с канонического fixture.
 
 ## Безопасность и переносимость данных
 

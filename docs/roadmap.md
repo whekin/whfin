@@ -5,14 +5,18 @@
 
 ## Текущий порядок приоритетов
 
-1. Закрыть оставшийся safety-хвост SMS: redacted Sharesheet для parser failure и осторожный dry-run
-   реальных сообщений на OnePlus без записи до явного подтверждения.
-2. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
+1. Пересобрать SMS ingestion вокруг отдельных monitoring/routing/import: Unrouted operations в Feed,
+   contextual resolver для одиночных и grouped операций и пользовательский Bank SMS вместо diagnostics.
+2. Добавить одноэкранный Welcome choice, bank-centric Personal setup и временный Demo workspace без
+   глобального switch; детали: `docs/first-run-demo-and-bank-sms.md`.
+3. После нового flow выполнить осторожный dry-run реальных SMS на OnePlus без записи до явного
+   подтверждения.
+4. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
    банковский интеграционный срез.
-3. Реализовать небольшой **crypto watch-only MVP** на уже существующей модели: EVM + Tron,
+5. Реализовать небольшой **crypto watch-only MVP** на уже существующей модели: EVM + Tron,
    ETH/TRX/USDT, нативные балансы и ручное обновление без истории/DeFi/background sync.
-4. После проверки общей банковской границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
-5. Провести отдельный **Google Play release** этап: публичные privacy URL/contact, release signing, Play Data Safety
+6. После проверки общей банковской границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
+7. Провести отдельный **Google Play release** этап: публичные privacy URL/contact, release signing, Play Data Safety
    и SMS declaration, полный device/accessibility QA.
 
 ## 1. Data Safety
@@ -86,10 +90,19 @@ account-resolution failures; Settings → SMS diagnostics показывает �
   payload редактируемый/редактированный; raw body добавляется лишь после отдельного подтверждения.
   Никакой фоновой telemetry или автоматической отправки SMS. Проверено end-to-end на disposable Pixel:
   synthetic failure → безопасный editor → exact-raw confirmation → editor → системный Sharesheet.
+- [ ] Разделить monitoring, routing и import: явное включение monitoring принимает будущие Credo SMS
+  даже без card mapping, но не мутирует ledger до выбора счёта.
+- [ ] Показывать parsed Unrouted operations приглушёнными строками Feed без участия в balance,
+  day/month totals и statistics; statement-first reconciliation прикрепляет SMS без дубля.
+- [ ] Добавить contextual Routing resolver с возвратом после создания недостающего ledger и поддержкой
+  grouped transfer/conversion до атомарного создания настоящих legs.
+- [ ] Пересобрать Settings → SMS diagnostics в Bank SMS: status → needs attention → recent activity →
+  cards/accounts → optional recent scan → troubleshooting.
 - [~] Проверка: golden/unit tests и injected Credo SMS на disposable emulator выполнены; dry-run существующих SMS на
   OnePlus, затем одна новая реальная операция. На физическом телефоне по-прежнему без instrumentation.
 
-Детальный контракт и текущий диагноз: `docs/sms-import.md`.
+Детальный технический контракт: `docs/sms-import.md`. Принятый следующий продуктовый flow:
+`docs/first-run-demo-and-bank-sms.md`.
 
 ## 4. Private MyCredo connector (experimental dogfood)
 

@@ -72,6 +72,11 @@ Material beneath a custom language.
 
 Make the monthly result the hero, then income/expense context, then search/filter tools. Keep the transaction ledger dense. Transfers are neutral; pending and debt annotations are secondary lines. A permission prompt is an inline notice, not a competing hero card. It must be dismissible, remember that choice, and leave the same control discoverable in Settings.
 
+A parsed bank message without a resolved ledger is an Unrouted operation, not a transaction. Show it at
+its real date as a muted ledger row with merchant/counterparty, amount, and an explicit routing action,
+but exclude it from day/month totals, balances, categories, and statistics. Group provisional
+transfers/conversions into one row; tapping opens the contextual resolver rather than generic Accounts.
+
 Transaction details should read like a compact receipt, not a database record: lead with category or
 counterparty, signed amount, date and account; keep editable status/category as flat ledger rows.
 Never promote a missing description to the title, and keep destructive actions behind overflow plus
@@ -134,6 +139,21 @@ Emphasize truth, coverage, gaps, and review status. File names are metadata and 
 ### Settings
 
 Use a compact preference list grouped by section labels. Give permission explanations enough room, but keep their action hierarchy distinct from navigation rows.
+
+Demo is a temporary workspace, not a preference switch. In the Personal workspace, expose `Explore demo`
+as a secondary row near About with an explanatory entry sheet. While Demo is active, keep a compact
+non-dismissible workspace indicator and direct exit visible across destinations; validate its final
+geometry in real renders before treating the pattern as stable.
+
+The user-facing SMS destination is Bank SMS, ordered as status and next action → needs attention → recent
+activity → cards/accounts → optional history scan → troubleshooting. Keep parser diagnostics inside an
+individual result instead of making the whole screen feel like a developer log.
+
+### First run
+
+Use one full-screen Welcome choice before the shell on a fresh untouched installation: Personal setup or
+Demo workspace. Do not use a feature carousel or request permissions there. Personal setup is
+bank-centred, guided but skippable, and exposes only channels that work for the chosen bank.
 
 ## Motion
 
