@@ -14,6 +14,8 @@ import dev.whekin.whfin.data.db.StatementSourceType
 import dev.whekin.whfin.data.db.TransferGroupEntity
 import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.ReconciliationIssueEntity
+import dev.whekin.whfin.data.db.SmsDiagnosticKind
+import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
@@ -241,6 +243,14 @@ class StatementImporter(private val db: WhfinDatabase) {
             if (id > 0) {
                 inserted++
                 existingKeys += externalKey
+                attachUnroutedCardEvidence(
+                    account = account,
+                    transactionId = id,
+                    amountMinor = row.amountMinor,
+                    currency = statement.currency,
+                    purchaseDate = row.purchaseDate ?: row.postedDate,
+                    merchantRaw = row.merchantRaw,
+                )
             } else duplicates++
         }
 
@@ -306,6 +316,40 @@ class StatementImporter(private val db: WhfinDatabase) {
             reconciled = reconciled,
             importId = importId,
             reviewCount = reviewCandidates.size,
+        )
+    }
+
+    private suspend fun attachUnroutedCardEvidence(
+        account: AccountEntity,
+        transactionId: Long,
+        amountMinor: Long,
+        currency: String,
+        purchaseDate: LocalDate,
+        merchantRaw: String?,
+    ) {
+        val merchant = merchantRaw ?: return
+        val wanted = MerchantNormalizer.normalize(merchant)
+        if (wanted.isEmpty()) return
+        val candidates = db.smsDiagnosticDao().unroutedBetween(
+            purchaseDate.atMillis(),
+            purchaseDate.plusDays(1).atMillis() - 1,
+        ).filter { diagnostic ->
+            diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT &&
+                diagnostic.counterparty?.let(MerchantNormalizer::normalize) == wanted
+        }
+        val exact = candidates.filter { diagnostic ->
+            diagnostic.currency == currency &&
+                diagnostic.amountMinor?.let { -kotlin.math.abs(it) } == amountMinor
+        }
+        val match = exact.singleOrNull() ?: candidates.singleOrNull() ?: return
+        db.smsDiagnosticDao().update(
+            match.copy(
+                outcome = SmsDiagnosticOutcome.ATTACHED,
+                reason = null,
+                transactionId = transactionId,
+                accountId = account.id,
+                updatedAt = System.currentTimeMillis(),
+            ),
         )
     }
 

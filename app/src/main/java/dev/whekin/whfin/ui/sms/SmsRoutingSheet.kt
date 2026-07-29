@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material3.Icon
@@ -21,15 +22,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinActionStyle
+import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
-import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
@@ -55,7 +58,9 @@ fun SmsRoutingSheet(
     accounts: List<SmsRoutingAccount>,
     onDismiss: () -> Unit,
     onResolve: (Long, PaymentInstrumentType) -> Unit,
+    onResolveGroup: (Long, Long) -> Unit,
     onCreateAccount: (String, String, PaymentInstrumentType) -> Unit,
+    onAddGroupedAccount: (String, String) -> Unit,
 ) {
     val currency = diagnostic.balanceCurrency ?: diagnostic.currency ?: "—"
     val matching = remember(accounts, currency) {
@@ -63,46 +68,87 @@ fun SmsRoutingSheet(
     }
     val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
         diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
+    val sourceCurrency = diagnostic.currency ?: "—"
+    val destinationCurrency = if (diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE) {
+        diagnostic.secondaryCurrency ?: "—"
+    } else {
+        sourceCurrency
+    }
+    val sourceAccounts = remember(accounts, sourceCurrency) {
+        accounts.filter { it.account.currency == sourceCurrency }
+    }
+    val destinationAccounts = remember(accounts, destinationCurrency) {
+        accounts.filter { it.account.currency == destinationCurrency }
+    }
     var selectedId by rememberSaveable(diagnostic.id, matching) {
         mutableLongStateOf(matching.singleOrNull()?.account?.id ?: 0L)
+    }
+    var selectedFromId by rememberSaveable(diagnostic.id, sourceAccounts) {
+        mutableLongStateOf(
+            sourceAccounts.firstOrNull { it.account.iban == diagnostic.fromIban }?.account?.id
+                ?: sourceAccounts.singleOrNull()?.account?.id
+                ?: 0L,
+        )
+    }
+    var selectedToId by rememberSaveable(diagnostic.id, destinationAccounts) {
+        mutableLongStateOf(
+            destinationAccounts.firstOrNull { it.account.iban == diagnostic.toIban }?.account?.id
+                ?: destinationAccounts.singleOrNull()?.account?.id
+                ?: 0L,
+        )
     }
     var cardType by rememberSaveable(diagnostic.id) {
         mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD)
     }
-    var creatingAccount by rememberSaveable(diagnostic.id) { mutableStateOf(false) }
+    var creatingCurrency by rememberSaveable(diagnostic.id) { mutableStateOf<String?>(null) }
     var accountName by rememberSaveable(diagnostic.id) { mutableStateOf("") }
+    val selectedFrom = sourceAccounts.firstOrNull { it.account.id == selectedFromId }?.account
+    val selectedTo = destinationAccounts.firstOrNull { it.account.id == selectedToId }?.account
+    val validGroup = selectedFrom != null &&
+        selectedTo != null &&
+        selectedFrom.id != selectedTo.id &&
+        selectedFrom.groupId != null &&
+        selectedFrom.groupId == selectedTo.groupId
     val primaryEnabled = when {
-        grouped -> false
-        creatingAccount -> accountName.isNotBlank()
+        creatingCurrency != null -> accountName.isNotBlank()
+        grouped -> validGroup
         else -> selectedId != 0L
     }
 
     WhfinFormSheet(
         title = stringResource(
             when {
+                creatingCurrency != null -> R.string.sms_routing_new_account_title
                 grouped -> R.string.sms_routing_accounts_title
-                creatingAccount -> R.string.sms_routing_new_account_title
                 else -> R.string.sms_routing_title
             },
         ),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
-            if (creatingAccount) R.string.sms_create_and_link_action else R.string.action_done,
+            if (creatingCurrency != null) R.string.sms_create_and_link_action else R.string.action_done,
         ),
         primaryEnabled = primaryEnabled,
         onPrimary = {
             when {
-                grouped -> Unit
-                creatingAccount -> onCreateAccount(accountName.trim(), currency, cardType)
+                creatingCurrency != null && grouped -> {
+                    onAddGroupedAccount(accountName.trim(), requireNotNull(creatingCurrency))
+                    accountName = ""
+                    creatingCurrency = null
+                }
+                creatingCurrency != null ->
+                    onCreateAccount(accountName.trim(), requireNotNull(creatingCurrency), cardType)
+                grouped && validGroup -> onResolveGroup(selectedFromId, selectedToId)
                 selectedId != 0L -> onResolve(selectedId, cardType)
             }
         },
     ) {
-        Text(
-            stringResource(R.string.sms_routing_resolver_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (!grouped) {
+            Text(
+                stringResource(R.string.sms_routing_resolver_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         diagnostic.amountMinor?.let { amount ->
             WhfinAmount(
                 text = formatMinor(kotlin.math.abs(amount), diagnostic.currency ?: currency),
@@ -110,34 +156,81 @@ fun SmsRoutingSheet(
                 style = MaterialTheme.typography.headlineMedium,
             )
         }
-        if (grouped) {
+        if (
+            grouped &&
+            diagnostic.secondaryAmountMinor != null &&
+            diagnostic.secondaryCurrency != null
+        ) {
+            WhfinAmount(
+                text = "→ ${formatMinor(
+                    diagnostic.secondaryAmountMinor,
+                    diagnostic.secondaryCurrency,
+                )}",
+                symbol = currencySymbol(diagnostic.secondaryCurrency),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (creatingCurrency != null) {
+            WhfinField(
+                value = accountName,
+                onValueChange = { accountName = it.take(40) },
+                label = stringResource(R.string.account_name_in_bank),
+                supportingText = stringResource(
+                    R.string.sms_new_account_support,
+                    requireNotNull(creatingCurrency),
+                ),
+                leadingIcon = Icons.Default.AccountBalance,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else if (grouped) {
             WhfinNotice(
                 title = stringResource(R.string.sms_choose_accounts_title),
                 body = stringResource(R.string.sms_grouped_routing_pending_body),
                 kind = WhfinNoticeKind.Attention,
                 modifier = Modifier.fillMaxWidth(),
             )
-        } else if (matching.isEmpty() && !creatingAccount) {
+            GroupedAccountChoices(
+                label = stringResource(R.string.sms_from_account, sourceCurrency),
+                currency = sourceCurrency,
+                accounts = sourceAccounts,
+                selectedId = selectedFromId,
+                onSelect = {
+                    selectedFromId = it
+                    if (selectedToId == it) selectedToId = 0L
+                },
+                onAdd = { creatingCurrency = sourceCurrency },
+            )
+            GroupedAccountChoices(
+                label = stringResource(R.string.sms_to_account, destinationCurrency),
+                currency = destinationCurrency,
+                accounts = destinationAccounts,
+                selectedId = selectedToId,
+                onSelect = {
+                    selectedToId = it
+                    if (selectedFromId == it) selectedFromId = 0L
+                },
+                onAdd = { creatingCurrency = destinationCurrency },
+            )
+            if (selectedFrom != null && selectedTo != null && !validGroup) {
+                Text(
+                    stringResource(R.string.sms_same_bank_accounts_required),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        } else if (matching.isEmpty()) {
             WhfinNotice(
                 title = stringResource(R.string.sms_no_bank_accounts_title),
                 body = stringResource(R.string.sms_no_matching_accounts, currency),
                 kind = WhfinNoticeKind.Unavailable,
                 icon = Icons.Default.AccountBalance,
                 actionLabel = stringResource(R.string.accounts_add),
-                onAction = { creatingAccount = true },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else if (creatingAccount) {
-            WhfinField(
-                value = accountName,
-                onValueChange = { accountName = it.take(40) },
-                label = stringResource(R.string.account_name_in_bank),
-                supportingText = stringResource(R.string.sms_new_account_support, currency),
-                leadingIcon = Icons.Default.AccountBalance,
+                onAction = { creatingCurrency = currency },
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            WhfinSectionLabel(stringResource(R.string.sms_account_for_operation, currency))
+            WhfinFieldLabel(stringResource(R.string.sms_account_for_operation, currency))
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 matching.forEachIndexed { index, option ->
                     WhfinLedgerRow(
@@ -163,7 +256,7 @@ fun SmsRoutingSheet(
             }
         }
         if (!grouped && diagnostic.cardLast4 != null) {
-            WhfinSectionLabel(stringResource(R.string.sms_card_type))
+            WhfinFieldLabel(stringResource(R.string.sms_card_type))
             WhfinChoiceRail {
                 item {
                     WhfinFilterPill(
@@ -182,6 +275,45 @@ fun SmsRoutingSheet(
             }
         }
     }
+}
+
+@Composable
+private fun GroupedAccountChoices(
+    label: String,
+    currency: String,
+    accounts: List<SmsRoutingAccount>,
+    selectedId: Long,
+    onSelect: (Long) -> Unit,
+    onAdd: () -> Unit,
+) {
+    WhfinFieldLabel(label)
+    if (accounts.isNotEmpty()) {
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            accounts.forEachIndexed { index, option ->
+                WhfinLedgerRow(
+                    title = option.label,
+                    supportingText = listOfNotNull(
+                        option.account.iban?.takeLast(4)?.let { "••$it" },
+                        option.account.currency,
+                    ).joinToString(" · "),
+                    icon = Icons.Default.AccountBalance,
+                    trailing = if (selectedId == option.account.id) {
+                        { Icon(Icons.Default.Check, contentDescription = null) }
+                    } else {
+                        null
+                    },
+                    onClick = { onSelect(option.account.id) },
+                    divider = index != accounts.lastIndex,
+                )
+            }
+        }
+    }
+    WhfinButton(
+        label = stringResource(R.string.sms_add_currency_account, currency),
+        onClick = onAdd,
+        style = WhfinActionStyle.Quiet,
+        leadingIcon = Icons.Default.Add,
+    )
 }
 
 private val previewDiagnostic = SmsDiagnosticEntity(
@@ -205,8 +337,39 @@ private val previewRoutingAccounts = listOf(
             id = 1,
             name = "Everyday",
             type = AccountType.BANK,
+            groupId = 1,
             currency = "GEL",
             iban = "GE00CD0000000000000001",
+        ),
+        groupName = "Credo",
+    ),
+)
+
+private val previewExchangeDiagnostic = SmsDiagnosticEntity(
+    id = 32,
+    externalKey = "preview-exchange",
+    kind = SmsDiagnosticKind.CURRENCY_EXCHANGE,
+    outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+    receivedAt = System.currentTimeMillis(),
+    occurredAt = System.currentTimeMillis(),
+    amountMinor = 5_000,
+    currency = "GEL",
+    secondaryAmountMinor = 1_800,
+    secondaryCurrency = "USD",
+    balanceMinor = 1_800,
+    balanceCurrency = "USD",
+    updatedAt = System.currentTimeMillis(),
+)
+
+private val previewExchangeAccounts = listOf(
+    previewRoutingAccounts.single(),
+    SmsRoutingAccount(
+        AccountEntity(
+            id = 2,
+            name = "Dollar",
+            type = AccountType.BANK,
+            groupId = 1,
+            currency = "USD",
         ),
         groupName = "Credo",
     ),
@@ -228,7 +391,31 @@ private fun SmsRoutingSheetPreview() {
             accounts = previewRoutingAccounts,
             onDismiss = {},
             onResolve = { _, _ -> },
+            onResolveGroup = { _, _ -> },
             onCreateAccount = { _, _, _ -> },
+            onAddGroupedAccount = { _, _ -> },
+        )
+    }
+}
+
+@Preview(
+    name = "Grouped SMS routing dark font 1.5",
+    widthDp = 400,
+    heightDp = 800,
+    fontScale = 1.5f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun GroupedSmsRoutingSheetPreview() {
+    WhfinTheme {
+        SmsRoutingSheet(
+            diagnostic = previewExchangeDiagnostic,
+            accounts = previewExchangeAccounts,
+            onDismiss = {},
+            onResolve = { _, _ -> },
+            onResolveGroup = { _, _ -> },
+            onCreateAccount = { _, _, _ -> },
+            onAddGroupedAccount = { _, _ -> },
         )
     }
 }

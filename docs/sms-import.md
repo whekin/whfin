@@ -13,8 +13,9 @@ dropping the message.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
 - Card mapping and ambiguous-account outcomes open a product sheet, persist the chosen mapping, and retry.
-- Automatic import defaults off and cannot be enabled until at least one active card-to-ledger mapping
-  exists. The receiver enforces the same gate, so a stale preference cannot bypass setup.
+- SMS monitoring defaults off, but can be enabled before any card-to-ledger mapping exists. The receiver
+  records a structured Unrouted operation when routing is incomplete; transaction creation remains gated
+  on a complete route.
 - A mapping is the exact four digits printed after the masked Credo card number plus its physical or
   virtual card type. The card is linked to every currency ledger under the selected bank + IBAN;
   the currency parsed from each SMS chooses the ledger at import time. Settings → SMS diagnostics is
@@ -33,10 +34,9 @@ Parser-failure sharing is explicit and local. The first editor payload contains 
 the structured outcome, but no original message or parsed private fields. Android Sharesheet opens only
 after the user reviews that payload and presses Share; there is no automatic telemetry or upload.
 
-The bullets above describe the current shipped gate. The accepted next slice separates SMS monitoring,
-routing, and import: monitoring may retain a structured Unrouted operation before any card mapping, while
-ledger mutation still waits for explicit routing. Product behavior and implementation order:
-`docs/first-run-demo-and-bank-sms.md`.
+Monitoring, routing, and import are separate. Monitoring may retain a structured Unrouted operation
+before any card mapping, while ledger mutation still waits for complete routing. Product behavior and
+implementation order: `docs/first-run-demo-and-bank-sms.md`.
 
 ## Product behavior
 
@@ -47,6 +47,7 @@ Each candidate message gets exactly one visible outcome:
 | Outcome | Meaning | User action |
 |---|---|---|
 | Imported | A pending transaction was created | Open transaction |
+| Matched to statement | The SMS was attached as evidence to an existing confirmed row | Open transaction |
 | Already imported | Stable key matches an existing row | Open transaction |
 | Needs card mapping | Card last four is known to the SMS but not WHFIN | Choose/create instrument and ledger |
 | Choose account | More than one ledger can receive a transfer | Select once and optionally remember rule |
@@ -106,7 +107,14 @@ Monitoring no longer waits for a card mapping. A parsed message whose ledger is 
 `occurredAt`. Because it is not a `Transaction`, it cannot affect balances, day/month totals, categories,
 or statistics. Its contextual resolver can choose an existing currency-matching ledger or create a Credo
 ledger in place, then calls the normal importer resolution path and remembers a card mapping when present.
-Grouped transfers and conversions remain outside the ledger until both sides can be resolved atomically.
+If a matching confirmed statement row already exists, resolution records `ATTACHED` and points the
+diagnostic at that row instead of creating a pending duplicate.
+
+Grouped own-account transfers and currency conversions stay one provisional Feed row. Their resolver
+selects different `from`/`to` ledgers in the same bank group, can add a missing Credo currency ledger
+without leaving the sheet, and creates a normal `TRANSFER` or `CONVERSION` group plus both signed legs
+inside one Room transaction. The generic one-account resolution path rejects grouped diagnostics, so
+neither an older diagnostics surface nor a partial choice can create a one-legged transfer.
 
 ## Verification order
 

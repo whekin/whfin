@@ -258,6 +258,17 @@ interface TransactionDao {
     suspend fun reconciliationCandidates(accountId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
 
     @Query(
+        "SELECT * FROM transactions WHERE accountId = :accountId " +
+            "AND status = 'CONFIRMED' AND source = 'STATEMENT' " +
+            "AND occurredAt BETWEEN :fromMillis AND :toMillis"
+    )
+    suspend fun statementCandidates(
+        accountId: Long,
+        fromMillis: Long,
+        toMillis: Long,
+    ): List<TransactionEntity>
+
+    @Query(
         "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.transferGroupId IS NULL " +
             "AND t.occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY t.occurredAt"
@@ -511,6 +522,13 @@ interface SmsDiagnosticDao {
             "ORDER BY occurredAt DESC, id DESC"
     )
     fun observeUnrouted(): Flow<List<SmsDiagnosticEntity>>
+
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE transactionId IS NULL " +
+            "AND outcome IN ('NEEDS_CARD_MAPPING', 'CHOOSE_ACCOUNT') " +
+            "AND occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY occurredAt, id"
+    )
+    suspend fun unroutedBetween(fromMillis: Long, toMillis: Long): List<SmsDiagnosticEntity>
 
     @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
     suspend fun byId(id: Long): SmsDiagnosticEntity?

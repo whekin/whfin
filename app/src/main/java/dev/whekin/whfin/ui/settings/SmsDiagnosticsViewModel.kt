@@ -163,7 +163,10 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
                 SmsScanSummary(
                     total = messages.size,
                     importable = outcomes.count { it == SmsDiagnosticOutcome.IMPORTED },
-                    duplicates = outcomes.count { it == SmsDiagnosticOutcome.DUPLICATE },
+                    duplicates = outcomes.count {
+                        it == SmsDiagnosticOutcome.DUPLICATE ||
+                            it == SmsDiagnosticOutcome.ATTACHED
+                    },
                     needsAttention = outcomes.count {
                         it == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
                             it == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||

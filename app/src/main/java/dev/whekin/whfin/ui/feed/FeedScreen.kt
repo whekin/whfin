@@ -489,6 +489,14 @@ fun FeedScreen(
                 viewModel.resolveUnrouted(operation.diagnostic.id, accountId, cardType)
                 routingFor = null
             },
+            onResolveGroup = { fromAccountId, toAccountId ->
+                viewModel.resolveGroupedUnrouted(
+                    operation.diagnostic.id,
+                    fromAccountId,
+                    toAccountId,
+                )
+                routingFor = null
+            },
             onCreateAccount = { name, currency, cardType ->
                 viewModel.createCredoAccountAndResolve(
                     operation.diagnostic.id,
@@ -497,6 +505,9 @@ fun FeedScreen(
                     cardType,
                 )
                 routingFor = null
+            },
+            onAddGroupedAccount = { name, currency ->
+                viewModel.addCredoAccount(name, currency)
             },
         )
     }

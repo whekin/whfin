@@ -642,8 +642,12 @@ private fun DiagnosticGroup(
 ) {
     WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
         items.forEachIndexed { index, item ->
-            val canResolve = item.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
-                item.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT
+            val canResolve = (
+                item.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
+                    item.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT
+            ) &&
+                item.kind != SmsDiagnosticKind.OWN_TRANSFER &&
+                item.kind != SmsDiagnosticKind.CURRENCY_EXCHANGE
             DiagnosticRow(
                 item,
                 onViewMessage = { onViewMessage(item) },
@@ -805,6 +809,9 @@ private data class DiagnosticPresentation(
 private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresentation = when (item.outcome) {
     SmsDiagnosticOutcome.IMPORTED -> DiagnosticPresentation(
         R.string.sms_outcome_imported, Icons.Default.CheckCircle,
+    ) { MaterialTheme.colorScheme.primary }
+    SmsDiagnosticOutcome.ATTACHED -> DiagnosticPresentation(
+        R.string.sms_outcome_attached, Icons.Default.CheckCircle,
     ) { MaterialTheme.colorScheme.primary }
     SmsDiagnosticOutcome.DUPLICATE -> DiagnosticPresentation(
         R.string.sms_outcome_duplicate, Icons.Default.Check,

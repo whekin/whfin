@@ -366,6 +366,26 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun resolveGroupedUnrouted(
+        diagnosticId: Long,
+        fromAccountId: Long,
+        toAccountId: Long,
+    ) {
+        viewModelScope.launch {
+            smsImporter.resolveGroupedDiagnostic(diagnosticId, fromAccountId, toAccountId)
+        }
+    }
+
+    fun addCredoAccount(name: String, currency: String) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        viewModelScope.launch {
+            db.withTransaction {
+                insertCredoAccount(cleanName, currency)
+            }
+        }
+    }
+
     fun createCredoAccountAndResolve(
         diagnosticId: Long,
         name: String,
@@ -376,29 +396,33 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (cleanName.isEmpty()) return
         viewModelScope.launch {
             db.withTransaction {
-                val groupId = db.financialGroupDao()
-                    .byProvider(FinancialGroupType.BANK, "Credo")
-                    ?.id
-                    ?: db.financialGroupDao().insert(
-                        FinancialGroupEntity(
-                            name = "Credo",
-                            type = FinancialGroupType.BANK,
-                            provider = "Credo",
-                        ),
-                    )
-                val accountId = db.accountDao().insert(
-                    AccountEntity(
-                        name = cleanName,
-                        type = AccountType.BANK,
-                        currency = currency,
-                        groupId = groupId,
-                    ),
-                )
+                val accountId = insertCredoAccount(cleanName, currency)
                 if (accountId > 0) {
                     smsImporter.resolveDiagnostic(diagnosticId, accountId, cardType)
                 }
             }
         }
+    }
+
+    private suspend fun insertCredoAccount(name: String, currency: String): Long {
+        val groupId = db.financialGroupDao()
+            .byProvider(FinancialGroupType.BANK, "Credo")
+            ?.id
+            ?: db.financialGroupDao().insert(
+                FinancialGroupEntity(
+                    name = "Credo",
+                    type = FinancialGroupType.BANK,
+                    provider = "Credo",
+                ),
+            )
+        return db.accountDao().insert(
+            AccountEntity(
+                name = name,
+                type = AccountType.BANK,
+                currency = currency,
+                groupId = groupId,
+            ),
+        )
     }
 
     fun assignCategory(item: FeedItem, categoryId: Long) {

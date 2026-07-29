@@ -10,7 +10,13 @@ import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.db.TransactionEntity
+import dev.whekin.whfin.data.db.TransferGroupType
+import dev.whekin.whfin.data.db.TxSource
+import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.After
@@ -203,6 +209,160 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(SmsDiagnosticOutcome.IMPORTED, importer.import(CARD_PAYMENT, RECEIVED_AT).outcome)
     }
 
+    @Test
+    fun ownTransfer_createsBothPendingLegsInOneAtomicGroup() = runBlocking {
+        val fromId = db.accountDao().insert(
+            AccountEntity(
+                name = "Main GEL",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "GEL",
+                iban = FROM_IBAN,
+            ),
+        )
+        val toId = db.accountDao().insert(
+            AccountEntity(
+                name = "Reserve GEL",
+                type = AccountType.SAVINGS,
+                groupId = groupId,
+                currency = "GEL",
+                iban = TO_IBAN,
+            ),
+        )
+
+        val result = importer.import(OWN_TRANSFER, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, result.outcome)
+        assertEquals(2, transactionCount())
+        val source = db.transactionDao().byId(requireNotNull(result.transactionId))!!
+        val legs = db.transactionDao().byTransferGroup(requireNotNull(source.transferGroupId))
+        assertEquals(2, legs.size)
+        assertEquals(setOf(fromId, toId), legs.map { it.accountId }.toSet())
+        assertEquals(setOf(-20_000L, 20_000L), legs.map { it.amountMinor }.toSet())
+        assertTrue(legs.all { it.status == TxStatus.PENDING && it.source == TxSource.SMS && it.isTransfer })
+        assertEquals(133_456L, legs.single { it.accountId == fromId }.balanceAfterMinor)
+        assertEquals(null, legs.single { it.accountId == toId }.balanceAfterMinor)
+        assertEquals(
+            TransferGroupType.TRANSFER.name,
+            transferGroupType(requireNotNull(source.transferGroupId)),
+        )
+    }
+
+    @Test
+    fun currencyExchange_waitsForBothAccounts_thenResolvesAtomically() = runBlocking {
+        val gelId = db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+
+        val unresolved = importer.import(CURRENCY_EXCHANGE, RECEIVED_AT)
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, unresolved.outcome)
+        assertEquals(0, transactionCount())
+
+        val usdId = db.accountDao().insert(
+            AccountEntity(name = "Main USD", type = AccountType.BANK, groupId = groupId, currency = "USD"),
+        )
+        val partialAttempt = importer.resolveDiagnostic(requireNotNull(unresolved.diagnosticId), gelId)
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, partialAttempt.outcome)
+        assertEquals(0, transactionCount())
+
+        val resolved = importer.resolveGroupedDiagnostic(
+            requireNotNull(unresolved.diagnosticId),
+            gelId,
+            usdId,
+        )
+
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, resolved.outcome)
+        assertEquals(2, transactionCount())
+        val source = db.transactionDao().byId(requireNotNull(resolved.transactionId))!!
+        val legs = db.transactionDao().byTransferGroup(requireNotNull(source.transferGroupId))
+        assertEquals(-5_000L, legs.single { it.accountId == gelId }.amountMinor)
+        assertEquals(1_800L, legs.single { it.accountId == usdId }.amountMinor)
+        assertEquals(null, legs.single { it.accountId == gelId }.balanceAfterMinor)
+        assertEquals(1_800L, legs.single { it.accountId == usdId }.balanceAfterMinor)
+        assertEquals(
+            TransferGroupType.CONVERSION.name,
+            transferGroupType(requireNotNull(source.transferGroupId)),
+        )
+    }
+
+    @Test
+    fun routingCardPayment_afterStatement_attachesEvidenceWithoutDraft() = runBlocking {
+        val accountId = db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+        val statementId = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -1_234,
+                currency = "GEL",
+                occurredAt = LocalDateTime.of(2026, 4, 3, 20, 48, 5)
+                    .atZone(ZoneId.of("Asia/Tbilisi"))
+                    .toInstant()
+                    .toEpochMilli(),
+                rawCounterparty = "EXAMPLE MARKET",
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+                externalKey = "stmt|example",
+            ),
+        )
+        val unresolved = importer.import(CARD_PAYMENT, RECEIVED_AT)
+
+        val resolved = importer.resolveDiagnostic(
+            requireNotNull(unresolved.diagnosticId),
+            accountId,
+            PaymentInstrumentType.PHYSICAL_CARD,
+        )
+
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, resolved.outcome)
+        assertEquals(statementId, resolved.transactionId)
+        assertEquals(1, transactionCount())
+        assertTrue(db.smsDiagnosticDao().observeUnrouted().first().isEmpty())
+    }
+
+    @Test
+    fun mappedCardPayment_afterStatementAttachesImmediately() = runBlocking {
+        val account = AccountEntity(
+            id = db.accountDao().insert(
+                AccountEntity(
+                    name = "Main GEL",
+                    type = AccountType.BANK,
+                    groupId = groupId,
+                    currency = "GEL",
+                ),
+            ),
+            name = "Main GEL",
+            type = AccountType.BANK,
+            groupId = groupId,
+            currency = "GEL",
+        )
+        db.paymentInstrumentDao().linkForAccount(
+            account,
+            "0001",
+            PaymentInstrumentType.PHYSICAL_CARD,
+        )
+        val statementId = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = account.id,
+                amountMinor = -1_234,
+                currency = "GEL",
+                occurredAt = LocalDateTime.of(2026, 4, 3, 20, 48, 5)
+                    .atZone(ZoneId.of("Asia/Tbilisi"))
+                    .toInstant()
+                    .toEpochMilli(),
+                rawCounterparty = "EXAMPLE MARKET",
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+                externalKey = "stmt|mapped-example",
+            ),
+        )
+
+        val result = importer.import(CARD_PAYMENT, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, result.outcome)
+        assertEquals(statementId, result.transactionId)
+        assertEquals(1, transactionCount())
+    }
+
     private fun transactionCount(): Int = db.openHelper.writableDatabase
         .query("SELECT COUNT(*) FROM transactions")
         .use { cursor ->
@@ -210,8 +370,17 @@ class SmsTransactionImporterInstrumentedTest {
             cursor.getInt(0)
         }
 
+    private fun transferGroupType(groupId: Long): String = db.openHelper.writableDatabase
+        .query("SELECT type FROM transfer_groups WHERE id = ?", arrayOf(groupId.toString()))
+        .use { cursor ->
+            check(cursor.moveToFirst())
+            cursor.getString(0)
+        }
+
     private companion object {
         const val RECEIVED_AT = 1_775_000_000_000
+        const val FROM_IBAN = "GE00CD0000000000000001"
+        const val TO_IBAN = "GE00CD0000000000000002"
         val CARD_PAYMENT = """
             Payment: 12.34 GEL
             Card N ****0001
@@ -246,6 +415,23 @@ class SmsTransactionImporterInstrumentedTest {
             Amount: 4500.00 GEL;
             Balance: 163.18 GEL
             Date:7/12/2026 5:21:00 AM
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val OWN_TRANSFER = """
+            Transfer between accounts
+            Amount: 200.00 GEL;
+            From: $FROM_IBAN
+            To: $TO_IBAN
+            Balance: 1334.56 GEL
+            Date: 4/5/2026 10:43:03 PM
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val CURRENCY_EXCHANGE = """
+            Currency exchange
+            Amount: 50.00 GEL
+            Received amount: 18.00 USD
+            Balance: 18.00 USD
+            Date:4/5/2026 9:36:59 PM;
             Check details in MyCredo: https://mycredo.page.link/Pdkp
         """.trimIndent()
     }

@@ -47,6 +47,7 @@ enum class SmsDiagnosticKind {
 
 enum class SmsDiagnosticOutcome {
     IMPORTED,
+    ATTACHED,
     DUPLICATE,
     IGNORED,
     UNRECOGNIZED,

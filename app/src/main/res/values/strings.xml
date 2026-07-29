@@ -187,6 +187,7 @@
     <string name="sms_diagnostics_error_title">Diagnostics unavailable</string>
     <string name="sms_diagnostics_error_body">WHFIN couldn’t read the local diagnostics log.</string>
     <string name="sms_outcome_imported">Imported as a draft</string>
+    <string name="sms_outcome_attached">Matched to bank statement</string>
     <string name="sms_outcome_duplicate">Already in the ledger</string>
     <string name="sms_outcome_ignored">Ignored safely</string>
     <string name="sms_outcome_unrecognized">Message format not recognized</string>
@@ -247,7 +248,11 @@
     <string name="sms_routing_accounts_title">Transfer accounts</string>
     <string name="sms_routing_new_account_title">Credo account</string>
     <string name="sms_routing_resolver_body">This operation is visible in the Feed but stays outside your balances until its account is known.</string>
-    <string name="sms_grouped_routing_pending_body">This transfer needs both sides to be selected together. No ledger entry will be created from a partial choice.</string>
+    <string name="sms_grouped_routing_pending_body">Choose both accounts. Until then, this operation stays outside your balances.</string>
+    <string name="sms_from_account">From · %1$s</string>
+    <string name="sms_to_account">To · %1$s</string>
+    <string name="sms_add_currency_account">Add %1$s account</string>
+    <string name="sms_same_bank_accounts_required">Choose two different accounts from the same bank.</string>
     <string name="sms_account_for_operation">Account in %1$s</string>
     <string name="sms_new_account_support">Credo · %1$s. You can add IBAN and other currencies later.</string>
     <string name="sms_create_and_link_action">Create</string>

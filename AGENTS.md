@@ -80,8 +80,15 @@ This is a single-context repository with root domain documentation and system-wi
   операцию можно направить в существующий ledger или прямо там создать Credo-счёт, после чего строка
   становится обычной pending-транзакцией; card mapping запоминается. Проверено synthetic receiver →
   muted Feed row → create account → pending transaction на disposable Pixel при RU + dark + font 1.5.
-  Следом resolver атомарно завершает grouped операции, а пользовательский экран становится Bank SMS
-  вместо diagnostics.
+  Grouped resolver завершён: own transfer и currency exchange остаются одной приглушённой Feed-строкой,
+  требуют разные from/to ledgers одного bank group и создают обе PENDING-ноги с обычным
+  `TransferGroup` атомарно; недостающий Credo currency-ledger добавляется прямо в resolver. Старый
+  single-account path физически не может создать частичный grouped transfer. Если подтверждённая строка
+  выписки уже существует, карточное SMS получает outcome `ATTACHED` и ссылается на неё без pending-дубля;
+  импорт выписки также автоматически забирает сильное совпадение из Unrouted. Проверено 11 importer
+  instrumentation tests и synthetic currency exchange → Feed → grouped resolver на disposable Pixel
+  при RU + dark + font 1.5.
+  Следом пользовательский экран становится Bank SMS вместо diagnostics.
   После этого добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
   workspace без глобального switch. Контракт: `CONTEXT.md`,
   `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,
