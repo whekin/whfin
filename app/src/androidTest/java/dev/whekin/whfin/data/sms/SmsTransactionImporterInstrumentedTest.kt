@@ -71,10 +71,50 @@ class SmsTransactionImporterInstrumentedTest {
         assertNotNull(resolved.transactionId)
         assertEquals(accountId, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
         assertTrue(db.smsDiagnosticDao().observeUnrouted().first().isEmpty())
+        val resolvedTransaction = db.transactionDao().byId(requireNotNull(resolved.transactionId))!!
+        assertEquals(TxStatus.CONFIRMED, resolvedTransaction.status)
+        assertEquals(
+            listOf(resolvedTransaction.id),
+            db.transactionDao().reconciliationCandidates(
+                accountId = accountId,
+                fromMillis = 0,
+                toMillis = Long.MAX_VALUE,
+            ).map { it.id },
+        )
 
         val repeated = importer.import(CARD_PAYMENT, RECEIVED_AT)
         assertEquals(SmsDiagnosticOutcome.DUPLICATE, repeated.outcome)
         assertEquals(1, transactionCount())
+    }
+
+    @Test
+    fun mappingOneCardPayment_routesAllQueuedPaymentsForTheSameCard() = runBlocking {
+        val accountId = db.accountDao().insert(
+            AccountEntity(name = "Main GEL", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+        val first = importer.import(CARD_PAYMENT, RECEIVED_AT)
+        val second = importer.import(SECOND_CARD_PAYMENT, RECEIVED_AT + 1_000)
+
+        assertEquals(SmsDiagnosticOutcome.NEEDS_CARD_MAPPING, first.outcome)
+        assertEquals(SmsDiagnosticOutcome.NEEDS_CARD_MAPPING, second.outcome)
+        assertEquals(2, db.smsDiagnosticDao().observeUnrouted().first().size)
+
+        importer.resolveDiagnostic(
+            requireNotNull(first.diagnosticId),
+            accountId,
+            PaymentInstrumentType.PHYSICAL_CARD,
+        )
+
+        assertEquals(2, transactionCount())
+        assertTrue(db.smsDiagnosticDao().observeUnrouted().first().isEmpty())
+        val selectedTransaction = db.transactionDao().byId(
+            requireNotNull(db.smsDiagnosticDao().byId(requireNotNull(first.diagnosticId))?.transactionId),
+        )!!
+        val automaticallyRoutedTransaction = db.transactionDao().byId(
+            requireNotNull(db.smsDiagnosticDao().byId(requireNotNull(second.diagnosticId))?.transactionId),
+        )!!
+        assertEquals(TxStatus.CONFIRMED, selectedTransaction.status)
+        assertEquals(TxStatus.PENDING, automaticallyRoutedTransaction.status)
     }
 
     @Test
@@ -277,6 +317,7 @@ class SmsTransactionImporterInstrumentedTest {
         val legs = db.transactionDao().byTransferGroup(requireNotNull(source.transferGroupId))
         assertEquals(-5_000L, legs.single { it.accountId == gelId }.amountMinor)
         assertEquals(1_800L, legs.single { it.accountId == usdId }.amountMinor)
+        assertTrue(legs.all { it.status == TxStatus.CONFIRMED })
         assertEquals(null, legs.single { it.accountId == gelId }.balanceAfterMinor)
         assertEquals(1_800L, legs.single { it.accountId == usdId }.balanceAfterMinor)
         assertEquals(
@@ -387,6 +428,14 @@ class SmsTransactionImporterInstrumentedTest {
             EXAMPLE MARKET>Tbilisi                 GE
             Balance: 567.89 GEL
             03/04/2026 20:48:05
+            Details: https://mycredo.page.link/Pdk
+        """.trimIndent()
+        val SECOND_CARD_PAYMENT = """
+            Payment: 21.98 GEL
+            Card N ****0001
+            EXAMPLE PHARMACY>Tbilisi               GE
+            Balance: 545.91 GEL
+            03/04/2026 21:03:05
             Details: https://mycredo.page.link/Pdk
         """.trimIndent()
         val OUTGOING_TRANSFER = """

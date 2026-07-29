@@ -249,10 +249,14 @@ interface TransactionDao {
     @Query("SELECT externalKey FROM transactions WHERE externalKey IS NOT NULL")
     suspend fun allExternalKeys(): List<String>
 
-    /** SMS-черновики и ручные банковские операции, которые можно сверить с выпиской. */
+    /**
+     * SMS rows remain reconcilable after an explicit user confirmation: source records provenance,
+     * while status records whether the user has reviewed the provisional operation.
+     */
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId " +
-            "AND (status = 'PENDING' OR (status = 'MANUAL' AND source = 'MANUAL')) " +
+            "AND ((source = 'SMS' AND status IN ('PENDING', 'CONFIRMED')) " +
+            "OR (status = 'MANUAL' AND source = 'MANUAL')) " +
             "AND occurredAt BETWEEN :fromMillis AND :toMillis"
     )
     suspend fun reconciliationCandidates(accountId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
@@ -532,6 +536,14 @@ interface SmsDiagnosticDao {
 
     @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
     suspend fun byId(id: Long): SmsDiagnosticEntity?
+
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE kind = 'CARD_PAYMENT' " +
+            "AND cardLast4 = :last4 AND transactionId IS NULL " +
+            "AND outcome IN ('NEEDS_CARD_MAPPING', 'CHOOSE_ACCOUNT') " +
+            "ORDER BY occurredAt, id"
+    )
+    suspend fun unresolvedCardPayments(last4: String): List<SmsDiagnosticEntity>
 
     @Query("SELECT * FROM sms_diagnostics WHERE externalKey = :externalKey LIMIT 1")
     suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?

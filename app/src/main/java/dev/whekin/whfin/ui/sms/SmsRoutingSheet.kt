@@ -125,7 +125,11 @@ fun SmsRoutingSheet(
         ),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
-            if (creatingCurrency != null) R.string.sms_create_and_link_action else R.string.action_done,
+            if (creatingCurrency != null) {
+                R.string.sms_create_and_link_action
+            } else {
+                R.string.sms_link_and_confirm_action
+            },
         ),
         primaryEnabled = primaryEnabled,
         onPrimary = {
@@ -144,7 +148,13 @@ fun SmsRoutingSheet(
     ) {
         if (!grouped) {
             Text(
-                stringResource(R.string.sms_routing_resolver_body),
+                stringResource(
+                    if (diagnostic.cardLast4 != null) {
+                        R.string.sms_card_routing_resolver_body
+                    } else {
+                        R.string.sms_routing_resolver_body
+                    },
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

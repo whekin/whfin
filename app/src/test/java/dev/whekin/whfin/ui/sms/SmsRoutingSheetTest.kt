@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
@@ -26,6 +27,58 @@ import org.robolectric.annotation.Config
 class SmsRoutingSheetTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @Test
+    fun cardPaymentExplainsBatchRoutingAndConfirmsInOneAction() {
+        var resolved: Pair<Long, PaymentInstrumentType>? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsRoutingSheet(
+                    diagnostic = SmsDiagnosticEntity(
+                        id = 80,
+                        externalKey = "sms|card",
+                        kind = SmsDiagnosticKind.CARD_PAYMENT,
+                        outcome = SmsDiagnosticOutcome.NEEDS_CARD_MAPPING,
+                        receivedAt = 1_000,
+                        occurredAt = 1_000,
+                        amountMinor = 2_198,
+                        currency = "GEL",
+                        balanceCurrency = "GEL",
+                        cardLast4 = "0001",
+                        counterparty = "EXAMPLE PHARMACY",
+                        updatedAt = 1_000,
+                    ),
+                    accounts = listOf(
+                        SmsRoutingAccount(
+                            AccountEntity(
+                                id = 10,
+                                name = "Everyday",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                            ),
+                            groupName = "Credo",
+                        ),
+                    ),
+                    onDismiss = {},
+                    onResolve = { account, type -> resolved = account to type },
+                    onResolveGroup = { _, _ -> },
+                    onCreateAccount = { _, _, _ -> },
+                    onAddGroupedAccount = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_card_routing_resolver_body))
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
+            .assertIsEnabled()
+            .performClick()
+        compose.runOnIdle {
+            assertEquals(10L to PaymentInstrumentType.PHYSICAL_CARD, resolved)
+        }
+    }
 
     @Test
     fun groupedExchangeRequiresAndSubmitsBothLedgerSides() {
@@ -86,7 +139,9 @@ class SmsRoutingSheetTest {
         compose.onNodeWithText(context.getString(R.string.sms_to_account, "USD"))
             .performScrollTo()
             .assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.action_done)).assertIsEnabled().performClick()
+        compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
+            .assertIsEnabled()
+            .performClick()
         compose.runOnIdle { assertEquals(11L to 12L, resolved) }
     }
 }

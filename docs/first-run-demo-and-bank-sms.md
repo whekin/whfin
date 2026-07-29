@@ -89,8 +89,9 @@ SMS monitoring, routing, and import are separate:
 2. Every future supported-bank candidate receives a local structured outcome even when no card mapping
    exists. Raw body remains memory-only.
 3. A parsed message without enough account information becomes an **Unrouted operation**.
-4. Resolving every missing ledger creates a pending transaction, or attaches the SMS evidence to an
-   already confirmed statement transaction.
+4. Resolving every missing ledger confirms the operation the user explicitly reviewed, or attaches the
+   SMS evidence to an already confirmed statement transaction. A remembered card route also imports
+   compatible queued messages automatically; those unreviewed rows remain pending.
 
 The current setup gate that refuses to enable monitoring before the first card mapping is removed.
 Nothing is guessed: incomplete routing delays ledger mutation, not monitoring.

@@ -49,7 +49,9 @@ belongs to. An unresolved message waits for this decision instead of being guess
 _Avoid_: Card setup gate, account guess
 
 **SMS import**:
-The creation of a pending financial transaction from a monitored message after SMS routing is resolved.
+The creation of a financial transaction from a monitored message after SMS routing is resolved. Automatic
+routing creates a pending row; explicitly resolving that message also marks that chosen operation reviewed.
+Its SMS provenance remains eligible for later statement reconciliation.
 _Avoid_: SMS monitoring, message capture
 
 **Unrouted operation**:
@@ -61,7 +63,8 @@ _Avoid_: Pending transaction, diagnostic row, uncategorized transaction
 **Routing resolver**:
 The contextual decision flow opened from an Unrouted operation to choose every missing ledger side.
 Creating a missing ledger may temporarily open Bank setup or account creation, then returns to the same
-resolution.
+resolution. Resolving a card remembers the route, backfills all compatible queued messages, and confirms
+only the operation the user explicitly reviewed.
 _Avoid_: Go to Accounts, card mapping form, generic account settings
 
 **Bank SMS**:

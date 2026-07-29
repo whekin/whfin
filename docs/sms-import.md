@@ -13,6 +13,8 @@ dropping the message.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
 - Card mapping and ambiguous-account outcomes open a product sheet, persist the chosen mapping, and retry.
+  A new card route immediately backfills every compatible queued payment from that card; the selected
+  operation is confirmed in the same explicit action while automatically routed siblings remain pending.
 - SMS monitoring defaults off, but can be enabled before any card-to-ledger mapping exists. The receiver
   records a structured Unrouted operation when routing is incomplete; transaction creation remains gated
   on a complete route.
@@ -21,9 +23,9 @@ dropping the message.
   the currency parsed from each SMS chooses the ledger at import time. Settings → Bank SMS is
   the permanent place to add another card; resolving a “Needs card mapping” outcome saves the same rule.
 - Any imported pending transaction exposes an explicit status action in transaction details. A selection
-  containing only pending rows gets a direct Confirm action in the pinned selection bar. Marking it
-  Confirmed or Manual is a deliberate user override; leaving it Pending keeps it eligible for statement
-  reconciliation.
+  containing only pending rows gets a direct Confirm action in the pinned selection bar. Confirmed SMS
+  rows remain eligible for statement reconciliation because `source=SMS` still records their provenance;
+  choosing Manual is the deliberate opt-out.
 - `Deposit top-up` is parsed as an incoming deposit leg. A matching `Outgoing transfer` becomes one
   `SAVINGS` transfer only when amount and currency are equal, timestamps differ by no more than two
   minutes, both ledgers belong to the same bank group, and exactly one opposite candidate exists. A unique
@@ -49,7 +51,7 @@ Each candidate message gets exactly one visible outcome:
 
 | Outcome | Meaning | User action |
 |---|---|---|
-| Imported | A pending transaction was created | Open transaction |
+| Imported | A pending transaction was created automatically, or the explicitly resolved row was confirmed | Open transaction |
 | Matched to statement | The SMS was attached as evidence to an existing confirmed row | Open transaction |
 | Already imported | Stable key matches an existing row | Open transaction |
 | Needs card mapping | Card last four is known to the SMS but not WHFIN | Choose/create instrument and ledger |
@@ -62,6 +64,8 @@ For card payments, routing is deliberately strict: `bank + card last4 → one ph
 `card + balance currency → one active ledger`. Four digits are required. One card may be connected to
 GEL, USD, EUR, and other ledgers under the same IBAN, so the card mapping is not duplicated per currency.
 WHFIN never guesses from a bank name alone because one bank can contain several cards and several IBANs.
+Saving that mapping processes all already queued card payments that match one of those ledgers. It does
+not mark the sibling payments reviewed: only the row used to make the explicit decision becomes confirmed.
 
 Credo deposit notifications omit both IBANs. WHFIN may use the paired outgoing/deposit notifications to
 identify a single internal transfer, but account resolution remains a separate decision: it automatically

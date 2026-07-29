@@ -93,6 +93,10 @@ This is a single-context repository with root domain documentation and system-wi
   Grouped unresolved возвращает в contextual Feed resolver, а карты добавляются компактной строкой,
   не блокируя весь экран. Compose tests и реальный RU + dark + font 1.5 render проверены на disposable
   Pixel.
+  Card resolver теперь одним действием сохраняет mapping, подтверждает выбранную пользователем операцию
+  и backfill-ит все совместимые Unrouted payments той же карты; автоматически привязанные соседи остаются
+  PENDING. Подтверждённая вручную SMS всё ещё реконсилируется выпиской по provenance `source=SMS`, поэтому
+  второй жест и будущие дубли не нужны.
   Одноэкранный Welcome choice и bank-centric Personal setup реализованы. Clean install до shell показывает
   ровно два действия без permission prompts; выбор Personal переживает process restart до явного
   продолжения, а upgrade существующей установки автоматически пропускает новый gate. Setup показывает
