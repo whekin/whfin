@@ -18,9 +18,8 @@
 | SMS банка (Credo) | реальное время, черновик | `pending` |
 | Excel-выписка (MYCREDO xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground batch download тех же XLSX | `confirmed` |
-| Credo Open Banking (после onboarding) | read-only автоматический sync | `confirmed` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
-| Крипто watch-адреса (позже) | TrustWallet, EVM/Tron read-only | `confirmed` |
+| Крипто watch-адреса (planned MVP) | EVM/Tron read-only balances | `confirmed` |
 
 ### Реконсиляция (ядро анти-рассинхрона)
 
@@ -109,9 +108,8 @@ hash, тип, masked/parsed поля и результат. История чи�
 - App Lock использует системный `BiometricPrompt`: strong biometric или PIN/pattern/password устройства,
   с настраиваемым timeout и сокрытием содержимого в recent apps. Виджет не раскрывает баланс на
   заблокированном устройстве без явного opt-in.
-- Долгосрочная автосинхронизация Credo строится на официальном read-only Open Banking API после
-  проверки sandbox и production onboarding. Для личной dogfood-сборки разрешён отдельный явно
-  экспериментальный foreground-коннектор к текущему веб-протоколу MyCredo: он только скачивает XLSX,
+- Для личной dogfood-сборки разрешён отдельный foreground-коннектор к текущему веб-протоколу MyCredo:
+  он только скачивает XLSX,
   не выполняет платежей и не обещает стабильность. Пароль можно не сохранять; при opt-in он хранится
   только device-local как AES-GCM ciphertext с non-exportable Android Keystore key, исключён из
   Android/JSON backup. OTP существует только в памяти текущего входа и отправляется по явной кнопке.
@@ -123,9 +121,12 @@ hash, тип, masked/parsed поля и результат. История чи�
 
 ## Вторая волна
 
-- Мультибанк: **TBC первым, затем Bank of Georgia (BOG)**. Сначала ручные statement-файлы через
-  общий bank-neutral importer; SMS/push и официальный Open Banking — отдельные feasibility-этапы
-- Крипта: watch-адреса EVM/Tron (TrustWallet), цены CoinGecko; НЕ лезем в DeFi
+- Мультибанк: **TBC первым** через ручные statement-файлы и общий bank-neutral importer
+- Крипта: небольшой watch-only MVP между TBC и BOG — явные EVM/Tron сети, ETH/TRX/USDT balances,
+  manual refresh; без DeFi, ключей, отправки и полной истории. Цены — отдельный второй slice
+- **Bank of Georgia (BOG)** через тот же statement importer после доказанной TBC-границы
+- Отдельный Google Play release этап: signing, privacy/support, listing, Data Safety/SMS declaration,
+  internal/closed testing и pre-launch QA
 - Теги «траты на девушку» с долей 0–100% на транзакции
 - AI-анализ (Claude API, только по кнопке): авто-категоризация непонятного, месячный разбор, аномалии
 - Парсинг push-уведомлений (NotificationListener) как второй источник

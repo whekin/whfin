@@ -1,6 +1,6 @@
 # Private MyCredo connector
 
-Status: experimental personal dogfood, foreground-only. This is not an official Credo Open Banking
+Status: experimental personal dogfood, foreground-only. This is not an official bank API
 integration and must not be presented as reliable unattended synchronization.
 
 ## Product flow
@@ -70,5 +70,6 @@ numbers, names, balances and transaction data before adding fixtures. Never comm
 ## Exit criteria for a later phase
 
 Before adding background refresh, prove real login/OTP, all-ledger export and duplicate re-import on the
-owner's device. Then decide separately whether persisting a refresh token is justified. Official Credo
-Open Banking remains the production direction and must keep a separate implementation and consent model.
+owner's device. Then decide separately whether persisting a refresh token is justified. Official bank
+API access is outside the current roadmap; if reconsidered after a public launch, it must use a separate
+implementation, consent model and security review.

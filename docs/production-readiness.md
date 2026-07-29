@@ -18,15 +18,14 @@ This checklist tracks the difference between a good prototype and a build safe t
 
 - [x] Android backup scope is explicit: database plus non-secret UI/widget DataStore only; cloud backup
   requires encryption capability and D2D transfer uses the same allowlist.
-- [x] Remove destructive migration fallback; preserve data through explicit v1→v2 and v2→v3 migrations,
-  and require a migration plus schema/data test for every future change from the current DB v3.
+- [x] Remove destructive migration fallback; preserve data through explicit v1→v2, v2→v3 and v3→v4
+  migrations, and require a migration plus schema/data test for every future change from current DB v4.
 - [x] Add versioned JSON export/restore through Android SAF with an explicit sensitive-file warning,
   destructive restore confirmation and deterministic full-schema round-trip tests.
 - [x] Encrypted `.whfin-backup` export uses a portable passphrase-derived `WHFIN-ENC` envelope;
   optional Google Drive backup stores only encrypted copies in `appDataFolder`.
 - [x] Add WHFIN-code/strong-biometric App Lock, protected recent-apps snapshots and an explicit
   capture-only widget policy. Quick entry intentionally bypasses App Lock; it cannot read history/balances.
-- [ ] Store future Open Banking tokens with Android Keystore and keep them outside backup scope.
 - [ ] Complete the Google Play Data safety form and the restricted SMS permission declaration.
 
 ## Release engineering

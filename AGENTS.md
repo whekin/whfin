@@ -376,11 +376,19 @@ This is a single-context repository with root domain documentation and system-wi
 - [ ] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
   Сначала выделить bank-neutral parser→statement boundary и провести ручные файлы TBC через общий
   `StatementImporter`, reconciliation, coverage/history и review queue; BOG добавлять вторым parser
-  поверх уже доказанной границы. Реальные банковские fixtures остаются только локальными. SMS/push
-  и официальный Open Banking для каждого банка — отдельные feasibility-этапы
-- [ ] Credo Open Banking: сначала sandbox feasibility gate и подтверждение production onboarding у
-  Credo/NBG. Только официальный read-only Account Information API; без scraping MyCredo, хранения
-  банковского пароля и молчаливой отправки OTP. SMS/XLSX остаются fallback и участвуют в реконсиляции
+  поверх уже доказанной границы. Реальные банковские fixtures остаются только локальными; SMS/push
+  для каждого банка — отдельные будущие этапы
+- [ ] Crypto watch-only MVP поставлен после TBC, но до BOG. База уже есть: WalletAddress,
+  chain-specific CryptoAsset, address×asset Account, backup и форма CRYPTO/WALLET. Перед реальным
+  балансом заменить эвристику сети на явный EVM/Tron selector и validation; первый scope —
+  ETH/TRX/USDT, foreground/manual refresh и нативные балансы без history/DeFi/background sync.
+  Поскольку баланс счетов сейчас равен сумме transactions, on-chain current balance требует отдельный
+  snapshot+observedAt и Room migration, а не фальшивую transaction. BTC/TON не показывать рабочими
+  до реализации; prices/GEL conversion — отдельный второй slice
+- [ ] Google Play release — отдельный этап: stable privacy URL/support, third-party notices,
+  release signing/versioning, store listing, Data Safety + restricted SMS declaration,
+  internal/closed testing, pre-launch report и полный release QA. Официальные банковские API
+  не входят в текущий roadmap; возвращаться к ним только после реального публичного запуска
 - [~] Private MyCredo connector (явное исключение для личного dogfood): foreground-only вход по
   текущему публичному веб-протоколу, явный 4-digit OTP, discovery всех account/currency ledger’ов и
   последовательная загрузка XLSX через существующий `StatementImporter`. Payment API отсутствует;
@@ -400,7 +408,8 @@ This is a single-context repository with root domain documentation and system-wi
   а истёкшая авторизация (401/UNAUTHORIZED) останавливает прогон целиком, сбрасывает сессию и
   переводит UI в повторный вход с кодом SESSION_EXPIRED — молчаливый re-login невозможен by design
   (нужен OTP). Покрыто Robolectric-тестами со скриптованным gateway. Остаётся наблюдение за
-  изменениями web-протокола. Это не заменяет официальный Open Banking roadmap. Детали: `docs/credo-private-sync.md`
+  изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
+  Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
   package version/build, авторством `whekin` и локальным privacy-summary. Все иерархические Back-действия
   используют единый borderless circular `WhfinBackButton`; закрытие форм остаётся отдельным Close.
@@ -433,8 +442,7 @@ This is a single-context repository with root domain documentation and system-wi
   визуально проверены на disposable Pixel. Переключение режима перезапускает foreground task, а не только
   конфигурацию Activity: это сбрасывает Activity-scoped ViewModelStore и исключает наблюдение старой DB
   после включения Demo (регрессия обнаружена на OnePlus и воспроизведена на чистом эмуляторе).
-- Вторая волна после TBC/BOG: крипта (TrustWallet watch — адрес кошелька уже вводится при создании
-  CRYPTO-счёта), теги на партнёра и AI-анализ
+- После TBC → crypto MVP → BOG: теги на партнёра и AI-анализ
 - [x] Реализован единый паттерн контейнер→балансы. Для банка: FinancialGroup,
   валютные Account по IBAN, PaymentInstrument (physical/virtual), many-to-many карта↔счёт,
   StatementSource по IBAN или карте. Для крипты: Wallet-группа, WalletAddress по сети и AssetAccount.
@@ -513,4 +521,4 @@ This is a single-context repository with root domain documentation and system-wi
 ## Продуктовый контекст
 
 Основной язык общения — русский. Главные приоритеты: минимальный ручной ввод, спокойный продуктовый UI,
-надёжная работа с GEL и Credo; позже возможны другие банки и watch-only криптокошельки.
+надёжная работа с GEL и Credo; следующие расширения — TBC, небольшой watch-only crypto MVP и BOG.

@@ -9,19 +9,18 @@
    реальных сообщений на OnePlus без записи до явного подтверждения.
 2. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
    банковский интеграционный срез.
-3. После проверки общей границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
-4. Отдельно проводить feasibility gate официального Open Banking: наличие sandbox ещё не означает
-   production-доступ для личного приложения. Файловый импорт остаётся независимым fallback.
-5. Закрыть оставшиеся release-gates: публичные privacy URL/contact, release signing, Play Data Safety
+3. Реализовать небольшой **crypto watch-only MVP** на уже существующей модели: EVM + Tron,
+   ETH/TRX/USDT, нативные балансы и ручное обновление без истории/DeFi/background sync.
+4. После проверки общей банковской границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
+5. Провести отдельный **Google Play release** этап: публичные privacy URL/contact, release signing, Play Data Safety
    и SMS declaration, полный device/accessibility QA.
 
 ## 1. Data Safety
 
-Это следующий этап и обязательная основа перед дальнейшим изменением модели данных.
-
 Статус: этап завершён. Destructive fallback удалён; ручная v1→v2 migration и полный
-earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB остаётся v2, поэтому
-следующий schema change обязан начинаться с migration v2→N. Версионированный JSON export/restore
+earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v4 с явными
+v1→v2, v2→v3 и v3→v4 migrations, поэтому следующий schema change обязан получить migration v4→N.
+Версионированный JSON export/restore
 доступен в Settings через Storage Access Framework.
 
 - [x] Убрать `fallbackToDestructiveMigration(true)`. Начиная с текущей Room DB v2, каждое изменение
@@ -34,8 +33,8 @@ earliest→current schema-test проходят на disposable-эмулятор
   debt cases/events и метаданные выписок.
 - [x] Не экспортировать сырые SMS, OTP, app-lock secrets, банковские пароли, consent/access/refresh tokens
   и ключи Android Keystore.
-- [x] Обычный `.json` является читаемым чувствительным файлом: перед сохранением нужен явный warning.
-  Позже поверх того же формата можно добавить зашифрованный `.whfin-backup`.
+- [x] Обычный `.json` является читаемым чувствительным файлом и показывает явный warning;
+  основной encrypted export использует portable `.whfin-backup` с passphrase-derived ключом.
 - [x] Формат сразу проектировать для round-trip restore. Restore полностью заменяет локальные данные
   только после отдельного destructive confirmation; serializer имеет deterministic/round-trip,
   malformed input и version-compatibility tests.
@@ -132,51 +131,58 @@ production bank sync.
 - [ ] Проверить TBC на synthetic golden fixtures, приватных локальных файлах и disposable-эмуляторе:
   opening/closing balance, цепочка балансов, multi-currency ledgers, transfers, fees, dedup и повторный импорт.
 - [ ] Не добавлять реальные TBC-файлы, IBAN, карты, имена или суммы в репозиторий, previews и screenshots.
-- [ ] **BOG — приоритет №2:** после того как TBC подтвердит общую границу, добавить отдельный parser
+- [ ] **BOG — банковский приоритет №2:** после того как TBC подтвердит общую границу, добавить отдельный parser
   и тот же набор invariants без второго импортного workflow.
-- [ ] SMS, push notifications и Open Banking для каждого банка считать отдельными этапами. Поддержка
-  statement-файла не должна автоматически обещать background sync или доступность официального API.
+- [ ] SMS и push notifications для каждого банка считать отдельными этапами. Поддержка statement-файла
+  не должна автоматически обещать background sync.
 
-## 6. Credo Open Banking feasibility gate
+## 6. Crypto watch-only MVP
 
-Цель — read-only автоматическая синхронизация счетов, балансов и транзакций. Payment initiation
-не входит в этот этап.
+Это не greenfield: Room уже хранит `WalletAddress` и chain-specific `CryptoAsset`, account связывает
+address×asset, формы умеют создать CRYPTO/WALLET, а backup сохраняет эти таблицы. Не хватает корректной
+сетевой границы и получения баланса.
 
-- Использовать официальный Open Banking API Credo (Account Information Service), а не scraping
-  MyCredo, приватные mobile endpoints или хранение банковского логина/пароля.
-- До production-кода подтвердить у Credo/NBG условия onboarding: может ли личный WHFIN получить
-  production-доступ, или требуется регистрация/партнёрство с AISP/TPP. Credo публикует sandbox и
-  certificate request, но production требует отдельного допуска.
-- Первый прототип ограничить sandbox: consent/SCA, список счетов, balances и transactions.
-- Если production-доступ возможен, добавить источник `OPEN_BANKING`, состояние consent и его срок,
-  sync cursor, last successful sync, retryable/final errors и стабильные external IDs для дедупликации.
-- SMS и XLSX остаются независимыми источниками и fallback. API-операции должны проходить через
-  существующую реконсиляцию; XLSX остаётся проверяемым источником правды, пока полнота API не доказана.
-- Предпочитать redirect/decoupled SCA, где Credo сам показывает банковскую авторизацию. OTP никогда
-  не сохранять, не логировать, не экспортировать и не отправлять молча.
-- При embedded flow и явном разрешении SMS WHFIN может предложить найденный Credo OTP для вставки
-  одним действием пользователя. WHFIN не должен пытаться внедрять код во внешний браузер или
-  приложение Credo.
+- [x] Модель address/network + chain-specific asset существует; символ не используется как identity.
+- [ ] Заменить эвристику `0x → Ethereum, всё остальное → Tron` на явный выбор сети и строгую
+  network-specific валидацию адреса. Не показывать BTC/TON как рабочие варианты до их реализации.
+- [ ] Ввести read-only `CryptoBalanceProvider` boundary без seed phrase/private key и первый
+  foreground/manual refresh с явными loading/partial/error/last-updated состояниями.
+- [ ] Первый scope: Ethereum mainnet ETH + ERC-20 USDT и Tron mainnet TRX + TRC-20 USDT.
+- [ ] Добавить отдельный current-balance snapshot с `observedAt` и миграцией Room. Не изображать
+  сетевой balance как фальшивую transaction: текущие account balances считаются суммой операций.
+- [ ] Хранить on-chain amount в точных base units/decimals, а не в fiat minor-unit предположениях;
+  повторное обновление баланса должно быть идемпотентным.
+- [ ] Показывать нативные crypto-балансы в Accounts без ложного сложения с GEL. Рыночные цены,
+  GEL-конвертация и timestamp котировки — отдельный второй slice после надёжных on-chain balances.
+- [ ] Покрыть provider contract локальным fake, address validation unit-тестами и UI states
+  light/dark/font 1.5; реальный read-only адрес проверять без сохранения чувствительных данных.
 
-Официальные отправные точки:
+Не входят в MVP: seed/private keys, отправка транзакций, swap/bridge execution, DeFi positions,
+полная on-chain transaction history, background polling, Bitcoin и TON.
 
-- [NBG Open Banking overview](https://nbg.gov.ge/en/page/open-banking)
-- [NBG Open Banking Registry](https://nbg.gov.ge/en/page/open-banking-registry)
-- [NBG Open Banking API documentation index](https://nbg.gov.ge/en/page/open-banking-detailed-data-and-documentation)
-- [Credo Open Banking developer portal](https://openbanking.credo.ge/ob-home/app/api-doc)
+## 7. Google Play release
 
-## 7. Product work while onboarding is unresolved
+Цель — не «сразу production rollout», а воспроизводимая release-сборка и безопасный проход через
+internal/closed testing до любого публичного распространения.
 
-Open Banking не должен блокировать локальное развитие приложения. После Data Safety и App Lock
-продолжаются visual QA уже реализованной месячной статистики, категории/люди и остальные сценарии.
-Production Credo sync начинается только после положительного результата feasibility gate.
+- [ ] Опубликовать privacy policy на стабильном HTTPS URL и указать реальный support contact.
+- [ ] Выбрать лицензию/режим исходников и собрать полные third-party notices.
+- [ ] Создать release signing key вне репозитория, документировать recovery/rotation и настроить
+  монотонный `versionCode` + release notes.
+- [ ] Подготовить Play Console listing: название, short/long description, feature graphic,
+  phone screenshots и widget screenshots.
+- [ ] Заполнить Data Safety и restricted SMS permission declaration до загрузки production-track APK.
+- [ ] Пройти internal testing, затем closed testing; обработать Play pre-launch accessibility/stability
+  findings до решения о public rollout.
+- [ ] Выполнить release QA matrix из `docs/production-readiness.md` и сохранить mapping/symbol artifacts.
 
-## Production readiness (сквозной трек)
+## 8. Остальная продуктовая работа
 
-Privacy/About, version metadata, author attribution и явная Android backup policy уже добавлены.
-Encrypted export и Google Drive backup уже реализованы. Оставшиеся release-gates — public privacy
-URL/contact, полные third-party notices, release signing, Play Data safety + SMS declaration и полный release QA. Чеклист:
-`docs/production-readiness.md`.
+После Data Safety, App Lock и основной UI-проходки локальное развитие продолжается независимо от
+внешних партнёрств: категории/люди, AI-assisted analysis, push ingestion и другие сценарии.
+
+Официальный доступ к банковским API не входит в текущий roadmap. Вернуться к его оценке можно только
+после реального публичного запуска, если пользовательская ценность оправдает onboarding с банками.
 
 ## Commit boundaries
 
@@ -184,6 +190,6 @@ URL/contact, полные third-party notices, release signing, Play Data safety
 2. WHFIN-code/biometric app lock and privacy behavior — complete.
 3. SMS structured outcomes, diagnostics/history scan, mapping repair and explicit failure sharing.
 4. Bank-neutral statement adapter + TBC parser/import.
-5. BOG parser/import поверх подтверждённой общей границы.
-6. Credo Open Banking sandbox spike and documented go/no-go result.
-7. Read-only Open Banking sync, только для банков с подтверждённым production onboarding.
+5. Crypto network/address validation + read-only balance provider + EVM/Tron MVP.
+6. BOG parser/import поверх подтверждённой общей границы.
+7. Google Play internal/closed release track.
