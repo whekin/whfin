@@ -20,6 +20,7 @@ class MainJourneyTest {
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             val device = UiDevice.getInstance(instrumentation)
             val accounts = instrumentation.targetContext.getString(R.string.tab_accounts)
+            passFirstRunGate(device, instrumentation.targetContext)
             // A fresh API 36 emulator may spend its first seconds compiling Compose and opening
             // Room. Keep this a journey assertion, not an accidental cold-start benchmark.
             val node = device.wait(Until.findObject(By.text(accounts)), 30_000)
@@ -31,5 +32,28 @@ class MainJourneyTest {
             )
             assertNotNull(summary)
         }
+    }
+
+    /**
+     * A clean install opens on the Welcome choice, an upgraded one goes straight to the shell.
+     * The journey has to survive both, so wait for whichever surface appears first instead of
+     * assuming one of them.
+     */
+    private fun passFirstRunGate(device: UiDevice, context: android.content.Context) {
+        val welcomeAction = By.text(context.getString(R.string.welcome_personal_action))
+        val shellTab = By.text(context.getString(R.string.tab_accounts))
+        val deadline = System.currentTimeMillis() + 30_000
+        while (System.currentTimeMillis() < deadline) {
+            if (device.hasObject(welcomeAction) || device.hasObject(shellTab)) break
+            device.waitForIdle(250)
+        }
+        val welcome = device.findObject(welcomeAction) ?: return
+        welcome.click()
+        val skip = device.wait(
+            Until.findObject(By.text(context.getString(R.string.personal_setup_skip_action))),
+            10_000,
+        )
+        assertNotNull("personal setup should offer an explicit skip", skip)
+        skip.click()
     }
 }
