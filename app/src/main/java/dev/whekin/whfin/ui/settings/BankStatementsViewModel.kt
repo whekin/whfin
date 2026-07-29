@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
+import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.StatementImportEntity
@@ -12,6 +13,7 @@ import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,6 +105,11 @@ class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     } ?: error("Cannot open file")
                     StatementImportUiState.FileResult(fileName, result = result)
+                } catch (e: UnsupportedStatementException) {
+                    StatementImportUiState.FileResult(
+                        fileName,
+                        error = getApplication<Application>().getString(R.string.statements_unsupported),
+                    )
                 } catch (e: Exception) {
                     StatementImportUiState.FileResult(fileName, error = e.message ?: "Unknown error")
                 }

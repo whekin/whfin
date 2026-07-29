@@ -143,8 +143,9 @@ production bank sync.
 Цель — расширить уже проверенную модель «выписка = источник правды» на другие грузинские банки,
 не копируя Credo-специфичную логику в UI, Room и реконсиляцию.
 
-- [ ] Выделить bank-neutral adapter boundary: банковский parser преобразует исходный файл в общий
+- [x] Выделить bank-neutral adapter boundary: банковский parser преобразует исходный файл в общий
   statement model, а дедуп, импорт, reconciliation, coverage/history и review queue остаются общими.
+  Контракт и правила нового adapter: `docs/statement-import.md`.
 - [ ] **TBC — приоритет №1:** собрать только приватные локальные примеры доступных экспортов,
   зафиксировать формат/варианты и реализовать ручной statement import через существующий pipeline.
 - [ ] Проверить TBC на synthetic golden fixtures, приватных локальных файлах и disposable-эмуляторе:

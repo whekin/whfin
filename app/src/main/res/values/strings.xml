@@ -540,6 +540,7 @@
     <string name="statements_matched">Drafts matched</string>
     <string name="statements_duplicates">Already imported</string>
     <string name="statements_error">Couldn’t import statement</string>
+    <string name="statements_unsupported">Unsupported statement format. WHFIN reads Credo XLSX statements.</string>
     <string name="statements_coverage">Confirmed: %1$s — %2$s</string>
     <string name="statements_never">No statements yet</string>
     <string name="statements_empty_body">Upload an XLSX file here or connect MyCredo to build continuous account coverage.</string>

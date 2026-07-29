@@ -545,6 +545,7 @@
     <string name="statements_matched">Черновиков найдено</string>
     <string name="statements_duplicates">Уже были загружены</string>
     <string name="statements_error">Не удалось загрузить выписку</string>
+    <string name="statements_unsupported">Формат выписки не поддерживается. WHFIN читает XLSX-выписки Credo.</string>
     <string name="statements_coverage">Подтверждено: %1$s — %2$s</string>
     <string name="statements_never">Выписок пока нет</string>
     <string name="statements_empty_body">Загрузите XLSX здесь или подключите MyCredo, чтобы собрать непрерывное покрытие счёта.</string>

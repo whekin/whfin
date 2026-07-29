@@ -420,11 +420,20 @@ This is a single-context repository with root domain documentation and system-wi
   действует 30-секундная пауза. Системный PIN телефона не запрашивается. Quick-entry из виджета
   намеренно остаётся мгновенным и не требует разблокировки; сам виджет не показывает баланс.
   App lock не считать шифрованием Room DB; будущие банковские токены получают отдельное key management
-- [ ] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
-  Сначала выделить bank-neutral parser→statement boundary и провести ручные файлы TBC через общий
-  `StatementImporter`, reconciliation, coverage/history и review queue; BOG добавлять вторым parser
-  поверх уже доказанной границы. Реальные банковские fixtures остаются только локальными; SMS/push
-  для каждого банка — отдельные будущие этапы
+- [~] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
+  Bank-neutral граница выделена: `data/statement` содержит `BankProfile`, `StatementOperation`,
+  `BankStatement`/`StatementRow`, `StatementFile`, `StatementParser` и реестр `StatementParsers`;
+  Credo стал первым adapter (`data/statement/credo`) и больше не упоминается в `StatementImporter`.
+  Имя банковской группы и новых ledger берётся из `BankProfile`, `isOwnMovement` — единственное место,
+  решающее что не является доходом/расходом, а vocabulary конвертаций объявляет adapter, потому что
+  pairing идёт уже по сохранённым транзакциям. Нераспознанный файл даёт `UnsupportedStatementException`
+  и продуктовое сообщение вместо сырой parser-ошибки. Появился генератор синтетических выписок в
+  `src/sharedTest` (общий для JVM и instrumented тестов): 8 golden JVM-тестов adapter’а, 7 тестов
+  границы и 5 instrumented тестов общего pipeline (создание банка из профиля, provenance, own movement,
+  баланс = closing balance, повторный импорт = 0, неизвестный формат не трогает ledger). Осталось:
+  получить приватные примеры экспорта TBC, реализовать второй adapter и прогнать его через тот же
+  pipeline; BOG — третьим. Реальные банковские fixtures остаются только локальными; SMS/push
+  для каждого банка — отдельные будущие этапы. Детали: `docs/statement-import.md`
 - [ ] Crypto watch-only MVP поставлен после TBC, но до BOG. База уже есть: WalletAddress,
   chain-specific CryptoAsset, address×asset Account, backup и форма CRYPTO/WALLET. Перед реальным
   балансом заменить эвристику сети на явный EVM/Tron selector и validation; первый scope —

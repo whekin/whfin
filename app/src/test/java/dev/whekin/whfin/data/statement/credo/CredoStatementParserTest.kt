@@ -1,5 +1,8 @@
-package dev.whekin.whfin.data.importer
+package dev.whekin.whfin.data.statement.credo
 
+import dev.whekin.whfin.data.statement.StatementFile
+import dev.whekin.whfin.data.statement.StatementOperation
+import dev.whekin.whfin.data.statement.StatementRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -35,7 +38,10 @@ class CredoStatementParserTest {
         assumeTrue("private statements not configured, skipping", files.isNotEmpty())
 
         files.forEach { file ->
-            val statement = file.inputStream().use(CredoStatementParser::parse)
+            val source = file.inputStream().use { StatementFile.read(it, file.name) }
+            assertTrue("adapter probe", CredoStatementParser.canParse(source))
+            val statement = CredoStatementParser.parse(source)
+            assertEquals("bank", "Credo", statement.bank.provider)
             assertTrue("statement IBAN", statement.accountIban.matches(Regex("[A-Z]{2}[0-9]{2}[A-Z0-9]{18}")))
             assertTrue("statement currency", statement.currency.matches(Regex("[A-Z]{3}")))
             assertTrue("statement rows", statement.rows.isNotEmpty())
@@ -56,7 +62,7 @@ class CredoStatementParserTest {
             }
 
             val unmapped = statement.rows
-                .filter { it.operation == CredoStatementParser.OperationType.OTHER }
+                .filter { it.operation == StatementOperation.OTHER }
                 .map { it.operationRaw }
                 .distinct()
             assertEquals("unmapped operations: $unmapped", emptyList<String>(), unmapped)
@@ -79,12 +85,18 @@ class CredoStatementParserTest {
         assertEquals(LocalDate.of(2025, 7, 14), statement.purchaseDate)
     }
 
-    private fun syntheticRow(description: String): CredoStatementParser.Row? {
+    @Test
+    fun `probe rejects a file that is not a bank workbook`() {
+        val file = StatementFile("notes.txt", "plain text, definitely not xlsx".toByteArray())
+        assertEquals(false, CredoStatementParser.canParse(file))
+    }
+
+    private fun syntheticRow(description: String): StatementRow? {
         val regex = Regex("""^გადახდა - (.+?)\s+[\d,]+\.\d{2} [A-Z]{3} (\d{2}\.\d{2}\.\d{4})$""")
         val match = regex.find(description) ?: return null
-        return CredoStatementParser.Row(
+        return StatementRow(
             postedDate = LocalDate.now(),
-            operation = CredoStatementParser.OperationType.CARD_PAYMENT,
+            operation = StatementOperation.CARD_PAYMENT,
             operationRaw = "საბარათე ოპერაცია",
             amountMinor = -2520,
             balanceAfterMinor = null,

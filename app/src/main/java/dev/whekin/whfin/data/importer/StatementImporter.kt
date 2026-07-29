@@ -19,13 +19,19 @@ import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
-import dev.whekin.whfin.data.importer.CredoStatementParser.OperationType
+import dev.whekin.whfin.data.statement.BankStatement
+import dev.whekin.whfin.data.statement.StatementFile
+import dev.whekin.whfin.data.statement.StatementOperation
+import dev.whekin.whfin.data.statement.StatementParsers
 import java.io.InputStream
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Пайплайн: xlsx-выписка -> Room.
+ * Bank-neutral пайплайн: выписка -> Room.
+ *
+ * Разбор конкретного банковского формата живёт за границей [StatementParsers]; здесь остаётся общее
+ * для всех банков:
  *
  * - счёт находится по IBAN или создаётся
  * - дедупликация через externalKey (повторный импорт того же файла = 0 новых строк)
@@ -102,14 +108,14 @@ class StatementImporter(private val db: WhfinDatabase) {
         onPhase: (Phase) -> Unit = {},
     ): Result {
         onPhase(Phase.READING)
-        val statement = CredoStatementParser.parse(input)
+        val statement = StatementParsers.parse(StatementFile.read(input, fileName))
         onPhase(Phase.IMPORTING)
         // Одна SQLite-транзакция на весь файл: иначе 1000+ отдельных коммитов = десятки секунд
         return db.withTransaction { importParsed(statement, fileName, origin, onPhase) }
     }
 
     private suspend fun importParsed(
-        statement: CredoStatementParser.Statement,
+        statement: BankStatement,
         fileName: String?,
         origin: StatementImportOrigin,
         onPhase: (Phase) -> Unit,
@@ -117,13 +123,18 @@ class StatementImporter(private val db: WhfinDatabase) {
         var accountCreated = false
         val account = db.accountDao().byIbanAndCurrency(statement.accountIban, statement.currency) ?: run {
             accountCreated = true
-            val group = db.financialGroupDao().byProvider(FinancialGroupType.BANK, "Credo")
+            val bank = statement.bank
+            val group = db.financialGroupDao().byProvider(FinancialGroupType.BANK, bank.provider)
             val groupId = group?.id ?: db.financialGroupDao().insert(
-                FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK, provider = "Credo"),
+                FinancialGroupEntity(
+                    name = bank.displayName,
+                    type = FinancialGroupType.BANK,
+                    provider = bank.provider,
+                ),
             )
             val id = db.accountDao().insert(
                 AccountEntity(
-                    name = "Credo ${statement.currency} •${statement.accountIban.takeLast(4)}",
+                    name = "${bank.displayName} ${statement.currency} •${statement.accountIban.takeLast(4)}",
                     type = AccountType.BANK,
                     groupId = groupId,
                     currency = statement.currency,
@@ -178,12 +189,10 @@ class StatementImporter(private val db: WhfinDatabase) {
             val merchant = row.merchantRaw
                 ?.let { resolveMerchant(it) }
                 ?: row.beneficiaryName
-                    ?.takeIf { row.operation != OperationType.OWN_TRANSFER }
+                    ?.takeIf { row.operation != StatementOperation.OWN_TRANSFER }
                     ?.let { resolveMerchant(it) }
 
-            val isOwnTransfer = row.operation == OperationType.OWN_TRANSFER ||
-                row.operation == OperationType.CURRENCY_EXCHANGE ||
-                row.operation == OperationType.SAVINGS_TOPUP
+            val isOwnTransfer = row.operation.isOwnMovement
 
             val occurred = (row.purchaseDate ?: row.postedDate).atMillis()
             val pending = row.merchantRaw?.let { raw ->
@@ -380,8 +389,9 @@ class StatementImporter(private val db: WhfinDatabase) {
                 .thenBy { if (it.counterpartyIban != null) 0 else 1 })
             .toMutableList()
         val accountsById = db.accountDao().byGroup(groupId).associateBy { it.id }
+        // Pairing runs over stored rows, so the conversion vocabulary comes from the adapters.
         fun isExchange(tx: TransactionEntity): Boolean = tx.note?.let { note ->
-            note.contains("exchange", ignoreCase = true) || note.contains("კონვერტ", ignoreCase = true)
+            StatementParsers.conversionNoteMarkers.any { note.contains(it, ignoreCase = true) }
         } == true
         while (candidates.isNotEmpty()) {
             val first = candidates.removeAt(0)
