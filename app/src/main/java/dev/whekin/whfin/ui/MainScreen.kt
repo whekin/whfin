@@ -313,6 +313,7 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) {
                         SmsDiagnosticsRoute(
+                            appVersion = portableAppVersion,
                             smsImportEnabled = smsImportEnabled,
                             hasReceivePermission = hasSmsPermission,
                             hasHistoryPermission = hasSmsHistoryPermission,

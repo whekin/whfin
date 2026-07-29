@@ -82,9 +82,10 @@ account-resolution failures; Settings → SMS diagnostics показывает �
   money-management exception вероятно применим, но это должен подтвердить review.
 - [x] Для `needs mapping` дать выбрать счёт/карту и сохранить mapping, затем повторить import. Batch import
   выполняется только по явному действию и до записи показывает dry-run summary.
-- [ ] Нераспознанное сообщение можно отправить разработчику только через Android Sharesheet. По умолчанию
+- [x] Нераспознанное сообщение можно отправить разработчику только через Android Sharesheet. По умолчанию
   payload редактируемый/редактированный; raw body добавляется лишь после отдельного подтверждения.
-  Никакой фоновой telemetry или автоматической отправки SMS.
+  Никакой фоновой telemetry или автоматической отправки SMS. Проверено end-to-end на disposable Pixel:
+  synthetic failure → безопасный editor → exact-raw confirmation → editor → системный Sharesheet.
 - [~] Проверка: golden/unit tests и injected Credo SMS на disposable emulator выполнены; dry-run существующих SMS на
   OnePlus, затем одна новая реальная операция. На физическом телефоне по-прежнему без instrumentation.
 

@@ -15,6 +15,8 @@ import java.util.Locale
  * FX-платежи: сумма в валюте покупки (USD/EUR/GBP), Balance — в валюте счёта (GEL).
  */
 object CredoSmsParser {
+    /** Increment when accepted Credo message structures materially change. */
+    const val SCHEMA_VERSION = 1
 
     enum class IgnoreReason { OTP, REJECTED, UNRELATED }
 

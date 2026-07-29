@@ -262,6 +262,7 @@ internal fun WhfinConfirmDialogContent(
                         body,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                     )
                 }
             }

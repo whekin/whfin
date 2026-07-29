@@ -66,8 +66,14 @@ This is a single-context repository with root domain documentation and system-wi
   управлять постоянно из SMS diagnostics, ввод строго состоит из четырёх цифр. Карта моделируется как
   physical/virtual PaymentInstrument и связывается со всеми валютными ledger одного bank + IBAN;
   валюта конкретного SMS выбирает нужный ledger уже при импорте.
-  Осталось: явно редактируемый/redacted Sharesheet для parser failure и осторожный dry-run на OnePlus
-  перед любым импортом реальных сообщений. Детали: `docs/sms-import.md`
+  Parser failure теперь имеет явный Android Sharesheet-flow: безопасный редактируемый отчёт по умолчанию
+  вообще не читает текст SMS и не включает parsed private fields; raw можно добавить только через
+  отдельное чтение inbox, просмотр точного текста и подтверждение, после чего пользователь снова видит
+  полный payload в редакторе до Share. Ничего не пишется в Room/backup и нет telemetry. Unit/Compose tests
+  и end-to-end synthetic failure → editor → raw confirmation → Android Sharesheet проверены на disposable
+  Pixel при dark + RU + font scale 1.5.
+  Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
+  Детали: `docs/sms-import.md`
 - [~] Core UI: есть лента (группировка по дням, иконки категорий, переводы серым), счета (баланс
   реактивно, диалог добавления), импорт через SAF-пикер, EN+RU, тёмная тема, сидер 20 категорий
   (`CategorySeeder`, RU/EN по локали), настройки и UX-запрос разрешения SMS. Выбрано дизайн-направление:

@@ -120,8 +120,12 @@ Confirmation is a compact ledger decision block, not a stock system modal. Use t
 surface without Material tonal-elevation tint, a short semantic marker, direct title/body
 copy, and two actions with equal geometry. Oxide belongs only to irreversible or data-losing
 confirmation. At large font scales, actions reflow into equal full-width rows; essential labels must
-not truncate. Keep routine destructive actions behind overflow or a secondary surface before showing
-the dialog.
+not truncate. Long exact payloads scroll inside the decision body instead of pushing actions off-screen.
+Keep routine destructive actions behind overflow or a secondary surface before showing the dialog.
+
+For privacy-sensitive sharing, open an editable safe-by-default report before the platform Sharesheet.
+Reading or adding raw source text is a separate explicit action with an exact preview and confirmation;
+after confirmation return to the editor so the final payload is still visible before Share.
 
 ### Statements
 

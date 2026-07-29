@@ -40,7 +40,8 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinConfirmDialog`: the single decision surface for delete, archive, reset, and discard confirmation.
   It uses a semantic ledger marker, the screen canvas without tonal-elevation tint, equal action
   geometry, and reflows actions at large font scales. Feature code owns strings and side effects; do
-  not expose Material `AlertDialog`.
+  not expose Material `AlertDialog`. Long exact previews (for example a privacy-sensitive source
+  message) keep title and actions visible while the body scrolls inside a bounded region.
 - `WhfinActionMenu`: the shared compact overflow surface. It uses the screen canvas, a quiet rule,
   and no Material tonal tint; feature code owns menu items and action semantics.
 - `WhfinAmount`: editorial-serif tabular money typography and semantic color without embedding formatting

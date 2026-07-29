@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -60,6 +61,14 @@ sealed interface SmsMessageState {
     data class Content(val body: String, val receivedAt: Long) : SmsMessageState
     data object Unavailable : SmsMessageState
     data object Error : SmsMessageState
+}
+
+sealed interface SmsShareMessageState {
+    data object Hidden : SmsShareMessageState
+    data object Loading : SmsShareMessageState
+    data class Content(val body: String) : SmsShareMessageState
+    data object Unavailable : SmsShareMessageState
+    data object Error : SmsShareMessageState
 }
 
 sealed interface SmsDiagnosticsLoadState {
@@ -137,6 +146,10 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _messageState = MutableStateFlow<SmsMessageState>(SmsMessageState.Hidden)
     val messageState: StateFlow<SmsMessageState> = _messageState
+
+    private val _shareMessageState = MutableStateFlow<SmsShareMessageState>(SmsShareMessageState.Hidden)
+    val shareMessageState: StateFlow<SmsShareMessageState> = _shareMessageState
+    private val shareMessageRequestId = AtomicLong()
 
     fun scanHistory() {
         if (_scanState.value == SmsScanState.Scanning || _scanState.value == SmsScanState.Importing) return
@@ -238,5 +251,23 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissMessage() {
         _messageState.value = SmsMessageState.Hidden
+    }
+
+    fun loadShareMessage(diagnostic: SmsDiagnosticEntity) {
+        val requestId = shareMessageRequestId.incrementAndGet()
+        _shareMessageState.value = SmsShareMessageState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                historyReader.findByExternalKey(diagnostic.externalKey, diagnostic.receivedAt)
+                    ?.let { SmsShareMessageState.Content(it.body) }
+                    ?: SmsShareMessageState.Unavailable
+            }.getOrElse { SmsShareMessageState.Error }
+            if (requestId == shareMessageRequestId.get()) _shareMessageState.value = result
+        }
+    }
+
+    fun dismissShareMessage() {
+        shareMessageRequestId.incrementAndGet()
+        _shareMessageState.value = SmsShareMessageState.Hidden
     }
 }

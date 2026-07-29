@@ -1,5 +1,8 @@
 package dev.whekin.whfin.ui.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
@@ -23,6 +27,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -248,5 +253,75 @@ class SmsDiagnosticsScreenTest {
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).performClick()
 
         assertEquals(Triple(11L, "2533", PaymentInstrumentType.PHYSICAL_CARD), saved)
+    }
+
+    @Test
+    fun unrecognizedMessage_opensRedactedEditorBeforeRequestingOriginal() {
+        var originalRequestedFor: Long? = null
+        var sharedPayload: String? = null
+        var rawState by mutableStateOf<SmsShareMessageState>(SmsShareMessageState.Hidden)
+        val rawBody = "Credo notice: changed private format"
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(
+            id = 15,
+            externalKey = "sms|private",
+            kind = SmsDiagnosticKind.UNRECOGNIZED,
+            outcome = SmsDiagnosticOutcome.UNRECOGNIZED,
+            reason = SmsDiagnosticReason.PARSE_FAILURE,
+            receivedAt = 1_000,
+            counterparty = "Private Person",
+            cardLast4 = "0001",
+            updatedAt = 1_000,
+        )
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    appVersion = "0.1.0 (1)",
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(diagnostics = listOf(diagnostic)),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    shareMessageState = rawState,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                    onLoadShareMessage = {
+                        originalRequestedFor = it.id
+                        rawState = SmsShareMessageState.Content(rawBody)
+                    },
+                    onDismissShareMessage = { rawState = SmsShareMessageState.Hidden },
+                    onSharePayload = { sharedPayload = it },
+                )
+            }
+        }
+
+        val shareAction = context.getString(R.string.sms_share_problem_action)
+        compose.onNodeWithTag("sms-diagnostics-list")
+            .performScrollToNode(hasContentDescription(shareAction))
+        compose.onNodeWithContentDescription(shareAction).performClick()
+
+        compose.onNodeWithText(context.getString(R.string.sms_share_redacted_title)).assertIsDisplayed()
+        compose.onNodeWithTag("sms-include-original").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(15L, originalRequestedFor) }
+        compose.onNodeWithText(
+            context.getString(R.string.sms_share_raw_confirm_title),
+        ).assertIsDisplayed()
+        compose.onNodeWithText(rawBody, substring = true).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.sms_share_include_original_action)).performClick()
+        compose.onNodeWithText(context.getString(R.string.sms_share_action)).performClick()
+        compose.runOnIdle {
+            assertFalse(requireNotNull(sharedPayload).contains("Private Person"))
+            assertFalse(requireNotNull(sharedPayload).contains("0001"))
+            assertTrue(requireNotNull(sharedPayload).contains(rawBody))
+        }
     }
 }

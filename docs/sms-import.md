@@ -7,8 +7,8 @@ same-currency bank accounts. Room DB v3 now records a structured local outcome f
 dropping the message.
 
 - `RECEIVE_SMS` still observes only broadcasts delivered after permission is granted.
-- `READ_SMS` is requested only from the explicit 90-day history action or when the user asks to view
-  one diagnostic's original message.
+- `READ_SMS` is requested only from the explicit 90-day history action, when the user asks to view
+  one diagnostic's original message, or when they explicitly choose to add that original to a report.
 - The scan is capped at 500 Credo candidates and produces a dry-run summary before any write.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
@@ -29,8 +29,9 @@ dropping the message.
   savings/reserve ledger is preferred for the deposit leg; ambiguous source or destination accounts still
   require an explicit choice. The raw message does not contain enough data to guess safely beyond that.
 
-The remaining product gap is explicit parser-failure sharing. It must use a user-initiated Android
-Sharesheet with an editable redacted payload; there is still no automatic telemetry or upload.
+Parser-failure sharing is explicit and local. The first editor payload contains app/parser versions and
+the structured outcome, but no original message or parsed private fields. Android Sharesheet opens only
+after the user reviews that payload and presses Share; there is no automatic telemetry or upload.
 
 ## Product behavior
 
@@ -82,10 +83,16 @@ still requires the restricted-permissions declaration and review. Policy referen
 
 ## Sharing a parser failure
 
-There is no automatic upload. “Share parsing problem” opens the Android Sharesheet with app/parser
-version and an editable redacted message. Amount, card mask, balance, names, and identifiers are removed
-by default. A separate confirmation may include the raw body when the user deliberately decides the
-parser needs it; WHFIN must preview the exact payload first.
+There is no automatic upload. “Share parsing problem” first opens a WHFIN editor containing the app/parser
+version, outcome/reason, and a redacted placeholder. The default report is built without reading or
+reconstructing the SMS body, so amount, card mask, balance, names, account numbers, message fingerprint,
+timestamps, and other identifiers cannot leak from diagnostic metadata.
+
+“Include original SMS” is a separate action. It uses the existing narrow inbox lookup, previews the exact
+raw body in a second confirmation, and then returns to the same editor instead of sharing immediately.
+Only a final explicit Share opens Android Sharesheet with the exact text visible in the editor. Dismissing
+the editor or permission flow clears the pending raw-message state; neither redacted nor raw report text
+is written to Room or backup.
 
 ## Verification order
 
@@ -93,6 +100,8 @@ parser needs it; WHFIN must preview the exact payload first.
    deposit-pair safeguards, and all golden parser samples.
 2. On the disposable emulator, create explicit accounts/instruments and inject sanitized messages with
    `adb emu sms send`; assert receiver → outcome → pending row → duplicate behavior.
+   Parser-failure report → redacted editor → exact-raw confirmation → editable report → Android
+   Sharesheet has also been verified at dark theme + RU + font scale 1.5.
 3. On a physical test device, run historical scan in dry-run mode first and compare outcome counts without writing.
 4. Fix the private card/account mappings, import a deliberately selected batch, and verify balances are not
    double-counted after statement reconciliation.

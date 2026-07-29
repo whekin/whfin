@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.settings
 
+import android.content.Intent
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmsFailed
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -62,6 +65,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinField
@@ -88,6 +92,7 @@ import java.util.Date
 
 @Composable
 fun SmsDiagnosticsRoute(
+    appVersion: String,
     smsImportEnabled: Boolean,
     hasReceivePermission: Boolean,
     hasHistoryPermission: Boolean,
@@ -99,8 +104,12 @@ fun SmsDiagnosticsRoute(
     val loadState by viewModel.loadState.collectAsState()
     val scanState by viewModel.scanState.collectAsState()
     val messageState by viewModel.messageState.collectAsState()
+    val shareMessageState by viewModel.shareMessageState.collectAsState()
+    val context = LocalContext.current
+    val shareChooserTitle = stringResource(R.string.sms_share_chooser_title)
     var scanAfterPermission by rememberSaveable { mutableStateOf(false) }
     var messageAfterPermissionId by rememberSaveable { mutableLongStateOf(0L) }
+    var shareAfterPermissionId by rememberSaveable { mutableLongStateOf(0L) }
 
     LaunchedEffect(hasHistoryPermission, scanAfterPermission) {
         if (hasHistoryPermission && scanAfterPermission) {
@@ -116,11 +125,21 @@ fun SmsDiagnosticsRoute(
             diagnostic?.let(viewModel::loadMessage)
         }
     }
+    LaunchedEffect(hasHistoryPermission, shareAfterPermissionId, loadState) {
+        if (hasHistoryPermission && shareAfterPermissionId != 0L) {
+            val diagnostic = (loadState as? SmsDiagnosticsLoadState.Content)?.data?.diagnostics
+                ?.firstOrNull { it.id == shareAfterPermissionId }
+            shareAfterPermissionId = 0L
+            diagnostic?.let(viewModel::loadShareMessage)
+        }
+    }
 
     SmsDiagnosticsScreen(
+        appVersion = appVersion,
         loadState = loadState,
         scanState = scanState,
         messageState = messageState,
+        shareMessageState = shareMessageState,
         smsImportEnabled = smsImportEnabled,
         hasReceivePermission = hasReceivePermission,
         hasHistoryPermission = hasHistoryPermission,
@@ -144,14 +163,33 @@ fun SmsDiagnosticsRoute(
             }
         },
         onDismissMessage = viewModel::dismissMessage,
+        onLoadShareMessage = { diagnostic ->
+            if (hasHistoryPermission) {
+                viewModel.loadShareMessage(diagnostic)
+            } else {
+                shareAfterPermissionId = diagnostic.id
+                if (canRequestHistoryPermission) onRequestHistoryPermission() else onOpenSystemSettings()
+            }
+        },
+        onDismissShareMessage = {
+            shareAfterPermissionId = 0L
+            viewModel.dismissShareMessage()
+        },
+        onSharePayload = { payload ->
+            context.startActivity(
+                Intent.createChooser(SmsProblemReport.sendIntent(payload), shareChooserTitle),
+            )
+        },
     )
 }
 
 @Composable
 internal fun SmsDiagnosticsScreen(
+    appVersion: String = "test",
     loadState: SmsDiagnosticsLoadState,
     scanState: SmsScanState,
     messageState: SmsMessageState,
+    shareMessageState: SmsShareMessageState = SmsShareMessageState.Hidden,
     smsImportEnabled: Boolean,
     hasReceivePermission: Boolean,
     hasHistoryPermission: Boolean,
@@ -163,11 +201,27 @@ internal fun SmsDiagnosticsScreen(
     onAddCardMapping: (Long, String, PaymentInstrumentType) -> Unit,
     onViewMessage: (SmsDiagnosticEntity) -> Unit,
     onDismissMessage: () -> Unit,
+    onLoadShareMessage: (SmsDiagnosticEntity) -> Unit = {},
+    onDismissShareMessage: () -> Unit = {},
+    onSharePayload: (String) -> Unit = {},
 ) {
     var selectedDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
     var showAddCard by rememberSaveable { mutableStateOf(false) }
+    var shareDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
+    var shareText by rememberSaveable { mutableStateOf("") }
+    var shareIncludesOriginal by rememberSaveable { mutableStateOf(false) }
+    var showRawConfirmation by rememberSaveable { mutableStateOf(false) }
     val content = (loadState as? SmsDiagnosticsLoadState.Content)?.data
     val selectedDiagnostic = content?.diagnostics?.firstOrNull { it.id == selectedDiagnosticId }
+    val shareDiagnostic = content?.diagnostics?.firstOrNull { it.id == shareDiagnosticId }
+
+    LaunchedEffect(shareMessageState, shareDiagnosticId) {
+        if (shareMessageState is SmsShareMessageState.Content && shareDiagnosticId != 0L) {
+            showRawConfirmation = true
+        } else if (shareMessageState != SmsShareMessageState.Hidden && shareDiagnosticId == 0L) {
+            onDismissShareMessage()
+        }
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().testTag("sms-diagnostics-list"),
@@ -240,13 +294,28 @@ internal fun SmsDiagnosticsScreen(
                             items = attention,
                             onResolve = { selectedDiagnosticId = it.id },
                             onViewMessage = onViewMessage,
+                            onShareProblem = { diagnostic ->
+                                onDismissShareMessage()
+                                shareDiagnosticId = diagnostic.id
+                                shareText = SmsProblemReport.redacted(appVersion, diagnostic)
+                                shareIncludesOriginal = false
+                            },
                         )
                     }
                 }
                 if (recent.isNotEmpty()) {
                     item("recent-label") { WhfinSectionLabel(stringResource(R.string.sms_diagnostics_recent)) }
                     items(recent, key = { "diagnostic-${it.id}" }) { item ->
-                        DiagnosticRow(item, onViewMessage = { onViewMessage(item) })
+                        DiagnosticRow(
+                            item,
+                            onViewMessage = { onViewMessage(item) },
+                            onShareProblem = {
+                                onDismissShareMessage()
+                                shareDiagnosticId = item.id
+                                shareText = SmsProblemReport.redacted(appVersion, item)
+                                shareIncludesOriginal = false
+                            },
+                        )
                     }
                 }
             }
@@ -277,6 +346,50 @@ internal fun SmsDiagnosticsScreen(
     }
     if (messageState != SmsMessageState.Hidden) {
         SmsMessageSheet(messageState, onDismissMessage)
+    }
+    if (shareDiagnostic != null) {
+        SmsProblemReportSheet(
+            report = shareText,
+            includesOriginal = shareIncludesOriginal,
+            rawState = shareMessageState,
+            onReportChange = { shareText = it },
+            onIncludeOriginal = { onLoadShareMessage(shareDiagnostic) },
+            onDismiss = {
+                shareDiagnosticId = 0L
+                shareText = ""
+                shareIncludesOriginal = false
+                showRawConfirmation = false
+                onDismissShareMessage()
+            },
+            onShare = {
+                onSharePayload(shareText)
+                shareDiagnosticId = 0L
+                shareText = ""
+                shareIncludesOriginal = false
+                showRawConfirmation = false
+                onDismissShareMessage()
+            },
+        )
+    }
+    val rawContent = shareMessageState as? SmsShareMessageState.Content
+    if (showRawConfirmation && rawContent != null) {
+        WhfinConfirmDialog(
+            title = stringResource(R.string.sms_share_raw_confirm_title),
+            body = stringResource(R.string.sms_share_raw_confirm_body, rawContent.body),
+            confirmLabel = stringResource(R.string.sms_share_include_original_action),
+            dismissLabel = stringResource(R.string.action_cancel),
+            confirmStyle = WhfinActionStyle.Primary,
+            onConfirm = {
+                shareText = SmsProblemReport.withOriginal(shareText, rawContent.body)
+                shareIncludesOriginal = true
+                showRawConfirmation = false
+                onDismissShareMessage()
+            },
+            onDismiss = {
+                showRawConfirmation = false
+                onDismissShareMessage()
+            },
+        )
     }
 }
 
@@ -525,6 +638,7 @@ private fun DiagnosticGroup(
     items: List<SmsDiagnosticEntity>,
     onResolve: (SmsDiagnosticEntity) -> Unit,
     onViewMessage: (SmsDiagnosticEntity) -> Unit,
+    onShareProblem: (SmsDiagnosticEntity) -> Unit,
 ) {
     WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
         items.forEachIndexed { index, item ->
@@ -533,6 +647,7 @@ private fun DiagnosticGroup(
             DiagnosticRow(
                 item,
                 onViewMessage = { onViewMessage(item) },
+                onShareProblem = { onShareProblem(item) },
                 onResolve = if (canResolve) {{ onResolve(item) }} else null,
                 divider = index != items.lastIndex,
             )
@@ -544,6 +659,7 @@ private fun DiagnosticGroup(
 private fun DiagnosticRow(
     item: SmsDiagnosticEntity,
     onViewMessage: () -> Unit,
+    onShareProblem: (() -> Unit)? = null,
     onResolve: (() -> Unit)? = null,
     divider: Boolean = false,
 ) {
@@ -575,6 +691,18 @@ private fun DiagnosticRow(
                     onClick = onViewMessage,
                     outlined = false,
                 )
+                if (
+                    onShareProblem != null &&
+                    (item.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
+                        item.outcome == SmsDiagnosticOutcome.ERROR)
+                ) {
+                    WhfinIconButton(
+                        icon = Icons.Default.Share,
+                        contentDescription = stringResource(R.string.sms_share_problem_action),
+                        onClick = onShareProblem,
+                        outlined = false,
+                    )
+                }
                 if (onResolve != null) WhfinIconButton(
                     icon = Icons.Default.Link,
                     contentDescription = stringResource(R.string.sms_link_action),
@@ -587,6 +715,84 @@ private fun DiagnosticRow(
         divider = divider,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+@Composable
+private fun SmsProblemReportSheet(
+    report: String,
+    includesOriginal: Boolean,
+    rawState: SmsShareMessageState,
+    onReportChange: (String) -> Unit,
+    onIncludeOriginal: () -> Unit,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit,
+) {
+    WhfinFormSheet(
+        title = stringResource(R.string.sms_share_report_title),
+        onDismiss = onDismiss,
+        primaryLabel = stringResource(R.string.sms_share_action),
+        primaryEnabled = report.isNotBlank(),
+        onPrimary = onShare,
+    ) {
+        Text(
+            stringResource(R.string.sms_share_report_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        WhfinNotice(
+            title = stringResource(
+                if (includesOriginal) R.string.sms_share_raw_included_title
+                else R.string.sms_share_redacted_title,
+            ),
+            body = stringResource(
+                if (includesOriginal) R.string.sms_share_raw_included_body
+                else R.string.sms_share_redacted_body,
+            ),
+            icon = if (includesOriginal) Icons.Default.Visibility else Icons.Default.SmsFailed,
+            kind = if (includesOriginal) WhfinNoticeKind.Attention else WhfinNoticeKind.Info,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        WhfinField(
+            value = report,
+            onValueChange = onReportChange,
+            label = stringResource(R.string.sms_share_report_label),
+            supportingText = stringResource(R.string.sms_share_report_support),
+            singleLine = false,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 360.dp),
+        )
+        when (rawState) {
+            SmsShareMessageState.Hidden -> if (!includesOriginal) {
+                WhfinButton(
+                    label = stringResource(R.string.sms_share_include_original_action),
+                    onClick = onIncludeOriginal,
+                    style = WhfinActionStyle.Secondary,
+                    modifier = Modifier.fillMaxWidth().testTag("sms-include-original"),
+                )
+            }
+            SmsShareMessageState.Loading -> WhfinNotice(
+                title = stringResource(R.string.sms_original_message_loading),
+                body = stringResource(R.string.sms_original_message_local_only),
+                icon = Icons.Default.Visibility,
+                kind = WhfinNoticeKind.Unavailable,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            is SmsShareMessageState.Content -> Unit
+            SmsShareMessageState.Unavailable -> WhfinNotice(
+                title = stringResource(R.string.sms_original_message_unavailable_title),
+                body = stringResource(R.string.sms_original_message_unavailable_body),
+                icon = Icons.Default.SmsFailed,
+                kind = WhfinNoticeKind.Unavailable,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SmsShareMessageState.Error -> WhfinNotice(
+                title = stringResource(R.string.sms_original_message_error_title),
+                body = stringResource(R.string.sms_original_message_error_body),
+                icon = Icons.Default.ErrorOutline,
+                kind = WhfinNoticeKind.Error,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
 }
 
 private data class DiagnosticPresentation(
@@ -824,6 +1030,15 @@ private val previewDiagnostics = listOf(
         cardLast4 = "7586",
         counterparty = "Spotify",
         updatedAt = 1_752_900_000_000,
+    ),
+    SmsDiagnosticEntity(
+        id = 3,
+        externalKey = "preview-3",
+        kind = SmsDiagnosticKind.UNRECOGNIZED,
+        outcome = SmsDiagnosticOutcome.UNRECOGNIZED,
+        reason = SmsDiagnosticReason.PARSE_FAILURE,
+        receivedAt = 1_752_800_000_000,
+        updatedAt = 1_752_800_000_000,
     ),
 )
 
