@@ -5,12 +5,13 @@
 
 ## Текущий порядок приоритетов
 
-1. Пересобрать SMS ingestion вокруг отдельных monitoring/routing/import: Unrouted operations в Feed,
-   contextual resolver для одиночных и grouped операций и пользовательский Bank SMS вместо diagnostics.
-2. Добавить одноэкранный Welcome choice, bank-centric Personal setup и временный Demo workspace без
-   глобального switch; детали: `docs/first-run-demo-and-bank-sms.md`.
+1. ~~Пересобрать SMS ingestion вокруг отдельных monitoring/routing/import~~ — сделано: Unrouted
+   operations в Feed, contextual resolver для одиночных и grouped операций, пользовательский Bank SMS
+   вместо diagnostics.
+2. ~~Одноэкранный Welcome choice, bank-centric Personal setup и временный Demo workspace без
+   глобального switch~~ — сделано; детали: `docs/first-run-demo-and-bank-sms.md`.
 3. После нового flow выполнить осторожный dry-run реальных SMS на OnePlus без записи до явного
-   подтверждения.
+   подтверждения. **Единственный незакрытый шаг SMS-этапа.**
 4. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
    банковский интеграционный срез.
 5. Реализовать небольшой **crypto watch-only MVP** на уже существующей модели: EVM + Tron,
@@ -71,9 +72,10 @@ v1→v2, v2→v3 и v3→v4 migrations, поэтому следующий schema
 
 ## 3. SMS reliability and diagnostics
 
-Статус: основная локальная надёжность реализована в Room DB v3. Receiver больше не теряет parsing и
-account-resolution failures; Settings → SMS diagnostics показывает исход каждого Credo-кандидата.
-История за 90 дней имеет отдельное разрешение, prominent disclosure и dry-run до записи.
+Статус: кодовая часть этапа закрыта. Monitoring, routing и import разделены; Unrouted operations живут
+в `sms_diagnostics` и проецируются в Feed вне ledger; contextual resolver закрывает одиночные и grouped
+случаи; пользовательская поверхность называется Bank SMS. История за 90 дней имеет отдельное разрешение,
+prominent disclosure и dry-run до записи. Не закрыт только ручной OnePlus dry-run.
 
 - [x] Заменить nullable/silent результат importer на явный outcome: imported, duplicate,
   ignored (OTP/rejected/unrelated), unrecognized, needs card mapping и ambiguous account.
@@ -90,14 +92,17 @@ account-resolution failures; Settings → SMS diagnostics показывает �
   payload редактируемый/редактированный; raw body добавляется лишь после отдельного подтверждения.
   Никакой фоновой telemetry или автоматической отправки SMS. Проверено end-to-end на disposable Pixel:
   synthetic failure → безопасный editor → exact-raw confirmation → editor → системный Sharesheet.
-- [ ] Разделить monitoring, routing и import: явное включение monitoring принимает будущие Credo SMS
+- [x] Разделить monitoring, routing и import: явное включение monitoring принимает будущие Credo SMS
   даже без card mapping, но не мутирует ledger до выбора счёта.
-- [ ] Показывать parsed Unrouted operations приглушёнными строками Feed без участия в balance,
+- [x] Показывать parsed Unrouted operations приглушёнными строками Feed без участия в balance,
   day/month totals и statistics; statement-first reconciliation прикрепляет SMS без дубля.
-- [ ] Добавить contextual Routing resolver с возвратом после создания недостающего ledger и поддержкой
+- [x] Добавить contextual Routing resolver с возвратом после создания недостающего ledger и поддержкой
   grouped transfer/conversion до атомарного создания настоящих legs.
-- [ ] Пересобрать Settings → SMS diagnostics в Bank SMS: status → needs attention → recent activity →
+- [x] Пересобрать Settings → SMS diagnostics в Bank SMS: status → needs attention → recent activity →
   cards/accounts → optional recent scan → troubleshooting.
+- [x] Выбор счёта для карточного SMS одним действием сохраняет routing, подтверждает явно проверенную
+  операцию и backfill-ит совместимые queued сообщения той же карты; автоматически привязанные соседи
+  остаются PENDING.
 - [~] Проверка: golden/unit tests и injected Credo SMS на disposable emulator выполнены; dry-run существующих SMS на
   OnePlus, затем одна новая реальная операция. На физическом телефоне по-прежнему без instrumentation.
 
