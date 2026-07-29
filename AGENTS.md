@@ -434,10 +434,18 @@ This is a single-context repository with root domain documentation and system-wi
   получить приватные примеры экспорта TBC, реализовать второй adapter и прогнать его через тот же
   pipeline; BOG — третьим. Реальные банковские fixtures остаются только локальными; SMS/push
   для каждого банка — отдельные будущие этапы. Детали: `docs/statement-import.md`
-- [ ] Crypto watch-only MVP поставлен после TBC, но до BOG. База уже есть: WalletAddress,
-  chain-specific CryptoAsset, address×asset Account, backup и форма CRYPTO/WALLET. Перед реальным
-  балансом заменить эвристику сети на явный EVM/Tron selector и validation; первый scope —
-  ETH/TRX/USDT, foreground/manual refresh и нативные балансы без history/DeFi/background sync.
+- [~] Crypto watch-only MVP. База уже есть: WalletAddress,
+  chain-specific CryptoAsset, address×asset Account, backup и форма CRYPTO/WALLET. Первый слайс сделан:
+  `data/crypto/CryptoNetwork` описывает Ethereum (`eip155:1`) и Tron (`tron:mainnet`) вместе с каталогом
+  активов (ETH 18 native, TRX 6 native, USDT 6 с разными контрактами), а `CryptoAddressValidator`
+  проверяет EVM-формат и Tron base58check с контрольной суммой, различая FORMAT и CHECKSUM. Сеть теперь
+  явный выбор пользователя: форма показывает Сеть → Актив → Адрес, живьём подсвечивает ошибку, не даёт
+  сохранить невалидный адрес и не предлагает BTC/TON; decimals и contract берутся из каталога, а
+  `FinancialGroup.provider` кошелька стал chainId. 15 unit-тестов валидатора/каталога и 4 Compose-теста
+  формы; RU + dark + font 1.5 проверено на disposable Pixel end-to-end (адрес Tron при выбранном
+  Ethereum → ошибка → переключение сети → сохранение → ledger TRX нативной суммой, `tron:mainnet`
+  в базе). Дальше — read-only `CryptoBalanceProvider`,
+  foreground/manual refresh и нативные балансы без history/DeFi/background sync.
   Поскольку баланс счетов сейчас равен сумме transactions, on-chain current balance требует отдельный
   snapshot+observedAt и Room migration, а не фальшивую transaction. BTC/TON не показывать рабочими
   до реализации; prices/GEL conversion — отдельный второй slice

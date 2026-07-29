@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.crypto.CryptoAddressValidator
+import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.SavingsMode
@@ -48,28 +50,47 @@ import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 private val quickCurrencies = listOf("GEL", "USD", "EUR", "RUB")
-private val cryptoQuickCurrencies = listOf("USDT", "BTC", "ETH", "TON")
+
+/** Only tickers WHFIN can actually track; Bitcoin and TON are absent until they are implemented. */
+private val cryptoQuickCurrencies = CryptoNetwork.supportedSymbols
 
 @Composable
 fun AddAccountSheet(
     onDismiss: () -> Unit,
     onImportStatement: () -> Unit,
-    onConfirm: (name: String, type: AccountType, currency: String, address: String?, bankProvider: String?) -> Unit,
+    onConfirm: (
+        name: String,
+        type: AccountType,
+        currency: String,
+        address: String?,
+        bankProvider: String?,
+        network: CryptoNetwork?,
+    ) -> Unit,
     initialType: AccountType = AccountType.BANK,
 ) {
     var name by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf(if (initialType == AccountType.CRYPTO) "USDT" else "GEL") }
+    var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }
+    var currency by remember {
+        mutableStateOf(if (initialType == AccountType.CRYPTO) network.assets.first().symbol else "GEL")
+    }
     var type by remember { mutableStateOf(initialType) }
     var address by remember { mutableStateOf("") }
     var customBank by remember { mutableStateOf(false) }
     var bankProvider by remember { mutableStateOf<String?>(null) }
+
+    val addressCheck = if (type == AccountType.CRYPTO && address.isNotBlank()) {
+        CryptoAddressValidator.check(network, address)
+    } else {
+        null
+    }
+    val addressProblem = (addressCheck as? CryptoAddressValidator.Result.Invalid)?.problem
 
     FormSheet(
         title = stringResource(R.string.accounts_add),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
         primaryEnabled = (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank() &&
-            (type != AccountType.CRYPTO || address.isNotBlank()),
+            (type != AccountType.CRYPTO || addressCheck is CryptoAddressValidator.Result.Valid),
         onPrimary = {
             onConfirm(
                 name.ifBlank { "Cash" },
@@ -77,6 +98,7 @@ fun AddAccountSheet(
                 currency,
                 address.trim().takeIf(String::isNotEmpty),
                 bankProvider,
+                network.takeIf { type == AccountType.CRYPTO },
             )
         },
     ) {
@@ -85,7 +107,7 @@ fun AddAccountSheet(
             onSelect = {
                 type = it
                 // Осмысленный дефолт валюты при смене типа
-                currency = if (it == AccountType.CRYPTO) "USDT" else "GEL"
+                currency = if (it == AccountType.CRYPTO) network.assets.first().symbol else "GEL"
             },
         )
         if (type == AccountType.BANK) {
@@ -121,18 +143,50 @@ fun AddAccountSheet(
             supportingText = if (type == AccountType.CASH) stringResource(R.string.cash_name_optional_hint) else null,
             modifier = Modifier.fillMaxWidth(),
         )
-        CurrencySelector(
-            currency = currency,
-            onChange = { currency = it },
-            quick = if (type == AccountType.CRYPTO) cryptoQuickCurrencies else quickCurrencies,
-        )
         if (type == AccountType.CRYPTO) {
+            Text(stringResource(R.string.account_network), style = MaterialTheme.typography.labelLarge)
+            WhfinChoiceRail {
+                items(CryptoNetwork.entries, key = { it.chainId }) { option ->
+                    WhfinFilterPill(
+                        label = option.displayName,
+                        selected = network == option,
+                        onClick = {
+                            network = option
+                            // An asset belongs to one chain, so the choice cannot survive a switch.
+                            if (option.asset(currency) == null) currency = option.assets.first().symbol
+                        },
+                    )
+                }
+            }
+            Text(stringResource(R.string.account_asset), style = MaterialTheme.typography.labelLarge)
+            WhfinChoiceRail {
+                items(network.assets, key = { it.symbol }) { asset ->
+                    WhfinFilterPill(
+                        label = asset.symbol,
+                        selected = currency.equals(asset.symbol, ignoreCase = true),
+                        onClick = { currency = asset.symbol },
+                    )
+                }
+            }
             WhfinField(
                 value = address,
                 onValueChange = { address = it.filterNot(Char::isWhitespace) },
                 label = stringResource(R.string.account_address),
-                supportingText = stringResource(R.string.account_address_hint),
+                supportingText = when (addressProblem) {
+                    CryptoAddressValidator.Problem.CHECKSUM ->
+                        stringResource(R.string.account_address_checksum)
+                    CryptoAddressValidator.Problem.FORMAT ->
+                        stringResource(R.string.account_address_invalid, network.displayName)
+                    else -> stringResource(R.string.account_address_hint)
+                },
+                isError = addressProblem != null,
                 modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            CurrencySelector(
+                currency = currency,
+                onChange = { currency = it },
+                quick = quickCurrencies,
             )
         }
     }
@@ -216,13 +270,23 @@ private fun AccountPurposeSelector(
     }
 }
 
+@Preview(name = "Add Crypto", widthDp = 400, heightDp = 860, showBackground = true)
+@Preview(name = "Add Crypto dark", widthDp = 400, heightDp = 860, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Add Crypto font 1.5", widthDp = 400, heightDp = 1000, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun AddCryptoPreview() {
+    WhfinTheme {
+        AddAccountSheet({}, {}, { _, _, _, _, _, _ -> }, initialType = AccountType.CRYPTO)
+    }
+}
+
 @Preview(name = "Add Cash", widthDp = 400, heightDp = 760, showBackground = true)
 @Preview(name = "Add Cash dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Add Cash font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f, showBackground = true)
 @Composable
 private fun AddCashPreview() {
     WhfinTheme {
-        AddAccountSheet({}, {}, { _, _, _, _, _ -> }, initialType = AccountType.CASH)
+        AddAccountSheet({}, {}, { _, _, _, _, _, _ -> }, initialType = AccountType.CASH)
     }
 }
 

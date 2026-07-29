@@ -610,6 +610,12 @@
     <string name="account_remove_reserve">Вернуть в доступные</string>
     <string name="account_address">Адрес кошелька</string>
     <string name="account_address_hint">Только просмотр: приложение никогда не просит ключи</string>
+    <string name="account_network">Сеть</string>
+    <string name="account_network_required">Выберите сеть этого адреса.</string>
+    <string name="account_asset">Актив</string>
+    <string name="account_asset_unsupported">Этот актив не поддерживается в выбранной сети.</string>
+    <string name="account_address_invalid">Это не похоже на адрес сети %1$s.</string>
+    <string name="account_address_checksum">Контрольная сумма адреса не сходится — проверьте опечатку.</string>
     <string name="account_currency_other">Другая</string>
     <string name="date_pick">Выбрать дату</string>
     <string name="categories_show_all">Все категории</string>

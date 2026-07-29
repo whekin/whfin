@@ -605,6 +605,12 @@
     <string name="account_remove_reserve">Move to available</string>
     <string name="account_address">Wallet address</string>
     <string name="account_address_hint">Watch-only: the app never asks for keys</string>
+    <string name="account_network">Network</string>
+    <string name="account_network_required">Choose the network of this address.</string>
+    <string name="account_asset">Asset</string>
+    <string name="account_asset_unsupported">This asset is not supported on the selected network.</string>
+    <string name="account_address_invalid">This is not a valid %1$s address.</string>
+    <string name="account_address_checksum">Address checksum does not match — check for a typo.</string>
     <string name="account_currency_other">Other</string>
     <string name="date_pick">Pick date</string>
     <string name="categories_show_all">All categories</string>

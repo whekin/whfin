@@ -3,7 +3,10 @@ package dev.whekin.whfin.ui.accounts
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.crypto.CryptoAddressValidator
+import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategorySeeder
@@ -130,7 +133,14 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { _message.value = it.message ?: "Could not update debt" }
     }
 
-    fun addAccount(name: String, type: AccountType, currency: String, address: String? = null, bankProvider: String? = null) {
+    fun addAccount(
+        name: String,
+        type: AccountType,
+        currency: String,
+        address: String? = null,
+        bankProvider: String? = null,
+        network: CryptoNetwork? = null,
+    ) {
         viewModelScope.launch {
             db.withTransaction {
                 val normalizedCurrency = currency.trim().uppercase()
@@ -145,24 +155,46 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     return@withTransaction
                 }
                 if (type == AccountType.CRYPTO && address != null) {
-                    val chainId = if (address.startsWith("0x", ignoreCase = true)) "eip155:1" else "tron:mainnet"
-                    val existingAddress = db.cryptoDao().address(chainId, address.trim())
+                    // The network is a user choice, never guessed from the address shape: a typo
+                    // must fail here instead of silently creating a ledger on the wrong chain.
+                    val chain = network ?: return@withTransaction fail(R.string.account_network_required)
+                    val checked = CryptoAddressValidator.check(chain, address)
+                    val validAddress = (checked as? CryptoAddressValidator.Result.Valid)?.address
+                        ?: return@withTransaction failAddress(chain, checked)
+                    val asset = chain.asset(normalizedCurrency)
+                        ?: return@withTransaction fail(R.string.account_asset_unsupported)
+
+                    val existingAddress = db.cryptoDao().address(chain.chainId, validAddress)
                     val groupId = existingAddress?.groupId ?: db.financialGroupDao().insert(
-                        FinancialGroupEntity(name = normalizedName, type = FinancialGroupType.WALLET, provider = "Trust Wallet"),
+                        FinancialGroupEntity(
+                            name = normalizedName,
+                            type = FinancialGroupType.WALLET,
+                            provider = chain.chainId,
+                        ),
                     )
                     val addressId = existingAddress?.id ?: db.cryptoDao().insertAddress(
-                        WalletAddressEntity(groupId = groupId, chainId = chainId, address = address.trim()),
+                        WalletAddressEntity(groupId = groupId, chainId = chain.chainId, address = validAddress),
                     )
-                    val contract = when (chainId to normalizedCurrency) {
-                        "eip155:1" to "USDT" -> "0xdac17f958d2ee523a2206206994597c13d831ec7"
-                        "tron:mainnet" to "USDT" -> "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-                        else -> null
-                    }
-                    val existingAsset = db.cryptoDao().asset(chainId, contract)
+                    val existingAsset = db.cryptoDao().asset(chain.chainId, asset.contractAddress)
                     val assetId = existingAsset?.id ?: db.cryptoDao().insertAsset(
-                        CryptoAssetEntity(chainId = chainId, contractAddress = contract, symbol = normalizedCurrency, name = normalizedCurrency, decimals = if (normalizedCurrency == "USDT") 6 else 18),
+                        CryptoAssetEntity(
+                            chainId = chain.chainId,
+                            contractAddress = asset.contractAddress,
+                            symbol = asset.symbol,
+                            name = asset.name,
+                            decimals = asset.decimals,
+                        ),
                     )
-                    db.accountDao().insert(AccountEntity(name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId, walletAddressId = addressId, cryptoAssetId = assetId))
+                    db.accountDao().insert(
+                        AccountEntity(
+                            name = normalizedName,
+                            type = type,
+                            currency = asset.symbol,
+                            groupId = groupId,
+                            walletAddressId = addressId,
+                            cryptoAssetId = assetId,
+                        ),
+                    )
                 } else {
                     val groupId = if (type == AccountType.BANK) {
                         val provider = bankProvider ?: normalizedName
@@ -179,6 +211,18 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
+        }
+    }
+
+    private fun fail(messageRes: Int) {
+        _message.value = getApplication<Application>().getString(messageRes)
+    }
+
+    private fun failAddress(network: CryptoNetwork, result: CryptoAddressValidator.Result) {
+        val app = getApplication<Application>()
+        _message.value = when ((result as? CryptoAddressValidator.Result.Invalid)?.problem) {
+            CryptoAddressValidator.Problem.CHECKSUM -> app.getString(R.string.account_address_checksum)
+            else -> app.getString(R.string.account_address_invalid, network.displayName)
         }
     }
 

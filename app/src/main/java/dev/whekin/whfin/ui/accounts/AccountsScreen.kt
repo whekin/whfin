@@ -278,8 +278,8 @@ fun AccountsScreen(
                 showAdd = false
                 statementPicker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
             },
-            onConfirm = { name, type, currency, address, bankProvider ->
-                viewModel.addAccount(name, type, currency, address, bankProvider)
+            onConfirm = { name, type, currency, address, bankProvider, network ->
+                viewModel.addAccount(name, type, currency, address, bankProvider, network)
                 showAdd = false
             },
         )

@@ -163,8 +163,13 @@ address×asset, формы умеют создать CRYPTO/WALLET, а backup с
 сетевой границы и получения баланса.
 
 - [x] Модель address/network + chain-specific asset существует; символ не используется как identity.
-- [ ] Заменить эвристику `0x → Ethereum, всё остальное → Tron` на явный выбор сети и строгую
+- [x] Заменить эвристику `0x → Ethereum, всё остальное → Tron` на явный выбор сети и строгую
   network-specific валидацию адреса. Не показывать BTC/TON как рабочие варианты до их реализации.
+  `data/crypto` содержит `CryptoNetwork` (Ethereum/Tron) с каталогом активов и `CryptoAddressValidator`
+  (EVM `0x`+40 hex, Tron base58check с проверкой контрольной суммы). Форма счёта требует явную сеть,
+  предлагает только активы этой сети и не даёт сохранить невалидный адрес; ViewModel проверяет то же
+  самое повторно. Decimals и contract больше не угадываются, `FinancialGroup.provider` крипто-кошелька
+  стал chainId вместо литерала `Trust Wallet`.
 - [ ] Ввести read-only `CryptoBalanceProvider` boundary без seed phrase/private key и первый
   foreground/manual refresh с явными loading/partial/error/last-updated состояниями.
 - [ ] Первый scope: Ethereum mainnet ETH + ERC-20 USDT и Tron mainnet TRX + TRC-20 USDT.
