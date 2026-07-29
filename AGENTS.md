@@ -74,9 +74,14 @@ This is a single-context repository with root domain documentation and system-wi
   и end-to-end synthetic failure → editor → raw confirmation → Android Sharesheet проверены на disposable
   Pixel при dark + RU + font scale 1.5.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
-  Первый шаг согласованного SMS-slice отделил monitoring от routing/import. Следом parsed
-  Unrouted operation становится видна в Feed, но не участвует в ledger totals; contextual resolver завершает
-  одиночные и grouped операции, а пользовательский экран становится Bank SMS вместо diagnostics.
+  Первые два шага согласованного SMS-slice отделили monitoring от routing/import и вывели parsed
+  Unrouted operation в Feed на её реальной дате. Она физически остаётся в `sms_diagnostics`, поэтому
+  не участвует в balance/day/month/category/statistics. Тап открывает contextual resolver: одиночную
+  операцию можно направить в существующий ledger или прямо там создать Credo-счёт, после чего строка
+  становится обычной pending-транзакцией; card mapping запоминается. Проверено synthetic receiver →
+  muted Feed row → create account → pending transaction на disposable Pixel при RU + dark + font 1.5.
+  Следом resolver атомарно завершает grouped операции, а пользовательский экран становится Bank SMS
+  вместо diagnostics.
   После этого добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
   workspace без глобального switch. Контракт: `CONTEXT.md`,
   `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,

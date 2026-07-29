@@ -106,6 +106,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.ui.CategoryIcons
@@ -146,6 +147,26 @@ import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.sms.SmsRoutingSheet
+
+private sealed interface FeedTimelineEntry {
+    val day: LocalDate
+    val occurredAt: Long
+    val amountMinor: Long
+
+    data class Transaction(val item: FeedItem) : FeedTimelineEntry {
+        override val day: LocalDate = item.day
+        override val occurredAt: Long = item.tx.occurredAt
+        override val amountMinor: Long = item.tx.amountMinor
+    }
+
+    data class Unrouted(val operation: UnroutedOperation) : FeedTimelineEntry {
+        override val day: LocalDate = operation.day
+        override val occurredAt: Long = operation.diagnostic.occurredAt
+            ?: operation.diagnostic.receivedAt
+        override val amountMinor: Long = operation.diagnostic.amountMinor ?: 0L
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,7 +186,10 @@ fun FeedScreen(
     val categoriesByUsage by viewModel.categoriesByUsage.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val people by viewModel.people.collectAsState()
+    val unroutedOperations by viewModel.unroutedOperations.collectAsState()
+    val smsRoutingAccounts by viewModel.smsRoutingAccounts.collectAsState()
     var details by remember { mutableStateOf<FeedItem?>(null) }
+    var routingFor by remember { mutableStateOf<UnroutedOperation?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -213,15 +237,41 @@ fun FeedScreen(
         val matchesCategory = categoryFilters.isEmpty() || item.tx.categoryId in categoryFilters
         matchesType && matchesCategory && (search.isBlank() || haystack.contains(search.trim(), ignoreCase = true))
     }
-    val sortedItems = when (sort) {
-        FeedSort.NEWEST -> visibleItems.sortedByDescending { it.tx.occurredAt }
-        FeedSort.OLDEST -> visibleItems.sortedBy { it.tx.occurredAt }
-        FeedSort.AMOUNT -> visibleItems.sortedWith(
-            compareByDescending<FeedItem> { it.day }
-                .thenByDescending { kotlin.math.abs(it.tx.amountMinor) },
+    val visibleUnrouted = unroutedOperations.filter { operation ->
+        val diagnostic = operation.diagnostic
+        val matchesType = when (filter) {
+            FeedFilter.ALL -> true
+            FeedFilter.EXPENSES -> diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT
+            FeedFilter.INCOME -> diagnostic.kind == SmsDiagnosticKind.INCOMING_TRANSFER
+            FeedFilter.TRANSFERS -> diagnostic.kind == SmsDiagnosticKind.OUTGOING_TRANSFER ||
+                diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP ||
+                diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
+                diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
+        }
+        val haystack = listOfNotNull(
+            diagnostic.counterparty,
+            diagnostic.kind.name,
+            diagnostic.currency,
+            diagnostic.balanceCurrency,
+            diagnostic.cardLast4,
+            operation.day.toString(),
+            operation.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+            diagnostic.amountMinor?.let { (kotlin.math.abs(it) / 100.0).toString() },
+        ).joinToString(" ")
+        matchesType && categoryFilters.isEmpty() &&
+            (search.isBlank() || haystack.contains(search.trim(), ignoreCase = true))
+    }
+    val timelineEntries = visibleItems.map(FeedTimelineEntry::Transaction) +
+        visibleUnrouted.map(FeedTimelineEntry::Unrouted)
+    val sortedEntries = when (sort) {
+        FeedSort.NEWEST -> timelineEntries.sortedByDescending(FeedTimelineEntry::occurredAt)
+        FeedSort.OLDEST -> timelineEntries.sortedBy(FeedTimelineEntry::occurredAt)
+        FeedSort.AMOUNT -> timelineEntries.sortedWith(
+            compareByDescending<FeedTimelineEntry> { it.day }
+                .thenByDescending { kotlin.math.abs(it.amountMinor) },
         )
     }
-    val grouped = sortedItems.groupBy { it.day }
+    val grouped = sortedEntries.groupBy(FeedTimelineEntry::day)
     val selectedItems = items.filter { it.tx.id in selectedIds }
     val selectionMode = selectedIds.isNotEmpty()
     val allSelectedPending = selectedItems.isNotEmpty() && selectedItems.all { it.tx.status == TxStatus.PENDING }
@@ -335,7 +385,7 @@ fun FeedScreen(
                 SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
             }
         }
-        if (items.isEmpty()) {
+        if (items.isEmpty() && unroutedOperations.isEmpty()) {
             item(key = "empty") {
                 WhfinStatePane(
                     state = WhfinPaneState.Empty,
@@ -344,7 +394,8 @@ fun FeedScreen(
                 )
             }
         }
-        grouped.forEach { (day, dayItems) ->
+        grouped.forEach { (day, dayEntries) ->
+            val dayItems = dayEntries.mapNotNull { (it as? FeedTimelineEntry.Transaction)?.item }
             item(key = "header-$day") {
                 // Расходы дня: GEL показываем сразу, остальные валюты раскрываются по тапу.
                 val expensesByCurrency = dayItems
@@ -371,7 +422,7 @@ fun FeedScreen(
             }
             val transfers = dayItems.filter { it.tx.isTransfer }
             val regular = dayItems.filterNot { it.tx.isTransfer }
-            if (transfers.size >= 3 && day !in expandedTransferDays) {
+            if (transfers.size >= 3 && dayEntries.size == dayItems.size && day !in expandedTransferDays) {
                 item(key = "transfer-bundle-$day") {
                     TransferBundleRow(transfers.size) {
                         expandedTransferDays = expandedTransferDays + day
@@ -386,13 +437,29 @@ fun FeedScreen(
                     )
                 }
             } else {
-                items(dayItems, key = { it.tx.id }) { item ->
-                    FeedRow(
-                        item = item,
-                        selected = item.tx.id in selectedIds,
-                        onClick = { if (selectionMode) toggleSelection(item) else details = item },
-                        onLongClick = { toggleSelection(item) },
-                    )
+                items(
+                    dayEntries,
+                    key = { entry ->
+                        when (entry) {
+                            is FeedTimelineEntry.Transaction -> "transaction-${entry.item.tx.id}"
+                            is FeedTimelineEntry.Unrouted -> "unrouted-${entry.operation.diagnostic.id}"
+                        }
+                    },
+                ) { entry ->
+                    when (entry) {
+                        is FeedTimelineEntry.Transaction -> FeedRow(
+                            item = entry.item,
+                            selected = entry.item.tx.id in selectedIds,
+                            onClick = {
+                                if (selectionMode) toggleSelection(entry.item) else details = entry.item
+                            },
+                            onLongClick = { toggleSelection(entry.item) },
+                        )
+                        is FeedTimelineEntry.Unrouted -> UnroutedOperationRow(
+                            operation = entry.operation,
+                            onClick = { if (!selectionMode) routingFor = entry.operation },
+                        )
+                    }
                 }
             }
         }
@@ -412,6 +479,27 @@ fun FeedScreen(
         },
         onDismiss = { showFilterSheet = false },
     )
+
+    routingFor?.let { operation ->
+        SmsRoutingSheet(
+            diagnostic = operation.diagnostic,
+            accounts = smsRoutingAccounts,
+            onDismiss = { routingFor = null },
+            onResolve = { accountId, cardType ->
+                viewModel.resolveUnrouted(operation.diagnostic.id, accountId, cardType)
+                routingFor = null
+            },
+            onCreateAccount = { name, currency, cardType ->
+                viewModel.createCredoAccountAndResolve(
+                    operation.diagnostic.id,
+                    name,
+                    currency,
+                    cardType,
+                )
+                routingFor = null
+            },
+        )
+    }
 
     if (showBatchStatus) TransactionStatusSheet(
         current = selectedItems.map { it.tx.status }.distinct().singleOrNull(),
@@ -1890,6 +1978,134 @@ private fun humanizeTitle(raw: String): String {
         val index = word.indexOfFirst(Char::isLetter)
         if (index < 0) word
         else word.take(index) + word[index].titlecase() + word.drop(index + 1)
+    }
+}
+
+@Composable
+internal fun UnroutedOperationRow(
+    operation: UnroutedOperation,
+    onClick: () -> Unit,
+) {
+    val diagnostic = operation.diagnostic
+    val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
+        diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
+    val title = diagnostic.counterparty?.let(::humanizeTitle) ?: stringResource(
+        when (diagnostic.kind) {
+            SmsDiagnosticKind.CARD_PAYMENT -> R.string.sms_kind_card
+            SmsDiagnosticKind.OUTGOING_TRANSFER -> R.string.sms_kind_outgoing
+            SmsDiagnosticKind.INCOMING_TRANSFER -> R.string.sms_kind_incoming
+            SmsDiagnosticKind.DEPOSIT_TOP_UP -> R.string.sms_kind_deposit_top_up
+            SmsDiagnosticKind.OWN_TRANSFER -> R.string.sms_kind_own_transfer
+            SmsDiagnosticKind.CURRENCY_EXCHANGE -> R.string.sms_kind_exchange
+            SmsDiagnosticKind.IGNORED, SmsDiagnosticKind.UNRECOGNIZED -> R.string.feed_unrouted_operation
+        },
+    )
+    val cardHint = diagnostic.cardLast4?.let {
+        stringResource(R.string.sms_card_suffix, it)
+    }
+    val routingLabel = stringResource(
+        if (grouped) R.string.feed_unrouted_choose_accounts else R.string.feed_unrouted_choose_account,
+    )
+    val currency = diagnostic.currency ?: diagnostic.balanceCurrency ?: "—"
+    val amount = diagnostic.amountMinor ?: 0L
+    val signedAmount = when (diagnostic.kind) {
+        SmsDiagnosticKind.CARD_PAYMENT,
+        SmsDiagnosticKind.OUTGOING_TRANSFER -> -kotlin.math.abs(amount)
+        SmsDiagnosticKind.INCOMING_TRANSFER,
+        SmsDiagnosticKind.DEPOSIT_TOP_UP -> kotlin.math.abs(amount)
+        else -> kotlin.math.abs(amount)
+    }
+    val withSign = diagnostic.kind != SmsDiagnosticKind.OWN_TRANSFER &&
+        diagnostic.kind != SmsDiagnosticKind.CURRENCY_EXCHANGE
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag("unrouted-operation-${diagnostic.id}"),
+        shape = androidx.compose.ui.graphics.RectangleShape,
+        color = Color.Transparent,
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = .11f),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (grouped) Icons.Default.SwapHoriz else Icons.Default.Sms,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .82f),
+                    )
+                    Text(
+                        listOfNotNull(stringResource(R.string.feed_bank_sms_source), cardHint)
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        maxLines = 1,
+                    )
+                }
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    WhfinAmount(
+                        text = formatMinor(signedAmount, currency, withSign = withSign),
+                        symbol = currencySymbol(currency),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (
+                        diagnostic.secondaryAmountMinor != null &&
+                        diagnostic.secondaryCurrency != null
+                    ) {
+                        WhfinAmount(
+                            text = "→ ${formatMinor(
+                                diagnostic.secondaryAmountMinor,
+                                diagnostic.secondaryCurrency,
+                            )}",
+                            symbol = currencySymbol(diagnostic.secondaryCurrency),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Box(
+                            Modifier.size(6.dp).background(
+                                MaterialTheme.colorScheme.tertiary,
+                                CircleShape,
+                            ),
+                        )
+                        Text(
+                            routingLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                }
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f),
+            )
+        }
     }
 }
 

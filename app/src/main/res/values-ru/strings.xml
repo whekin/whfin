@@ -9,6 +9,10 @@
     <string name="tab_feed">Транзакции</string>
     <string name="tab_accounts">Счета</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
+    <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
+    <string name="feed_unrouted_choose_account">Выбрать счёт</string>
+    <string name="feed_unrouted_choose_accounts">Выбрать счета</string>
+    <string name="feed_bank_sms_source">SMS банка</string>
     <string name="feed_no_description">Без описания</string>
     <string name="feed_transfer">Перевод</string>
     <string name="feed_uncategorized">Без категории</string>
@@ -239,6 +243,15 @@
     <string name="sms_share_action">Поделиться</string>
     <string name="sms_share_chooser_title">Поделиться отчётом через…</string>
     <string name="sms_choose_account_title">Привязать сообщение</string>
+    <string name="sms_choose_accounts_title">Выберите счета</string>
+    <string name="sms_routing_title">Счёт операции</string>
+    <string name="sms_routing_accounts_title">Счета перевода</string>
+    <string name="sms_routing_new_account_title">Счёт Credo</string>
+    <string name="sms_routing_resolver_body">Операция видна в ленте, но не влияет на балансы, пока её счёт неизвестен.</string>
+    <string name="sms_grouped_routing_pending_body">Для перевода нужно выбрать обе стороны вместе. Частичный выбор не создаст запись в ledger.</string>
+    <string name="sms_account_for_operation">Счёт в %1$s</string>
+    <string name="sms_new_account_support">Credo · %1$s. IBAN и другие валюты можно добавить позже.</string>
+    <string name="sms_create_and_link_action">Создать</string>
     <string name="sms_choose_account_body">Выберите счёт %1$s для этого сообщения. Будущие оплаты с той же карты будут использовать эту привязку.</string>
     <string name="sms_no_matching_accounts">Нет активных банковских счетов в %1$s. Сначала добавьте или импортируйте счёт.</string>
     <string name="sms_card_type">ТИП КАРТЫ</string>

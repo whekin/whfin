@@ -7,6 +7,8 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
+import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
@@ -17,9 +19,13 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.data.db.FinancialGroupEntity
+import dev.whekin.whfin.data.db.FinancialGroupType
 import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.categorization.CategorySuggester
+import dev.whekin.whfin.data.sms.SmsTransactionImporter
+import dev.whekin.whfin.ui.sms.SmsRoutingAccount
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -53,6 +59,11 @@ data class FeedItem(
     val isDebt: Boolean = false,
     /** Доли на людей (SHARED/GIFT): имя → сумма на этого человека (abs, minor). */
     val splitOnPeople: List<Pair<String, Long>> = emptyList(),
+    val day: LocalDate,
+)
+
+data class UnroutedOperation(
+    val diagnostic: SmsDiagnosticEntity,
     val day: LocalDate,
 )
 
@@ -204,6 +215,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = (app as WhfinApp).db
     private val debtRepository = dev.whekin.whfin.data.debt.DebtRepository(db)
+    private val smsImporter = SmsTransactionImporter(db)
     private val zone = ZoneId.systemDefault()
 
     val categories: StateFlow<List<CategoryEntity>> = db.categoryDao().observeAll()
@@ -214,6 +226,27 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val unroutedOperations: StateFlow<List<UnroutedOperation>> = db.smsDiagnosticDao().observeUnrouted()
+        .map { diagnostics ->
+            diagnostics.mapNotNull { diagnostic ->
+                val occurredAt = diagnostic.occurredAt ?: return@mapNotNull null
+                UnroutedOperation(
+                    diagnostic = diagnostic,
+                    day = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate(),
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val smsRoutingAccounts: StateFlow<List<SmsRoutingAccount>> = combine(
+        accounts,
+        db.financialGroupDao().observeActive(),
+    ) { accounts, groups ->
+        val groupNames = groups.associate { it.id to it.name }
+        accounts.filter { it.type == AccountType.BANK || it.type == AccountType.SAVINGS }
+            .map { account -> SmsRoutingAccount(account, account.groupId?.let(groupNames::get)) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val cardHints = combine(
         db.paymentInstrumentDao().observeActive(),
@@ -321,6 +354,51 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addDebt(debt: dev.whekin.whfin.data.debt.NewDebt) {
         viewModelScope.launch { debtRepository.open(debt) }
+    }
+
+    fun resolveUnrouted(
+        diagnosticId: Long,
+        accountId: Long,
+        cardType: PaymentInstrumentType,
+    ) {
+        viewModelScope.launch {
+            smsImporter.resolveDiagnostic(diagnosticId, accountId, cardType)
+        }
+    }
+
+    fun createCredoAccountAndResolve(
+        diagnosticId: Long,
+        name: String,
+        currency: String,
+        cardType: PaymentInstrumentType,
+    ) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        viewModelScope.launch {
+            db.withTransaction {
+                val groupId = db.financialGroupDao()
+                    .byProvider(FinancialGroupType.BANK, "Credo")
+                    ?.id
+                    ?: db.financialGroupDao().insert(
+                        FinancialGroupEntity(
+                            name = "Credo",
+                            type = FinancialGroupType.BANK,
+                            provider = "Credo",
+                        ),
+                    )
+                val accountId = db.accountDao().insert(
+                    AccountEntity(
+                        name = cleanName,
+                        type = AccountType.BANK,
+                        currency = currency,
+                        groupId = groupId,
+                    ),
+                )
+                if (accountId > 0) {
+                    smsImporter.resolveDiagnostic(diagnosticId, accountId, cardType)
+                }
+            }
+        }
     }
 
     fun assignCategory(item: FeedItem, categoryId: Long) {

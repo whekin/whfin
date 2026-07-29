@@ -503,6 +503,15 @@ interface SmsDiagnosticDao {
     @Query("SELECT * FROM sms_diagnostics ORDER BY receivedAt DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<SmsDiagnosticEntity>>
 
+    @Query(
+        "SELECT * FROM sms_diagnostics " +
+            "WHERE transactionId IS NULL " +
+            "AND outcome IN ('NEEDS_CARD_MAPPING', 'CHOOSE_ACCOUNT') " +
+            "AND occurredAt IS NOT NULL AND amountMinor IS NOT NULL AND currency IS NOT NULL " +
+            "ORDER BY occurredAt DESC, id DESC"
+    )
+    fun observeUnrouted(): Flow<List<SmsDiagnosticEntity>>
+
     @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
     suspend fun byId(id: Long): SmsDiagnosticEntity?
 

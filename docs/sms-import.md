@@ -99,6 +99,15 @@ Only a final explicit Share opens Android Sharesheet with the exact text visible
 the editor or permission flow clears the pending raw-message state; neither redacted nor raw report text
 is written to Room or backup.
 
+## Unrouted operations
+
+Monitoring no longer waits for a card mapping. A parsed message whose ledger is unknown remains in
+`sms_diagnostics` with `NEEDS_CARD_MAPPING` or `CHOOSE_ACCOUNT` and is projected into the Feed at
+`occurredAt`. Because it is not a `Transaction`, it cannot affect balances, day/month totals, categories,
+or statistics. Its contextual resolver can choose an existing currency-matching ledger or create a Credo
+ledger in place, then calls the normal importer resolution path and remembers a card mapping when present.
+Grouped transfers and conversions remain outside the ledger until both sides can be resolved atomically.
+
 ## Verification order
 
 1. Unit-test structured outcomes, monitoring without prior routing, account ambiguity, card mapping, duplicate handling,

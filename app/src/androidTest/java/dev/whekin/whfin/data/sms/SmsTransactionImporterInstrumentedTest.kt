@@ -12,6 +12,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.WhfinDatabase
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,6 +54,7 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(SmsDiagnosticReason.NO_CARD_MAPPING, first.reason)
         val diagnosticId = requireNotNull(first.diagnosticId)
         assertEquals(0, transactionCount())
+        assertEquals(diagnosticId, db.smsDiagnosticDao().observeUnrouted().first().single().id)
 
         val resolved = importer.resolveDiagnostic(
             diagnosticId,
@@ -62,6 +64,7 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(SmsDiagnosticOutcome.IMPORTED, resolved.outcome)
         assertNotNull(resolved.transactionId)
         assertEquals(accountId, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        assertTrue(db.smsDiagnosticDao().observeUnrouted().first().isEmpty())
 
         val repeated = importer.import(CARD_PAYMENT, RECEIVED_AT)
         assertEquals(SmsDiagnosticOutcome.DUPLICATE, repeated.outcome)
