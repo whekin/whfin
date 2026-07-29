@@ -98,6 +98,8 @@ private data class AccountGroupSelection(
 @Composable
 fun AccountsScreen(
     demoMode: Boolean = false,
+    addRequestKey: Int = 0,
+    onAddRequestConsumed: () -> Unit = {},
     onOpenStatements: () -> Unit = {},
     onOpenOverview: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -128,6 +130,12 @@ fun AccountsScreen(
     var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
+    LaunchedEffect(addRequestKey) {
+        if (addRequestKey > 0) {
+            showAdd = true
+            onAddRequestConsumed()
+        }
+    }
     val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val statementPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {

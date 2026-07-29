@@ -9,6 +9,27 @@ import android.content.Context
 class RuntimeModeStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
+    val hasWelcomeChoice: Boolean
+        get() = preferences.contains(KEY_WELCOME_COMPLETED)
+
+    val welcomeCompleted: Boolean
+        get() = preferences.getBoolean(KEY_WELCOME_COMPLETED, false)
+
+    var personalSetupPending: Boolean
+        get() = preferences.getBoolean(KEY_PERSONAL_SETUP_PENDING, false)
+        set(value) {
+            check(preferences.edit().putBoolean(KEY_PERSONAL_SETUP_PENDING, value).commit())
+        }
+
+    fun completeWelcomeChoice(personalSetupPending: Boolean) {
+        check(
+            preferences.edit()
+                .putBoolean(KEY_WELCOME_COMPLETED, true)
+                .putBoolean(KEY_PERSONAL_SETUP_PENDING, personalSetupPending)
+                .commit(),
+        )
+    }
+
     var demoMode: Boolean
         get() = preferences.getBoolean(KEY_DEMO_MODE, false)
         set(value) {
@@ -32,5 +53,7 @@ class RuntimeModeStore(context: Context) {
         const val KEY_DEMO_MODE = "demo_mode"
         const val KEY_DEVELOPER_MODE = "developer_mode"
         const val KEY_DEMO_FIXTURE_VERSION = "demo_fixture_version"
+        const val KEY_WELCOME_COMPLETED = "welcome_completed"
+        const val KEY_PERSONAL_SETUP_PENDING = "personal_setup_pending"
     }
 }

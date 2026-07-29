@@ -56,7 +56,7 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[SmsPermissionPromptDismissed] ?: false }
 
-    /** Defaults off: card routing must be configured before automatic SMS import is enabled. */
+    /** Defaults off: monitoring is explicit, while incomplete card/account routing may be resolved later. */
     val smsImportEnabled: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error

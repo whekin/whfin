@@ -104,6 +104,8 @@ private enum class ShellScene(val depth: Int) {
 
 @Composable
 fun MainScreen(
+    initialTab: Int = 0,
+    initialAccountAddRequest: Boolean = false,
     appThemeMode: AppThemeMode,
     dynamicColorsEnabled: Boolean,
     useSystemFont: Boolean,
@@ -139,7 +141,10 @@ fun MainScreen(
     onDeveloperModeChange: (Boolean) -> Unit = {},
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
+    var accountAddRequestKey by rememberSaveable {
+        mutableIntStateOf(if (initialAccountAddRequest) 1 else 0)
+    }
     var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
@@ -243,6 +248,8 @@ fun MainScreen(
                                 viewModel = feedViewModel,
                             ) else AccountsScreen(
                                 demoMode = demoMode,
+                                addRequestKey = accountAddRequestKey,
+                                onAddRequestConsumed = { accountAddRequestKey = 0 },
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
                                 onOpenOverview = { open(SecondaryDestination.AccountOverview) },
                                 onOpenSettings = { open(SecondaryDestination.Settings) },

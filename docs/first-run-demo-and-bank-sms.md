@@ -1,6 +1,7 @@
 # First run, Demo workspace, and Bank SMS
 
-Status: accepted product direction, 2026-07-29. Canonical terms live in
+Status: SMS model, Bank SMS, Welcome choice, and Personal setup implemented; Demo workspace shell pending,
+2026-07-29. Canonical terms live in
 [`CONTEXT.md`](../CONTEXT.md).
 
 ## Product intent
@@ -21,8 +22,13 @@ A fresh untouched installation shows one full-screen **Welcome choice** before t
 
 Either choice permanently completes Welcome choice for that installation. Choosing Personal setup and
 then adding nothing must not make the gate reappear. Data-bearing existing installations must never see a
-new first-run gate after upgrade; the exact treatment of a legacy but untouched empty installation can be
-decided during implementation.
+new first-run gate after upgrade. Runtime choice flags are deliberately excluded from backup. An
+installation upgraded from a build without those flags is treated as already welcomed, including a
+legacy empty installation; a clean install shows Welcome choice.
+
+Choosing Personal setup records a resumable pending setup surface. Process restarts return there until the
+person deliberately continues to Feed or Accounts. Choosing Demo completes Welcome only after the isolated
+fixture has been installed successfully.
 
 ## Personal setup
 
@@ -44,6 +50,10 @@ Statement-file import is a secondary fallback, not the recommended first action.
 
 Future TBC and BOG support should use the same Bank setup grammar while exposing only the channels each
 bank truly supports.
+
+The implemented Credo surface links directly to the existing MyCredo/OTP flow, Bank SMS, statement XLSX
+import, portable restore, and manual Accounts entry. Its pinned action follows the next recommended
+incomplete step while `Continue without setup` remains explicit.
 
 ## Demo workspace
 
@@ -113,7 +123,7 @@ Its hierarchy is:
 2. Project them into Feed and add the contextual Routing resolver, including grouped transfers and
    statement-first reconciliation.
 3. Rebuild SMS diagnostics as Bank SMS.
-4. Add Welcome choice and bank-centred Personal setup on top of the finished Credo/SMS flow.
+4. Add Welcome choice and bank-centred Personal setup on top of the finished Credo/SMS flow. **Done.**
 5. Replace the Settings demo switch with the new entry, workspace strip, exit destinations, and Demo
    visit reset policy.
 6. Run the bounded OnePlus SMS dry-run manually before any real-message import.

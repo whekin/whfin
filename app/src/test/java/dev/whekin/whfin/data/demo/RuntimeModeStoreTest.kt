@@ -26,14 +26,24 @@ class RuntimeModeStoreTest {
         val store = RuntimeModeStore(context)
         assertFalse(store.demoMode)
         assertFalse(store.developerMode)
+        assertFalse(store.hasWelcomeChoice)
+        assertFalse(store.welcomeCompleted)
+        assertFalse(store.personalSetupPending)
 
         store.demoMode = true
         store.developerMode = true
         store.demoFixtureVersion = 4
+        store.completeWelcomeChoice(personalSetupPending = true)
 
         val reopened = RuntimeModeStore(context)
         assertTrue(reopened.demoMode)
         assertTrue(reopened.developerMode)
         assertEquals(4, reopened.demoFixtureVersion)
+        assertTrue(reopened.hasWelcomeChoice)
+        assertTrue(reopened.welcomeCompleted)
+        assertTrue(reopened.personalSetupPending)
+
+        reopened.personalSetupPending = false
+        assertFalse(RuntimeModeStore(context).personalSetupPending)
     }
 }

@@ -93,8 +93,15 @@ This is a single-context repository with root domain documentation and system-wi
   Grouped unresolved возвращает в contextual Feed resolver, а карты добавляются компактной строкой,
   не блокируя весь экран. Compose tests и реальный RU + dark + font 1.5 render проверены на disposable
   Pixel.
-  Следом добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
-  workspace без глобального switch. Контракт: `CONTEXT.md`,
+  Одноэкранный Welcome choice и bank-centric Personal setup реализованы. Clean install до shell показывает
+  ровно два действия без permission prompts; выбор Personal переживает process restart до явного
+  продолжения, а upgrade существующей установки автоматически пропускает новый gate. Setup показывает
+  только Credo и ведёт в рабочие MyCredo/OTP, Bank SMS, XLSX, restore и ручной Accounts-entry; главное
+  действие следует следующему незавершённому шагу, skip остаётся явным. Explore demo устанавливает
+  изолированный fixture и открывает заполненную рабочую область. Проверено end-to-end на clean disposable
+  Pixel при RU + dark + font 1.5, включая install-r, Back и отсутствие повторного Welcome.
+  Следом временный Demo workspace переводится с глобального switch на entry sheet + workspace strip +
+  правильные exit/reset destinations. Контракт: `CONTEXT.md`,
   `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,
   `docs/first-run-demo-and-bank-sms.md`.
   Детали: `docs/sms-import.md`
