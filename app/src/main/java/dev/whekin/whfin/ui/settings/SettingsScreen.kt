@@ -230,43 +230,41 @@ fun SettingsScreen(
             title = stringResource(R.string.settings_sms_title),
             body = stringResource(
                 when {
-                    !hasSmsCardMapping -> R.string.settings_sms_card_required_body
-                    smsImportEnabled -> R.string.settings_sms_body
-                    else -> R.string.settings_sms_disabled_body
+                    !smsImportEnabled -> R.string.settings_sms_disabled_body
+                    !hasSmsPermission -> R.string.settings_sms_permission_body
+                    !hasSmsCardMapping -> R.string.settings_sms_unrouted_body
+                    else -> R.string.settings_sms_body
                 },
             ),
             icon = Icons.Default.Sms,
             kind = when {
-                !hasSmsCardMapping -> WhfinNoticeKind.Attention
                 !smsImportEnabled -> WhfinNoticeKind.Unavailable
-                hasSmsPermission -> WhfinNoticeKind.Info
-                else -> WhfinNoticeKind.Attention
+                !hasSmsPermission || !hasSmsCardMapping -> WhfinNoticeKind.Attention
+                else -> WhfinNoticeKind.Info
             },
             actionLabel = when {
-                !hasSmsCardMapping -> stringResource(R.string.sms_add_card_action)
-                !smsImportEnabled || hasSmsPermission -> null
-                else -> stringResource(
+                !smsImportEnabled -> null
+                !hasSmsPermission -> stringResource(
                     if (canRequestSmsPermission) R.string.permission_allow else R.string.permission_open_settings,
                 )
+                !hasSmsCardMapping -> stringResource(R.string.sms_review_routing_action)
+                else -> null
             },
             onAction = when {
+                !smsImportEnabled -> null
+                !hasSmsPermission ->
+                    if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings
                 !hasSmsCardMapping -> onOpenSmsDiagnostics
-                !smsImportEnabled || hasSmsPermission -> null
-                canRequestSmsPermission -> onRequestSmsPermission
-                else -> onOpenSystemSettings
+                else -> null
             },
             modifier = Modifier.fillMaxWidth(),
             trailing = {
                 WhfinSwitch(
                     checked = smsImportEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled && !hasSmsCardMapping) {
-                            onOpenSmsDiagnostics()
-                        } else {
-                            onSmsImportEnabledChange(enabled)
-                            if (enabled && !hasSmsPermission) {
-                                if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings()
-                            }
+                        onSmsImportEnabledChange(enabled)
+                        if (enabled && !hasSmsPermission) {
+                            if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings()
                         }
                     },
                     contentDescription = stringResource(R.string.settings_sms_toggle),

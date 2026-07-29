@@ -159,7 +159,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun smsImportSwitch_requiresCardMapping_beforeEnabling() {
+    fun smsMonitoringSwitch_enablesBeforeCardMapping_andRequestsPermission() {
         var enabled = false
         var diagnosticsOpened = false
         var permissionRequested = false
@@ -189,9 +189,9 @@ class SettingsScreenTest {
 
         compose.onNodeWithContentDescription(description).performScrollTo().assertIsOff().performClick()
 
-        assertFalse(enabled)
-        assertTrue(diagnosticsOpened)
-        assertFalse(permissionRequested)
+        assertTrue(enabled)
+        assertFalse(diagnosticsOpened)
+        assertTrue(permissionRequested)
     }
 
     @Test

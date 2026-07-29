@@ -61,9 +61,10 @@ This is a single-context repository with root domain documentation and system-wi
   2 минут, разных счетах одной банковской группы и единственном кандидате; unique reserve/savings
   выбирается автоматически, неоднозначность остаётся явным выбором. v2→v3 migration,
   importer/backup tests, light/dark/font 1.5 и реальный injected-SMS path проверены на disposable Pixel.
-  Автоматический импорт теперь по умолчанию выключен и не включается без хотя бы одной явной привязки
-  последних четырёх цифр карты к банковскому ledger; receiver проверяет тот же gate. Привязками можно
-  управлять постоянно из SMS diagnostics, ввод строго состоит из четырёх цифр. Карта моделируется как
+  SMS monitoring по умолчанию выключен, но теперь включается до настройки карт: receiver сохраняет
+  structured outcome каждого Credo-кандидата, а отсутствие routing оставляет его вне ledger вместо
+  потери сообщения. Привязками можно управлять постоянно из SMS diagnostics, ввод строго состоит из
+  четырёх цифр. Карта моделируется как
   physical/virtual PaymentInstrument и связывается со всеми валютными ledger одного bank + IBAN;
   валюта конкретного SMS выбирает нужный ledger уже при импорте.
   Parser failure теперь имеет явный Android Sharesheet-flow: безопасный редактируемый отчёт по умолчанию
@@ -73,8 +74,8 @@ This is a single-context repository with root domain documentation and system-wi
   и end-to-end synthetic failure → editor → raw confirmation → Android Sharesheet проверены на disposable
   Pixel при dark + RU + font scale 1.5.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
-  Следующий согласованный slice заменяет setup gate на отдельные monitoring/routing/import: parsed
-  Unrouted operation видна в Feed, но не участвует в ledger totals; contextual resolver завершает
+  Первый шаг согласованного SMS-slice отделил monitoring от routing/import. Следом parsed
+  Unrouted operation становится видна в Feed, но не участвует в ledger totals; contextual resolver завершает
   одиночные и grouped операции, а пользовательский экран становится Bank SMS вместо diagnostics.
   После этого добавляются одноэкранный Welcome choice, bank-centric Personal setup и временный Demo
   workspace без глобального switch. Контракт: `CONTEXT.md`,

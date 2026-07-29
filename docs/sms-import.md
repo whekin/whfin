@@ -101,7 +101,7 @@ is written to Room or backup.
 
 ## Verification order
 
-1. Unit-test structured outcomes, the four-digit setup gate, account ambiguity, card mapping, duplicate handling,
+1. Unit-test structured outcomes, monitoring without prior routing, account ambiguity, card mapping, duplicate handling,
    deposit-pair safeguards, and all golden parser samples.
 2. On the disposable emulator, create explicit accounts/instruments and inject sanitized messages with
    `adb emu sms send`; assert receiver → outcome → pending row → duplicate behavior.

@@ -131,11 +131,6 @@ class MainActivity : FragmentActivity() {
                     ?: AppLockTimeout.Disabled
                 val scope = rememberCoroutineScope()
                 val mainState = rememberSaveableStateHolder()
-                LaunchedEffect(smsImportEnabled, configuredSmsCards) {
-                    if (smsImportEnabled == true && configuredSmsCards == 0) {
-                        uiPreferences.setSmsImportEnabled(false)
-                    }
-                }
                 LaunchedEffect(savedTimeout, biometricEnabled) {
                     biometricEnabled?.let { this@MainActivity.biometricUnlockEnabled = it }
                     savedTimeout?.let { timeout ->
@@ -185,7 +180,7 @@ class MainActivity : FragmentActivity() {
                             onUseSystemFontChange = { enabled ->
                                 scope.launch { uiPreferences.setUseSystemFont(enabled) }
                             },
-                            smsImportEnabled = smsImportEnabled == true && (configuredSmsCards ?: 0) > 0,
+                            smsImportEnabled = smsImportEnabled == true,
                             hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,
                             hasSmsPermission = hasSmsPermission,
                             canRequestSmsPermission = canRequestSmsPermission,

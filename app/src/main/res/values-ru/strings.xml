@@ -148,11 +148,12 @@
     <string name="credo_sync_error_no_accounts">MyCredo не вернул доступных выписок для этого профиля.</string>
     <string name="credo_sync_error_statement">Credo вернул нечитаемую выписку. Остальные счета всё равно можно импортировать.</string>
     <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>
-    <string name="settings_sms_title">Импорт SMS Credo</string>
-    <string name="settings_sms_body">WHFIN читает на устройстве только сообщения об операциях. OTP-коды, отказы и посторонние SMS игнорируются. WHFIN никуда не отправляет содержимое SMS.</string>
-    <string name="settings_sms_disabled_body">Выключено. WHFIN игнорирует входящие SMS, пока вы снова не включите автоматический импорт.</string>
-    <string name="settings_sms_card_required_body">Добавьте последние четыре цифры из SMS Credo об оплате картой, прежде чем включать автоматический импорт.</string>
-    <string name="settings_sms_toggle">Автоматический импорт SMS</string>
+    <string name="settings_sms_title">Мониторинг SMS Credo</string>
+    <string name="settings_sms_body">Будущие SMS Credo об операциях отслеживаются на этом устройстве. После маршрутизации операция становится ожидающей транзакцией.</string>
+    <string name="settings_sms_permission_body">Мониторинг включён, но Android ещё не разрешил доступ к SMS.</string>
+    <string name="settings_sms_unrouted_body">Новые операции без известного счёта будут ждать вашего выбора в ленте.</string>
+    <string name="settings_sms_disabled_body">Выключено. WHFIN игнорирует будущие входящие SMS, пока вы снова не включите мониторинг.</string>
+    <string name="settings_sms_toggle">Мониторинг SMS Credo</string>
     <string name="sms_diagnostics_title">Диагностика SMS</string>
     <string name="sms_diagnostics_settings_summary">Что импортировано, проигнорировано или требует счёта</string>
     <string name="sms_monitoring_on">Новые сообщения отслеживаются</string>
@@ -202,6 +203,7 @@
     <string name="sms_card_required_title">Сначала добавьте карту</string>
     <string name="sms_card_required_body">Credo определяет физическую или виртуальную карту по последним четырём цифрам. Привяжите её один раз к банковскому счёту — подключатся все валюты этого IBAN.</string>
     <string name="sms_add_card_action">Добавить цифры карты</string>
+    <string name="sms_review_routing_action">Настроить маршрутизацию</string>
     <string name="sms_add_another_card_action">Добавить ещё карту</string>
     <string name="sms_add_card_title">Привязать карту Credo</string>
     <string name="sms_add_card_body">Введите четыре цифры в конце SMS Credo об оплате картой. Карта будет связана со всеми валютными книгами выбранного IBAN.</string>

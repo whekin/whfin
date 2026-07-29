@@ -147,11 +147,12 @@
     <string name="credo_sync_error_no_accounts">MyCredo returned no account statements for this profile.</string>
     <string name="credo_sync_error_statement">Credo returned an unreadable statement. Other account statements can still be imported.</string>
     <string name="credo_sync_error_generic">MyCredo returned an unexpected response (reference: %1$s). Nothing unsafe was retried automatically.</string>
-    <string name="settings_sms_title">Credo SMS import</string>
-    <string name="settings_sms_body">WHFIN reads only transaction messages on this device. OTP codes, rejected payments, and unrelated messages are ignored. SMS content is never sent anywhere by WHFIN.</string>
-    <string name="settings_sms_disabled_body">Off. WHFIN ignores incoming SMS until you turn automatic import back on.</string>
-    <string name="settings_sms_card_required_body">Add the last four digits shown in Credo card messages before turning on automatic import.</string>
-    <string name="settings_sms_toggle">Automatic SMS import</string>
+    <string name="settings_sms_title">Credo SMS monitoring</string>
+    <string name="settings_sms_body">Monitoring future Credo transaction messages on this device. Routed operations become pending transactions.</string>
+    <string name="settings_sms_permission_body">Monitoring is on, but Android SMS access still needs to be allowed.</string>
+    <string name="settings_sms_unrouted_body">New operations without a known account will wait for your choice in the Feed.</string>
+    <string name="settings_sms_disabled_body">Off. WHFIN ignores future incoming SMS until monitoring is turned on again.</string>
+    <string name="settings_sms_toggle">Credo SMS monitoring</string>
     <string name="sms_diagnostics_title">SMS diagnostics</string>
     <string name="sms_diagnostics_settings_summary">See what was imported, ignored, or needs an account</string>
     <string name="sms_monitoring_on">New messages are monitored</string>
@@ -201,6 +202,7 @@
     <string name="sms_card_required_title">Add a card first</string>
     <string name="sms_card_required_body">Credo identifies a physical or virtual card by its last four digits. Link it once to the matching bank account; all currencies under that IBAN are included.</string>
     <string name="sms_add_card_action">Add card digits</string>
+    <string name="sms_review_routing_action">Review routing</string>
     <string name="sms_add_another_card_action">Add another card</string>
     <string name="sms_add_card_title">Link a Credo card</string>
     <string name="sms_add_card_body">Enter the four digits printed at the end of a Credo card SMS. The card will cover every currency ledger under the selected IBAN.</string>

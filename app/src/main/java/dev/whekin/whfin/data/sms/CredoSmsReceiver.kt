@@ -17,7 +17,6 @@ class CredoSmsReceiver : BroadcastReceiver() {
         app.appScope.launch {
             try {
                 if (!UiPreferences(app).smsImportEnabled.first()) return@launch
-                if (app.userDb.paymentInstrumentDao().configuredCount() == 0) return@launch
                 val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                 val body = messages.joinToString("") { it.messageBody.orEmpty() }
                 if (!CredoSmsParser.isCredoCandidate(body)) return@launch
