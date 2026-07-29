@@ -97,12 +97,12 @@ adb -s emulator-5554 shell am instrument -w -r \
   dev.whekin.whfin.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-For visual QA use Settings → Demo mode. The installer restores only `whfin-demo.db`, shifts fixture dates
-relative to the current day, and leaves `whfin-v2.db` untouched. Exiting returns to the same personal
-database; Reset demo data replaces only the demo sandbox after confirmation. Credo sync and demo-facing
+For visual QA use Settings → About → Explore demo. Every explicit entry restores only `whfin-demo.db`,
+shifts fixture dates relative to the current day, and leaves `whfin-v2.db` untouched. Exiting returns to
+the same personal database; Reset demo now replaces only the demo sandbox after confirmation. Credo sync and demo-facing
 SMS controls are unavailable while the sandbox is active. Incoming SMS, widgets, and quick entry remain
 explicitly wired to the personal database rather than silently writing into the demo.
-Switching or resetting Demo restarts the foreground task so every database-bound ViewModel is recreated
+Entering, exiting, or resetting Demo restarts the foreground task so every database-bound ViewModel is recreated
 against the selected database. A configuration-only `Activity.recreate()` is not sufficient: Android
 retains the Activity ViewModelStore and can leave Feed/Accounts observing the previous database.
 

@@ -148,6 +148,7 @@ import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.sms.SmsRoutingSheet
+import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 
 private sealed interface FeedTimelineEntry {
     val day: LocalDate
@@ -171,7 +172,6 @@ private sealed interface FeedTimelineEntry {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
-    demoMode: Boolean = false,
     showSmsOnboarding: Boolean,
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
@@ -342,7 +342,7 @@ fun FeedScreen(
                 }
             } else {
                 WhfinContextHeader(
-                    label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.balance_total),
+                    label = stringResource(R.string.balance_total),
                     value = formatMinor(balance, "GEL"),
                     valueSymbol = currencySymbol("GEL"),
                     scrollBehavior = headerScrollBehavior,
@@ -1680,8 +1680,9 @@ private fun FilterCategorySelector(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         WhfinDialogSystemBars()
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        DemoWorkspaceFrame {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1732,6 +1733,7 @@ private fun FilterCategorySelector(
                             }
                         }
                     }
+                }
                 }
             }
         }

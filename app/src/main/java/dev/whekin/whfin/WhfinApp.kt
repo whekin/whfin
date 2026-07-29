@@ -29,7 +29,7 @@ class WhfinApp : Application() {
         get() = runtimeModes.demoMode
 
     suspend fun setDemoMode(enabled: Boolean) {
-        if (enabled) ensureDemoData()
+        if (enabled) resetDemoData()
         runtimeModes.demoMode = enabled
     }
 
@@ -40,12 +40,6 @@ class WhfinApp : Application() {
 
     fun setDeveloperMode(enabled: Boolean) {
         runtimeModes.developerMode = enabled
-    }
-
-    private suspend fun ensureDemoData() {
-        val needsInstall = !getDatabasePath(DemoDataInstaller.DATABASE_NAME).exists() ||
-            runtimeModes.demoFixtureVersion != DemoDataInstaller.FIXTURE_VERSION
-        if (needsInstall) resetDemoData()
     }
 
     override fun onCreate() {

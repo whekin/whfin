@@ -1,7 +1,7 @@
 # First run, Demo workspace, and Bank SMS
 
-Status: SMS model, Bank SMS, Welcome choice, and Personal setup implemented; Demo workspace shell pending,
-2026-07-29. Canonical terms live in
+Status: SMS model, Bank SMS, Welcome choice, Personal setup, and Demo workspace implemented,
+2026-07-29. The remaining physical-device step is the bounded OnePlus SMS dry-run. Canonical terms live in
 [`CONTEXT.md`](../CONTEXT.md).
 
 ## Product intent
@@ -64,7 +64,7 @@ then an explicit `Open demo` action.
 While Demo workspace is active:
 
 - every application screen shows a compact, non-dismissible workspace strip with `Use my data`;
-- the exact strip geometry remains provisional until rendered at light/dark and font scale 1.5;
+- the strip remains above primary and secondary destinations as well as full-screen working dialogs;
 - a fresh user exits to Personal setup;
 - an established user exits directly to their Personal Feed;
 - an unsaved Demo form closes without a discard confirmation;
@@ -72,6 +72,14 @@ While Demo workspace is active:
 
 A **Demo visit** survives process restarts. Explicitly returning to Personal ends the visit; the next
 entry starts from the canonical fixture rather than retaining old synthetic edits.
+
+The implemented entry lives beside About rather than at the top of Settings. The explanation sheet keeps
+its action pinned while its copy scrolls at large font scales. Demo Settings alone exposes the destructive
+reset row. The shared workspace frame owns the status-bar inset and is reused by composer, category filter,
+debt ledger, and account-details dialogs so `Use my data` remains available even with an unsaved form.
+Verified at EN/light/font 1.0 and RU/dark/font 1.5 on a disposable emulator, including first-run and
+established exit destinations, dirty-composer exit without confirmation, and canonical fixture restore
+after a saved synthetic edit.
 
 ## SMS ingestion model
 
@@ -125,7 +133,7 @@ Its hierarchy is:
 3. Rebuild SMS diagnostics as Bank SMS.
 4. Add Welcome choice and bank-centred Personal setup on top of the finished Credo/SMS flow. **Done.**
 5. Replace the Settings demo switch with the new entry, workspace strip, exit destinations, and Demo
-   visit reset policy.
+   visit reset policy. **Done.**
 6. Run the bounded OnePlus SMS dry-run manually before any real-message import.
 
 Every UI slice requires light/dark, RU/EN, font scale 1.5, compact-height, disposable-emulator behavior,

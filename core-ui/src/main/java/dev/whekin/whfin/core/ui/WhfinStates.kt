@@ -5,10 +5,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -73,6 +77,68 @@ fun WhfinNotice(
                 Modifier.fillMaxWidth(),
                 style = if (kind == WhfinNoticeKind.Error) WhfinActionStyle.Destructive else WhfinActionStyle.Primary,
             )
+        }
+    }
+}
+
+@Composable
+fun WhfinWorkspaceStrip(
+    title: String,
+    supportingText: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    problem: String? = null,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Column {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = WhfinThemeTokens.sizes.minTouchTarget)
+                    .padding(start = WhfinThemeTokens.spacing.rail, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (icon != null) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 2,
+                    )
+                    Text(
+                        problem ?: supportingText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (problem == null) {
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .72f)
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                        maxLines = 2,
+                    )
+                }
+                WhfinButton(
+                    label = actionLabel,
+                    onClick = onAction,
+                    enabled = enabled,
+                    style = WhfinActionStyle.Quiet,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

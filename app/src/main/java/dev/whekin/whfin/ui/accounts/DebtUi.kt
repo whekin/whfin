@@ -40,6 +40,7 @@ import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 
 @Composable
 fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
@@ -83,12 +84,14 @@ fun DebtLedgerDialog(
     var settling by remember { mutableStateOf<DebtCaseUi?>(null) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         WhfinDialogSystemBars()
-        DebtLedgerContent(
-            debts = debts,
-            onDismiss = onDismiss,
-            onAdd = { adding = true },
-            onSettle = { settling = it },
-        )
+        DemoWorkspaceFrame {
+            DebtLedgerContent(
+                debts = debts,
+                onDismiss = onDismiss,
+                onAdd = { adding = true },
+                onSettle = { settling = it },
+            )
+        }
     }
     if (adding) NewDebtDialog(people, accounts, { adding = false }) { onOpen(it); adding = false }
     settling?.let { item -> SettlementDialog(item, accounts, { settling = null }) { onSettle(it); settling = null } }

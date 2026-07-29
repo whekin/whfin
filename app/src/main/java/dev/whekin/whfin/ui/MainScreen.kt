@@ -58,6 +58,8 @@ import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
+import dev.whekin.whfin.ui.demo.DemoWorkspaceProvider
 import java.time.YearMonth
 import androidx.core.content.pm.PackageInfoCompat
 
@@ -136,7 +138,8 @@ fun MainScreen(
     developerMode: Boolean = false,
     runtimeModeBusy: Boolean = false,
     runtimeModeProblem: String? = null,
-    onDemoModeChange: (Boolean) -> Unit = {},
+    onEnterDemo: () -> Unit = {},
+    onExitDemo: () -> Unit = {},
     onResetDemoData: () -> Unit = {},
     onDeveloperModeChange: (Boolean) -> Unit = {},
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
@@ -217,28 +220,35 @@ fun MainScreen(
     BackHandler(enabled = scene != ShellScene.Primary) { goBack(withHaptic = false) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        AnimatedContent(
-            targetState = scene,
-            transitionSpec = {
-                val forward = targetState.depth > initialState.depth
-                val enter = slideInHorizontally(WhfinMotion.standard()) { width ->
-                    if (forward) width else -width / 5
-                }
-                val exit = slideOutHorizontally(WhfinMotion.standard()) { width ->
-                    if (forward) -width / 5 else width
-                }
-                (enter togetherWith exit).apply {
-                    targetContentZIndex = if (forward) 1f else -1f
-                }.using(SizeTransform(clip = true))
-            },
-            label = "app-destination",
-        ) { targetScene ->
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                when (targetScene) {
-                    ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
+        DemoWorkspaceProvider(
+            active = demoMode,
+            busy = runtimeModeBusy,
+            problem = runtimeModeProblem,
+            onUsePersonal = onExitDemo,
+        ) {
+            DemoWorkspaceFrame {
+                AnimatedContent(
+                    targetState = scene,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        val forward = targetState.depth > initialState.depth
+                        val enter = slideInHorizontally(WhfinMotion.standard()) { width ->
+                            if (forward) width else -width / 5
+                        }
+                        val exit = slideOutHorizontally(WhfinMotion.standard()) { width ->
+                            if (forward) -width / 5 else width
+                        }
+                        (enter togetherWith exit).apply {
+                            targetContentZIndex = if (forward) 1f else -1f
+                        }.using(SizeTransform(clip = true))
+                    },
+                    label = "app-destination",
+                ) { targetScene ->
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        when (targetScene) {
+                            ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
                         Box(Modifier.fillMaxWidth().weight(1f)) {
                             if (tab == 0) FeedScreen(
-                                demoMode = demoMode,
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
@@ -247,7 +257,6 @@ fun MainScreen(
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,
                             ) else AccountsScreen(
-                                demoMode = demoMode,
                                 addRequestKey = accountAddRequestKey,
                                 onAddRequestConsumed = { accountAddRequestKey = 0 },
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
@@ -298,7 +307,7 @@ fun MainScreen(
                             developerMode = developerMode,
                             runtimeModeBusy = runtimeModeBusy,
                             runtimeModeProblem = runtimeModeProblem,
-                            onDemoModeChange = onDemoModeChange,
+                            onEnterDemo = onEnterDemo,
                             onResetDemoData = onResetDemoData,
                         )
                     }
@@ -442,6 +451,8 @@ fun MainScreen(
                                     )
                                 }
                             }
+                        }
+                    }
                         }
                     }
                 }

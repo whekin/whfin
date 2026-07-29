@@ -86,6 +86,7 @@ import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.SavingsMode
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -97,7 +98,6 @@ private data class AccountGroupSelection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
-    demoMode: Boolean = false,
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
     onOpenStatements: () -> Unit = {},
@@ -153,7 +153,7 @@ fun AccountsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             WhfinContextHeader(
-                label = stringResource(if (demoMode) R.string.demo_mode_header else R.string.accounts_net_worth),
+                label = stringResource(R.string.accounts_net_worth),
                 value = if (readyState == null) "—" else formatMinor(gelBalance, "GEL"),
                 valueSymbol = currencySymbol("GEL"),
                 scrollBehavior = headerScrollBehavior,
@@ -425,8 +425,9 @@ private fun AccountGroupDetailsDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         WhfinDialogSystemBars()
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        DemoWorkspaceFrame {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = 12.dp, end = 20.dp, top = 6.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -486,6 +487,7 @@ private fun AccountGroupDetailsDialog(
                             )
                         }
                     }
+                }
                 }
             }
         }

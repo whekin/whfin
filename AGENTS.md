@@ -100,8 +100,14 @@ This is a single-context repository with root domain documentation and system-wi
   действие следует следующему незавершённому шагу, skip остаётся явным. Explore demo устанавливает
   изолированный fixture и открывает заполненную рабочую область. Проверено end-to-end на clean disposable
   Pixel при RU + dark + font 1.5, включая install-r, Back и отсутствие повторного Welcome.
-  Следом временный Demo workspace переводится с глобального switch на entry sheet + workspace strip +
-  правильные exit/reset destinations. Контракт: `CONTEXT.md`,
+  Временный Demo workspace больше не является глобальным switch: Personal Settings показывает тихую
+  строку возле About и объясняющий sheet с pinned action, а активный sandbox — постоянную компактную
+  полосу `Мои данные` над primary/secondary destinations и полноэкранными composer/category/debt/account
+  dialogs. Первый пользователь выходит в Personal setup, настроенный — в личную Feed; dirty Demo composer
+  закрывается без discard, reset доступен только в Demo Settings, а каждый новый визит заново ставит
+  канонический fixture. Проверено EN/light/font 1.0 и RU/dark/font 1.5 на disposable Pixel, включая
+  сохранённую синтетическую операцию → exit → повторный вход без неё. Остался осторожный OnePlus SMS
+  dry-run без импорта. Контракт: `CONTEXT.md`,
   `docs/adr/0001-keep-unrouted-sms-outside-the-ledger.md`,
   `docs/first-run-demo-and-bank-sms.md`.
   Детали: `docs/sms-import.md`
@@ -471,8 +477,9 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] Публичный demo mode и fixture для UI QA: `main/assets/whfin-demo-v4.json` содержит 234 связанных
   записи и 12 месяцев синтетической истории — два банка, восемь fiat-ledger, Cash, reserve/goal,
   physical/virtual cards, pending/manual, transfers/conversion, allocations, людей, долги и смешанную
-  историю FILE/MyCredo. Settings включает его в отдельной `whfin-demo.db`, даты сдвигаются к текущему дню,
-  reset затрагивает только sandbox, а Feed/Accounts явно подписаны Demo data. `whfin-v2.db` остаётся
+  историю FILE/MyCredo. Settings открывает его из строки возле About в отдельной `whfin-demo.db`, даты
+  сдвигаются к текущему дню, reset затрагивает только sandbox, а постоянная workspace-полоса отделяет
+  синтетические данные от личных на всех рабочих экранах. `whfin-v2.db` остаётся
   byte-identical при входе/выходе; Android backup allowlist не включает demo DB/runtime flags. Live Credo
   и demo-facing SMS UI недоступны, а receiver/widget/quick entry всегда используют user DB. Instrumented
   regression проверяет изоляцию, насыщенность, foreign keys и повторный export; light/dark/font 1.5

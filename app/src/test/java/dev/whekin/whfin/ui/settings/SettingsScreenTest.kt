@@ -308,8 +308,43 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun demoMode_isPublicAndResetRequiresConfirmation() {
-        var requestedMode: Boolean? = null
+    fun personalSettings_opensDemoThroughExplanationSheet() {
+        var opened = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsScreen(
+                    smsImportEnabled = true,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                    onEnterDemo = { opened = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.demo_entry_title))
+            .performScrollTo()
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.demo_entry_isolated_title))
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.demo_entry_open))
+            .performClick()
+        assertTrue(opened)
+    }
+
+    @Test
+    fun demoSettings_exposesResetOnlyAndRequiresConfirmation() {
         var reset = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
@@ -330,16 +365,16 @@ class SettingsScreenTest {
                     onOpenAbout = {},
                     appVersion = "Version 0.1.0 (1)",
                     demoMode = true,
-                    onDemoModeChange = { requestedMode = it },
                     onResetDemoData = { reset = true },
                 )
             }
         }
 
-        compose.onNodeWithContentDescription(context.getString(R.string.demo_mode_toggle)).assertIsOn().performClick()
-        assertEquals(false, requestedMode)
+        compose.onNodeWithText(context.getString(R.string.demo_entry_title)).assertDoesNotExist()
         compose.onNodeWithContentDescription(context.getString(R.string.settings_sms_toggle)).assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.demo_mode_reset)).performClick()
+        compose.onNodeWithText(context.getString(R.string.demo_mode_reset))
+            .performScrollTo()
+            .performClick()
         assertFalse(reset)
         compose.onNodeWithText(context.getString(R.string.demo_mode_reset_confirm)).performClick()
         assertTrue(reset)

@@ -63,6 +63,7 @@ import dev.whekin.whfin.core.ui.WhfinFilterPill
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 
 data class ManualTransaction(
     val accountId: Long,
@@ -203,21 +204,22 @@ fun AddTransactionSheet(
 
     Dialog(onDismissRequest = requestClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         WhfinDialogSystemBars()
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            if (showAllCategories) {
-                CategorySelectorScreen(
-                    categories = categories.filter {
-                        it.kind == (if (kind == ManualKind.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE) && !it.isSystem
-                    },
-                    selected = categoryId,
-                    onBack = { showAllCategories = false },
-                    onSelect = { categoryId = it.id; showAllCategories = false },
-                    kind = if (kind == ManualKind.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
-                    onCreate = onCreateCategory,
-                )
-            } else Column(
-                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
-            ) {
+        DemoWorkspaceFrame {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                if (showAllCategories) {
+                    CategorySelectorScreen(
+                        categories = categories.filter {
+                            it.kind == (if (kind == ManualKind.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE) && !it.isSystem
+                        },
+                        selected = categoryId,
+                        onBack = { showAllCategories = false },
+                        onSelect = { categoryId = it.id; showAllCategories = false },
+                        kind = if (kind == ManualKind.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
+                        onCreate = onCreateCategory,
+                    )
+                } else Column(
+                    Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
+                ) {
                 ComposerHeader(kind, requestClose, { if (editing == null) showTypeMenu = true }, editing != null)
                 AnimatedContent(kind, modifier = Modifier.weight(1f), transitionSpec = { fadeIn(WhfinMotion.quick()) togetherWith fadeOut(WhfinMotion.quick()) }, label = "composer-kind") { current ->
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 14.dp),
@@ -274,6 +276,7 @@ fun AddTransactionSheet(
                         enabled = valid,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                     )
+                }
                 }
             }
         }

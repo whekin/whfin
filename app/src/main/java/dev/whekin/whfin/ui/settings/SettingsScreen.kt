@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
+import dev.whekin.whfin.ui.demo.DemoEntrySheet
 
 @Composable
 fun SettingsScreen(
@@ -80,10 +82,11 @@ fun SettingsScreen(
     developerMode: Boolean = false,
     runtimeModeBusy: Boolean = false,
     runtimeModeProblem: String? = null,
-    onDemoModeChange: (Boolean) -> Unit = {},
+    onEnterDemo: () -> Unit = {},
     onResetDemoData: () -> Unit = {},
 ) {
     var confirmDemoReset by rememberSaveable { mutableStateOf(false) }
+    var showDemoEntry by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -92,30 +95,6 @@ fun SettingsScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        WhfinNotice(
-            title = stringResource(R.string.demo_mode_title),
-            body = stringResource(if (demoMode) R.string.demo_mode_active_body else R.string.demo_mode_body),
-            icon = Icons.Default.Science,
-            kind = if (demoMode) WhfinNoticeKind.Info else WhfinNoticeKind.Unavailable,
-            actionLabel = if (demoMode) stringResource(R.string.demo_mode_reset) else null,
-            onAction = if (demoMode) ({ confirmDemoReset = true }) else null,
-            trailing = {
-                WhfinSwitch(
-                    checked = demoMode,
-                    onCheckedChange = onDemoModeChange,
-                    contentDescription = stringResource(R.string.demo_mode_toggle),
-                    enabled = !runtimeModeBusy,
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (runtimeModeProblem != null) WhfinNotice(
-            title = stringResource(R.string.demo_mode_problem_title),
-            body = runtimeModeProblem,
-            kind = WhfinNoticeKind.Error,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
         WhfinSectionLabel(stringResource(R.string.settings_appearance))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             listOf(
@@ -316,6 +295,21 @@ fun SettingsScreen(
             )
         }
 
+        if (demoMode) {
+            WhfinSectionLabel(stringResource(R.string.demo_workspace_section))
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                WhfinLedgerRow(
+                    title = stringResource(R.string.demo_mode_reset),
+                    supportingText = stringResource(R.string.demo_mode_reset_summary),
+                    supportingMaxLines = 3,
+                    icon = Icons.Default.Restore,
+                    iconTint = MaterialTheme.colorScheme.error,
+                    titleColor = MaterialTheme.colorScheme.error,
+                    onClick = { confirmDemoReset = true },
+                )
+            }
+        }
+
         WhfinSectionLabel(stringResource(R.string.settings_about_section))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
@@ -324,8 +318,33 @@ fun SettingsScreen(
                 icon = Icons.Default.Info,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenAbout,
+                divider = !demoMode,
             )
+            if (!demoMode) {
+                WhfinLedgerRow(
+                    title = stringResource(R.string.demo_entry_title),
+                    supportingText = stringResource(R.string.demo_entry_settings_summary),
+                    supportingMaxLines = 3,
+                    icon = Icons.Default.Science,
+                    trailing = {
+                        androidx.compose.material3.Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            null,
+                        )
+                    },
+                    onClick = { showDemoEntry = true },
+                )
+            }
         }
+    }
+
+    if (showDemoEntry && !demoMode) {
+        DemoEntrySheet(
+            busy = runtimeModeBusy,
+            problem = runtimeModeProblem,
+            onOpenDemo = onEnterDemo,
+            onDismiss = { showDemoEntry = false },
+        )
     }
 
     if (confirmDemoReset) WhfinConfirmDialog(
@@ -334,8 +353,8 @@ fun SettingsScreen(
         confirmLabel = stringResource(R.string.demo_mode_reset_confirm),
         dismissLabel = stringResource(R.string.action_cancel),
         onConfirm = {
-                    confirmDemoReset = false
-                    onResetDemoData()
+            confirmDemoReset = false
+            onResetDemoData()
         },
         onDismiss = { confirmDemoReset = false },
     )

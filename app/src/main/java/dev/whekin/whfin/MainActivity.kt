@@ -322,7 +322,8 @@ class MainActivity : FragmentActivity() {
                                 developerMode = developerMode,
                                 runtimeModeBusy = runtimeModeBusy,
                                 runtimeModeProblem = runtimeModeProblem,
-                                onDemoModeChange = ::changeDemoMode,
+                                onEnterDemo = { changeDemoMode(true) },
+                                onExitDemo = { changeDemoMode(false) },
                                 onResetDemoData = ::resetDemoData,
                                 onDeveloperModeChange = { enabled ->
                                     developerMode = enabled
@@ -344,7 +345,7 @@ class MainActivity : FragmentActivity() {
             runCatching { (application as WhfinApp).setDemoMode(true) }
                 .onSuccess {
                     (application as WhfinApp).runtimeModes.completeWelcomeChoice(
-                        personalSetupPending = false,
+                        personalSetupPending = true,
                     )
                     demoMode = true
                     restartForRuntimeMode()
