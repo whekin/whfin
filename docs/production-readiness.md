@@ -22,7 +22,8 @@ This checklist tracks the difference between a good prototype and a build safe t
   and require a migration plus schema/data test for every future change from the current DB v3.
 - [x] Add versioned JSON export/restore through Android SAF with an explicit sensitive-file warning,
   destructive restore confirmation and deterministic full-schema round-trip tests.
-- [ ] Add an encrypted `.whfin-backup` export option on top of the portable JSON format.
+- [x] Encrypted `.whfin-backup` export uses a portable passphrase-derived `WHFIN-ENC` envelope;
+  optional Google Drive backup stores only encrypted copies in `appDataFolder`.
 - [x] Add WHFIN-code/strong-biometric App Lock, protected recent-apps snapshots and an explicit
   capture-only widget policy. Quick entry intentionally bypasses App Lock; it cannot read history/balances.
 - [ ] Store future Open Banking tokens with Android Keystore and keep them outside backup scope.

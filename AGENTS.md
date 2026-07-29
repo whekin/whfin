@@ -373,6 +373,11 @@ This is a single-context repository with root domain documentation and system-wi
   действует 30-секундная пауза. Системный PIN телефона не запрашивается. Quick-entry из виджета
   намеренно остаётся мгновенным и не требует разблокировки; сам виджет не показывает баланс.
   App lock не считать шифрованием Room DB; будущие банковские токены получают отдельное key management
+- [ ] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
+  Сначала выделить bank-neutral parser→statement boundary и провести ручные файлы TBC через общий
+  `StatementImporter`, reconciliation, coverage/history и review queue; BOG добавлять вторым parser
+  поверх уже доказанной границы. Реальные банковские fixtures остаются только локальными. SMS/push
+  и официальный Open Banking для каждого банка — отдельные feasibility-этапы
 - [ ] Credo Open Banking: сначала sandbox feasibility gate и подтверждение production onboarding у
   Credo/NBG. Только официальный read-only Account Information API; без scraping MyCredo, хранения
   банковского пароля и молчаливой отправки OTP. SMS/XLSX остаются fallback и участвуют в реконсиляции
@@ -428,8 +433,8 @@ This is a single-context repository with root domain documentation and system-wi
   визуально проверены на disposable Pixel. Переключение режима перезапускает foreground task, а не только
   конфигурацию Activity: это сбрасывает Activity-scoped ViewModelStore и исключает наблюдение старой DB
   после включения Demo (регрессия обнаружена на OnePlus и воспроизведена на чистом эмуляторе).
-- Вторая волна: крипта (TrustWallet watch — адрес кошелька уже вводится при создании CRYPTO-счёта),
-  долги, теги на партнёра, AI-анализ
+- Вторая волна после TBC/BOG: крипта (TrustWallet watch — адрес кошелька уже вводится при создании
+  CRYPTO-счёта), теги на партнёра и AI-анализ
 - [x] Реализован единый паттерн контейнер→балансы. Для банка: FinancialGroup,
   валютные Account по IBAN, PaymentInstrument (physical/virtual), many-to-many карта↔счёт,
   StatementSource по IBAN или карте. Для крипты: Wallet-группа, WalletAddress по сети и AssetAccount.

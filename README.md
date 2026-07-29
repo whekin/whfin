@@ -23,8 +23,8 @@ transfers, conversions, debts, people, and watch-only crypto assets.
 ## Status
 
 WHFIN is under active development and is not ready for public distribution. The current roadmap covers
-redacted parser-failure sharing, an official read-only Open Banking feasibility gate, encrypted exports, release
-signing, store policy work, and final accessibility/device QA. See [SPEC.md](SPEC.md),
+redacted parser-failure sharing, bank-neutral statement import with TBC first and BOG second, official
+read-only Open Banking feasibility gates, release signing, store policy work, and final accessibility/device QA. See [SPEC.md](SPEC.md),
 [docs/roadmap.md](docs/roadmap.md), and [docs/production-readiness.md](docs/production-readiness.md).
 
 ## Build

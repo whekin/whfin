@@ -3,6 +3,18 @@
 Актуальный порядок следующих продуктовых этапов. Этап считается завершённым только после тестов,
 проверки реального рендера/поведения на disposable-эмуляторе и отдельного коммита.
 
+## Текущий порядок приоритетов
+
+1. Закрыть оставшийся safety-хвост SMS: redacted Sharesheet для parser failure и осторожный dry-run
+   реальных сообщений на OnePlus без записи до явного подтверждения.
+2. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
+   банковский интеграционный срез.
+3. После проверки общей границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
+4. Отдельно проводить feasibility gate официального Open Banking: наличие sandbox ещё не означает
+   production-доступ для личного приложения. Файловый импорт остаётся независимым fallback.
+5. Закрыть оставшиеся release-gates: публичные privacy URL/contact, release signing, Play Data Safety
+   и SMS declaration, полный device/accessibility QA.
+
 ## 1. Data Safety
 
 Это следующий этап и обязательная основа перед дальнейшим изменением модели данных.
@@ -108,7 +120,24 @@ production bank sync.
 
 Стабильный контракт и failure policy: `docs/credo-private-sync.md`.
 
-## 5. Credo Open Banking feasibility gate
+## 5. Multi-bank statements: TBC first, BOG second
+
+Цель — расширить уже проверенную модель «выписка = источник правды» на другие грузинские банки,
+не копируя Credo-специфичную логику в UI, Room и реконсиляцию.
+
+- [ ] Выделить bank-neutral adapter boundary: банковский parser преобразует исходный файл в общий
+  statement model, а дедуп, импорт, reconciliation, coverage/history и review queue остаются общими.
+- [ ] **TBC — приоритет №1:** собрать только приватные локальные примеры доступных экспортов,
+  зафиксировать формат/варианты и реализовать ручной statement import через существующий pipeline.
+- [ ] Проверить TBC на synthetic golden fixtures, приватных локальных файлах и disposable-эмуляторе:
+  opening/closing balance, цепочка балансов, multi-currency ledgers, transfers, fees, dedup и повторный импорт.
+- [ ] Не добавлять реальные TBC-файлы, IBAN, карты, имена или суммы в репозиторий, previews и screenshots.
+- [ ] **BOG — приоритет №2:** после того как TBC подтвердит общую границу, добавить отдельный parser
+  и тот же набор invariants без второго импортного workflow.
+- [ ] SMS, push notifications и Open Banking для каждого банка считать отдельными этапами. Поддержка
+  statement-файла не должна автоматически обещать background sync или доступность официального API.
+
+## 6. Credo Open Banking feasibility gate
 
 Цель — read-only автоматическая синхронизация счетов, балансов и транзакций. Payment initiation
 не входит в этот этап.
@@ -136,7 +165,7 @@ production bank sync.
 - [NBG Open Banking API documentation index](https://nbg.gov.ge/en/page/open-banking-detailed-data-and-documentation)
 - [Credo Open Banking developer portal](https://openbanking.credo.ge/ob-home/app/api-doc)
 
-## 6. Product work while onboarding is unresolved
+## 7. Product work while onboarding is unresolved
 
 Open Banking не должен блокировать локальное развитие приложения. После Data Safety и App Lock
 продолжаются visual QA уже реализованной месячной статистики, категории/люди и остальные сценарии.
@@ -145,8 +174,8 @@ Production Credo sync начинается только после положи�
 ## Production readiness (сквозной трек)
 
 Privacy/About, version metadata, author attribution и явная Android backup policy уже добавлены.
-Оставшиеся release-gates — public privacy URL/contact, лицензии, encrypted backup option,
-release signing, Play Data safety + SMS declaration и полный release QA. Чеклист:
+Encrypted export и Google Drive backup уже реализованы. Оставшиеся release-gates — public privacy
+URL/contact, полные third-party notices, release signing, Play Data safety + SMS declaration и полный release QA. Чеклист:
 `docs/production-readiness.md`.
 
 ## Commit boundaries
@@ -154,5 +183,7 @@ release signing, Play Data safety + SMS declaration и полный release QA. 
 1. Safe Room migrations + versioned JSON backup/restore foundation — complete.
 2. WHFIN-code/biometric app lock and privacy behavior — complete.
 3. SMS structured outcomes, diagnostics/history scan, mapping repair and explicit failure sharing.
-4. Credo sandbox spike and documented go/no-go result.
-5. Read-only Credo sync, только если production onboarding подтверждён.
+4. Bank-neutral statement adapter + TBC parser/import.
+5. BOG parser/import поверх подтверждённой общей границы.
+6. Credo Open Banking sandbox spike and documented go/no-go result.
+7. Read-only Open Banking sync, только для банков с подтверждённым production onboarding.
