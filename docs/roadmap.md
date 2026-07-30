@@ -14,8 +14,8 @@
    подтверждения. **Единственный незакрытый шаг SMS-этапа.**
 4. Выделить bank-neutral границу импорта и добавить поддержку выписок **TBC** как следующий
    банковский интеграционный срез.
-5. Реализовать небольшой **crypto watch-only MVP** на уже существующей модели: EVM + Tron,
-   ETH/TRX/USDT, нативные балансы и ручное обновление без истории/DeFi/background sync.
+5. ~~Небольшой **crypto watch-only MVP**: EVM + Tron, ETH/TRX/USDT, нативные балансы и ручное
+   обновление без истории/DeFi/background sync~~ — сделано. Цены и GEL-конвертация не входили.
 6. После проверки общей банковской границы на TBC добавить **Bank of Georgia (BOG)** тем же путём.
 7. Провести отдельный **Google Play release** этап: публичные privacy URL/contact, release signing, Play Data Safety
    и SMS declaration, полный device/accessibility QA.
@@ -23,8 +23,8 @@
 ## 1. Data Safety
 
 Статус: этап завершён. Destructive fallback удалён; ручная v1→v2 migration и полный
-earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v4 с явными
-v1→v2, v2→v3 и v3→v4 migrations, поэтому следующий schema change обязан получить migration v4→N.
+earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v5 с явными
+v1→v2, v2→v3, v3→v4 и v4→v5 migrations, поэтому следующий schema change обязан получить migration v5→N.
 Версионированный JSON export/restore
 доступен в Settings через Storage Access Framework.
 
@@ -158,9 +158,9 @@ production bank sync.
 
 ## 6. Crypto watch-only MVP
 
-Это не greenfield: Room уже хранит `WalletAddress` и chain-specific `CryptoAsset`, account связывает
-address×asset, формы умеют создать CRYPTO/WALLET, а backup сохраняет эти таблицы. Не хватает корректной
-сетевой границы и получения баланса.
+Статус: MVP реализован. Сети выбираются явно, адреса валидируются по сети, а балансы читаются
+read-only через `CryptoBalanceProvider` и хранятся отдельным snapshot с `observedAt`. Остались цены
+и GEL-конвертация — отдельный второй slice.
 
 - [x] Модель address/network + chain-specific asset существует; символ не используется как identity.
 - [x] Заменить эвристику `0x → Ethereum, всё остальное → Tron` на явный выбор сети и строгую
@@ -170,16 +170,19 @@ address×asset, формы умеют создать CRYPTO/WALLET, а backup с
   предлагает только активы этой сети и не даёт сохранить невалидный адрес; ViewModel проверяет то же
   самое повторно. Decimals и contract больше не угадываются, `FinancialGroup.provider` крипто-кошелька
   стал chainId вместо литерала `Trust Wallet`.
-- [ ] Ввести read-only `CryptoBalanceProvider` boundary без seed phrase/private key и первый
-  foreground/manual refresh с явными loading/partial/error/last-updated состояниями.
-- [ ] Первый scope: Ethereum mainnet ETH + ERC-20 USDT и Tron mainnet TRX + TRC-20 USDT.
-- [ ] Добавить отдельный current-balance snapshot с `observedAt` и миграцией Room. Не изображать
+- [x] Ввести read-only `CryptoBalanceProvider` boundary без seed phrase/private key и первый
+  foreground/manual refresh с явными loading/partial/error/last-updated состояниями. Endpoint виден
+  и редактируется в Privacy policy → Crypto endpoints; дефолты публичные и без ключей.
+- [x] Первый scope: Ethereum mainnet ETH + ERC-20 USDT и Tron mainnet TRX + TRC-20 USDT.
+- [x] Добавить отдельный current-balance snapshot с `observedAt` и миграцией Room. Не изображать
   сетевой balance как фальшивую transaction: текущие account balances считаются суммой операций.
-- [ ] Хранить on-chain amount в точных base units/decimals, а не в fiat minor-unit предположениях;
+  Room DB v5 добавляет `crypto_balances` (одна строка на счёт, CASCADE, вне portable backup).
+- [x] Хранить on-chain amount в точных base units/decimals, а не в fiat minor-unit предположениях;
   повторное обновление баланса должно быть идемпотентным.
-- [ ] Показывать нативные crypto-балансы в Accounts без ложного сложения с GEL. Рыночные цены,
+- [x] Показывать нативные crypto-балансы в Accounts без ложного сложения с GEL; непрочитанный ledger
+  показывает прочерк и `Never refreshed`, а не ноль. Рыночные цены,
   GEL-конвертация и timestamp котировки — отдельный второй slice после надёжных on-chain balances.
-- [ ] Покрыть provider contract локальным fake, address validation unit-тестами и UI states
+- [x] Покрыть provider contract локальным fake, address validation unit-тестами и UI states
   light/dark/font 1.5; реальный read-only адрес проверять без сохранения чувствительных данных.
 
 Не входят в MVP: seed/private keys, отправка транзакций, swap/bridge execution, DeFi positions,

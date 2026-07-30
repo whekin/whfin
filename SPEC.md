@@ -19,7 +19,7 @@
 | Excel-выписка (MYCREDO xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground batch download тех же XLSX | `confirmed` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
-| Крипто watch-адреса (planned MVP) | EVM/Tron read-only balances | `confirmed` |
+| Крипто watch-адреса | EVM/Tron read-only balances по ручному обновлению | snapshot, не transaction |
 
 ### Реконсиляция (ядро анти-рассинхрона)
 
@@ -103,7 +103,7 @@ hash, тип, masked/parsed поля и результат. История чи�
 
 ## Безопасность и переносимость данных
 
-- Начиная с Room DB v2 все изменения схемы выполняются явными миграциями; текущая схема — v3. Destructive
+- Начиная с Room DB v2 все изменения схемы выполняются явными миграциями; текущая схема — v5. Destructive
   migration запрещена для пользовательского устройства.
 - Основной переносимый backup — версионированный JSON через SAF, спроектированный для round-trip
   restore. Raw SMS, OTP, app-lock secrets, банковские пароли/токены и Keystore keys не экспортируются.

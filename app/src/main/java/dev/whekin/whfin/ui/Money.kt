@@ -23,6 +23,22 @@ fun currencySymbol(currency: String): String = when (currency.uppercase()) {
     else -> currency
 }
 
+/**
+ * Exact on-chain base units as a readable amount.
+ *
+ * Chain amounts are not fiat minor units: 18 decimals of wei must not be rounded into two. The value
+ * is scaled exactly and only the display is shortened, so a dust balance still reads as more than zero.
+ */
+fun formatBaseUnits(baseUnits: String, decimals: Int, maxFractionDigits: Int = 8): String {
+    val exact = runCatching { BigDecimal(baseUnits).movePointLeft(decimals) }.getOrNull()
+        ?: return baseUnits
+    val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = maxFractionDigits.coerceAtLeast(2)
+    }
+    return formatter.format(exact)
+}
+
 fun formatMinor(amountMinor: Long, currency: String, withSign: Boolean = false): String {
     val value = BigDecimal(amountMinor).movePointLeft(2).abs()
     val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {

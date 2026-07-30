@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-const val WHFIN_DATABASE_VERSION = 4
+const val WHFIN_DATABASE_VERSION = 5
 
 @Database(
     entities = [
@@ -28,6 +28,7 @@ const val WHFIN_DATABASE_VERSION = 4
         StatementImportEntity::class,
         ReconciliationIssueEntity::class,
         SmsDiagnosticEntity::class,
+        CryptoBalanceEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
     exportSchema = true,

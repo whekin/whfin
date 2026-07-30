@@ -785,4 +785,17 @@
     <string name="analytics_empty_body">Choose another month or import a statement to build a trend.</string>
     <string name="analytics_error_title">Statistics could not be calculated</string>
     <string name="analytics_error_body">Your transactions are unchanged. Return and try opening statistics again.</string>
+    <string name="crypto_refresh">Refresh balances</string>
+    <string name="crypto_refresh_done">Balances updated: %1$d</string>
+    <string name="crypto_refresh_partial">Updated %1$d, failed %2$d</string>
+    <string name="crypto_refresh_failed">Could not read balances. Check the network endpoint.</string>
+    <string name="crypto_never_refreshed">Never refreshed</string>
+    <string name="crypto_observed_at">On-chain · %1$s</string>
+    <string name="crypto_endpoints_title">Crypto endpoints</string>
+    <string name="crypto_endpoints_summary">Which node WHFIN asks for watch-only balances</string>
+    <string name="crypto_endpoints_body">Reading a balance tells the endpoint that this address interests this device. Leave a field empty to use the documented public default.</string>
+    <string name="crypto_endpoint_ethereum">Ethereum JSON-RPC</string>
+    <string name="crypto_endpoint_tron">Tron API</string>
+    <string name="crypto_endpoint_invalid">Enter an https:// address or leave the field empty.</string>
+    <string name="privacy_network_section">NETWORK</string>
 </resources>

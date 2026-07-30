@@ -67,6 +67,16 @@ object CryptoAddressValidator {
         }
     }
 
+    /**
+     * The 20 raw address bytes as hex, without the `0x41` Tron version prefix.
+     * Contract calls take this form, so the conversion stays next to the base58 decoder.
+     */
+    fun tronAddressHex(address: String): String? {
+        val decoded = decodeBase58(address.trim()) ?: return null
+        if (decoded.size != 25 || decoded[0] != TRON_VERSION) return null
+        return decoded.copyOfRange(1, 21).joinToString("") { "%02x".format(it) }
+    }
+
     private fun decodeBase58(input: String): ByteArray? {
         var value = BigInteger.ZERO
         input.forEach { char ->

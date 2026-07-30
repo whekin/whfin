@@ -6,7 +6,11 @@ import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.crypto.CryptoAddressValidator
+import dev.whekin.whfin.data.crypto.CryptoBalanceRepository
+import dev.whekin.whfin.data.crypto.CryptoEndpoints
 import dev.whekin.whfin.data.crypto.CryptoNetwork
+import dev.whekin.whfin.data.crypto.HttpCryptoBalanceProvider
+import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategorySeeder
@@ -28,7 +32,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import dev.whekin.whfin.data.db.*
 import dev.whekin.whfin.data.debt.*
 
@@ -46,6 +52,16 @@ data class AccountWithBalance(
     val virtualCardMasks: List<String> = emptyList(),
     val address: String? = null,
     val groupName: String? = null,
+    /** Watch-only chains report a balance instead of deriving it from transactions. */
+    val onChain: OnChainBalance? = null,
+)
+
+/** Last observation of a chain balance; absent means "never refreshed", not zero. */
+data class OnChainBalance(
+    val baseUnits: String,
+    val decimals: Int,
+    val observedAt: Long,
+    val source: String? = null,
 )
 
 sealed interface AccountRowsState {
@@ -61,6 +77,12 @@ sealed interface AccountsScreenState {
     ) : AccountsScreenState
 }
 
+private data class ContainerMetadata(
+    val groups: Map<Long, FinancialGroupEntity>,
+    val addresses: Map<Long, WalletAddressEntity>,
+    val balances: Map<Long, CryptoBalanceEntity>,
+)
+
 class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = (app as WhfinApp).db
@@ -71,7 +93,14 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     private val containerMetadata = combine(
         db.financialGroupDao().observeActive(),
         db.cryptoDao().observeAddresses(),
-    ) { groups, addresses -> groups.associateBy { it.id } to addresses.associateBy { it.id } }
+        db.cryptoDao().observeBalances(),
+    ) { groups, addresses, balances ->
+        ContainerMetadata(
+            groups.associateBy { it.id },
+            addresses.associateBy { it.id },
+            balances.associateBy { it.accountId },
+        )
+    }
 
     private val accountRows = combine(
         db.accountDao().observeActive(),
@@ -85,7 +114,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         val cardsByAccount = links.groupBy { it.accountId }.mapValues { (_, value) ->
             value.mapNotNull { instrumentsById[it.instrumentId] }
         }
-        val (groupById, addressById) = metadata
+        val (groupById, addressById, balanceByAccount) = metadata
         list.map {
             AccountWithBalance(
                 it,
@@ -94,6 +123,9 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 cardsByAccount[it.id].orEmpty().filter { card -> card.type == PaymentInstrumentType.VIRTUAL_CARD }.map { card -> card.last4 },
                 it.walletAddressId?.let(addressById::get)?.address,
                 it.groupId?.let(groupById::get)?.name,
+                balanceByAccount[it.id]?.let { row ->
+                    OnChainBalance(row.baseUnits, row.decimals, row.observedAt, row.source)
+                },
             )
         }
     }
@@ -120,6 +152,43 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val balanceRepository = CryptoBalanceRepository(
+        db = db,
+        provider = HttpCryptoBalanceProvider(endpoints = { endpoints }),
+    )
+
+    @Volatile
+    private var endpoints = CryptoEndpoints()
+
+    private val _cryptoRefreshing = MutableStateFlow(false)
+    val cryptoRefreshing: StateFlow<Boolean> = _cryptoRefreshing
+
+    init {
+        viewModelScope.launch {
+            UiPreferences(getApplication<Application>()).cryptoEndpoints.collect { endpoints = it }
+        }
+    }
+
+    /**
+     * Manual, foreground refresh. A partial result is reported honestly instead of pretending the
+     * whole wallet is up to date.
+     */
+    fun refreshCryptoBalances() {
+        if (_cryptoRefreshing.value) return
+        viewModelScope.launch {
+            _cryptoRefreshing.value = true
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) { balanceRepository.refreshAll() }
+            _cryptoRefreshing.value = false
+            _message.value = when {
+                result.isEmpty -> null
+                result.failed == 0 -> app.getString(R.string.crypto_refresh_done, result.refreshed)
+                result.refreshed == 0 -> app.getString(R.string.crypto_refresh_failed)
+                else -> app.getString(R.string.crypto_refresh_partial, result.refreshed, result.failed)
+            }
+        }
+    }
 
     fun openDebt(input: NewDebt) = viewModelScope.launch {
         runCatching { debtRepository.open(input) }

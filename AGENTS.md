@@ -444,10 +444,19 @@ This is a single-context repository with root domain documentation and system-wi
   `FinancialGroup.provider` кошелька стал chainId. 15 unit-тестов валидатора/каталога и 4 Compose-теста
   формы; RU + dark + font 1.5 проверено на disposable Pixel end-to-end (адрес Tron при выбранном
   Ethereum → ошибка → переключение сети → сохранение → ledger TRX нативной суммой, `tron:mainnet`
-  в базе). Дальше — read-only `CryptoBalanceProvider`,
-  foreground/manual refresh и нативные балансы без history/DeFi/background sync.
-  Поскольку баланс счетов сейчас равен сумме transactions, on-chain current balance требует отдельный
-  snapshot+observedAt и Room migration, а не фальшивую transaction. BTC/TON не показывать рабочими
+  в базе). Второй слайс закрыл балансы: read-only `CryptoBalanceProvider` без ключей и подписи,
+  `HttpCryptoBalanceProvider` читает `eth_getBalance`/`eth_call balanceOf` и TronGrid
+  `getaccount`/`triggerconstantcontract`, а Room DB v5 добавляет `crypto_balances` — по одной строке
+  на счёт с точными base units (TEXT, uint256 не влезает в Long), decimals, `observedAt` и хостом
+  источника. Повторный refresh заменяет наблюдение, а не копит историю; неудачное чтение оставляет
+  прошлое число и не превращается в ноль. Обновление ручное и foreground: кнопка в шапке кошелька,
+  частичный результат сообщается честно (`обновлено N, не удалось M`). Непрочитанный ledger
+  показывает `Ещё не обновлялось` и прочерк, а сводка валют не печатает ложный `0.00 TRX`.
+  Endpoint виден и редактируется в Privacy policy → Crypto endpoints: дефолты — публичные
+  publicnode/TronGrid без ключей, только https, пустое поле возвращает дефолт. Таблица исключена
+  из portable backup (один refresh воспроизводит её точно) и очищается CASCADE вместе со счётом.
+  10 unit-тестов адаптеров, 6 instrumented тестов repository и migration 4→5; на disposable Pixel
+  выполнен реальный read TronGrid по синтетическому адресу. BTC/TON не показывать рабочими
   до реализации; prices/GEL conversion — отдельный второй slice
 - [ ] Google Play release — отдельный этап: stable privacy URL/support, third-party notices,
   release signing/versioning, store listing, Data Safety + restricted SMS declaration,

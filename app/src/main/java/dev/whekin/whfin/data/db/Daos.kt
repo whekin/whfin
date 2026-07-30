@@ -147,6 +147,15 @@ interface CryptoDao {
     @Query("SELECT * FROM wallet_addresses WHERE chainId = :chainId AND address = :address LIMIT 1")
     suspend fun address(chainId: String, address: String): WalletAddressEntity?
     @Query("SELECT * FROM wallet_addresses ORDER BY id") fun observeAddresses(): Flow<List<WalletAddressEntity>>
+    @Query("SELECT * FROM crypto_assets WHERE id = :id") suspend fun assetById(id: Long): CryptoAssetEntity?
+
+    @Query("SELECT * FROM crypto_balances ORDER BY accountId") fun observeBalances(): Flow<List<CryptoBalanceEntity>>
+    @Query("SELECT * FROM crypto_balances WHERE accountId = :accountId LIMIT 1")
+    suspend fun balance(accountId: Long): CryptoBalanceEntity?
+
+    /** Idempotent by account: a refresh replaces the observation instead of appending history. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBalance(item: CryptoBalanceEntity): Long
 }
 
 @Dao

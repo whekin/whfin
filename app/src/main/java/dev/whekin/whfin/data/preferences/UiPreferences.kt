@@ -1,10 +1,12 @@
 package dev.whekin.whfin.data.preferences
 
 import android.content.Context
+import dev.whekin.whfin.data.crypto.CryptoEndpoints
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -93,6 +95,23 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[DynamicColorsEnabledKey] ?: false }
 
+    /**
+     * Reading a public address reveals interest in it, so the endpoint stays visible and editable.
+     * Blank means "use the documented public default".
+     */
+    val cryptoEndpoints: Flow<CryptoEndpoints> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences ->
+            CryptoEndpoints(
+                ethereumRpcUrl = preferences[EthereumRpcUrlKey]?.takeIf { it.isNotBlank() }
+                    ?: CryptoEndpoints.DEFAULT_ETHEREUM_RPC,
+                tronApiUrl = preferences[TronApiUrlKey]?.takeIf { it.isNotBlank() }
+                    ?: CryptoEndpoints.DEFAULT_TRON_API,
+            )
+        }
+
     val useSystemFont: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
@@ -126,6 +145,13 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[DynamicColorsEnabledKey] = enabled }
     }
 
+    suspend fun setCryptoEndpoints(endpoints: CryptoEndpoints) {
+        dataStore.edit { preferences ->
+            preferences[EthereumRpcUrlKey] = endpoints.ethereumRpcUrl.trim()
+            preferences[TronApiUrlKey] = endpoints.tronApiUrl.trim()
+        }
+    }
+
     suspend fun setUseSystemFont(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[UseSystemFontKey] = enabled }
     }
@@ -138,5 +164,7 @@ internal class UiPreferences(
         val AppThemeModeKey = intPreferencesKey("app_theme_mode")
         val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
+        val EthereumRpcUrlKey = stringPreferencesKey("crypto_ethereum_rpc_url")
+        val TronApiUrlKey = stringPreferencesKey("crypto_tron_api_url")
     }
 }

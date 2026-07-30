@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.whekin.whfin.data.demo.DemoDataInstaller
+import dev.whekin.whfin.data.db.WHFIN_DATABASE_VERSION
 import dev.whekin.whfin.data.db.WhfinDatabase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -109,7 +110,7 @@ class WhfinBackupInstrumentedTest {
                 "VALUES ('sms|local', 'UNRECOGNIZED', 'UNRECOGNIZED', 1, 1)",
         )
         val version2 = export(source).toString(Charsets.UTF_8)
-            .replace("\"databaseVersion\": 4", "\"databaseVersion\": 2")
+            .replace("\"databaseVersion\": $WHFIN_DATABASE_VERSION", "\"databaseVersion\": 2")
             .replace("        \"origin\": \"FILE\",\n", "")
 
         WhfinBackupManager(target).restore(ByteArrayInputStream(version2.toByteArray()))

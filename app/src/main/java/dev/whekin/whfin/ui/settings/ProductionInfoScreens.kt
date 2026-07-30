@@ -37,7 +37,21 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import dev.whekin.whfin.data.preferences.UiPreferences
+import kotlinx.coroutines.launch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.crypto.CryptoEndpoints
+import dev.whekin.whfin.ui.components.FormSheet
+import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -46,8 +60,27 @@ import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
+/** Keeps the endpoint preference next to the screen that explains it, without widening the shell. */
 @Composable
-fun PrivacyScreen(onOpenSystemSettings: () -> Unit) {
+fun PrivacyRoute(onOpenSystemSettings: () -> Unit) {
+    val context = LocalContext.current
+    val preferences = remember(context) { UiPreferences(context) }
+    val endpoints by preferences.cryptoEndpoints.collectAsState(initial = CryptoEndpoints())
+    val scope = rememberCoroutineScope()
+    PrivacyScreen(
+        onOpenSystemSettings = onOpenSystemSettings,
+        endpoints = endpoints,
+        onEndpointsChange = { scope.launch { preferences.setCryptoEndpoints(it) } },
+    )
+}
+
+@Composable
+fun PrivacyScreen(
+    onOpenSystemSettings: () -> Unit,
+    endpoints: CryptoEndpoints = CryptoEndpoints(),
+    onEndpointsChange: (CryptoEndpoints) -> Unit = {},
+) {
+    var editEndpoints by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -121,11 +154,86 @@ fun PrivacyScreen(onOpenSystemSettings: () -> Unit) {
             )
         }
 
+        WhfinSectionLabel(stringResource(R.string.privacy_network_section))
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.crypto_endpoints_title),
+                supportingText = stringResource(R.string.crypto_endpoints_summary),
+                supportingMaxLines = 4,
+                icon = Icons.Default.Language,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = { editEndpoints = true },
+            )
+        }
+
         WhfinNotice(
             title = stringResource(R.string.privacy_network_title),
             body = stringResource(R.string.privacy_network_body),
             icon = Icons.Default.AccountBalanceWallet,
             kind = WhfinNoticeKind.Unavailable,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    if (editEndpoints) CryptoEndpointsSheet(
+        endpoints = endpoints,
+        onDismiss = { editEndpoints = false },
+        onConfirm = {
+            onEndpointsChange(it)
+            editEndpoints = false
+        },
+    )
+}
+
+/**
+ * Endpoints are plain text on purpose: the person can see exactly which host will learn that this
+ * device asked about their address, and can point WHFIN at their own node instead.
+ */
+@Composable
+private fun CryptoEndpointsSheet(
+    endpoints: CryptoEndpoints,
+    onDismiss: () -> Unit,
+    onConfirm: (CryptoEndpoints) -> Unit,
+) {
+    var ethereum by remember { mutableStateOf(endpoints.ethereumRpcUrl) }
+    var tron by remember { mutableStateOf(endpoints.tronApiUrl) }
+    fun valid(url: String) = url.isBlank() || CryptoEndpoints.isUsable(url)
+
+    FormSheet(
+        title = stringResource(R.string.crypto_endpoints_title),
+        onDismiss = onDismiss,
+        primaryLabel = stringResource(R.string.action_save),
+        primaryEnabled = valid(ethereum) && valid(tron),
+        onPrimary = {
+            onConfirm(
+                CryptoEndpoints(
+                    ethereumRpcUrl = ethereum.trim().ifBlank { CryptoEndpoints.DEFAULT_ETHEREUM_RPC },
+                    tronApiUrl = tron.trim().ifBlank { CryptoEndpoints.DEFAULT_TRON_API },
+                ),
+            )
+        },
+    ) {
+        Text(
+            stringResource(R.string.crypto_endpoints_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        WhfinField(
+            value = ethereum,
+            onValueChange = { ethereum = it.trim() },
+            label = stringResource(R.string.crypto_endpoint_ethereum),
+            supportingText = if (valid(ethereum)) CryptoEndpoints.DEFAULT_ETHEREUM_RPC
+            else stringResource(R.string.crypto_endpoint_invalid),
+            isError = !valid(ethereum),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        WhfinField(
+            value = tron,
+            onValueChange = { tron = it.trim() },
+            label = stringResource(R.string.crypto_endpoint_tron),
+            supportingText = if (valid(tron)) CryptoEndpoints.DEFAULT_TRON_API
+            else stringResource(R.string.crypto_endpoint_invalid),
+            isError = !valid(tron),
             modifier = Modifier.fillMaxWidth(),
         )
     }

@@ -55,7 +55,7 @@ class WhfinDatabaseMigrationTest {
     @Test
     fun migrateAllFromEarliestSchema_matchesCurrentRoomSchema() {
         helper.createDatabase(TEST_DB_ALL, 1).close()
-        helper.runMigrationsAndValidate(TEST_DB_ALL, 4, true, *ALL_MIGRATIONS).close()
+        helper.runMigrationsAndValidate(TEST_DB_ALL, WHFIN_DATABASE_VERSION, true, *ALL_MIGRATIONS).close()
     }
 
     @Test
@@ -108,10 +108,41 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate4To5_keepsTheLedgerAndAddsAnEmptyBalanceSnapshot() {
+        helper.createDatabase(TEST_DB_4_5, 4).apply {
+            execSQL("INSERT INTO `financial_groups` VALUES (1, 'Wallet', 'WALLET', 'tron:mainnet', 0, 0)")
+            execSQL("INSERT INTO `accounts` VALUES (1, 'Wallet', 'CRYPTO', 1, 'TRX', NULL, NULL, NULL, NULL, NULL, 0, 0)")
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_4_5, 5, true, MIGRATION_4_5).apply {
+            query("SELECT `name` FROM `accounts` WHERE `id` = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("Wallet", cursor.getString(0))
+            }
+            // Never refreshed is the honest starting state, so the new table starts empty.
+            query("SELECT COUNT(*) FROM `crypto_balances`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            execSQL(
+                "INSERT INTO `crypto_balances` (`accountId`, `baseUnits`, `decimals`, `observedAt`, `source`) " +
+                    "VALUES (1, '1500000', 6, 1000, 'example.test')",
+            )
+            query("SELECT `baseUnits` FROM `crypto_balances` WHERE `accountId` = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("1500000", cursor.getString(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
         const val TEST_DB_2_3 = "whfin-migration-2-3"
         const val TEST_DB_3_4 = "whfin-migration-3-4"
+        const val TEST_DB_4_5 = "whfin-migration-4-5"
     }
 }

@@ -50,7 +50,7 @@ import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
 import dev.whekin.whfin.ui.settings.AboutScreen
 import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.AppLockScreen
-import dev.whekin.whfin.ui.settings.PrivacyScreen
+import dev.whekin.whfin.ui.settings.PrivacyRoute
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.CategoriesRoute
 import dev.whekin.whfin.ui.settings.PeopleRoute
@@ -391,7 +391,7 @@ fun MainScreen(
                     ShellScene.Privacy -> SecondaryPage(
                         title = stringResource(R.string.privacy_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { PrivacyScreen(onOpenSystemSettings = onOpenSystemSettings) }
+                    ) { PrivacyRoute(onOpenSystemSettings = onOpenSystemSettings) }
                     ShellScene.About -> SecondaryPage(
                         title = stringResource(R.string.about_title),
                         onBack = { goBack(withHaptic = true) },

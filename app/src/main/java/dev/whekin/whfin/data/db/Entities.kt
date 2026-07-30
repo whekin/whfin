@@ -460,3 +460,31 @@ data class SmsDiagnosticEntity(
     val accountId: Long? = null,
     val updatedAt: Long,
 )
+
+/**
+ * Latest observed on-chain balance of one address×asset account.
+ *
+ * Fiat ledgers derive their balance from transactions; a watch-only chain balance is an observation
+ * instead, so it lives in its own row with the moment it was read. Amounts are exact base units
+ * (wei, sun, token units) kept as a decimal string because uint256 does not fit a Long.
+ */
+@Entity(
+    tableName = "crypto_balances",
+    foreignKeys = [ForeignKey(
+        entity = AccountEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["accountId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+    indices = [Index(value = ["accountId"], unique = true)],
+)
+data class CryptoBalanceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val accountId: Long,
+    /** Exact base units as a decimal string; never rounded and never fiat minor units. */
+    val baseUnits: String,
+    val decimals: Int,
+    val observedAt: Long,
+    /** Endpoint host the observation came from, for an honest "where did this number come from". */
+    val source: String? = null,
+)

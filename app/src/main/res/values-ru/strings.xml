@@ -790,4 +790,17 @@
     <string name="analytics_empty_body">Выберите другой месяц или импортируйте выписку, чтобы построить тренд.</string>
     <string name="analytics_error_title">Не удалось посчитать статистику</string>
     <string name="analytics_error_body">Транзакции не изменены. Вернитесь назад и попробуйте открыть статистику снова.</string>
+    <string name="crypto_refresh">Обновить балансы</string>
+    <string name="crypto_refresh_done">Обновлено балансов: %1$d</string>
+    <string name="crypto_refresh_partial">Обновлено %1$d, не удалось %2$d</string>
+    <string name="crypto_refresh_failed">Не удалось прочитать балансы. Проверь endpoint сети.</string>
+    <string name="crypto_never_refreshed">Ещё не обновлялось</string>
+    <string name="crypto_observed_at">В сети · %1$s</string>
+    <string name="crypto_endpoints_title">Крипто-endpoint\'ы</string>
+    <string name="crypto_endpoints_summary">У какого узла WHFIN спрашивает балансы</string>
+    <string name="crypto_endpoints_body">Запрос баланса сообщает узлу, что этот адрес интересен этому устройству. Оставь поле пустым, чтобы использовать публичный дефолт.</string>
+    <string name="crypto_endpoint_ethereum">Ethereum JSON-RPC</string>
+    <string name="crypto_endpoint_tron">Tron API</string>
+    <string name="crypto_endpoint_invalid">Введи https://-адрес или оставь поле пустым.</string>
+    <string name="privacy_network_section">СЕТЬ</string>
 </resources>

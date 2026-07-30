@@ -90,6 +90,23 @@ WHFIN does not currently integrate with official bank APIs, and such access is o
 product roadmap. If it is reconsidered after a public launch, it will require separate consent,
 security review and updated disclosures.
 
+## Watch-only crypto balances
+
+WHFIN can track public blockchain addresses that the user enters. WHFIN never asks for, receives or
+stores a seed phrase or a private key, and it cannot sign or send a transaction.
+
+Refreshing a balance is a manual, foreground action. It sends the entered public address to the
+blockchain endpoint configured in Settings → Privacy policy → Crypto endpoints. That endpoint, and any
+network in between, therefore learns that this device is interested in that address, together with the
+device IP address. The defaults are public community endpoints that require no account and no API key:
+`https://ethereum-rpc.publicnode.com` for Ethereum and `https://api.trongrid.io` for Tron. Both are
+operated by third parties under their own privacy terms, and either can be replaced with a self-hosted
+or alternative HTTPS endpoint.
+
+Only the address and, for tokens, the contract address are sent. No other WHFIN data is transmitted.
+The resulting balance is stored locally with the moment it was read; it is excluded from the portable
+JSON export because a single refresh reproduces it exactly.
+
 ## Changes and contact
 
 Material changes will update the effective date and the in-app privacy summary. Before public release,
