@@ -807,4 +807,6 @@
     <string name="sms_kind_cash_deposit">Cash deposit</string>
     <string name="sms_kind_interest">Deposit interest</string>
     <string name="sms_outcome_canceled">Canceled by the bank</string>
+    <string name="feed_filter_drafts">Drafts</string>
+    <string name="transactions_select_all_action">Select all</string>
 </resources>

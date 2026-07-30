@@ -233,6 +233,7 @@ fun FeedScreen(
             FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
             FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
             FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
+            FeedFilter.DRAFTS -> item.tx.status == TxStatus.PENDING
         }
         val haystack = listOfNotNull(
             item.transferSummary, item.merchant?.displayName, item.tx.rawCounterparty,
@@ -256,6 +257,8 @@ fun FeedScreen(
                 diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP ||
                 diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
                 diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
+            // An unrouted message is not a draft to confirm: it still needs an account first.
+            FeedFilter.DRAFTS -> false
         }
         val haystack = listOfNotNull(
             diagnostic.counterparty,
@@ -319,6 +322,14 @@ fun FeedScreen(
                     label = stringResource(R.string.transactions_selected),
                     value = selectedIds.size.toString(),
                 ) {
+                    // Hundreds of drafts are cleared by narrowing the feed and taking the lot,
+                    // not by tapping each row: whatever the filter shows, this selects.
+                    if (selectedIds.size < visibleItems.size) WhfinIconButton(
+                        icon = Icons.Default.SelectAll,
+                        contentDescription = stringResource(R.string.transactions_select_all_action),
+                        onClick = { selectedIds = visibleItems.map { it.tx.id }.toSet() },
+                        outlined = false,
+                    )
                     WhfinIconButton(
                         icon = if (allSelectedPending) Icons.Default.CheckCircle else Icons.Default.TaskAlt,
                         contentDescription = stringResource(
@@ -1390,7 +1401,7 @@ internal fun SplitSheet(
     }
 }
 
-private enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS }
+private enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, DRAFTS }
 private enum class FeedSort { NEWEST, OLDEST, AMOUNT }
 
 @Composable
@@ -1437,7 +1448,7 @@ private fun FeedFilterSheet(
             FeedFilter.EXPENSES -> categories.filter { it.kind == CategoryKind.EXPENSE }
             FeedFilter.INCOME -> categories.filter { it.kind == CategoryKind.INCOME }
             FeedFilter.TRANSFERS -> emptyList()
-            FeedFilter.ALL -> categories
+            FeedFilter.DRAFTS, FeedFilter.ALL -> categories
         }
     }
     val quickCategories = remember(eligibleCategories, draftCategories) {
@@ -1516,6 +1527,7 @@ private fun FeedFilterSheet(
                     FeedFilter.EXPENSES to R.string.feed_filter_expenses,
                     FeedFilter.INCOME to R.string.feed_filter_income,
                     FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
+                    FeedFilter.DRAFTS to R.string.feed_filter_drafts,
                 )
                 WhfinChoiceRail {
                     items(filterOptions, key = { it.first.name }) { (value, label) ->
@@ -1527,6 +1539,7 @@ private fun FeedFilterSheet(
                             FeedFilter.EXPENSES -> Icons.Default.ArrowUpward
                             FeedFilter.INCOME -> Icons.Default.ArrowDownward
                             FeedFilter.TRANSFERS -> Icons.Default.SwapHoriz
+                            FeedFilter.DRAFTS -> Icons.Default.Schedule
                         },
                         onClick = {
                             draftFilter = value
@@ -1538,7 +1551,7 @@ private fun FeedFilterSheet(
                                     categories.any { it.id == id && it.kind == CategoryKind.INCOME }
                                 }
                                 FeedFilter.TRANSFERS -> emptySet()
-                                FeedFilter.ALL -> draftCategories
+                                FeedFilter.DRAFTS, FeedFilter.ALL -> draftCategories
                             }
                         },
                     )

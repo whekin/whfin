@@ -812,4 +812,6 @@
     <string name="sms_kind_cash_deposit">Внесение наличных</string>
     <string name="sms_kind_interest">Проценты по вкладу</string>
     <string name="sms_outcome_canceled">Отменено банком</string>
+    <string name="feed_filter_drafts">Черновики</string>
+    <string name="transactions_select_all_action">Выделить всё</string>
 </resources>
