@@ -21,6 +21,19 @@ class RuntimeModeStore(context: Context) {
             check(preferences.edit().putBoolean(KEY_PERSONAL_SETUP_PENDING, value).commit())
         }
 
+    /**
+     * Settles the first-run gate for an installation that already carries a ledger.
+     *
+     * Somebody who has been using WHFIN must never be interrupted by a welcome screen after an
+     * update. The signal is the presence of their data: the earlier test — whether the package had
+     * ever been updated — was true for every sideloaded build after the first and survived a data
+     * wipe, which made the gate permanently unreachable on a device that had once been updated.
+     */
+    fun adoptExistingInstallation(hasExistingUserData: Boolean) {
+        if (hasWelcomeChoice || !hasExistingUserData) return
+        completeWelcomeChoice(personalSetupPending = false)
+    }
+
     fun completeWelcomeChoice(personalSetupPending: Boolean) {
         check(
             preferences.edit()

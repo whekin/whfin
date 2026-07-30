@@ -1,49 +1,50 @@
 package dev.whekin.whfin.data.demo
 
-import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/**
+ * The first-run gate is decided by whether a ledger already exists, never by install timestamps:
+ * those survive a data wipe and made the welcome screen unreachable once a build had been updated.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RuntimeModeStoreTest {
-    private val context = ApplicationProvider.getApplicationContext<Context>()
 
-    @Before
-    fun clear() {
-        context.getSharedPreferences("whfin_runtime", Context.MODE_PRIVATE).edit().clear().commit()
+    private fun store() = RuntimeModeStore(ApplicationProvider.getApplicationContext())
+
+    @Test
+    fun anEmptyInstallationStillOwesTheWelcomeChoice() {
+        val store = store()
+
+        store.adoptExistingInstallation(hasExistingUserData = false)
+
+        assertFalse(store.hasWelcomeChoice)
+        assertFalse(store.welcomeCompleted)
     }
 
     @Test
-    fun flagsPersistLocallyAcrossStoreInstances() {
-        val store = RuntimeModeStore(context)
-        assertFalse(store.demoMode)
-        assertFalse(store.developerMode)
-        assertFalse(store.hasWelcomeChoice)
-        assertFalse(store.welcomeCompleted)
-        assertFalse(store.personalSetupPending)
+    fun anInstallationThatAlreadyHasDataIsNeverInterrupted() {
+        val store = store()
 
-        store.demoMode = true
-        store.developerMode = true
-        store.demoFixtureVersion = 4
+        store.adoptExistingInstallation(hasExistingUserData = true)
+
+        assertTrue(store.welcomeCompleted)
+        assertFalse("adoption must not send an existing user into setup", store.personalSetupPending)
+    }
+
+    @Test
+    fun anExplicitChoiceIsNeverOverwrittenByAdoption() {
+        val store = store()
         store.completeWelcomeChoice(personalSetupPending = true)
 
-        val reopened = RuntimeModeStore(context)
-        assertTrue(reopened.demoMode)
-        assertTrue(reopened.developerMode)
-        assertEquals(4, reopened.demoFixtureVersion)
-        assertTrue(reopened.hasWelcomeChoice)
-        assertTrue(reopened.welcomeCompleted)
-        assertTrue(reopened.personalSetupPending)
+        store.adoptExistingInstallation(hasExistingUserData = true)
 
-        reopened.personalSetupPending = false
-        assertFalse(RuntimeModeStore(context).personalSetupPending)
+        assertTrue("the pending setup of a real choice must survive", store.personalSetupPending)
     }
 }

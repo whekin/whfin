@@ -42,8 +42,18 @@ class WhfinApp : Application() {
         runtimeModes.developerMode = enabled
     }
 
+    /**
+     * Whether a ledger already existed before this process touched anything.
+     *
+     * Read before the database is opened, because Room creates the file the moment it is used and the
+     * answer would then be "yes" on a genuinely first run.
+     */
+    var hadExistingUserData: Boolean = false
+        private set
+
     override fun onCreate() {
         super.onCreate()
+        hadExistingUserData = getDatabasePath(WhfinDatabase.NAME).exists()
         if (
             runtimeModes.demoMode &&
             (!getDatabasePath(DemoDataInstaller.DATABASE_NAME).exists() ||

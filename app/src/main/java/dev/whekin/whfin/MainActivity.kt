@@ -56,9 +56,6 @@ import kotlinx.coroutines.flow.map
 internal enum class AppStartupContent { Loading, LockGate, Main }
 internal enum class AppEntry { Welcome, PersonalSetup, Main }
 
-internal fun isUpgradeInstallation(firstInstallTime: Long, lastUpdateTime: Long): Boolean =
-    lastUpdateTime > firstInstallTime
-
 internal fun initialAppEntry(
     welcomeCompleted: Boolean,
     personalSetupPending: Boolean,
@@ -119,11 +116,7 @@ class MainActivity : FragmentActivity() {
             "(${PackageInfoCompat.getLongVersionCode(installedPackageInfo)})"
         demoMode = app.isDemoMode
         developerMode = app.runtimeModes.developerMode
-        if (!app.runtimeModes.hasWelcomeChoice) {
-            if (isUpgradeInstallation(installedPackageInfo.firstInstallTime, installedPackageInfo.lastUpdateTime)) {
-                app.runtimeModes.completeWelcomeChoice(personalSetupPending = false)
-            }
-        }
+        app.runtimeModes.adoptExistingInstallation(app.hadExistingUserData)
         appEntry = initialAppEntry(
             welcomeCompleted = app.runtimeModes.welcomeCompleted,
             personalSetupPending = app.runtimeModes.personalSetupPending,

@@ -59,13 +59,6 @@ class MainActivityStartupTest {
     }
 
     @Test
-    fun packageUpdateIsDistinctFromFreshInstall() {
-        assertFalse(isUpgradeInstallation(firstInstallTime = 10_000, lastUpdateTime = 10_000))
-        assertTrue(isUpgradeInstallation(firstInstallTime = 10_000, lastUpdateTime = 10_500))
-        assertTrue(isUpgradeInstallation(firstInstallTime = 10_000, lastUpdateTime = 20_000))
-    }
-
-    @Test
     fun loadingPreferencesNeverShowsLockGate() {
         assertEquals(AppStartupContent.Loading, appStartupContent(null, hasPin = true, sessionLocked = true))
     }

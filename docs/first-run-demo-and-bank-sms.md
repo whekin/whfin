@@ -22,9 +22,13 @@ A fresh untouched installation shows one full-screen **Welcome choice** before t
 
 Either choice permanently completes Welcome choice for that installation. Choosing Personal setup and
 then adding nothing must not make the gate reappear. Data-bearing existing installations must never see a
-new first-run gate after upgrade. Runtime choice flags are deliberately excluded from backup. An
-installation upgraded from a build without those flags is treated as already welcomed, including a
-legacy empty installation; a clean install shows Welcome choice.
+new first-run gate after upgrade. Runtime choice flags are deliberately excluded from backup.
+
+The signal for "already welcomed" is the presence of a ledger, read before the database is opened.
+It must not be an install timestamp: `lastUpdateTime > firstInstallTime` is true for every sideloaded
+build after the first and survives a data wipe, so the gate became permanently unreachable on any
+device that had once been updated. An installation whose database file already exists is adopted
+silently; an empty one — however many times its package was updated — still shows Welcome choice.
 
 Choosing Personal setup records a resumable pending setup surface. Process restarts return there until the
 person deliberately continues to Feed or Accounts. Choosing Demo completes Welcome only after the isolated
