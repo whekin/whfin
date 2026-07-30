@@ -3,9 +3,12 @@ package dev.whekin.whfin.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.CREDO_PROVIDER
+import dev.whekin.whfin.data.db.insertBankLedger
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
@@ -232,13 +235,59 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         val normalized = last4.filter(Char::isDigit)
         if (normalized.length != 4) return
         viewModelScope.launch(Dispatchers.IO) {
-            val account = db.accountDao().byId(familyAccountId) ?: return@launch
-            if (account.type != AccountType.BANK && account.type != AccountType.SAVINGS) return@launch
-            val family = requireNotNull(account.groupId).let { db.accountDao().byGroup(it) }.filter { candidate ->
-                if (account.iban != null) candidate.iban == account.iban else candidate.id == account.id
-            }
-            db.paymentInstrumentDao().linkForAccounts(family.ifEmpty { listOf(account) }, normalized, cardType)
+            linkCard(familyAccountId, normalized, cardType)
         }
+    }
+
+    /**
+     * Creates the first Credo ledger and links the card to it in one step, so a fresh install can
+     * map card digits without leaving this screen for the accounts editor and coming back.
+     */
+    fun createCredoAccountAndAddCardMapping(
+        name: String,
+        currency: String,
+        last4: String,
+        cardType: PaymentInstrumentType,
+    ) {
+        val cleanName = name.trim()
+        val normalized = last4.filter(Char::isDigit)
+        if (cleanName.isEmpty() || normalized.length != 4) return
+        viewModelScope.launch(Dispatchers.IO) {
+            db.withTransaction {
+                val accountId = db.insertBankLedger(CREDO_PROVIDER, cleanName, currency)
+                if (accountId > 0) linkCard(accountId, normalized, cardType)
+            }
+        }
+    }
+
+    /** Same one-step escape for an operation that is waiting for an account of its currency. */
+    fun createCredoAccountAndResolve(
+        diagnosticId: Long,
+        name: String,
+        currency: String,
+        cardType: PaymentInstrumentType,
+    ) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            db.withTransaction {
+                val accountId = db.insertBankLedger(CREDO_PROVIDER, cleanName, currency)
+                if (accountId > 0) importer.resolveDiagnostic(diagnosticId, accountId, cardType)
+            }
+        }
+    }
+
+    private suspend fun linkCard(
+        familyAccountId: Long,
+        last4: String,
+        cardType: PaymentInstrumentType,
+    ) {
+        val account = db.accountDao().byId(familyAccountId) ?: return
+        if (account.type != AccountType.BANK && account.type != AccountType.SAVINGS) return
+        val family = requireNotNull(account.groupId).let { db.accountDao().byGroup(it) }.filter { candidate ->
+            if (account.iban != null) candidate.iban == account.iban else candidate.id == account.id
+        }
+        db.paymentInstrumentDao().linkForAccounts(family.ifEmpty { listOf(account) }, last4, cardType)
     }
 
     fun loadMessage(diagnostic: SmsDiagnosticEntity) {

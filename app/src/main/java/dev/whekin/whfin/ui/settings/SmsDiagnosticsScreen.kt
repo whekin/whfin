@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -69,6 +70,7 @@ import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -78,6 +80,7 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.CREDO_PROVIDER
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
@@ -85,6 +88,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.text.DateFormat
@@ -163,6 +167,8 @@ fun SmsDiagnosticsRoute(
         onCancelHistoryImport = viewModel::cancelHistoryImport,
         onResolve = viewModel::resolve,
         onAddCardMapping = viewModel::addCardMapping,
+        onCreateAccountAndResolve = viewModel::createCredoAccountAndResolve,
+        onCreateAccountAndAddCardMapping = viewModel::createCredoAccountAndAddCardMapping,
         onViewMessage = { diagnostic ->
             if (hasHistoryPermission) {
                 viewModel.loadMessage(diagnostic)
@@ -213,6 +219,8 @@ internal fun SmsDiagnosticsScreen(
     onCancelHistoryImport: () -> Unit,
     onResolve: (Long, Long, PaymentInstrumentType) -> Unit,
     onAddCardMapping: (Long, String, PaymentInstrumentType) -> Unit,
+    onCreateAccountAndResolve: (Long, String, String, PaymentInstrumentType) -> Unit = { _, _, _, _ -> },
+    onCreateAccountAndAddCardMapping: (String, String, String, PaymentInstrumentType) -> Unit = { _, _, _, _ -> },
     onViewMessage: (SmsDiagnosticEntity) -> Unit,
     onDismissMessage: () -> Unit,
     onLoadShareMessage: (SmsDiagnosticEntity) -> Unit = {},
@@ -359,6 +367,10 @@ internal fun SmsDiagnosticsScreen(
                 onResolve(selectedDiagnostic.id, accountId, cardType)
                 selectedDiagnosticId = 0L
             },
+            onCreateAccountAndSave = { name, currency, cardType ->
+                onCreateAccountAndResolve(selectedDiagnostic.id, name, currency, cardType)
+                selectedDiagnosticId = 0L
+            },
         )
     }
     if (showAddCard && content != null) {
@@ -367,6 +379,10 @@ internal fun SmsDiagnosticsScreen(
             onDismiss = { showAddCard = false },
             onSave = { accountId, last4, cardType ->
                 onAddCardMapping(accountId, last4, cardType)
+                showAddCard = false
+            },
+            onCreateAccountAndSave = { name, currency, last4, cardType ->
+                onCreateAccountAndAddCardMapping(name, currency, last4, cardType)
                 showAddCard = false
             },
         )
@@ -478,19 +494,34 @@ private fun AddCardMappingSheet(
     cardFamilies: List<SmsCardFamily>,
     onDismiss: () -> Unit,
     onSave: (Long, String, PaymentInstrumentType) -> Unit,
+    onCreateAccountAndSave: (String, String, String, PaymentInstrumentType) -> Unit,
 ) {
     var last4 by rememberSaveable { mutableStateOf("") }
     var selectedId by rememberSaveable {
         mutableLongStateOf(cardFamilies.singleOrNull()?.primaryAccountId ?: 0L)
     }
     var cardType by rememberSaveable { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
-    val valid = last4.length == 4 && selectedId != 0L
+    // Без счетов карту привязать не к чему, поэтому первый счёт Credo создаётся здесь же:
+    // отправлять пользователя в редактор счетов и обратно ради одной строки незачем.
+    val creating = cardFamilies.isEmpty()
+    var accountName by rememberSaveable { mutableStateOf(CREDO_PROVIDER) }
+    var currency by rememberSaveable { mutableStateOf(PIVOT_CURRENCY) }
+    val valid = last4.length == 4 && if (creating) accountName.isNotBlank() else selectedId != 0L
     WhfinFormSheet(
         title = stringResource(R.string.sms_add_card_title),
         onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.sms_save_card_action),
+        primaryLabel = stringResource(
+            if (creating) R.string.sms_create_account_and_card_action else R.string.sms_save_card_action,
+        ),
         primaryEnabled = valid,
-        onPrimary = { if (valid) onSave(selectedId, last4, cardType) },
+        onPrimary = {
+            if (!valid) return@WhfinFormSheet
+            if (creating) {
+                onCreateAccountAndSave(accountName.trim(), currency, last4, cardType)
+            } else {
+                onSave(selectedId, last4, cardType)
+            }
+        },
     ) {
         Text(
             stringResource(R.string.sms_add_card_body),
@@ -512,14 +543,30 @@ private fun AddCardMappingSheet(
             modifier = Modifier.fillMaxWidth(),
         )
         WhfinSectionLabel(stringResource(R.string.sms_card_ledgers_label))
-        if (cardFamilies.isEmpty()) {
-            WhfinNotice(
-                title = stringResource(R.string.sms_no_bank_accounts_title),
-                body = stringResource(R.string.sms_no_bank_accounts_body),
-                icon = Icons.Default.AccountBalance,
-                kind = WhfinNoticeKind.Unavailable,
+        if (creating) {
+            Text(
+                stringResource(R.string.sms_first_bank_account_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            WhfinField(
+                value = accountName,
+                onValueChange = { accountName = it.take(40) },
+                label = stringResource(R.string.account_name_in_bank),
+                supportingText = stringResource(R.string.sms_new_account_support, currency),
+                leadingIcon = Icons.Default.AccountBalance,
                 modifier = Modifier.fillMaxWidth(),
             )
+            WhfinFieldLabel(stringResource(R.string.account_currency))
+            WhfinChoiceRail {
+                items(listOf("GEL", "USD", "EUR"), key = { it }) { code ->
+                    WhfinFilterPill(
+                        label = code,
+                        selected = currency == code,
+                        onClick = { currency = code },
+                    )
+                }
+            }
         } else {
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 cardFamilies.forEachIndexed { index, family ->
@@ -922,6 +969,7 @@ private fun AccountMappingSheet(
     cardFamilies: List<SmsCardFamily>,
     onDismiss: () -> Unit,
     onSave: (Long, PaymentInstrumentType) -> Unit,
+    onCreateAccountAndSave: (String, String, PaymentInstrumentType) -> Unit,
 ) {
     val currency = diagnostic.balanceCurrency ?: diagnostic.currency ?: "—"
     val matching = remember(accounts, currency) { accounts.filter { it.account.currency == currency } }
@@ -929,6 +977,7 @@ private fun AccountMappingSheet(
         cardFamilies.filter { family -> family.accounts.any { it.currency == currency } }
     }
     val cardDiagnostic = diagnostic.cardLast4 != null
+    val nothingToLinkTo = if (cardDiagnostic) matchingFamilies.isEmpty() else matching.isEmpty()
     var selectedId by remember(diagnostic.id, matching, matchingFamilies) {
         mutableLongStateOf(
             if (cardDiagnostic) matchingFamilies.singleOrNull()?.primaryAccountId ?: 0L
@@ -936,13 +985,20 @@ private fun AccountMappingSheet(
         )
     }
     var cardType by remember(diagnostic.id) { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
+    // Тот же выход, что в Feed-resolver: счёт нужной валюты создаётся прямо в листе.
+    var creating by rememberSaveable(diagnostic.id) { mutableStateOf(false) }
+    var accountName by rememberSaveable(diagnostic.id) { mutableStateOf(CREDO_PROVIDER) }
     WhfinFormSheet(
         title = stringResource(R.string.sms_choose_account_title),
         onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.sms_link_action),
-        primaryEnabled = selectedId != 0L,
+        primaryLabel = stringResource(
+            if (creating) R.string.sms_create_and_link_action else R.string.sms_link_action,
+        ),
+        primaryEnabled = if (creating) accountName.isNotBlank() else selectedId != 0L,
         onPrimary = {
-            if (selectedId != 0L) {
+            if (creating) {
+                if (accountName.isNotBlank()) onCreateAccountAndSave(accountName.trim(), currency, cardType)
+            } else if (selectedId != 0L) {
                 val accountId = if (cardDiagnostic) {
                     matchingFamilies.firstOrNull { it.primaryAccountId == selectedId }
                         ?.accounts?.singleOrNull { it.currency == currency }?.id ?: 0L
@@ -956,12 +1012,23 @@ private fun AccountMappingSheet(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if ((cardDiagnostic && matchingFamilies.isEmpty()) || (!cardDiagnostic && matching.isEmpty())) {
+        if (creating) {
+            WhfinField(
+                value = accountName,
+                onValueChange = { accountName = it.take(40) },
+                label = stringResource(R.string.account_name_in_bank),
+                supportingText = stringResource(R.string.sms_new_account_support, currency),
+                leadingIcon = Icons.Default.AccountBalance,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else if (nothingToLinkTo) {
             WhfinNotice(
                 title = stringResource(R.string.sms_outcome_mapping),
                 body = stringResource(R.string.sms_no_matching_accounts, currency),
                 kind = WhfinNoticeKind.Unavailable,
                 icon = Icons.Default.AccountBalance,
+                actionLabel = stringResource(R.string.accounts_add),
+                onAction = { creating = true },
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {

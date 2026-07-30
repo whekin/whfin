@@ -27,8 +27,8 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryKind
-import dev.whekin.whfin.data.db.FinancialGroupEntity
-import dev.whekin.whfin.data.db.FinancialGroupType
+import dev.whekin.whfin.data.db.CREDO_PROVIDER
+import dev.whekin.whfin.data.db.insertBankLedger
 import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.categorization.CategorySuggester
@@ -431,26 +431,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun insertCredoAccount(name: String, currency: String): Long {
-        val groupId = db.financialGroupDao()
-            .byProvider(FinancialGroupType.BANK, "Credo")
-            ?.id
-            ?: db.financialGroupDao().insert(
-                FinancialGroupEntity(
-                    name = "Credo",
-                    type = FinancialGroupType.BANK,
-                    provider = "Credo",
-                ),
-            )
-        return db.accountDao().insert(
-            AccountEntity(
-                name = name,
-                type = AccountType.BANK,
-                currency = currency,
-                groupId = groupId,
-            ),
-        )
-    }
+    private suspend fun insertCredoAccount(name: String, currency: String): Long =
+        db.insertBankLedger(CREDO_PROVIDER, name, currency)
 
     fun assignCategory(item: FeedItem, categoryId: Long) {
         viewModelScope.launch {

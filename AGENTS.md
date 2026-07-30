@@ -97,6 +97,11 @@ This is a single-context repository with root domain documentation and system-wi
   и backfill-ит все совместимые Unrouted payments той же карты; автоматически привязанные соседи остаются
   PENDING. Подтверждённая вручную SMS всё ещё реконсилируется выпиской по provenance `source=SMS`, поэтому
   второй жест и будущие дубли не нужны.
+  Оба листа Bank SMS больше не заканчиваются тупиком `Нет банковского счёта`: привязка карты при пустой базе
+  сразу показывает поля первого счёта Credo (имя + валюта) и одной кнопкой создаёт ledger и связь, а
+  resolver операции предлагает `Добавить счёт` и создаёт ledger нужной валюты вместе с подтверждением —
+  как это давно делает Feed resolver. Группа банка и первый ledger создаются одной транзакцией общим
+  `insertBankLedger` (`data/db/BankLedgers.kt`), поэтому Feed и Bank SMS не расходятся в реализации.
   Одноэкранный Welcome choice и bank-centric Personal setup реализованы. Clean install до shell показывает
   ровно два действия без permission prompts; выбор Personal переживает process restart до явного
   продолжения, а upgrade существующей установки автоматически пропускает новый gate. Setup показывает

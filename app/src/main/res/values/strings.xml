@@ -269,7 +269,8 @@
     <string name="sms_account_label">ACCOUNT &amp; CURRENCY</string>
     <string name="sms_card_ledgers_label">BANK ACCOUNT</string>
     <string name="sms_no_bank_accounts_title">No bank account available</string>
-    <string name="sms_no_bank_accounts_body">Add or import a Credo account before linking card digits.</string>
+    <string name="sms_first_bank_account_body">No Credo account yet — create it right here. The IBAN and other currencies arrive with the first statement import.</string>
+    <string name="sms_create_account_and_card_action">Create account &amp; link card</string>
     <string name="sms_save_card_action">Save link</string>
     <string name="sms_view_message_action">View original SMS</string>
     <string name="sms_original_message_title">Original SMS</string>

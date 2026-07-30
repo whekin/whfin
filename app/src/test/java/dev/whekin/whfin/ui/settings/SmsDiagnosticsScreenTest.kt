@@ -256,6 +256,107 @@ class SmsDiagnosticsScreenTest {
     }
 
     @Test
+    fun cardMapping_withoutAnyAccount_createsTheFirstCredoLedgerInPlace() {
+        var created: List<Any>? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData()),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> error("There is no account to link to yet") },
+                    onCreateAccountAndAddCardMapping = { name, currency, last4, type ->
+                        created = listOf(name, currency, last4, type)
+                    },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_card_required_title)).performClick()
+        val primary = context.getString(R.string.sms_create_account_and_card_action)
+        compose.onNodeWithText(primary).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label))
+            .performTextInput("2533")
+        compose.onNodeWithText(primary).performClick()
+
+        compose.runOnIdle {
+            assertEquals(
+                listOf("Credo", "GEL", "2533", PaymentInstrumentType.PHYSICAL_CARD),
+                created,
+            )
+        }
+    }
+
+    @Test
+    fun attentionOutcome_withoutMatchingAccount_createsOneWithoutLeavingTheSheet() {
+        var created: List<Any>? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(
+            id = 21,
+            externalKey = "sms|no-account",
+            kind = SmsDiagnosticKind.CARD_PAYMENT,
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            reason = SmsDiagnosticReason.NO_ACCOUNT,
+            receivedAt = 1_000,
+            amountMinor = 2_500,
+            currency = "GEL",
+            balanceCurrency = "GEL",
+            cardLast4 = "0001",
+            counterparty = "Example",
+            updatedAt = 1_000,
+        )
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(diagnostics = listOf(diagnostic)),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> error("There is no matching account to link to") },
+                    onAddCardMapping = { _, _, _ -> },
+                    onCreateAccountAndResolve = { diagnosticId, name, currency, type ->
+                        created = listOf(diagnosticId, name, currency, type)
+                    },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("sms-diagnostics-list")
+            .performScrollToNode(hasContentDescription(context.getString(R.string.sms_link_action)))
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_link_action)).performClick()
+        compose.onNodeWithText(context.getString(R.string.accounts_add)).performClick()
+        compose.onNodeWithText(context.getString(R.string.sms_create_and_link_action)).performClick()
+
+        compose.runOnIdle {
+            assertEquals(
+                listOf(21L, "Credo", "GEL", PaymentInstrumentType.PHYSICAL_CARD),
+                created,
+            )
+        }
+    }
+
+    @Test
     fun monitoringOff_hasOneDirectEnableAction() {
         var enabled = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
