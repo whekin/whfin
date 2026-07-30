@@ -828,7 +828,9 @@ private fun DiagnosticRow(
                 )
             }
         },
-        onClick = onViewMessage,
+        // A row that asks for a decision must lead to that decision. Reading the original text is a
+        // secondary curiosity and keeps its own icon; it used to swallow the whole row.
+        onClick = onResolve ?: onViewMessage,
         divider = divider,
         modifier = Modifier.fillMaxWidth(),
     )

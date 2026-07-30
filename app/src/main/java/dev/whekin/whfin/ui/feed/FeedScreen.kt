@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
@@ -191,6 +192,8 @@ fun FeedScreen(
     val people by viewModel.people.collectAsState()
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val smsRoutingAccounts by viewModel.smsRoutingAccounts.collectAsState()
+    // Confirming a draft is reversible from the transaction details, so it needs no ceremony here.
+    val confirmPending: (FeedItem) -> Unit = { viewModel.updateStatus(it, TxStatus.CONFIRMED) }
     var details by remember { mutableStateOf<FeedItem?>(null) }
     var routingFor by remember { mutableStateOf<UnroutedOperation?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -444,6 +447,7 @@ fun FeedScreen(
                         selected = item.tx.id in selectedIds,
                         onClick = { if (selectionMode) toggleSelection(item) else details = item },
                         onLongClick = { toggleSelection(item) },
+                        onConfirmPending = { confirmPending(item) }.takeUnless { selectionMode },
                     )
                 }
             } else {
@@ -464,6 +468,7 @@ fun FeedScreen(
                                 if (selectionMode) toggleSelection(entry.item) else details = entry.item
                             },
                             onLongClick = { toggleSelection(entry.item) },
+                            onConfirmPending = { confirmPending(entry.item) }.takeUnless { selectionMode },
                         )
                         is FeedTimelineEntry.Unrouted -> UnroutedOperationRow(
                             operation = entry.operation,
@@ -2138,6 +2143,7 @@ internal fun FeedRow(
     onClick: () -> Unit,
     selected: Boolean = false,
     onLongClick: () -> Unit = {},
+    onConfirmPending: (() -> Unit)? = null,
 ) {
     val tx = item.tx
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
@@ -2262,9 +2268,29 @@ internal fun FeedRow(
                     }
                 }
                 if (tx.status == TxStatus.PENDING) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    // Confirming a draft is the most repeated gesture there is, so the marker that
+                    // says it is a draft is also the control that clears it — one tap, in the feed.
+                    val confirm = onConfirmPending
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = if (confirm == null) Modifier else Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable(
+                                onClickLabel = stringResource(R.string.transaction_confirm),
+                                onClick = confirm,
+                            )
+                            .padding(vertical = 4.dp, horizontal = 6.dp)
+                            .offset(x = (-6).dp),
+                    ) {
                         Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
                         Text(stringResource(R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                        if (confirm != null) Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(14.dp),
+                        )
                     }
                 }
             }
