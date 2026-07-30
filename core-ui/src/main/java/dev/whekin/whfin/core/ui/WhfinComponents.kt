@@ -386,12 +386,22 @@ fun WhfinContextHeader(
     modifier: Modifier = Modifier,
     valueSymbol: String? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    /** Optional tap on the metric itself, e.g. to read the same money in another currency. */
+    onValueClick: (() -> Unit)? = null,
+    valueClickLabel: String? = null,
     actions: @Composable RowScope.() -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
         TopAppBar(
             title = {
-                Column(Modifier.padding(start = 4.dp, top = 4.dp)) {
+                Column(
+                    Modifier
+                        .padding(start = 4.dp, top = 4.dp)
+                        .then(
+                            if (onValueClick == null) Modifier
+                            else Modifier.clickable(onClickLabel = valueClickLabel, onClick = onValueClick),
+                        ),
+                ) {
                     WhfinAmount(
                         text = value,
                         symbol = valueSymbol,

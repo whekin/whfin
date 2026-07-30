@@ -114,6 +114,8 @@ import dev.whekin.whfin.ui.components.CategoryGrid
 import dev.whekin.whfin.ui.components.CategoryAppearancePicker
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.ui.currencySymbol
+import dev.whekin.whfin.ui.convertedTotalLabel
+import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.formatMinor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -181,7 +183,8 @@ fun FeedScreen(
     viewModel: FeedViewModel = viewModel(),
 ) {
     val items by viewModel.items.collectAsState()
-    val balance by viewModel.totalBalanceMinor.collectAsState()
+    val netWorth by viewModel.netWorth.collectAsState()
+    val displayCurrency by viewModel.displayCurrency.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val categoriesByUsage by viewModel.categoriesByUsage.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
@@ -341,11 +344,15 @@ fun FeedScreen(
                     )
                 }
             } else {
+                val total = netWorth
+                val totalAmount = total?.amount
                 WhfinContextHeader(
-                    label = stringResource(R.string.balance_total),
-                    value = formatMinor(balance, "GEL"),
-                    valueSymbol = currencySymbol("GEL"),
+                    label = convertedTotalLabel(stringResource(R.string.balance_total), total),
+                    value = if (totalAmount == null) "—" else formatDecimal(totalAmount, total.currency),
+                    valueSymbol = currencySymbol(total?.currency ?: displayCurrency),
                     scrollBehavior = headerScrollBehavior,
+                    onValueClick = viewModel::rotateDisplayCurrency,
+                    valueClickLabel = stringResource(R.string.net_worth_rotate),
                 ) {
                     WhfinIconButton(
                         icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,

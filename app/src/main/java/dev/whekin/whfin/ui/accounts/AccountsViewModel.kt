@@ -11,6 +11,13 @@ import dev.whekin.whfin.data.crypto.CryptoEndpoints
 import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.crypto.HttpCryptoBalanceProvider
 import dev.whekin.whfin.data.preferences.UiPreferences
+import dev.whekin.whfin.data.preferences.nextDisplayCurrency
+import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
+import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.data.rates.NbgFiatRateProvider
+import dev.whekin.whfin.data.rates.NetWorthSource
+import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
+import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategorySeeder
@@ -153,6 +160,20 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val preferences = UiPreferences(getApplication<Application>())
+
+    /** One reading of everything owned, in the currency the person last chose. */
+    val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val displayCurrency: StateFlow<String> = preferences.displayCurrency
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)
+
+    private val ratesRepository = RatesRepository(
+        db = db,
+        providers = listOf(NbgFiatRateProvider(), CoinGeckoPriceProvider()),
+    )
+
     private val balanceRepository = CryptoBalanceRepository(
         db = db,
         provider = HttpCryptoBalanceProvider(endpoints = { endpoints }),
@@ -166,7 +187,21 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            UiPreferences(getApplication<Application>()).cryptoEndpoints.collect { endpoints = it }
+            preferences.cryptoEndpoints.collect { endpoints = it }
+        }
+        // Official rates move once per banking day, so a visit re-reads them only when they aged out.
+        viewModelScope.launch {
+            val observedAt = withContext(Dispatchers.IO) { ratesRepository.observedAt() }
+            val stale = observedAt == null ||
+                System.currentTimeMillis() - observedAt > RatesRepository.STALE_AFTER_MILLIS
+            if (stale) withContext(Dispatchers.IO) { ratesRepository.refresh() }
+        }
+    }
+
+    /** Reads the same money in the next currency; storage keeps every account in its own currency. */
+    fun rotateDisplayCurrency() {
+        viewModelScope.launch {
+            preferences.setDisplayCurrency(nextDisplayCurrency(displayCurrency.value))
         }
     }
 
@@ -179,7 +214,11 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _cryptoRefreshing.value = true
             val app = getApplication<Application>()
-            val result = withContext(Dispatchers.IO) { balanceRepository.refreshAll() }
+            val result = withContext(Dispatchers.IO) {
+                // A wallet total is only meaningful with a price next to it, so both move together.
+                ratesRepository.refresh()
+                balanceRepository.refreshAll()
+            }
             _cryptoRefreshing.value = false
             _message.value = when {
                 result.isEmpty -> null

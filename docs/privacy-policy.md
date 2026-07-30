@@ -107,6 +107,21 @@ Only the address and, for tokens, the contract address are sent. No other WHFIN 
 The resulting balance is stored locally with the moment it was read; it is excluded from the portable
 JSON export because a single refresh reproduces it exactly.
 
+## Exchange rates
+
+WHFIN converts the headline total into one currency using quotes it fetches itself. Fiat rates come
+from the National Bank of Georgia (`nbg.gov.ge`); prices for supported chain assets come from
+CoinGecko (`api.coingecko.com`) in US dollars and reach the lari through the same NBG quote.
+
+These requests contain no personal data and no wallet address. The full published rate list is
+requested, and the crypto asset list is a fixed build constant rather than the assets actually held,
+so a rate request does not reveal what this ledger contains. Quotes are read when they are older than
+a few hours while the app is open, and the resulting snapshot is stored locally and excluded from the
+portable JSON export.
+
+Converted totals are a reading, never a record: every account keeps its own currency, past
+transactions are never re-priced, and volatile assets are excluded from income and expense analysis.
+
 ## Changes and contact
 
 Material changes will update the effective date and the in-app privacy summary. Before public release,

@@ -803,4 +803,8 @@
     <string name="crypto_endpoint_tron">Tron API</string>
     <string name="crypto_endpoint_invalid">Введи https://-адрес или оставь поле пустым.</string>
     <string name="privacy_network_section">СЕТЬ</string>
+    <string name="net_worth_rotate">Показать в другой валюте</string>
+    <string name="net_worth_as_of">Курсы от %1$s</string>
+    <string name="net_worth_partial">В пересчёте · без %1$s</string>
+    <string name="net_worth_no_rate">Курса пока нет</string>
 </resources>

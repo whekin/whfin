@@ -4,6 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.preferences.UiPreferences
+import dev.whekin.whfin.data.preferences.nextDisplayCurrency
+import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.data.rates.NetWorthSource
+import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
@@ -292,13 +297,20 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         suggester?.rankCategories(cats) ?: cats
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val totalBalanceMinor: StateFlow<Long> = combine(
-        db.accountDao().observeActive(),
-        db.transactionDao().observeAccountBalances(),
-    ) { accounts, balances ->
-        val gelIds = accounts.filter { it.currency == "GEL" }.mapTo(mutableSetOf()) { it.id }
-        balances.filter { it.accountId in gelIds }.sumOf { it.totalMinor }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+    private val preferences = UiPreferences(getApplication<Application>())
+
+    /** The same headline as Accounts, so the two screens can never disagree about what is owned. */
+    val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val displayCurrency: StateFlow<String> = preferences.displayCurrency
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)
+
+    fun rotateDisplayCurrency() {
+        viewModelScope.launch {
+            preferences.setDisplayCurrency(nextDisplayCurrency(displayCurrency.value))
+        }
+    }
 
     fun addManual(tx: ManualTransaction) {
         viewModelScope.launch {

@@ -2,6 +2,7 @@ package dev.whekin.whfin.data.preferences
 
 import android.content.Context
 import dev.whekin.whfin.data.crypto.CryptoEndpoints
+import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -16,6 +17,14 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 private val Context.whfinUiPreferences by preferencesDataStore(name = "whfin_ui")
+
+/** Rotation order of the headline total. Deliberately short: three readings, one tap apart. */
+val DISPLAY_CURRENCIES = listOf(PIVOT_CURRENCY, "USD", "RUB")
+
+fun nextDisplayCurrency(current: String): String {
+    val index = DISPLAY_CURRENCIES.indexOf(current)
+    return DISPLAY_CURRENCIES[(index + 1).mod(DISPLAY_CURRENCIES.size)]
+}
 
 enum class AppLockTimeout(val storedValue: Int, val timeoutMillis: Long?) {
     Disabled(0, null),
@@ -112,6 +121,18 @@ internal class UiPreferences(
             )
         }
 
+    /**
+     * Which currency the headline totals are shown in. Storage stays in each account's own currency;
+     * this only changes the reading, so switching it can never rewrite a ledger.
+     */
+    val displayCurrency: Flow<String> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences ->
+            preferences[DisplayCurrencyKey]?.takeIf { it in DISPLAY_CURRENCIES } ?: PIVOT_CURRENCY
+        }
+
     val useSystemFont: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
@@ -145,6 +166,11 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[DynamicColorsEnabledKey] = enabled }
     }
 
+    suspend fun setDisplayCurrency(currency: String) {
+        if (currency !in DISPLAY_CURRENCIES) return
+        dataStore.edit { preferences -> preferences[DisplayCurrencyKey] = currency }
+    }
+
     suspend fun setCryptoEndpoints(endpoints: CryptoEndpoints) {
         dataStore.edit { preferences ->
             preferences[EthereumRpcUrlKey] = endpoints.ethereumRpcUrl.trim()
@@ -164,6 +190,7 @@ internal class UiPreferences(
         val AppThemeModeKey = intPreferencesKey("app_theme_mode")
         val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
+        val DisplayCurrencyKey = stringPreferencesKey("display_currency")
         val EthereumRpcUrlKey = stringPreferencesKey("crypto_ethereum_rpc_url")
         val TronApiUrlKey = stringPreferencesKey("crypto_tron_api_url")
     }

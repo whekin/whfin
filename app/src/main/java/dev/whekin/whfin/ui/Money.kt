@@ -39,6 +39,20 @@ fun formatBaseUnits(baseUnits: String, decimals: Int, maxFractionDigits: Int = 8
     return formatter.format(exact)
 }
 
+/** Same typography as [formatMinor], for a value that is already scaled rather than minor units. */
+fun formatDecimal(amount: BigDecimal, currency: String): String {
+    val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = 2
+    }
+    val sign = if (amount.signum() < 0) "-" else ""
+    val text = formatter.format(amount.abs())
+    return when (currency.uppercase()) {
+        "USD", "GBP" -> "$sign${currencySymbol(currency)}$text"
+        else -> "$sign$text ${currencySymbol(currency)}"
+    }
+}
+
 fun formatMinor(amountMinor: Long, currency: String, withSign: Boolean = false): String {
     val value = BigDecimal(amountMinor).movePointLeft(2).abs()
     val formatter = NumberFormat.getNumberInstance(Locale.getDefault()).apply {

@@ -488,3 +488,24 @@ data class CryptoBalanceEntity(
     /** Endpoint host the observation came from, for an honest "where did this number come from". */
     val source: String? = null,
 )
+
+/**
+ * Latest known value of one currency or crypto asset expressed in GEL.
+ *
+ * Everything is stored against a single pivot so a conversion is one multiplication and one
+ * division, and so a display-currency switch cannot silently chain two stale quotes. GEL itself is
+ * implicit and never stored.
+ */
+@Entity(tableName = "exchange_rates", indices = [Index(value = ["code"], unique = true)])
+data class ExchangeRateEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Currency code (`USD`) or asset ticker (`TRX`). */
+    val code: String,
+    /** GEL for one unit, exact decimal string. */
+    val gelPerUnit: String,
+    /** When WHFIN read it. */
+    val observedAt: Long,
+    /** Day the quote itself is valid for, when the source states one. */
+    val validOn: String? = null,
+    val source: String? = null,
+)

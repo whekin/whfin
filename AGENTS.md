@@ -457,7 +457,19 @@ This is a single-context repository with root domain documentation and system-wi
   из portable backup (один refresh воспроизводит её точно) и очищается CASCADE вместе со счётом.
   10 unit-тестов адаптеров, 6 instrumented тестов repository и migration 4→5; на disposable Pixel
   выполнен реальный read TronGrid по синтетическому адресу. BTC/TON не показывать рабочими
-  до реализации; prices/GEL conversion — отдельный второй slice
+  до реализации.
+  Третий слайс закрыл цены и конвертацию: `data/rates` хранит котировки против одного pivot (GEL) в
+  `exchange_rates` (Room DB v6, вне portable backup), фиат берётся у НБГ с обязательной нормализацией
+  по `quantity` (RUB котируется за 100), крипта — у CoinGecko в USD и приводится к GEL через ту же
+  USD-котировку. Провайдеры идут по порядку, потому что цена крипты бессмысленна без USD-pivot.
+  Итог в шапке Feed и Accounts считается по всем счетам сразу и переключается тапом GEL → USD → RUB;
+  выбор персистится и общий для обоих экранов. Непересчитанная валюта названа в подписи, а не выкинута
+  молча; свежая котировка не объявляется, устаревшая (>24ч) подписывается. Исторические операции не
+  переоцениваются, волатильные активы не попадают в доходы/расходы. Запрос курсов не содержит адресов
+  и не раскрывает состав портфеля: у НБГ берётся весь список, у CoinGecko — константный набор активов.
+  16 unit-тестов (конвертер + адаптеры на реальных формах ответов), 5 instrumented тестов repository
+  и migration 5→6; на disposable Pixel проверено 34 975.97 ₾ → $13 316.06 → 1 066 112.95 RUB с
+  совпадением Feed и Accounts. Детали: `docs/exchange-rates.md`
 - [ ] Google Play release — отдельный этап: stable privacy URL/support, third-party notices,
   release signing/versioning, store listing, Data Safety + restricted SMS declaration,
   internal/closed testing, pre-launch report и полный release QA. Официальные банковские API
@@ -538,8 +550,8 @@ This is a single-context repository with root domain documentation and system-wi
   счёт+валюта получения, платёж в тот же/соседний день, допуск на запас конвертации ≤5% или 1 единица
   (банк меняет 24.00 USD под списание 23.60). Суммы дня считаются по каждой валюте отдельно;
   сводка месяца — только GEL до появления курсов. КАПС мерчантов рендерится Title Case
-- Основная валюта пока GEL: первой показывается в мультивалютном IBAN и используется в общей сводке.
-  Позже вынести primary currency в Settings
+- Основная валюта хранения — GEL: она остаётся pivot всех котировок и первой показывается
+  в мультивалютном IBAN. Валюта отображения итога отделена от неё и крутится тапом GEL/USD/RUB
 
 Задачи также в TaskList (#1–#8), синхронизировать статусы.
 

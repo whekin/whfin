@@ -124,4 +124,26 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+/**
+ * Quotes are observations too: an empty table means "no rate yet", which the UI must show as an
+ * unconverted native amount rather than as a zero.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `exchange_rates` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `code` TEXT NOT NULL,
+                `gelPerUnit` TEXT NOT NULL,
+                `observedAt` INTEGER NOT NULL,
+                `validOn` TEXT,
+                `source` TEXT
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_exchange_rates_code` ON `exchange_rates` (`code`)")
+    }
+}
+
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)

@@ -798,4 +798,8 @@
     <string name="crypto_endpoint_tron">Tron API</string>
     <string name="crypto_endpoint_invalid">Enter an https:// address or leave the field empty.</string>
     <string name="privacy_network_section">NETWORK</string>
+    <string name="net_worth_rotate">Show in another currency</string>
+    <string name="net_worth_as_of">Rates from %1$s</string>
+    <string name="net_worth_partial">Converted · without %1$s</string>
+    <string name="net_worth_no_rate">No exchange rate yet</string>
 </resources>

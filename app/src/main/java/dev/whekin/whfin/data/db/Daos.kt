@@ -138,6 +138,16 @@ interface PaymentInstrumentDao {
 }
 
 @Dao
+interface ExchangeRateDao {
+    @Query("SELECT * FROM exchange_rates") fun observeAll(): Flow<List<ExchangeRateEntity>>
+    @Query("SELECT * FROM exchange_rates") suspend fun all(): List<ExchangeRateEntity>
+
+    /** A refresh replaces the quote for a code; quotes are current values, not a price history. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(items: List<ExchangeRateEntity>)
+}
+
+@Dao
 interface CryptoDao {
     @Insert suspend fun insertAddress(item: WalletAddressEntity): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAsset(item: CryptoAssetEntity): Long

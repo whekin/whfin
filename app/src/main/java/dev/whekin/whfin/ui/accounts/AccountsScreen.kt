@@ -66,7 +66,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.ui.currencySymbol
+import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.ui.convertedTotalLabel
 import dev.whekin.whfin.ui.formatBaseUnits
+import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.settings.BankStatementsViewModel
 import dev.whekin.whfin.ui.settings.StatementImportStatusSheet
@@ -125,6 +128,8 @@ fun AccountsScreen(
     val people by viewModel.people.collectAsState()
     val message by viewModel.message.collectAsState()
     val cryptoRefreshing by viewModel.cryptoRefreshing.collectAsState()
+    val netWorth by viewModel.netWorth.collectAsState()
+    val displayCurrency by viewModel.displayCurrency.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
     val gelBalance = accounts.filter { it.account.currency == "GEL" }.sumOf { it.balanceMinor }
     val accountContainers = accounts.groupBy { item ->
@@ -163,11 +168,19 @@ fun AccountsScreen(
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
+            val total = netWorth
+            val totalAmount = total?.amount
             WhfinContextHeader(
-                label = stringResource(R.string.accounts_net_worth),
-                value = if (readyState == null) "—" else formatMinor(gelBalance, "GEL"),
-                valueSymbol = currencySymbol("GEL"),
+                label = convertedTotalLabel(
+                    base = stringResource(R.string.accounts_net_worth),
+                    total = total.takeIf { readyState != null },
+                ),
+                value = if (readyState == null || totalAmount == null) "—"
+                else formatDecimal(totalAmount, total.currency),
+                valueSymbol = currencySymbol(total?.currency ?: displayCurrency),
                 scrollBehavior = headerScrollBehavior,
+                onValueClick = viewModel::rotateDisplayCurrency,
+                valueClickLabel = stringResource(R.string.net_worth_rotate),
             ) {
                 WhfinIconButton(
                     Icons.Default.Add,

@@ -101,7 +101,7 @@ internal object WhfinBackupSchema {
      * `sms_diagnostics` holds message metadata that must not travel. `crypto_balances` is a cache of
      * a public chain read: exporting it would ship a stale number that one refresh reproduces exactly.
      */
-    val excludedTables = setOf("sms_diagnostics", "crypto_balances")
+    val excludedTables = setOf("sms_diagnostics", "crypto_balances", "exchange_rates")
 
     val tables = listOf(
         BackupTable("financial_groups", listOf("id", "name", "type", "provider", "isArchived", "sortOrder")),

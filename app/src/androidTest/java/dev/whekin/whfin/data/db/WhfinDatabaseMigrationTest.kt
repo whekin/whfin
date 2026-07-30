@@ -138,11 +138,34 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate5To6_addsAnEmptyQuoteSnapshot() {
+        helper.createDatabase(TEST_DB_5_6, 5).close()
+
+        helper.runMigrationsAndValidate(TEST_DB_5_6, 6, true, MIGRATION_5_6).apply {
+            // No quote yet means "show native amounts", never "everything is worth zero".
+            query("SELECT COUNT(*) FROM `exchange_rates`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            execSQL(
+                "INSERT INTO `exchange_rates` (`code`, `gelPerUnit`, `observedAt`, `validOn`, `source`) " +
+                    "VALUES ('USD', '2.6266', 1000, '2026-07-31', 'example.test')",
+            )
+            query("SELECT `gelPerUnit` FROM `exchange_rates` WHERE `code` = 'USD'").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("2.6266", cursor.getString(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
         const val TEST_DB_2_3 = "whfin-migration-2-3"
         const val TEST_DB_3_4 = "whfin-migration-3-4"
         const val TEST_DB_4_5 = "whfin-migration-4-5"
+        const val TEST_DB_5_6 = "whfin-migration-5-6"
     }
 }

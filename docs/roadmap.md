@@ -23,8 +23,8 @@
 ## 1. Data Safety
 
 Статус: этап завершён. Destructive fallback удалён; ручная v1→v2 migration и полный
-earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v5 с явными
-v1→v2, v2→v3, v3→v4 и v4→v5 migrations, поэтому следующий schema change обязан получить migration v5→N.
+earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v6 с явными
+migrations v1→v2 … v5→v6, поэтому следующий schema change обязан получить migration v6→N.
 Версионированный JSON export/restore
 доступен в Settings через Storage Access Framework.
 
@@ -158,9 +158,9 @@ production bank sync.
 
 ## 6. Crypto watch-only MVP
 
-Статус: MVP реализован. Сети выбираются явно, адреса валидируются по сети, а балансы читаются
-read-only через `CryptoBalanceProvider` и хранятся отдельным snapshot с `observedAt`. Остались цены
-и GEL-конвертация — отдельный второй slice.
+Статус: этап завершён. Сети выбираются явно, адреса валидируются по сети, балансы читаются
+read-only через `CryptoBalanceProvider` и хранятся snapshot'ом с `observedAt`, а второй slice добавил
+котировки и конвертацию итога. Детали курсов: `docs/exchange-rates.md`.
 
 - [x] Модель address/network + chain-specific asset существует; символ не используется как identity.
 - [x] Заменить эвристику `0x → Ethereum, всё остальное → Tron` на явный выбор сети и строгую
@@ -180,8 +180,13 @@ read-only через `CryptoBalanceProvider` и хранятся отдельн�
 - [x] Хранить on-chain amount в точных base units/decimals, а не в fiat minor-unit предположениях;
   повторное обновление баланса должно быть идемпотентным.
 - [x] Показывать нативные crypto-балансы в Accounts без ложного сложения с GEL; непрочитанный ledger
-  показывает прочерк и `Never refreshed`, а не ноль. Рыночные цены,
-  GEL-конвертация и timestamp котировки — отдельный второй slice после надёжных on-chain balances.
+  показывает прочерк и `Never refreshed`, а не ноль.
+- [x] Рыночные цены и GEL-конвертация (второй slice): котировки хранятся против одного pivot (GEL) в
+  `exchange_rates` c `observedAt`; фиат берётся у НБГ с нормализацией по `quantity`, крипта — у
+  CoinGecko в USD и приводится к GEL через ту же котировку USD. Итог в шапке Feed и Accounts
+  считается по всем счетам, переключается тапом GEL → USD → RUB и подписывает возраст курса или
+  валюту, которую не удалось пересчитать. Исторические операции не переоцениваются, а волатильные
+  активы не попадают в доходы/расходы.
 - [x] Покрыть provider contract локальным fake, address validation unit-тестами и UI states
   light/dark/font 1.5; реальный read-only адрес проверять без сохранения чувствительных данных.
 
