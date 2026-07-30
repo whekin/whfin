@@ -46,6 +46,13 @@ class RatesRepository(
         return RefreshResult(updated, failed)
     }
 
+    /** Re-reads only when the snapshot aged out, so opening a screen is not a network burst. */
+    suspend fun refreshIfStale(): RefreshResult? {
+        val observedAt = observedAt()
+        val stale = observedAt == null || now() - observedAt > STALE_AFTER_MILLIS
+        return if (stale) refresh() else null
+    }
+
     suspend fun current(): List<ExchangeRate> = db.exchangeRateDao().all().map(::toRate)
 
     /** Oldest quote in the snapshot, or null when nothing has been read yet. */

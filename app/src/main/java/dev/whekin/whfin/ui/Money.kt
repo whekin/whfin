@@ -20,6 +20,7 @@ fun currencySymbol(currency: String): String = when (currency.uppercase()) {
     "USD" -> "$"
     "EUR" -> "€"
     "GBP" -> "£"
+    "RUB" -> "₽"
     else -> currency
 }
 

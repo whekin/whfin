@@ -516,10 +516,16 @@ This is a single-context repository with root domain documentation and system-wi
   personal paths/email, real-looking IBAN/card literals и tracked financial artifacts. Публичная
   история начинается с одного санитизированного root commit; содержательные ранние этапы сохранены
   в `HISTORY.md`, исходная приватная история — только в bundle вне репозитория.
-- [x] Публичный demo mode и fixture для UI QA: `main/assets/whfin-demo-v4.json` содержит 234 связанных
-  записи и 12 месяцев синтетической истории — два банка, восемь fiat-ledger, Cash, reserve/goal,
-  physical/virtual cards, pending/manual, transfers/conversion, allocations, людей, долги и смешанную
-  историю FILE/MyCredo. Settings открывает его из строки возле About в отдельной `whfin-demo.db`, даты
+- [x] Публичный demo mode и fixture для UI QA: `main/assets/whfin-demo-v6.json` содержит 415 связанных
+  записей и 12 месяцев синтетической истории. Сценарий намеренный: деньги лежат на двух срочных
+  депозитах (GEL и USD), карточные everyday-ledger'ы держат мало, а перед покупками видно пополнение
+  с депозита. Есть два банка, семь fiat-ledger, Cash, physical/virtual cards, FX-списания с
+  origAmount, явные конвертации GEL→USD и GEL→EUR, travel-месяц в EUR, watch-only кошелёк с TRX и
+  USDT в двух разных сетях, pending/manual, allocations, люди, долги и смешанная история FILE/MyCredo.
+  Фикстура генерируется `scripts/generate-demo-fixture.py` с anchor-датой; генератор сам валидирует
+  enum-значения, FK, уникальность externalKey, парность обеих ног transfer и синтетичность IBAN/масок
+  карт. Балансы блокчейна не переносятся бэкапом, поэтому `DemoDataInstaller` досевает
+  `crypto_balances` после restore, не спрашивая публичный узел о выдуманном адресе. Settings открывает его из строки возле About в отдельной `whfin-demo.db`, даты
   сдвигаются к текущему дню, reset затрагивает только sandbox, а постоянная workspace-полоса отделяет
   синтетические данные от личных на всех рабочих экранах. `whfin-v2.db` остаётся
   byte-identical при входе/выходе; Android backup allowlist не включает demo DB/runtime flags. Live Credo
@@ -550,6 +556,9 @@ This is a single-context repository with root domain documentation and system-wi
   счёт+валюта получения, платёж в тот же/соседний день, допуск на запас конвертации ≤5% или 1 единица
   (банк меняет 24.00 USD под списание 23.60). Суммы дня считаются по каждой валюте отдельно;
   сводка месяца — только GEL до появления курсов. КАПС мерчантов рендерится Title Case
+- Restore отвергает неизвестное enum-значение на этапе парсинга: Room падает на нём уже при наблюдении
+  запроса, поэтому испорченный файл иначе превращал бы приложение в падающее при открытии без пути
+  назад. Проверка идёт до удаления локальных данных
 - Основная валюта хранения — GEL: она остаётся pivot всех котировок и первой показывается
   в мультивалютном IBAN. Валюта отображения итога отделена от неё и крутится тапом GEL/USD/RUB
 

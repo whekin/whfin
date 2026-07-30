@@ -19,7 +19,8 @@ fun convertedTotalLabel(base: String, total: ConvertedTotal?): String = when {
     total.amount == null -> stringResource(R.string.net_worth_no_rate)
     total.missing.isNotEmpty() -> stringResource(
         R.string.net_worth_partial,
-        total.missing.joinToString(", "),
+        total.missing.take(2).joinToString(", ") +
+            if (total.missing.size > 2) " +${total.missing.size - 2}" else "",
     )
     // A fresh quote is the normal case and needs no announcement; only an ageing one is news.
     total.asOf == null || System.currentTimeMillis() - total.asOf < STALE_AFTER_MILLIS -> base

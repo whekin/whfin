@@ -85,12 +85,26 @@ internal data class BackupTable(
     val columns: List<String>,
     val orderBy: List<String> = listOf("id"),
     val legacyColumns: Map<String, BackupLegacyColumn> = emptyMap(),
+    /**
+     * Allowed values for columns Room reads back as enums.
+     *
+     * Room throws when it meets an unknown constant, and it throws while observing a query — long
+     * after the restore returned. An unchecked value would therefore turn a bad file into an app that
+     * crashes on open with no way back, so the value is rejected while parsing, before anything is
+     * deleted.
+     */
+    val enumColumns: Map<String, Set<String>> = emptyMap(),
 )
 
 internal data class BackupLegacyColumn(
     val introducedInDatabaseVersion: Int,
     val defaultValue: BackupValue?,
 )
+
+private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
+private val SAVINGS_MODES = setOf("FLEXIBLE_RESERVE", "GOAL", "TERM_DEPOSIT")
+private val TRANSFER_GROUP_TYPES =
+    setOf("TRANSFER", "CONVERSION", "CARD_TOPUP", "SAVINGS", "CRYPTO_SWAP", "CRYPTO_BRIDGE")
 
 internal object WhfinBackupSchema {
     const val FORMAT = "whfin-backup"
@@ -104,7 +118,11 @@ internal object WhfinBackupSchema {
     val excludedTables = setOf("sms_diagnostics", "crypto_balances", "exchange_rates")
 
     val tables = listOf(
-        BackupTable("financial_groups", listOf("id", "name", "type", "provider", "isArchived", "sortOrder")),
+        BackupTable(
+            "financial_groups",
+            listOf("id", "name", "type", "provider", "isArchived", "sortOrder"),
+            enumColumns = mapOf("type" to setOf("BANK", "WALLET")),
+        ),
         BackupTable("wallet_addresses", listOf("id", "groupId", "chainId", "address", "label")),
         BackupTable("crypto_assets", listOf("id", "chainId", "contractAddress", "symbol", "name", "decimals")),
         BackupTable(
@@ -113,19 +131,40 @@ internal object WhfinBackupSchema {
                 "id", "name", "type", "groupId", "currency", "iban", "walletAddressId",
                 "cryptoAssetId", "savingsGoalMinor", "savingsMode", "isArchived", "sortOrder",
             ),
+            enumColumns = mapOf("type" to ACCOUNT_TYPES, "savingsMode" to SAVINGS_MODES),
         ),
-        BackupTable("payment_instruments", listOf("id", "groupId", "type", "last4", "label", "isArchived")),
+        BackupTable(
+            "payment_instruments",
+            listOf("id", "groupId", "type", "last4", "label", "isArchived"),
+            enumColumns = mapOf("type" to setOf("PHYSICAL_CARD", "VIRTUAL_CARD")),
+        ),
         BackupTable(
             "instrument_account_links",
             listOf("instrumentId", "accountId"),
             orderBy = listOf("instrumentId", "accountId"),
         ),
-        BackupTable("transfer_groups", listOf("id", "type", "note", "createdAt")),
-        BackupTable("statement_sources", listOf("id", "groupId", "type", "accountId", "instrumentId", "label")),
-        BackupTable("categories", listOf("id", "name", "parentId", "kind", "icon", "color", "isSystem", "sortOrder")),
+        BackupTable(
+            "transfer_groups",
+            listOf("id", "type", "note", "createdAt"),
+            enumColumns = mapOf("type" to TRANSFER_GROUP_TYPES),
+        ),
+        BackupTable(
+            "statement_sources",
+            listOf("id", "groupId", "type", "accountId", "instrumentId", "label"),
+            enumColumns = mapOf("type" to setOf("ACCOUNT", "CARD")),
+        ),
+        BackupTable(
+            "categories",
+            listOf("id", "name", "parentId", "kind", "icon", "color", "isSystem", "sortOrder"),
+            enumColumns = mapOf("kind" to setOf("EXPENSE", "INCOME")),
+        ),
         BackupTable("merchants", listOf("id", "normalizedKey", "displayName", "categoryId")),
         BackupTable("merchant_aliases", listOf("id", "merchantId", "pattern")),
-        BackupTable("people", listOf("id", "name", "role", "color", "isArchived")),
+        BackupTable(
+            "people",
+            listOf("id", "name", "role", "color", "isArchived"),
+            enumColumns = mapOf("role" to setOf("PARTNER", "FAMILY", "FRIEND", "COLLEAGUE", "OTHER")),
+        ),
         BackupTable(
             "transactions",
             listOf(
@@ -134,14 +173,23 @@ internal object WhfinBackupSchema {
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
                 "balanceAfterMinor", "externalKey", "createdAt",
             ),
+            enumColumns = mapOf(
+                "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),
+                "source" to setOf("SMS", "STATEMENT", "MANUAL", "ADJUSTMENT", "CRYPTO"),
+            ),
         ),
         BackupTable(
             "transaction_allocations",
             listOf("id", "transactionId", "amountMinor", "categoryId", "personId", "purpose", "note"),
+            enumColumns = mapOf("purpose" to setOf("PERSONAL", "SHARED", "GIFT", "LOAN", "REPAYMENT")),
         ),
         BackupTable(
             "debt_cases",
             listOf("id", "personId", "direction", "originalAmountMinor", "currency", "openedAt", "status", "closedAt", "note"),
+            enumColumns = mapOf(
+                "direction" to setOf("THEY_OWE_ME", "I_OWE_THEM"),
+                "status" to setOf("OPEN", "CLOSED"),
+            ),
         ),
         BackupTable(
             "debt_events",
@@ -149,6 +197,7 @@ internal object WhfinBackupSchema {
                 "id", "debtCaseId", "kind", "actualAmountMinor", "actualCurrency", "accountId",
                 "transactionId", "debtValueMinor", "closesCase", "occurredAt", "note",
             ),
+            enumColumns = mapOf("kind" to setOf("OPENED", "SETTLEMENT", "ADJUSTMENT", "CLOSED")),
         ),
         BackupTable(
             "statement_imports",
@@ -163,10 +212,12 @@ internal object WhfinBackupSchema {
                     defaultValue = BackupValue.Text("FILE"),
                 ),
             ),
+            enumColumns = mapOf("origin" to setOf("FILE", "CREDO_SYNC")),
         ),
         BackupTable(
             "reconciliation_issues",
             listOf("id", "accountId", "transactionId", "importId", "state", "createdAt"),
+            enumColumns = mapOf("state" to setOf("OPEN", "KEPT")),
         ),
     )
 
@@ -333,6 +384,14 @@ internal object WhfinBackupCodec {
                             throw WhfinBackupException("Missing columns in ${table.name}: $column.")
                         }
                         normalized[column] = legacy.defaultValue
+                    }
+                }
+                table.enumColumns.forEach { (column, allowed) ->
+                    val value = normalized[column]
+                    if (value is BackupValue.Text && value.value !in allowed) {
+                        throw WhfinBackupException(
+                            "Unsupported value in ${table.name}.$column: ${value.value}.",
+                        )
                     }
                 }
                 normalized

@@ -7,7 +7,10 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.preferences.nextDisplayCurrency
 import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
+import dev.whekin.whfin.data.rates.NbgFiatRateProvider
 import dev.whekin.whfin.data.rates.NetWorthSource
+import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
@@ -36,7 +39,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -305,6 +310,16 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     val displayCurrency: StateFlow<String> = preferences.displayCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)
+
+    private val ratesRepository = RatesRepository(
+        db = db,
+        providers = listOf(NbgFiatRateProvider(), CoinGeckoPriceProvider()),
+    )
+
+    init {
+        // The headline is the same on both screens, so it must not depend on visiting Accounts first.
+        viewModelScope.launch { withContext(Dispatchers.IO) { ratesRepository.refreshIfStale() } }
+    }
 
     fun rotateDisplayCurrency() {
         viewModelScope.launch {

@@ -68,23 +68,28 @@ and verify a restorable app-data backup before starting.
 
 ## Synthetic demo backup
 
-`app/src/main/assets/whfin-demo-v4.json` is the canonical public-safe demo state for the in-app public
+`app/src/main/assets/whfin-demo-v6.json` is the canonical public-safe demo state for the in-app public
 demo mode, product QA, screenshots, and backup regression testing. It is intentionally packaged in the
-application because every row is synthetic. The fixture currently contains 12 months of activity, two banks,
-eight fiat ledgers, physical and virtual cards, Cash, reserve and goal savings, statement and MyCredo
-history, pending SMS drafts, manual entries, transfers, a conversion, shared spending, people, and open
-and closed debts.
+application because every row is synthetic. The fixture contains 12 months of activity, two banks, seven
+fiat ledgers, two term deposits, physical and virtual cards, Cash, a watch-only wallet holding TRX plus
+USDT on two different chains, statement and MyCredo history, pending SMS drafts, manual entries,
+transfers, currency conversions, FX card charges, shared spending, people, and open and closed debts.
+
+The scenario is deliberate: deposits hold the money and the everyday ledgers stay thin, so the top-up
+before a purchase is visible in the feed rather than implied. Chain balances cannot travel in a portable
+backup, so `DemoDataInstaller` seeds them after the restore instead of asking a public node about an
+invented address.
 
 All identifiers and money are invented. IBANs use the intentionally invalid `GE00` checksum and card
 suffixes use the reserved `000x` range. Keep the same convention when extending the scenario; never
 derive a demo row from a physical phone, a real statement, or a screenshot.
 
-The checked-in fixture is anchored at 2026-07-15 for deterministic assertions. Regenerate it around a
+The checked-in fixture is anchored at 2026-07-31 for deterministic assertions. Regenerate it around a
 new screenshot date with:
 
 ```bash
-node scripts/generate-demo-fixture.mjs \
-  app/src/main/assets/whfin-demo-v4.json "$(date +%F)"
+python3 scripts/generate-demo-fixture.py \
+  app/src/main/assets/whfin-demo-v6.json "$(date +%F)"
 ```
 
 Then run the real Room/backup validation on a disposable emulator:

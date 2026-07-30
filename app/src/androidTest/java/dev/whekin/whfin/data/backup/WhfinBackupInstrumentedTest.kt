@@ -10,6 +10,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.time.Clock
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.ZoneOffset
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -136,23 +138,49 @@ class WhfinBackupInstrumentedTest {
     }
 
     @Test
+    fun restore_rejectsAnUnknownEnumValueBeforeTouchingTheLedger() = runBlocking {
+        seedEveryTable(source)
+        seedEveryTable(target)
+        val broken = export(source).toString(Charsets.UTF_8)
+            .replace("\"direction\": \"THEY_OWE_ME\"", "\"direction\": \"I_OWE\"")
+
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking { WhfinBackupManager(target).restore(ByteArrayInputStream(broken.toByteArray())) }
+        }
+        // Room would only fail later, while observing a query, so the file must be refused up front.
+        assertEquals(1, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM debt_cases"))
+        Unit
+    }
+
+    @Test
     fun demoFixture_restoresRichPublicScenario() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val summary = context.assets.open("whfin-demo-v4.json").use { input ->
+        val summary = context.assets.open(DemoDataInstaller.ASSET_NAME).use { input ->
             WhfinBackupManager(target).restore(input)
         }
         val sqlite = target.openHelper.writableDatabase
 
-        assertEquals(4, summary.databaseVersion)
-        check(summary.rowCount >= 200) { "Demo fixture became too small for representative UI states." }
-        assertEquals(8, sqlite.longForQuery("SELECT COUNT(*) FROM accounts"))
-        check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions") >= 120)
+        assertEquals(WHFIN_DATABASE_VERSION, summary.databaseVersion)
+        check(summary.rowCount >= 300) { "Demo fixture became too small for representative UI states." }
+        assertEquals(10, sqlite.longForQuery("SELECT COUNT(*) FROM accounts"))
+        check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions") >= 250)
         assertEquals(12, sqlite.longForQuery(
             "SELECT COUNT(DISTINCT strftime('%Y-%m', occurredAt / 1000, 'unixepoch')) " +
                 "FROM transactions WHERE source != 'ADJUSTMENT'",
         ))
         assertEquals(2, sqlite.longForQuery("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING'"))
-        assertEquals(15, sqlite.longForQuery("SELECT COUNT(*) FROM transfer_groups"))
+        // Money leaves the deposit before it can be spent, so the everyday ledgers stay thin.
+        check(
+            sqlite.longForQuery("SELECT SUM(amountMinor) FROM transactions WHERE accountId = 3") >
+                10 * sqlite.longForQuery("SELECT SUM(amountMinor) FROM transactions WHERE accountId = 1"),
+        ) { "Demo deposits should hold far more than the card ledger." }
+        // Foreign money must be visible both as a bank conversion and as an FX card charge.
+        check(sqlite.longForQuery("SELECT COUNT(*) FROM transfer_groups WHERE type = 'CONVERSION'") >= 4)
+        check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions WHERE origCurrency IS NOT NULL") >= 12)
+        assertEquals(3, sqlite.longForQuery("SELECT COUNT(DISTINCT currency) FROM transactions WHERE currency != 'GEL'") + 1)
+        // The same ticker on two chains stays two different assets.
+        assertEquals(3, sqlite.longForQuery("SELECT COUNT(*) FROM accounts WHERE type = 'CRYPTO'"))
+        assertEquals(2, sqlite.longForQuery("SELECT COUNT(*) FROM crypto_assets WHERE symbol = 'USDT'"))
         assertEquals(3, sqlite.longForQuery("SELECT COUNT(*) FROM debt_cases"))
         assertEquals(4, sqlite.longForQuery("SELECT COUNT(*) FROM statement_imports"))
         assertEquals(1, sqlite.longForQuery("SELECT COUNT(*) FROM reconciliation_issues WHERE state = 'OPEN'"))
@@ -178,9 +206,18 @@ class WhfinBackupInstrumentedTest {
 
         assertEquals(1, source.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM people WHERE id = 999"))
         assertEquals(0, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM people WHERE id = 999"))
-        assertEquals(143, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM transactions"))
-        val latest = target.openHelper.writableDatabase.longForQuery("SELECT MAX(occurredAt) FROM transactions")
-        assertEquals("2027-08-20", Instant.ofEpochMilli(latest).atZone(ZoneOffset.UTC).toLocalDate().toString())
+        val sqlite = target.openHelper.writableDatabase
+        check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions") >= 250)
+        // The demo has to read as current: its newest row lands in the days before "today".
+        val latest = Instant.ofEpochMilli(sqlite.longForQuery("SELECT MAX(occurredAt) FROM transactions"))
+            .atZone(ZoneOffset.UTC).toLocalDate()
+        val today = LocalDate.parse("2027-08-20")
+        check(!latest.isAfter(today) && ChronoUnit.DAYS.between(latest, today) <= 7) {
+            "Demo fixture drifted away from the installation date: $latest"
+        }
+        // Chain balances cannot travel in a backup, so the installer seeds them itself.
+        assertEquals(3, sqlite.longForQuery("SELECT COUNT(*) FROM crypto_balances"))
+        assertEquals(0, sqlite.longForQuery("SELECT COUNT(*) FROM crypto_balances WHERE baseUnits = '0'"))
     }
 
     private suspend fun export(db: WhfinDatabase): ByteArray {

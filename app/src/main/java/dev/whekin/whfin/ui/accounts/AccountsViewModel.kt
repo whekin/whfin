@@ -190,12 +190,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             preferences.cryptoEndpoints.collect { endpoints = it }
         }
         // Official rates move once per banking day, so a visit re-reads them only when they aged out.
-        viewModelScope.launch {
-            val observedAt = withContext(Dispatchers.IO) { ratesRepository.observedAt() }
-            val stale = observedAt == null ||
-                System.currentTimeMillis() - observedAt > RatesRepository.STALE_AFTER_MILLIS
-            if (stale) withContext(Dispatchers.IO) { ratesRepository.refresh() }
-        }
+        viewModelScope.launch { withContext(Dispatchers.IO) { ratesRepository.refreshIfStale() } }
     }
 
     /** Reads the same money in the next currency; storage keeps every account in its own currency. */
