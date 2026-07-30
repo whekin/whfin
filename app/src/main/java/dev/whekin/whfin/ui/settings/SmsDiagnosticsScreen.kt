@@ -298,6 +298,20 @@ internal fun SmsDiagnosticsScreen(
                 }
                 if (attention.isNotEmpty()) {
                     item("attention-label") { WhfinSectionLabel(stringResource(R.string.sms_diagnostics_attention)) }
+                    // One decision usually settles a whole card at once, so the work is offered as
+                    // the few decisions it really is rather than as a hundred identical rows.
+                    val batches = attentionBatches(attention)
+                    if (batches.isNotEmpty()) item("attention-batches") {
+                        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+                            batches.forEachIndexed { index, batch ->
+                                AttentionBatchRow(
+                                    batch = batch,
+                                    onClick = { selectedDiagnosticId = batch.items.first().id },
+                                    divider = index != batches.lastIndex,
+                                )
+                            }
+                        }
+                    }
                     item("attention-group") {
                         DiagnosticGroup(
                             items = attention,
@@ -732,6 +746,54 @@ private fun HistoryControl(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+/**
+ * A batch of messages one decision can settle.
+ *
+ * Saving a card route immediately imports every queued payment of that card, so the screen should
+ * ask for the card once and say how much it will clear, instead of presenting the same choice a
+ * hundred times.
+ */
+internal data class AttentionBatch(
+    val cardLast4: String?,
+    val items: List<SmsDiagnosticEntity>,
+)
+
+internal fun attentionBatches(items: List<SmsDiagnosticEntity>): List<AttentionBatch> = items
+    .filter { it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING && it.cardLast4 != null }
+    .groupBy { it.cardLast4 }
+    .map { (card, group) -> AttentionBatch(card, group.sortedByDescending { it.receivedAt }) }
+    // A single leftover is not a batch: it is already one row below.
+    .filter { it.items.size > 1 }
+    .sortedByDescending { it.items.size }
+
+@Composable
+private fun AttentionBatchRow(batch: AttentionBatch, onClick: () -> Unit, divider: Boolean) {
+    val total = batch.items.sumOf { it.amountMinor?.let { amount -> kotlin.math.abs(amount) } ?: 0L }
+    val currency = batch.items.firstNotNullOfOrNull { it.currency }
+    WhfinLedgerRow(
+        title = stringResource(R.string.sms_batch_card_title, batch.cardLast4.orEmpty()),
+        supportingText = if (currency != null && total > 0) {
+            stringResource(
+                R.string.sms_batch_card_body_amount,
+                batch.items.size,
+                formatMinor(total, currency),
+            )
+        } else {
+            stringResource(R.string.sms_batch_card_body, batch.items.size)
+        },
+        supportingMaxLines = 3,
+        icon = Icons.Default.Link,
+        iconTint = MaterialTheme.colorScheme.tertiary,
+        markerColor = MaterialTheme.colorScheme.tertiary,
+        trailing = {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        },
+        onClick = onClick,
+        divider = divider,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

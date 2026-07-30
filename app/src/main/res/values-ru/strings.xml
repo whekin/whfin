@@ -814,4 +814,7 @@
     <string name="sms_outcome_canceled">Отменено банком</string>
     <string name="feed_filter_drafts">Черновики</string>
     <string name="transactions_select_all_action">Выделить всё</string>
+    <string name="sms_batch_card_title">Карте ••%1$s нужен счёт</string>
+    <string name="sms_batch_card_body">Одна привязка импортирует %1$d ожидающих операций</string>
+    <string name="sms_batch_card_body_amount">Одна привязка импортирует %1$d ожидающих операций · %2$s</string>
 </resources>
