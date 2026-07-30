@@ -44,12 +44,17 @@ enum class SmsDiagnosticKind {
     DEPOSIT_TOP_UP,
     OWN_TRANSFER,
     CURRENCY_EXCHANGE,
+    BILL_PAYMENT,
+    CASH_DEPOSIT,
+    INTEREST,
     IGNORED,
     UNRECOGNIZED,
 }
 
 enum class SmsDiagnosticOutcome {
     IMPORTED,
+    /** The bank reversed a card payment; the draft it had created was withdrawn. */
+    CANCELED,
     ATTACHED,
     DUPLICATE,
     IGNORED,

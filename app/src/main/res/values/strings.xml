@@ -803,4 +803,8 @@
     <string name="net_worth_as_of">Rates from %1$s</string>
     <string name="net_worth_partial">Converted · without %1$s</string>
     <string name="net_worth_no_rate">No exchange rate yet</string>
+    <string name="sms_kind_bill">Utility payment</string>
+    <string name="sms_kind_cash_deposit">Cash deposit</string>
+    <string name="sms_kind_interest">Deposit interest</string>
+    <string name="sms_outcome_canceled">Canceled by the bank</string>
 </resources>

@@ -4,6 +4,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.sms.CredoSmsParser
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,7 +32,7 @@ class SmsProblemReportTest {
         val report = SmsProblemReport.redacted("0.1.0 (1)", diagnostic)
 
         assertTrue(report.contains("0.1.0 (1)"))
-        assertTrue(report.contains("Credo SMS / schema 1"))
+        assertTrue(report.contains("Credo SMS / schema ${CredoSmsParser.SCHEMA_VERSION}"))
         assertTrue(report.contains("UNRECOGNIZED"))
         assertTrue(report.contains("PARSE_FAILURE"))
         listOf(

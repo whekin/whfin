@@ -587,6 +587,25 @@ interface SmsDiagnosticDao {
     @Query("SELECT * FROM sms_diagnostics WHERE externalKey = :externalKey LIMIT 1")
     suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?
 
+    /**
+     * The card payment a cancellation retracts: same card, same money, closest in time.
+     * Only an imported row can be withdrawn, so rows without a transaction are ignored.
+     */
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE kind = 'CARD_PAYMENT' AND transactionId IS NOT NULL " +
+            "AND amountMinor = :amountMinor AND currency = :currency AND cardLast4 = :cardLast4 " +
+            "AND occurredAt BETWEEN :fromMillis AND :toMillis " +
+            "ORDER BY ABS(occurredAt - :occurredAt), id LIMIT 1"
+    )
+    suspend fun matchingCardPayment(
+        amountMinor: Long,
+        currency: String,
+        cardLast4: String,
+        occurredAt: Long,
+        fromMillis: Long,
+        toMillis: Long,
+    ): SmsDiagnosticEntity?
+
     @Query(
         "SELECT * FROM sms_diagnostics WHERE kind = :kind AND transactionId IS NOT NULL " +
             "AND amountMinor = :amountMinor AND currency = :currency " +

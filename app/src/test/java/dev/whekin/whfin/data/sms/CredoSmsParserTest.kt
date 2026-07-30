@@ -230,4 +230,125 @@ class CredoSmsParserTest {
         assertEquals(108320L, result.amountMinor)
         assertEquals(179377L, result.balanceMinor)
     }
+
+    @Test
+    fun `utility payment has no usable date of its own`() {
+        // Credo ships this template with an unresolved placeholder where the date belongs.
+        val sms = """
+            Service/utility payment
+            Amount: 45.60 GEL;
+            Service: Example Utility, ID: MED 000000
+            Balance: 210.15 GEL
+            Date: äDateñ;
+            Check details in MyCredo: https://mycredo.page.link/Pdk
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as CredoSmsParser.BillPayment
+        assertEquals(4560L, result.amountMinor)
+        assertEquals("GEL", result.currency)
+        assertEquals("Example Utility", result.serviceRaw)
+        assertEquals(21015L, result.balanceMinor)
+        // Inventing a date would move the expense into another month.
+        assertNull(result.timestamp)
+    }
+
+    @Test
+    fun `cash deposit reads the date that follows the opening words`() {
+        val sms = """
+            Depositing funds to the account 4/3/2026 8:48:05 PM, 
+            Amount 250.00 GEL; Available Balance 812.40 GEL. 
+            Thank you for banking with us!
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as CredoSmsParser.CashDeposit
+        assertEquals(25000L, result.amountMinor)
+        assertEquals("GEL", result.currency)
+        assertEquals(81240L, result.balanceMinor)
+        assertEquals(LocalDateTime.of(2026, 4, 3, 20, 48, 5), result.timestamp)
+    }
+
+    @Test
+    fun `a balance printed with one decimal is not ten times too large`() {
+        val sms = """
+            Depositing funds to the account 4/3/2026 8:48:05 PM, 
+            Amount 250.00 GEL; Available Balance 812.4 GEL. 
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as CredoSmsParser.CashDeposit
+        assertEquals(81240L, result.balanceMinor)
+    }
+
+    @Test
+    fun `accrued interest is income without a trustworthy day`() {
+        val sms = """
+            Accrued interest on your 00000000 deposit, 03/04/2026, 
+            amount 5.31 GEL; Available Balance: 640.28 GEL.
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as CredoSmsParser.InterestAccrual
+        assertEquals(531L, result.amountMinor)
+        assertEquals(64028L, result.balanceMinor)
+        // Only a bare day is printed and its order is ambiguous, so the caller uses delivery time.
+        assertNull(result.timestamp)
+    }
+
+    @Test
+    fun `a cancellation carries the payment it retracts`() {
+        val sms = """
+            Canceled operation
+            Payment: 12.34 GEL
+            Card N ****0001
+            EXAMPLE MARKET>Tbilisi                 GE
+            03/04/2026 20:48:05
+        """.trimIndent()
+
+        val result = CredoSmsParser.classify(sms) as CredoSmsParser.Classification.Canceled
+        assertEquals(1234L, result.payment.amountMinor)
+        assertEquals("0001", result.payment.cardLast4)
+        assertEquals("EXAMPLE MARKET", result.payment.merchantRaw)
+    }
+
+    @Test
+    fun `an offer from the bank is not a parser failure`() {
+        val offers = listOf(
+            "Get health insurance package \"Example\" from CREDO Bank!",
+            "Buy your new apartment in Georgia with CREDO Bank!",
+            "Transfer money abroad from Mycredo instantly!",
+        )
+
+        offers.forEach { text ->
+            val result = CredoSmsParser.classify(text)
+            assertTrue(
+                "an offer must not look like a broken operation: $text",
+                result is CredoSmsParser.Classification.Ignored,
+            )
+            assertFalse((result as CredoSmsParser.Classification.Ignored).credoCandidate)
+        }
+    }
+
+    @Test
+    fun `every one-time code template is ignored`() {
+        listOf(
+            "CODE: 000000 confirms card ***0001 payment",
+            "# SMS Code: 0000 Please make sure to enter it only in the app",
+            "Transaction completed, OTP: 0000 Name: Example",
+        ).forEach { text ->
+            val result = CredoSmsParser.classify(text)
+            assertTrue("must be ignored: $text", result is CredoSmsParser.Classification.Ignored)
+            assertEquals(
+                CredoSmsParser.IgnoreReason.OTP,
+                (result as CredoSmsParser.Classification.Ignored).reason,
+            )
+        }
+    }
+
+    @Test
+    fun `a Credo message that states money but no known shape still asks for help`() {
+        val sms = """
+            Something new from Credo
+            Amount: 10.00 GEL; Balance: 20.00 GEL
+        """.trimIndent()
+
+        assertEquals(CredoSmsParser.Classification.Unrecognized, CredoSmsParser.classify(sms))
+    }
 }

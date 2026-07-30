@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmsFailed
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -928,6 +929,10 @@ private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresent
     SmsDiagnosticOutcome.ATTACHED -> DiagnosticPresentation(
         R.string.sms_outcome_attached, Icons.Default.CheckCircle,
     ) { MaterialTheme.colorScheme.primary }
+    // Nothing is owed and nothing is pending: the bank took the charge back.
+    SmsDiagnosticOutcome.CANCELED -> DiagnosticPresentation(
+        R.string.sms_outcome_canceled, Icons.Default.Undo,
+    ) { MaterialTheme.colorScheme.onSurfaceVariant }
     SmsDiagnosticOutcome.DUPLICATE -> DiagnosticPresentation(
         R.string.sms_outcome_duplicate, Icons.Default.Check,
     ) { MaterialTheme.colorScheme.onSurfaceVariant }
@@ -961,6 +966,9 @@ private fun SmsDiagnosticKind.labelResource(): Int = when (this) {
     SmsDiagnosticKind.DEPOSIT_TOP_UP -> R.string.sms_kind_deposit_top_up
     SmsDiagnosticKind.OWN_TRANSFER -> R.string.sms_kind_own_transfer
     SmsDiagnosticKind.CURRENCY_EXCHANGE -> R.string.sms_kind_exchange
+    SmsDiagnosticKind.BILL_PAYMENT -> R.string.sms_kind_bill
+    SmsDiagnosticKind.CASH_DEPOSIT -> R.string.sms_kind_cash_deposit
+    SmsDiagnosticKind.INTEREST -> R.string.sms_kind_interest
     SmsDiagnosticKind.IGNORED -> R.string.sms_kind_ignored
     SmsDiagnosticKind.UNRECOGNIZED -> R.string.sms_kind_unknown
 }

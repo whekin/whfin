@@ -2023,6 +2023,9 @@ internal fun UnroutedOperationRow(
             SmsDiagnosticKind.OUTGOING_TRANSFER -> R.string.sms_kind_outgoing
             SmsDiagnosticKind.INCOMING_TRANSFER -> R.string.sms_kind_incoming
             SmsDiagnosticKind.DEPOSIT_TOP_UP -> R.string.sms_kind_deposit_top_up
+            SmsDiagnosticKind.BILL_PAYMENT -> R.string.sms_kind_bill
+            SmsDiagnosticKind.CASH_DEPOSIT -> R.string.sms_kind_cash_deposit
+            SmsDiagnosticKind.INTEREST -> R.string.sms_kind_interest
             SmsDiagnosticKind.OWN_TRANSFER -> R.string.sms_kind_own_transfer
             SmsDiagnosticKind.CURRENCY_EXCHANGE -> R.string.sms_kind_exchange
             SmsDiagnosticKind.IGNORED, SmsDiagnosticKind.UNRECOGNIZED -> R.string.feed_unrouted_operation

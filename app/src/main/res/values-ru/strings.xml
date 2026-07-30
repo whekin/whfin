@@ -808,4 +808,8 @@
     <string name="net_worth_as_of">Курсы от %1$s</string>
     <string name="net_worth_partial">В пересчёте · без %1$s</string>
     <string name="net_worth_no_rate">Курса пока нет</string>
+    <string name="sms_kind_bill">Оплата услуг</string>
+    <string name="sms_kind_cash_deposit">Внесение наличных</string>
+    <string name="sms_kind_interest">Проценты по вкладу</string>
+    <string name="sms_outcome_canceled">Отменено банком</string>
 </resources>
