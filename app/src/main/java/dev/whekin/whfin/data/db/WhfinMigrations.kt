@@ -146,4 +146,29 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+/**
+ * The GEL value of a foreign-currency row is booked once, at the rate of its own day.
+ *
+ * Existing rows start empty rather than being back-valued at today's rate, because that would make
+ * every past month drift with the market. A backfill fills them from the historical quote instead.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `gelValueMinor` INTEGER")
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `gelRateOn` TEXT")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `exchange_rate_history` (
+                `code` TEXT NOT NULL,
+                `onDate` TEXT NOT NULL,
+                `gelPerUnit` TEXT NOT NULL,
+                `validOn` TEXT,
+                `observedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`code`, `onDate`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)

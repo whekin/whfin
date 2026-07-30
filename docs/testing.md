@@ -68,7 +68,7 @@ and verify a restorable app-data backup before starting.
 
 ## Synthetic demo backup
 
-`app/src/main/assets/whfin-demo-v6.json` is the canonical public-safe demo state for the in-app public
+`app/src/main/assets/whfin-demo-v7.json` is the canonical public-safe demo state for the in-app public
 demo mode, product QA, screenshots, and backup regression testing. It is intentionally packaged in the
 application because every row is synthetic. The fixture contains 12 months of activity, two banks, seven
 fiat ledgers, two term deposits, physical and virtual cards, Cash, a watch-only wallet holding TRX plus
@@ -89,7 +89,7 @@ new screenshot date with:
 
 ```bash
 python3 scripts/generate-demo-fixture.py \
-  app/src/main/assets/whfin-demo-v6.json "$(date +%F)"
+  app/src/main/assets/whfin-demo-v7.json "$(date +%F)"
 ```
 
 Then run the real Room/backup validation on a disposable emulator:

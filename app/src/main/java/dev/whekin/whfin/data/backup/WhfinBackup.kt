@@ -115,7 +115,7 @@ internal object WhfinBackupSchema {
      * `sms_diagnostics` holds message metadata that must not travel. `crypto_balances` is a cache of
      * a public chain read: exporting it would ship a stale number that one refresh reproduces exactly.
      */
-    val excludedTables = setOf("sms_diagnostics", "crypto_balances", "exchange_rates")
+    val excludedTables = setOf("sms_diagnostics", "crypto_balances", "exchange_rates", "exchange_rate_history")
 
     val tables = listOf(
         BackupTable(
@@ -171,7 +171,11 @@ internal object WhfinBackupSchema {
                 "id", "accountId", "amountMinor", "currency", "origAmountMinor", "origCurrency",
                 "occurredAt", "postedAt", "merchantId", "rawCounterparty", "counterpartyIban",
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
-                "balanceAfterMinor", "externalKey", "createdAt",
+                "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "createdAt",
+            ),
+            legacyColumns = mapOf(
+                "gelValueMinor" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
+                "gelRateOn" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),

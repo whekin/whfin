@@ -7,8 +7,11 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
+import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
+import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import java.time.YearMonth
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +21,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal sealed interface AnalyticsUiState {
     data object Loading : AnalyticsUiState
@@ -45,6 +50,20 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val selectedMonth = MutableStateFlow(YearMonth.now(zoneId))
     private val categoryRangeMonths = MutableStateFlow(1)
     private val trendFilter = MutableStateFlow<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
+
+    private val valuation = TransactionValuationRepository(
+        db = db,
+        provider = NbgHistoricalRateProvider(),
+    )
+
+    init {
+        // A foreign-currency row is worth the rate of its own day, and that day is looked up once.
+        // Opening statistics is the moment it matters, so the gap is closed here rather than on write,
+        // where it would put the network in front of saving an expense.
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { runCatching { valuation.backfill() } }
+        }
+    }
 
     private val transactions: Flow<List<TransactionEntity>> = selectedMonth.flatMapLatest { month ->
         val yearStart = YearMonth.of(month.year, 1)

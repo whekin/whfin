@@ -186,6 +186,7 @@ class AnalyticsCalculatorTest {
         isTransfer: Boolean = false,
         status: TxStatus = TxStatus.CONFIRMED,
         source: TxSource = TxSource.STATEMENT,
+        gelValueMinor: Long? = null,
     ) = TransactionEntity(
         id = id,
         accountId = accountId,
@@ -197,5 +198,69 @@ class AnalyticsCalculatorTest {
         source = source,
         transferGroupId = transferGroupId,
         isTransfer = isTransfer,
+        gelValueMinor = gelValueMinor,
     )
+
+    @Test
+    fun aForeignExpenseCountsOnceItsOwnDayHasBeenPriced() {
+        val transactions = listOf(
+            tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id),
+            tx(2, -2_000, "USD", LocalDate.of(2026, 7, 3), categoryId = food.id, gelValueMinor = -5_400),
+        )
+
+        val data = calculateAnalytics(
+            transactions, listOf(food), emptyList(), YearMonth.of(2026, 7), 1,
+            AnalyticsTrendFilter.All, zone,
+        )
+
+        assertEquals(15_400L, data.expenseMinor)
+        assertEquals(15_400L, data.categoryValues.single { it.categoryId == food.id }.expenseMinor)
+        assertTrue(data.unvaluedCurrencies.isEmpty())
+        assertTrue("a valued row is no longer a leftover native amount", data.otherCurrencyExpenses.isEmpty())
+    }
+
+    @Test
+    fun anUnpricedForeignExpenseStaysOutOfTheTotalAndIsNamed() {
+        val transactions = listOf(
+            tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id),
+            tx(2, -2_000, "USD", LocalDate.of(2026, 7, 3), categoryId = food.id),
+        )
+
+        val data = calculateAnalytics(
+            transactions, listOf(food), emptyList(), YearMonth.of(2026, 7), 1,
+            AnalyticsTrendFilter.All, zone,
+        )
+
+        // Never a guess and never a zero: the lari total is honest and the gap is named.
+        assertEquals(10_000L, data.expenseMinor)
+        assertEquals(setOf("USD"), data.unvaluedCurrencies)
+        assertEquals(listOf("USD"), data.otherCurrencyExpenses.map { it.currency })
+        assertEquals(2_000L, data.otherCurrencyExpenses.single().expenseMinor)
+    }
+
+    @Test
+    fun aSplitSharesTheBookedValueInTheSameProportionAsTheMoney() {
+        val transactions = listOf(
+            tx(1, -3_000, "USD", LocalDate.of(2026, 7, 3), categoryId = food.id, gelValueMinor = -9_000),
+        )
+        val allocations = listOf(
+            TransactionAllocationEntity(
+                id = 1, transactionId = 1, amountMinor = -1_000,
+                categoryId = food.id, purpose = AllocationPurpose.PERSONAL,
+            ),
+            TransactionAllocationEntity(
+                id = 2, transactionId = 1, amountMinor = -2_000,
+                categoryId = transport.id, purpose = AllocationPurpose.PERSONAL,
+            ),
+        )
+
+        val data = calculateAnalytics(
+            transactions, listOf(food, transport), allocations, YearMonth.of(2026, 7), 1,
+            AnalyticsTrendFilter.All, zone,
+        )
+
+        assertEquals(9_000L, data.expenseMinor)
+        assertEquals(3_000L, data.categoryValues.single { it.categoryId == food.id }.expenseMinor)
+        assertEquals(6_000L, data.categoryValues.single { it.categoryId == transport.id }.expenseMinor)
+    }
 }

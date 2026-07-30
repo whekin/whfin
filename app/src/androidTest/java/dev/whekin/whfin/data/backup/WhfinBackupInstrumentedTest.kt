@@ -244,10 +244,15 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO merchants VALUES (1, 'nikora', 'Nikora', 1)")
             sqlite.execSQL("INSERT INTO merchant_aliases VALUES (1, 1, 'nikora trade')")
             sqlite.execSQL("INSERT INTO people VALUES (1, 'Alice', 'FRIEND', -456, 0)")
+            // Named columns on purpose: a positional insert breaks on every new column.
             sqlite.execSQL(
-                "INSERT INTO transactions VALUES " +
-                    "(1, 1, -1250, 'GEL', NULL, NULL, 2000, NULL, 1, 'NIKORA', NULL, 1, " +
-                    "'Lunch', 'CONFIRMED', 'STATEMENT', 1, 1, 10000, 'tx-1', 3000)",
+                "INSERT INTO transactions (" +
+                    "id, accountId, amountMinor, currency, occurredAt, merchantId, rawCounterparty, " +
+                    "categoryId, note, status, source, transferGroupId, isTransfer, " +
+                    "balanceAfterMinor, externalKey, gelValueMinor, gelRateOn, createdAt" +
+                    ") VALUES (" +
+                    "1, 1, -1250, 'GEL', 2000, 1, 'NIKORA', 1, 'Lunch', 'CONFIRMED', 'STATEMENT', " +
+                    "1, 1, 10000, 'tx-1', -3400, '2026-03-14', 3000)",
             )
             sqlite.execSQL("INSERT INTO transaction_allocations VALUES (1, 1, -1250, 1, 1, 'SHARED', 'Half')")
             sqlite.execSQL("INSERT INTO debt_cases VALUES (1, 1, 'THEY_OWE_ME', 1250, 'GEL', 2000, 'OPEN', NULL, 'Lunch')")

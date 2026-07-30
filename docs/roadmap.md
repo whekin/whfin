@@ -23,8 +23,8 @@
 ## 1. Data Safety
 
 Статус: этап завершён. Destructive fallback удалён; ручная v1→v2 migration и полный
-earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v6 с явными
-migrations v1→v2 … v5→v6, поэтому следующий schema change обязан получить migration v6→N.
+earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v7 с явными
+migrations v1→v2 … v6→v7, поэтому следующий schema change обязан получить migration v7→N.
 Версионированный JSON export/restore
 доступен в Settings через Storage Access Framework.
 

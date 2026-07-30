@@ -217,10 +217,13 @@ fun FeedScreen(
             !it.tx.isTransfer && it.tx.transferGroupId == null && !it.isDebt &&
             it.tx.source != dev.whekin.whfin.data.db.TxSource.ADJUSTMENT && it.category?.isSystem != true
     }
-    // Сводка месяца — только в основной валюте, чужие валюты не подмешиваем
-    // (мультивалютная сводка появится вместе с курсами на экране статистики)
-    val income = monthItems.filter { it.tx.currency == "GEL" }.sumOf { it.tx.amountMinor.coerceAtLeast(0) }
-    val expenses = -monthItems.filter { it.tx.currency == "GEL" }.sumOf { it.tx.amountMinor.coerceAtMost(0) }
+    // Валютная операция входит в сводку своей зафиксированной стоимостью в лари — курсом её
+    // собственного дня. Пока день не оценён, строка не превращается в ноль и просто ждёт.
+    val monthGelValues = monthItems.mapNotNull {
+        if (it.tx.currency == "GEL") it.tx.amountMinor else it.tx.gelValueMinor
+    }
+    val income = monthGelValues.sumOf { it.coerceAtLeast(0) }
+    val expenses = -monthGelValues.sumOf { it.coerceAtMost(0) }
     val visibleItems = items.filter { item ->
         val matchesType = when (filter) {
             FeedFilter.ALL -> true

@@ -160,6 +160,38 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate6To7_keepsRowsAndLeavesForeignValuesUnbooked() {
+        helper.createDatabase(TEST_DB_6_7, 6).apply {
+            execSQL("INSERT INTO `accounts` VALUES (1, 'Everyday', 'BANK', NULL, 'USD', NULL, NULL, NULL, NULL, NULL, 0, 0)")
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `createdAt`) " +
+                    "VALUES (1, 1, -2500, 'USD', 1000, 'CONFIRMED', 'STATEMENT', 0, 1000)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_6_7, 7, true, MIGRATION_6_7).apply {
+            // Back-valuing at today's rate would make every past month drift, so the column starts empty.
+            query("SELECT `amountMinor`, `gelValueMinor`, `gelRateOn` FROM `transactions` WHERE `id` = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(-2500, cursor.getInt(0))
+                check(cursor.isNull(1))
+                check(cursor.isNull(2))
+            }
+            execSQL(
+                "INSERT INTO `exchange_rate_history` (`code`, `onDate`, `gelPerUnit`, `validOn`, `observedAt`) " +
+                    "VALUES ('USD', '2026-03-14', '2.70', '2026-03-14', 5000)",
+            )
+            query("SELECT COUNT(*) FROM `exchange_rate_history`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
@@ -167,5 +199,6 @@ class WhfinDatabaseMigrationTest {
         const val TEST_DB_3_4 = "whfin-migration-3-4"
         const val TEST_DB_4_5 = "whfin-migration-4-5"
         const val TEST_DB_5_6 = "whfin-migration-5-6"
+        const val TEST_DB_6_7 = "whfin-migration-6-7"
     }
 }

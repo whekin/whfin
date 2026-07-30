@@ -776,10 +776,10 @@
     <string name="analytics_no_previous">No comparable expenses in the previous month</string>
     <string name="analytics_unaccounted">Unaccounted adjustments</string>
     <string name="analytics_unaccounted_hint">Shown separately and excluded from income, expenses, and category trends</string>
-    <string name="analytics_other_currencies">Expenses in other currencies</string>
-    <string name="analytics_other_currencies_hint">Native amounts for the selected month</string>
-    <string name="analytics_rates_unavailable_title">Combined currency statistics are unavailable</string>
-    <string name="analytics_rates_unavailable_body">Until exchange rates and their dates are stored, foreign currencies remain separate from GEL.</string>
+    <string name="analytics_other_currencies">Not converted yet</string>
+    <string name="analytics_other_currencies_hint">Native amounts still waiting for the rate of their own day</string>
+    <string name="analytics_rates_unavailable_title">Waiting for the rate of these days</string>
+    <string name="analytics_rates_unavailable_body">A foreign amount joins the totals at the official rate of the day it happened, never at today’s. These days have not been fetched yet.</string>
     <string name="analytics_loading">Calculating statistics…</string>
     <string name="analytics_empty_title">No statistics for this period</string>
     <string name="analytics_empty_body">Choose another month or import a statement to build a trend.</string>

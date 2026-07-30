@@ -85,7 +85,7 @@ class DemoDataInstaller(
 
     companion object {
         const val DATABASE_NAME = "whfin-demo.db"
-        const val ASSET_NAME = "whfin-demo-v6.json"
+        const val ASSET_NAME = "whfin-demo-v7.json"
         const val FIXTURE_VERSION = 1
         private const val MILLIS_PER_DAY = 86_400_000L
         private const val OBSERVED_MINUTES_AGO = 26L * 60 * 1000

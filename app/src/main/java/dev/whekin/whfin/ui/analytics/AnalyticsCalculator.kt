@@ -6,6 +6,8 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -71,6 +73,8 @@ internal data class AnalyticsData(
     val hasAnyTransactions: Boolean,
     val pace: AnalyticsPace? = null,
     val categoryChanges: List<AnalyticsCategoryChange> = emptyList(),
+    /** Currencies of the selected month whose day has no quote yet, so they are left out of totals. */
+    val unvaluedCurrencies: Set<String> = emptySet(),
 ) {
     val deltaMinor: Long get() = incomeMinor - expenseMinor
 }
@@ -80,6 +84,8 @@ private data class AnalyticsSlice(
     val month: YearMonth,
     val currency: String,
     val amountMinor: Long,
+    /** Value in GEL booked at the rate of this row's own day; null while the day is unpriced. */
+    val gelMinor: Long?,
     val categoryId: Long?,
     val unaccounted: Boolean,
     val pending: Boolean,
@@ -127,12 +133,25 @@ internal fun calculateAnalytics(
             val month = Instant.ofEpochMilli(transaction.occurredAt).atZone(zoneId).let {
                 YearMonth.of(it.year, it.month)
             }
+            // A split shares the booked value in the same proportion as the money.
+            val gelForPart: (Long) -> Long? = when {
+                transaction.currency == BASE_CURRENCY -> { part -> part }
+                transaction.gelValueMinor == null || transaction.amountMinor == 0L -> { _ -> null }
+                else -> { part ->
+                    BigDecimal(part)
+                        .multiply(BigDecimal(transaction.gelValueMinor))
+                        .divide(BigDecimal(transaction.amountMinor), 0, RoundingMode.HALF_UP)
+                        .toLong()
+                }
+            }
             parts.asSequence().map { (amount, categoryId, currency) ->
                 AnalyticsSlice(
                     transactionId = transaction.id,
                     month = month,
                     currency = currency,
                     amountMinor = amount,
+                    // The funded path already restated the purchase in the lari the bank charged.
+                    gelMinor = if (currency == BASE_CURRENCY) amount else gelForPart(amount),
                     categoryId = categoryId,
                     unaccounted = transaction.source == TxSource.ADJUSTMENT ||
                         categoryId?.let(categoryById::get)?.isSystem == true,
@@ -142,13 +161,18 @@ internal fun calculateAnalytics(
         }
         .toList()
 
-    val baseSlices = slices.filter { it.currency == BASE_CURRENCY && !it.unaccounted }
+    // Anything with a booked lari value counts, whatever currency it was spent in.
+    val baseSlices = slices.filter { it.gelMinor != null && !it.unaccounted }
+    val unvaluedCurrencies = slices
+        .filter { it.gelMinor == null && !it.unaccounted && it.month == selectedMonth }
+        .map { it.currency }
+        .toSortedSet()
     val selectedBase = baseSlices.filter { it.month == selectedMonth }
-    val income = selectedBase.sumOf { it.amountMinor.coerceAtLeast(0L) }
-    val expenses = -selectedBase.sumOf { it.amountMinor.coerceAtMost(0L) }
+    val income = selectedBase.sumOf { it.gelMinor!!.coerceAtLeast(0L) }
+    val expenses = -selectedBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
     val previousMonth = selectedMonth.minusMonths(1)
     val previousBase = baseSlices.filter { it.month == previousMonth }
-    val previousExpenses = -previousBase.sumOf { it.amountMinor.coerceAtMost(0L) }
+    val previousExpenses = -previousBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
     val pace = if (selectedMonth == YearMonth.from(today)) {
         AnalyticsPace(
             daysElapsed = today.dayOfMonth,
@@ -160,13 +184,13 @@ internal fun calculateAnalytics(
         null
     }
     val currentCategoryExpenses = selectedBase
-        .filter { it.amountMinor < 0L }
+        .filter { it.gelMinor!! < 0L }
         .groupBy { it.categoryId }
-        .mapValues { (_, values) -> -values.sumOf { it.amountMinor } }
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val previousCategoryExpenses = previousBase
-        .filter { it.amountMinor < 0L }
+        .filter { it.gelMinor!! < 0L }
         .groupBy { it.categoryId }
-        .mapValues { (_, values) -> -values.sumOf { it.amountMinor } }
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val categoryChanges = currentCategoryExpenses
         .map { (categoryId, expenseMinor) ->
             val category = categoryId?.let(categoryById::get)
@@ -185,7 +209,7 @@ internal fun calculateAnalytics(
 
     val rangeStart = selectedMonth.minusMonths((categoryRangeMonths - 1).toLong())
     val rangeExpenses = baseSlices.filter {
-        it.amountMinor < 0L && it.month >= rangeStart && it.month <= selectedMonth
+        it.gelMinor!! < 0L && it.month >= rangeStart && it.month <= selectedMonth
     }
     val categoryValues = rangeExpenses
         .groupBy { it.categoryId }
@@ -196,7 +220,7 @@ internal fun calculateAnalytics(
                 name = category?.name,
                 icon = category?.icon,
                 color = category?.color,
-                expenseMinor = -values.sumOf { it.amountMinor },
+                expenseMinor = -values.sumOf { it.gelMinor!! },
             )
         }
         .sortedByDescending { it.expenseMinor }
@@ -205,26 +229,27 @@ internal fun calculateAnalytics(
         val month = YearMonth.of(selectedMonth.year, monthNumber)
         val expense = -baseSlices
             .filter {
-                it.month == month && it.amountMinor < 0L && when (trendFilter) {
+                it.month == month && it.gelMinor!! < 0L && when (trendFilter) {
                     AnalyticsTrendFilter.All -> true
                     is AnalyticsTrendFilter.Category -> it.categoryId == trendFilter.categoryId
                 }
             }
-            .sumOf { it.amountMinor }
+            .sumOf { it.gelMinor!! }
         AnalyticsMonthValue(month, expense)
     }
     val previousTrendExpense = -baseSlices
         .filter {
-            it.month == selectedMonth.minusMonths(1) && it.amountMinor < 0L && when (trendFilter) {
+            it.month == selectedMonth.minusMonths(1) && it.gelMinor!! < 0L && when (trendFilter) {
                 AnalyticsTrendFilter.All -> true
                 is AnalyticsTrendFilter.Category -> it.categoryId == trendFilter.categoryId
             }
         }
-        .sumOf { it.amountMinor }
+        .sumOf { it.gelMinor!! }
 
     val selectedUnaccounted = slices.filter { it.month == selectedMonth && it.unaccounted }
+    // Only what could not be valued stays a native amount; the rest is already in the totals above.
     val otherCurrencies = slices
-        .filter { it.month == selectedMonth && it.currency != BASE_CURRENCY && !it.unaccounted && it.amountMinor < 0L }
+        .filter { it.month == selectedMonth && it.gelMinor == null && !it.unaccounted && it.amountMinor < 0L }
         .groupBy { it.currency }
         .map { (currency, values) -> AnalyticsCurrencyValue(currency, -values.sumOf { it.amountMinor }) }
         .sortedBy { it.currency }
@@ -243,8 +268,9 @@ internal fun calculateAnalytics(
             ?.name,
         trendValues = trendValues,
         previousTrendExpenseMinor = previousTrendExpense,
-        unaccountedNetMinor = selectedUnaccounted.sumOf { it.amountMinor },
+        unaccountedNetMinor = selectedUnaccounted.sumOf { it.gelMinor ?: 0L },
         otherCurrencyExpenses = otherCurrencies,
+        unvaluedCurrencies = unvaluedCurrencies,
         pendingCount = slices.filter { it.month == selectedMonth && it.pending }.map { it.transactionId }.distinct().size,
         hasAnyTransactions = slices.isNotEmpty(),
         pace = pace,

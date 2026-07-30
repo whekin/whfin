@@ -13,6 +13,8 @@ import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
+import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
@@ -115,6 +117,11 @@ class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             _importState.value = StatementImportUiState.Success(results)
+            // A statement can add a year of foreign rows at once; value them while the user reads
+            // the result, so statistics are already complete when they open it.
+            runCatching {
+                TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfill()
+            }
         }
     }
 

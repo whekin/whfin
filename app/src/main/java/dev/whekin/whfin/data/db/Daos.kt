@@ -145,6 +145,13 @@ interface ExchangeRateDao {
     /** A refresh replaces the quote for a code; quotes are current values, not a price history. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(items: List<ExchangeRateEntity>)
+
+    @Query("SELECT * FROM exchange_rate_history WHERE code = :code AND onDate = :onDate LIMIT 1")
+    suspend fun historical(code: String, onDate: String): ExchangeRateHistoryEntity?
+
+    /** A past day's quote never changes, so re-reading it may overwrite the same row. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertHistorical(items: List<ExchangeRateHistoryEntity>)
 }
 
 @Dao
@@ -264,6 +271,19 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE externalKey = :key LIMIT 1")
     suspend fun byExternalKey(key: String): TransactionEntity?
+
+    /**
+     * Foreign-currency rows still waiting for the GEL value of their own day.
+     * Transfers are skipped: they never reach income, expenses or category totals.
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE currency != :pivot AND gelValueMinor IS NULL " +
+            "AND isTransfer = 0 AND transferGroupId IS NULL ORDER BY occurredAt DESC"
+    )
+    suspend fun awaitingValuation(pivot: String): List<TransactionEntity>
+
+    @Query("UPDATE transactions SET gelValueMinor = :gelValueMinor, gelRateOn = :gelRateOn WHERE id = :id")
+    suspend fun setGelValue(id: Long, gelValueMinor: Long, gelRateOn: String)
 
     @Query("SELECT externalKey FROM transactions WHERE externalKey IS NOT NULL")
     suspend fun allExternalKeys(): List<String>

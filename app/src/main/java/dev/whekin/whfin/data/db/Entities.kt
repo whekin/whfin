@@ -250,8 +250,37 @@ data class TransactionEntity(
     val balanceAfterMinor: Long? = null,
     /** Ключ дедупликации между источниками. */
     val externalKey: String? = null,
+    /**
+     * Стоимость операции в GEL, зафиксированная один раз.
+     *
+     * Пересчитывать историю сегодняшним курсом нельзя: мартовский расход в долларах не стоит
+     * июльского курса, и итоги прошлых месяцев начали бы меняться каждый день. Для GEL-строк поле
+     * пустое — там сумма уже в лари. Пусто и там, где курс на дату ещё не найден: статистика тогда
+     * честно называет валюту, а не подставляет ноль.
+     */
+    val gelValueMinor: Long? = null,
+    /** День курса (ISO), по которому получен [gelValueMinor]. */
+    val gelRateOn: String? = null,
     @ColumnInfo(defaultValue = "0")
     val createdAt: Long = 0,
+)
+
+/**
+ * Курс на конкретный день, отдельно от текущего снимка в `exchange_rates`.
+ *
+ * Оценка операции обязана использовать курс её даты, а таких дат за год — сотни, поэтому каждая
+ * запрашивается у источника один раз и остаётся здесь.
+ */
+@Entity(tableName = "exchange_rate_history", primaryKeys = ["code", "onDate"])
+data class ExchangeRateHistoryEntity(
+    val code: String,
+    /** ISO день, за который запрошен курс. */
+    val onDate: String,
+    /** GEL за одну единицу, точная десятичная строка. */
+    val gelPerUnit: String,
+    /** День, который сам источник считает днём котировки: в выходной он отдаёт предыдущий. */
+    val validOn: String? = null,
+    val observedAt: Long,
 )
 
 @Entity(tableName = "people", indices = [Index("name")])

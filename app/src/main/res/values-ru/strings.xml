@@ -781,10 +781,10 @@
     <string name="analytics_no_previous">В прошлом месяце нет расходов для сравнения</string>
     <string name="analytics_unaccounted">Корректировки баланса</string>
     <string name="analytics_unaccounted_hint">Показаны отдельно и не входят в доходы, расходы и тренды категорий</string>
-    <string name="analytics_other_currencies">Расходы в других валютах</string>
-    <string name="analytics_other_currencies_hint">Нативные суммы за выбранный месяц</string>
-    <string name="analytics_rates_unavailable_title">Общая мультивалютная статистика пока недоступна</string>
-    <string name="analytics_rates_unavailable_body">Пока мы не храним курсы и их даты, иностранные валюты не смешиваются с GEL.</string>
+    <string name="analytics_other_currencies">Ещё не пересчитано</string>
+    <string name="analytics_other_currencies_hint">Нативные суммы, ждущие курс своего дня</string>
+    <string name="analytics_rates_unavailable_title">Ждём курс этих дней</string>
+    <string name="analytics_rates_unavailable_body">Валютная сумма попадает в итог по официальному курсу своего дня, а не сегодняшнего. Эти дни ещё не загружены.</string>
     <string name="analytics_loading">Считаем статистику…</string>
     <string name="analytics_empty_title">За этот период статистики нет</string>
     <string name="analytics_empty_body">Выберите другой месяц или импортируйте выписку, чтобы построить тренд.</string>

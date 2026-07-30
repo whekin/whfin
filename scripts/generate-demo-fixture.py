@@ -22,7 +22,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "app/src/main/assets/whfin-demo-v6.json"
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "app/src/main/assets/whfin-demo-v7.json"
 
 # The fixture is anchored so assertions stay deterministic; the installer shifts it to today.
 ANCHOR = sys.argv[2] if len(sys.argv) > 2 else "2026-07-31"
@@ -96,6 +96,9 @@ class Fixture:
 
     # --- money -----------------------------------------------------------
 
+    # Plausible fixed rates: the demo must not ask a real bank for a real day.
+    DEMO_GEL_PER_UNIT = {"USD": 2.72, "EUR": 2.95}
+
     def tx(self, account: int, minor: int, currency: str, when: int, *, category: int | None = None,
            merchant: int | None = None, counterparty: str | None = None, note: str | None = None,
            status: str = "CONFIRMED", source: str = "STATEMENT", transfer_group: int | None = None,
@@ -110,6 +113,12 @@ class Fixture:
             "note": note, "status": status, "source": source,
             "transferGroupId": transfer_group, "isTransfer": 1 if is_transfer else 0,
             "balanceAfterMinor": None, "externalKey": key or f"demo:{self._tx_id}",
+            # A foreign row carries the lari it was worth on its own day, exactly as a backfill
+            # would have booked it, so the demo never reaches for a historical quote.
+            "gelValueMinor": None if currency == GEL else round(minor * self.DEMO_GEL_PER_UNIT[currency]),
+            "gelRateOn": None if currency == GEL else datetime.fromtimestamp(
+                when / 1000, timezone.utc,
+            ).date().isoformat(),
             "createdAt": when + 3_600_000,
         })
         return self._tx_id
@@ -508,6 +517,9 @@ def validate(tables: dict[str, list[dict]]) -> None:
         assert row["categoryId"] is None or row["categoryId"] in ids["categories"]
         assert row["merchantId"] is None or row["merchantId"] in ids["merchants"]
         assert row["transferGroupId"] is None or row["transferGroupId"] in ids["transfer_groups"]
+    for row in tables["transactions"]:
+        booked = row["gelValueMinor"] is not None
+        assert booked == (row["currency"] != "GEL"), "only foreign rows carry a booked lari value"
     keys = [row["externalKey"] for row in tables["transactions"]]
     assert len(keys) == len(set(keys)), "external keys must stay unique"
     for row in tables["transaction_allocations"]:
@@ -533,7 +545,7 @@ document = {
     "schemaVersion": 1,
     "exportedAt": EXPORTED_AT,
     "appVersion": "0.1.0-demo (1)",
-    "databaseVersion": 6,
+    "databaseVersion": 7,
     "primaryCurrency": GEL,
     "tables": tables,
 }
