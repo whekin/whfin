@@ -271,7 +271,7 @@
     <string name="sms_card_ledgers_label">БАНКОВСКИЙ СЧЁТ</string>
     <string name="sms_no_bank_accounts_title">Нет банковского счёта</string>
     <string name="sms_first_bank_account_body">Счёта Credo пока нет — создайте его прямо здесь. IBAN и другие валюты появятся с первым импортом выписки.</string>
-    <string name="sms_create_account_and_card_action">Создать счёт и связать карту</string>
+    <string name="sms_create_account_and_card_action">Создать и связать</string>
     <string name="sms_save_card_action">Сохранить связь</string>
     <string name="sms_view_message_action">Посмотреть исходное SMS</string>
     <string name="sms_original_message_title">Исходное SMS</string>

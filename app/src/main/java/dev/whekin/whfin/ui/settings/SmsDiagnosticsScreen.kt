@@ -532,9 +532,10 @@ private fun AddCardMappingSheet(
             value = last4,
             onValueChange = { value -> last4 = value.filter(Char::isDigit).take(4) },
             label = stringResource(R.string.sms_last_four_label),
-            placeholder = "2533",
+            // Без placeholder: серые цифры в пустом поле читались как уже введённое значение,
+            // поэтому заблокированная кнопка выглядела ошибкой, а не незаполненным полем.
             supportingText = stringResource(
-                if (last4.isEmpty() || last4.length == 4) R.string.sms_last_four_support
+                if (last4.length == 4) R.string.sms_last_four_support
                 else R.string.sms_last_four_error,
             ),
             isError = last4.isNotEmpty() && last4.length != 4,
