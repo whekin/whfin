@@ -216,7 +216,18 @@ This is a single-context repository with root domain documentation and system-wi
   больше не могут на кадр получить геометрию разных destinations. Forward/Back получили короткое направленное
   движение; dock Feed/Accounts не двигает indicator между уже сменившимися экранами: каждый пункт локально
   и за 140ms меняет только цвет иконки/подписи, оставаясь на месте; центральный `+` — отдельная
-  primary-кнопка с 48dp target. Add-request после открытия
+  primary-кнопка с 48dp target.
+  Motion pass (2026-07-31): аргументы сцены едут внутри анимируемого `ShellTarget`, поэтому уходящий экран
+  продолжает рисовать свой счёт/месяц вместо мгновенного опустошения при Back (раньше pop из Account
+  activity уезжал пустым). Месячные операции статистики стали обычной сценой depth 2, вложенный
+  второй `AnimatedContent` и `clearAndSetSemantics`-костыль удалены: Back из них возвращает в статистику
+  одним общим механизмом. Push/pop оформлены shared-axis (сдвиг на 1/8 ширины под fade) — первый кадр
+  тяжёлого destination съедает часть тайминга, и полноэкранный сдвиг на этом читался как рывок.
+  Два dock-раздела — не иерархия: они меняются fade-through (`WhfinMotion.paneExit/paneEnter`,
+  90ms выход → 170ms вход с задержкой 70ms) с микросдвигом по направлению, dock при этом не двигается.
+  Направление перехода задаёт `shellTransitionIsForward`: возврат — только уменьшение depth, равные
+  depth считаются push. Правила закреплены unit-тестами `ShellNavigationTest`; на disposable Pixel
+  проверено, что pop сохраняет содержимое уходящего экрана, а статистика возвращает в себя, не в ленту. Add-request после открытия
   composer сразу потребляется и не повторяется при возврате Accounts→Transactions.
   Launch/splash следует системной light/dark-теме без белого
   кадра; bootstrap App Lock до чтения DataStore показывает нейтральный фон и не может мигнуть PIN-экраном,

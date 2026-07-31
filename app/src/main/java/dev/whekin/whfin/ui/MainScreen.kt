@@ -5,9 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import dev.whekin.whfin.R
@@ -85,9 +84,9 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-private enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About, Categories, People }
+internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About, Categories, People }
 
-private enum class ShellScene(val depth: Int) {
+internal enum class ShellScene(val depth: Int) {
     Primary(0),
     Settings(1),
     CredoSync(2),
@@ -96,6 +95,7 @@ private enum class ShellScene(val depth: Int) {
     AccountOverview(1),
     AccountTransactions(1),
     Analytics(1),
+    AnalyticsTransactions(2),
     AppLock(2),
     Backup(2),
     Privacy(2),
@@ -103,6 +103,58 @@ private enum class ShellScene(val depth: Int) {
     Categories(2),
     People(2),
 }
+
+/**
+ * A scene plus the arguments it was opened with. The payload travels inside the animated target
+ * state on purpose: a scene that is sliding away must keep drawing the account or the month it was
+ * showing, and reading the arguments from surrounding state would blank it out the moment Back
+ * clears them.
+ */
+internal data class ShellTarget(
+    val scene: ShellScene,
+    val accountId: Long? = null,
+    val analytics: AnalyticsTransactionsRequest? = null,
+)
+
+internal fun shellTargetFor(
+    secondaryDestination: SecondaryDestination?,
+    accountTransactionsId: Long?,
+    analyticsTransactions: AnalyticsTransactionsRequest?,
+): ShellTarget = when {
+    analyticsTransactions != null -> ShellTarget(
+        ShellScene.AnalyticsTransactions,
+        analytics = analyticsTransactions,
+    )
+    secondaryDestination == null -> ShellTarget(ShellScene.Primary)
+    secondaryDestination == SecondaryDestination.AccountTransactions -> ShellTarget(
+        ShellScene.AccountTransactions,
+        accountId = accountTransactionsId,
+    )
+    else -> ShellTarget(
+        when (secondaryDestination) {
+            SecondaryDestination.Settings -> ShellScene.Settings
+            SecondaryDestination.CredoSync -> ShellScene.CredoSync
+            SecondaryDestination.Statements -> ShellScene.Statements
+            SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
+            SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
+            SecondaryDestination.Analytics -> ShellScene.Analytics
+            SecondaryDestination.AppLock -> ShellScene.AppLock
+            SecondaryDestination.Backup -> ShellScene.Backup
+            SecondaryDestination.Privacy -> ShellScene.Privacy
+            SecondaryDestination.About -> ShellScene.About
+            SecondaryDestination.Categories -> ShellScene.Categories
+            SecondaryDestination.People -> ShellScene.People
+            SecondaryDestination.AccountTransactions -> ShellScene.AccountTransactions
+        },
+    )
+}
+
+/**
+ * Only a shallower destination reads as a return. Equal depths mean one peer replaced another,
+ * which still pushes forward — a backward slide there would claim the user went up a level.
+ */
+internal fun shellTransitionIsForward(from: ShellTarget, to: ShellTarget): Boolean =
+    to.scene.depth >= from.scene.depth
 
 @Composable
 fun MainScreen(
@@ -154,22 +206,8 @@ fun MainScreen(
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
     }
     var accountTransactionsId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val scene = when {
-        secondaryDestination == SecondaryDestination.Settings -> ShellScene.Settings
-        secondaryDestination == SecondaryDestination.CredoSync -> ShellScene.CredoSync
-        secondaryDestination == SecondaryDestination.Statements -> ShellScene.Statements
-        secondaryDestination == SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
-        secondaryDestination == SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
-        secondaryDestination == SecondaryDestination.AccountTransactions -> ShellScene.AccountTransactions
-        secondaryDestination == SecondaryDestination.Analytics -> ShellScene.Analytics
-        secondaryDestination == SecondaryDestination.AppLock -> ShellScene.AppLock
-        secondaryDestination == SecondaryDestination.Backup -> ShellScene.Backup
-        secondaryDestination == SecondaryDestination.Privacy -> ShellScene.Privacy
-        secondaryDestination == SecondaryDestination.About -> ShellScene.About
-        secondaryDestination == SecondaryDestination.Categories -> ShellScene.Categories
-        secondaryDestination == SecondaryDestination.People -> ShellScene.People
-        else -> ShellScene.Primary
-    }
+    val target = shellTargetFor(secondaryDestination, accountTransactionsId, analyticsTransactions)
+    val scene = target.scene
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
     val packageInfo = remember(context.packageName) {
@@ -228,27 +266,48 @@ fun MainScreen(
         ) {
             DemoWorkspaceFrame {
                 AnimatedContent(
-                    targetState = scene,
+                    targetState = target,
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
-                        val forward = targetState.depth > initialState.depth
-                        val enter = slideInHorizontally(WhfinMotion.standard()) { width ->
-                            if (forward) width else -width / 5
-                        }
-                        val exit = slideOutHorizontally(WhfinMotion.standard()) { width ->
-                            if (forward) -width / 5 else width
-                        }
+                        // A destination's first frame is expensive, and a full-width push loses a
+                        // visible chunk of its travel to that frame, which reads as a stutter.
+                        // A short directional shift under a fade keeps the direction legible even
+                        // when the first frames are dropped.
+                        val forward = shellTransitionIsForward(initialState, targetState)
+                        val enter = fadeIn(WhfinMotion.standard()) +
+                            slideInHorizontally(WhfinMotion.standard()) { width ->
+                                if (forward) width / 8 else -width / 8
+                            }
+                        val exit = fadeOut(WhfinMotion.quick()) +
+                            slideOutHorizontally(WhfinMotion.standard()) { width ->
+                                if (forward) -width / 8 else width / 8
+                            }
                         (enter togetherWith exit).apply {
                             targetContentZIndex = if (forward) 1f else -1f
-                        }.using(SizeTransform(clip = true))
+                        }.using(SizeTransform(clip = false))
                     },
                     label = "app-destination",
-                ) { targetScene ->
+                ) { targetShell ->
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        when (targetScene) {
+                        when (targetShell.scene) {
                             ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
-                        Box(Modifier.fillMaxWidth().weight(1f)) {
-                            if (tab == 0) FeedScreen(
+                        AnimatedContent(
+                            targetState = tab,
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            transitionSpec = {
+                                // Dock destinations are siblings, not a hierarchy: they trade
+                                // places with a short directional settle instead of pushing.
+                                val forward = targetState > initialState
+                                val enter = fadeIn(WhfinMotion.paneEnter()) +
+                                    slideInHorizontally(WhfinMotion.paneEnter()) { width ->
+                                        if (forward) width / 24 else -width / 24
+                                    }
+                                (enter togetherWith fadeOut(WhfinMotion.paneExit()))
+                                    .using(SizeTransform(clip = false))
+                            },
+                            label = "primary-pane",
+                        ) { currentTab ->
+                            if (currentTab == 0) FeedScreen(
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
@@ -359,15 +418,12 @@ fun MainScreen(
                         title = stringResource(R.string.account_overview_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { AccountOverviewScreen() }
-                    ShellScene.AccountTransactions -> {
-                        val accountId = accountTransactionsId
-                        if (accountId != null) {
-                            AccountTransactionsScreen(
-                                accountId = accountId,
-                                onBack = { goBack(withHaptic = true) },
-                                feedViewModel = feedViewModel,
-                            )
-                        }
+                    ShellScene.AccountTransactions -> targetShell.accountId?.let { accountId ->
+                        AccountTransactionsScreen(
+                            accountId = accountId,
+                            onBack = { goBack(withHaptic = true) },
+                            feedViewModel = feedViewModel,
+                        )
                     }
                     ShellScene.AppLock -> SecondaryPage(
                         title = stringResource(R.string.app_lock_title),
@@ -410,48 +466,18 @@ fun MainScreen(
                         title = stringResource(R.string.people_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { PeopleRoute() }
-                    ShellScene.Analytics -> Box(Modifier.fillMaxSize()) {
-                        Box(
-                            Modifier.fillMaxSize().then(
-                                if (analyticsTransactions != null) Modifier.clearAndSetSemantics { }
-                                else Modifier,
-                            ),
-                        ) {
-                            AnalyticsScreen(
-                                onBack = { goBack(withHaptic = true) },
-                                onOpenTransactions = { request ->
-                                    haptics.performHapticFeedback(WhfinHaptics.navigation)
-                                    analyticsTransactions = request
-                                },
-                            )
-                        }
-                        AnimatedContent(
-                            targetState = analyticsTransactions,
-                            modifier = Modifier.matchParentSize(),
-                            transitionSpec = {
-                                val entering = targetState != null
-                                val enter = if (entering) {
-                                    slideInHorizontally(WhfinMotion.standard()) { it }
-                                } else EnterTransition.None
-                                val exit = if (!entering && initialState != null) {
-                                    slideOutHorizontally(WhfinMotion.standard()) { it }
-                                } else ExitTransition.None
-                                (enter togetherWith exit).using(SizeTransform(clip = true))
-                            },
-                            label = "analytics-transactions",
-                        ) { request ->
-                            if (request != null) {
-                                Surface(
-                                    Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.background,
-                                ) {
-                                    AnalyticsTransactionsScreen(
-                                        request = request,
-                                        onBack = { goBack(withHaptic = true) },
-                                    )
-                                }
-                            }
-                        }
+                    ShellScene.Analytics -> AnalyticsScreen(
+                        onBack = { goBack(withHaptic = true) },
+                        onOpenTransactions = { request ->
+                            haptics.performHapticFeedback(WhfinHaptics.navigation)
+                            analyticsTransactions = request
+                        },
+                    )
+                    ShellScene.AnalyticsTransactions -> targetShell.analytics?.let { request ->
+                        AnalyticsTransactionsScreen(
+                            request = request,
+                            onBack = { goBack(withHaptic = true) },
+                        )
                     }
                         }
                     }

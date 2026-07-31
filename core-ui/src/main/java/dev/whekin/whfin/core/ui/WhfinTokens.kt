@@ -53,6 +53,13 @@ object WhfinMotion {
     fun <T> quick() = tween<T>(durationMillis = 140, easing = easing)
     fun <T> standard() = tween<T>(durationMillis = 220, easing = easing)
     fun <T> screen() = tween<T>(durationMillis = 280, easing = easing)
+
+    /**
+     * Sibling panes (the two dock destinations) trade places instead of pushing each other:
+     * the outgoing pane clears first, so two opaque ledgers never blend into a muddy frame.
+     */
+    fun <T> paneExit() = tween<T>(durationMillis = 90, easing = easing)
+    fun <T> paneEnter() = tween<T>(durationMillis = 170, delayMillis = 70, easing = easing)
 }
 
 /** Quiet, action-oriented feedback that respects the device's system haptic setting. */
