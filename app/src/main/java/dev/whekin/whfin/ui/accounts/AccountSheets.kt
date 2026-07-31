@@ -66,7 +66,9 @@ fun AddAccountSheet(
         bankProvider: String?,
         network: CryptoNetwork?,
     ) -> Unit,
-    initialType: AccountType = AccountType.BANK,
+    // Наличные — единственный тип, который заводится только руками: банк приходит из выписки или
+    // MyCredo, а кошелёк требует адреса. Поэтому форма открывается на Cash.
+    initialType: AccountType = AccountType.CASH,
 ) {
     var name by remember { mutableStateOf("") }
     var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }

@@ -73,6 +73,28 @@ class AddAccountSheetTest {
     }
 
     @Test
+    fun theFormOpensOnCashBecauseBankAndWalletArriveOtherWays() {
+        var saved: Saved? = null
+        compose.setContent {
+            WhfinTheme {
+                AddAccountSheet(
+                    onDismiss = {},
+                    onImportStatement = {},
+                    onConfirm = { name, type, currency, address, _, network ->
+                        saved = Saved(name, type, currency, address, network)
+                    },
+                )
+            }
+        }
+
+        // No field touched: whatever the ledger already holds, the default must be cash in GEL.
+        compose.onNodeWithText(context.getString(R.string.action_save)).assertIsEnabled().performClick()
+
+        assertEquals(AccountType.CASH, saved?.type)
+        assertEquals("GEL", saved?.currency)
+    }
+
+    @Test
     fun cryptoRequiresAnAddressThatMatchesTheSelectedNetwork() {
         var saved: Saved? = null
         show(AccountType.CRYPTO) { saved = it }

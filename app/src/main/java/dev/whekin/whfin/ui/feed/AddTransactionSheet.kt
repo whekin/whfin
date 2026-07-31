@@ -102,6 +102,22 @@ private fun accountSources(accounts: List<AccountEntity>) = accounts.groupBy { a
 }
 
 /**
+ * Счёт, с которого форма начинает. Ручная операция почти всегда про наличные, поэтому порядок
+ * `sortOrder, id` из базы использовать нельзя: первым там может оказаться любой счёт, в том числе
+ * watch-only кошелёк, чей баланс всё равно приходит из блокчейна, а не из записанной операции.
+ */
+internal fun defaultManualAccount(accounts: List<AccountEntity>): AccountEntity? {
+    fun pick(predicate: (AccountEntity) -> Boolean): AccountEntity? =
+        accounts.firstOrNull { predicate(it) && it.currency == "GEL" }
+            ?: accounts.firstOrNull(predicate)
+    return pick { it.type == AccountType.CASH }
+        ?: pick { it.type == AccountType.BANK }
+        ?: pick { it.type == AccountType.SAVINGS }
+        ?: accounts.firstOrNull { it.type != AccountType.CRYPTO }
+        ?: accounts.firstOrNull()
+}
+
+/**
  * Ранжирование категорий для формы. По умолчанию — порядок, полученный от вызывающего
  * (`categoriesByUsage`); экран может подставить `CategorySuggester`, чтобы учитывать введённую
  * сумму и валюту так же, как quick-entry из виджета.
@@ -124,8 +140,7 @@ fun AddTransactionSheet(
     rankCategories: CategoryRanker = { list, _, _ -> list },
 ) {
     val sources = remember(accounts) { accountSources(accounts) }
-    val initial = sources.firstOrNull()?.accounts?.firstOrNull { it.currency == "GEL" }
-        ?: sources.firstOrNull()?.accounts?.firstOrNull()
+    val initial = remember(accounts) { defaultManualAccount(accounts) }
     val editingKind = when {
         editing?.tx?.isTransfer == true || editing?.tx?.transferGroupId != null -> ManualKind.TRANSFER
         (editing?.tx?.amountMinor ?: -1) >= 0 -> ManualKind.INCOME
