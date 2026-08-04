@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Lock
@@ -40,6 +41,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -54,16 +56,21 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
 fun CredoSyncRoute(
-    appLockHasPin: Boolean,
+    appLockEnabled: Boolean,
     onOpenAppLock: () -> Unit,
     viewModel: CredoSyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(appLockEnabled) {
+        if (appLockEnabled) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
+    }
     CredoSyncScreen(
         state = state,
-        appLockHasPin = appLockHasPin,
+        appLockEnabled = appLockEnabled,
         onOpenAppLock = onOpenAppLock,
-        onConnect = viewModel::connect,
+        onConnect = { username, credential, rememberPassword ->
+            viewModel.connect(username, credential, rememberPassword && appLockEnabled)
+        },
         onSubmitOtp = viewModel::submitOtp,
         onResendOtp = viewModel::resendOtp,
         onSync = viewModel::sync,
@@ -75,7 +82,7 @@ fun CredoSyncRoute(
 @Composable
 fun CredoSyncScreen(
     state: CredoSyncUiState,
-    appLockHasPin: Boolean,
+    appLockEnabled: Boolean,
     onOpenAppLock: () -> Unit,
     onConnect: (String, String, Boolean) -> Unit,
     onSubmitOtp: (String) -> Unit,
@@ -84,19 +91,26 @@ fun CredoSyncScreen(
     onDisconnect: () -> Unit,
     onDismissError: () -> Unit,
 ) {
-    var username by rememberSaveable { mutableStateOf(state.savedUsername.orEmpty()) }
-    var credential by rememberSaveable { mutableStateOf("") }
+    val usableSavedPassword = appLockEnabled && state.hasSavedPassword
+    var username by rememberSaveable { mutableStateOf(if (appLockEnabled) state.savedUsername.orEmpty() else "") }
+    // Bank credentials must not enter Compose's saved-instance-state Bundle.
+    var credential by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
-    var rememberPassword by rememberSaveable { mutableStateOf(appLockHasPin) }
-
-    LaunchedEffect(state.savedUsername) {
-        if (username.isBlank()) username = state.savedUsername.orEmpty()
+    var rememberPassword by rememberSaveable(state.hasSavedPassword, appLockEnabled) {
+        mutableStateOf(usableSavedPassword)
     }
-    LaunchedEffect(appLockHasPin) {
-        if (!appLockHasPin) rememberPassword = false
+
+    LaunchedEffect(state.savedUsername, appLockEnabled) {
+        if (appLockEnabled && username.isBlank()) username = state.savedUsername.orEmpty()
+    }
+    LaunchedEffect(appLockEnabled) {
+        if (!appLockEnabled) rememberPassword = false
     }
     LaunchedEffect(state.stage) {
         if (state.stage != CredoSyncStage.AwaitingOtp) otp = ""
+        if (state.stage == CredoSyncStage.AwaitingOtp || state.stage == CredoSyncStage.Connected) {
+            credential = ""
+        }
     }
 
     Column(
@@ -112,21 +126,9 @@ fun CredoSyncScreen(
             title = stringResource(R.string.credo_sync_experimental_title),
             body = stringResource(R.string.credo_sync_experimental_body),
             icon = Icons.Default.Security,
-            kind = WhfinNoticeKind.Attention,
+            kind = WhfinNoticeKind.Info,
             modifier = Modifier.fillMaxWidth(),
         )
-
-        if (!appLockHasPin && state.stage == CredoSyncStage.Disconnected) {
-            WhfinNotice(
-                title = stringResource(R.string.credo_sync_lock_required_title),
-                body = stringResource(R.string.credo_sync_lock_required_body),
-                icon = Icons.Default.Lock,
-                kind = WhfinNoticeKind.Unavailable,
-                actionLabel = stringResource(R.string.credo_sync_open_app_lock),
-                onAction = onOpenAppLock,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
 
         state.errorCode?.let { errorCode ->
             WhfinNotice(
@@ -147,10 +149,11 @@ fun CredoSyncScreen(
                 onUsernameChange = { username = it },
                 credential = credential,
                 onCredentialChange = { credential = it },
-                hasSavedPassword = state.hasSavedPassword,
+                hasSavedPassword = usableSavedPassword,
                 rememberPassword = rememberPassword,
                 onRememberPasswordChange = { rememberPassword = it },
-                canRememberPassword = appLockHasPin,
+                canRememberPassword = appLockEnabled,
+                onOpenAppLock = onOpenAppLock,
                 loading = state.stage == CredoSyncStage.Connecting,
                 onConnect = { onConnect(username, credential, rememberPassword) },
             )
@@ -188,6 +191,7 @@ private fun LoginContent(
     rememberPassword: Boolean,
     onRememberPasswordChange: (Boolean) -> Unit,
     canRememberPassword: Boolean,
+    onOpenAppLock: () -> Unit,
     loading: Boolean,
     onConnect: () -> Unit,
 ) {
@@ -219,15 +223,25 @@ private fun LoginContent(
                     if (canRememberPassword) R.string.credo_sync_remember_password_body
                     else R.string.credo_sync_remember_password_unavailable,
                 ),
+                supportingMaxLines = 3,
                 icon = Icons.Default.Lock,
                 trailing = {
-                    WhfinSwitch(
-                        checked = rememberPassword,
-                        onCheckedChange = onRememberPasswordChange,
-                        contentDescription = stringResource(R.string.credo_sync_remember_password),
-                        enabled = canRememberPassword,
-                    )
+                    if (canRememberPassword) {
+                        WhfinSwitch(
+                            checked = rememberPassword,
+                            onCheckedChange = onRememberPasswordChange,
+                            contentDescription = stringResource(R.string.credo_sync_remember_password),
+                        )
+                    } else {
+                        WhfinIconButton(
+                            icon = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = stringResource(R.string.credo_sync_protect_action),
+                            onClick = onOpenAppLock,
+                            outlined = false,
+                        )
+                    }
                 },
+                onClick = if (canRememberPassword) null else onOpenAppLock,
             )
         }
         WhfinButton(
@@ -407,7 +421,7 @@ private fun CredoDisconnectedPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(savedUsername = "demo", hasSavedPassword = true),
-                appLockHasPin = true,
+                appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -422,7 +436,7 @@ private fun CredoOtpPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp, mobileHint = "+995 *** ** 42"),
-                appLockHasPin = true,
+                appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -437,7 +451,7 @@ private fun CredoConnectedPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.Connected, accounts = previewAccounts),
-                appLockHasPin = true,
+                appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -452,7 +466,7 @@ private fun CredoUnavailablePreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(errorCode = "NETWORK_ERROR"),
-                appLockHasPin = false,
+                appLockEnabled = false,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -467,7 +481,7 @@ private fun CredoProtocolErrorPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(errorCode = "INVALID_API_RESPONSE"),
-                appLockHasPin = true,
+                appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onDisconnect = {}, onDismissError = {},
             )

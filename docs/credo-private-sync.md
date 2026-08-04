@@ -17,17 +17,23 @@ a new OTP.
 ## Security boundary
 
 - Credentials and OTP go directly from the Android device to Credo's HTTPS MyCredo service. WHFIN has
-  no proxy or telemetry server.
+  no proxy or telemetry server. The production transport rejects cleartext URLs, unexpected hosts and
+  redirects; the application manifest also disables cleartext traffic globally.
 - The adapter exposes login, OTP challenge, account discovery and statement export only. No payment
-  mutation exists in the connector.
+  mutation exists in the connector. This is a limit of WHFIN's implementation, not a bank-issued
+  read-only scope on the user's MyCredo credential.
 - OTP, access token and refresh token are memory-only and are not logged, exported or backed up.
-- Remembering the password is opt-in and disabled until WHFIN App Lock has a code. The password is
-  encrypted with AES-GCM using a non-exportable Android Keystore key. App Lock is the product access
-  gate; its PIN is not an encryption key and is not derivation material for the bank credential.
+- Remembering the login is opt-in and disabled until WHFIN App Lock is actively enabled. Username and
+  password share one authenticated AES-256-GCM payload under a versioned, non-exportable Android
+  Keystore key; the username is not duplicated as plaintext preferences. Existing v1 ciphertext is
+  re-encrypted with the v2 key after the first successful read, then the legacy key is deleted.
+  App Lock is the product access gate; its PIN is not an encryption key and is not derivation material
+  for the bank credential. Opening the connector without active App Lock deletes saved credentials.
 - `whfin_credo_secrets` and `whfin_credo_device` preferences are outside the strict Android backup
   allowlist. Portable JSON backup uses a database-table allowlist and cannot include either file.
-- “Forget MyCredo login” clears the stored ciphertext and username. It does not revoke an active bank
-  session server-side because the current public protocol exposes no verified logout contract.
+- “Forget MyCredo login” clears the stored ciphertext and deletes both current and legacy Keystore keys.
+  It does not revoke an active bank session server-side because the current public protocol exposes no
+  verified logout contract.
 
 ## Failure policy
 
@@ -50,6 +56,17 @@ Hardening (2026-07-16):
   and WHFIN never triggers an OTP SMS without the user.
 - These paths are covered by Robolectric tests with a scripted gateway (retry exhaustion, permanent
   errors, 401 mid-batch, partial success keeping the connected state).
+
+Credential hardening (2026-08-04):
+
+- The Keystore key size is explicit rather than provider-dependent: AES-256-GCM with a 128-bit tag,
+  randomized IV and purpose/version AAD. An Android instrumentation test reads `KeyInfo.keySize` from
+  the generated key and verifies the legacy-ciphertext migration on the platform Keystore.
+- The password field uses composition-only state and is cleared after the login challenge advances; it
+  is never placed in Compose saved-instance state. Remembering is no longer preselected for new logins.
+- The sign-in screen explains the direct connection, local encryption, non-persistence of OTP/session
+  tokens, payment-free adapter surface and the important distinction between that surface and the
+  privileges of the bank login itself.
 
 The first OnePlus dogfood attempt on 2026-07-14 failed during `Auth/Initiate`, before OTP. The request
 fingerprint was then aligned with the current public web bundle (`ENGLISH`, `mobile`, `Android`, and the

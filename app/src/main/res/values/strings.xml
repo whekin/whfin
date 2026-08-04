@@ -154,11 +154,8 @@
     <string name="settings_automation">AUTOMATION</string>
     <string name="credo_sync_title">Credo sync</string>
     <string name="credo_sync_settings_summary">Sign in once and import every account statement</string>
-    <string name="credo_sync_experimental_title">Private experimental connector</string>
-    <string name="credo_sync_experimental_body">WHFIN talks directly to MyCredo using its current web protocol. It is read-only, may stop working when Credo changes the website, and is not an official Open Banking integration.</string>
-    <string name="credo_sync_lock_required_title">Set an app code before saving a password</string>
-    <string name="credo_sync_lock_required_body">You can connect once without saving anything. To remember the MyCredo password on this device, first protect WHFIN with its own app code.</string>
-    <string name="credo_sync_open_app_lock">Set app code</string>
+    <string name="credo_sync_experimental_title">Direct, protected connection</string>
+    <string name="credo_sync_experimental_body">WHFIN connects straight from this phone to Credo—there is no intermediary server. The connector can read account lists and statements but cannot make payments; your bank login itself is not read-only. This unofficial connection may break after Credo changes.</string>
     <string name="credo_sync_error_title">Couldn’t continue</string>
     <string name="action_dismiss">Dismiss</string>
     <string name="credo_sync_sign_in_section">MYCREDO SIGN IN</string>
@@ -166,9 +163,10 @@
     <string name="credo_sync_password">Password</string>
     <string name="credo_sync_password_saved">Saved on this device</string>
     <string name="credo_sync_password_saved_body">Leave this empty to use the encrypted password already saved on this device.</string>
-    <string name="credo_sync_remember_password">Remember password</string>
-    <string name="credo_sync_remember_password_body">Encrypted with Android Keystore and excluded from backup and JSON export.</string>
-    <string name="credo_sync_remember_password_unavailable">Turn on WHFIN App Lock first. A one-time sign-in still works without saving the password.</string>
+    <string name="credo_sync_remember_password">Remember login</string>
+    <string name="credo_sync_remember_password_body">Login and password use AES-256-GCM in Android Keystore; device-only and outside backups. OTP/session are never saved.</string>
+    <string name="credo_sync_remember_password_unavailable">App Lock required · one-time sign-in saves nothing.</string>
+    <string name="credo_sync_protect_action">Protect</string>
     <string name="credo_sync_connecting">Connecting…</string>
     <string name="credo_sync_connect">Connect MyCredo</string>
     <string name="credo_sync_otp_section">CONFIRM SIGN IN</string>

@@ -5,7 +5,6 @@ import android.os.Build
 import android.util.Base64
 import android.webkit.WebSettings
 import java.io.IOException
-import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -13,6 +12,7 @@ import java.util.Locale
 import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import javax.net.ssl.HttpsURLConnection
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,17 +43,25 @@ internal class UrlConnectionCredoTransport(
     private val userAgent: String,
 ) : CredoTransport {
     override fun post(url: String, headers: Map<String, String>, body: String): String {
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 20_000
-            readTimeout = 90_000
-            doOutput = true
-            useCaches = false
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("User-Agent", userAgent)
-            headers.forEach(::setRequestProperty)
+        val endpoint = runCatching { URL(url) }
+            .getOrElse { throw CredoApiException("INVALID_ENDPOINT", it) }
+        if (endpoint.protocol != "https" || endpoint.host != CREDO_HOST) {
+            throw CredoApiException("INSECURE_ENDPOINT")
         }
+        val connection = runCatching { endpoint.openConnection() as HttpsURLConnection }
+            .getOrElse { throw CredoApiException("NETWORK_ERROR", it) }
+            .apply {
+                requestMethod = "POST"
+                connectTimeout = 20_000
+                readTimeout = 90_000
+                doOutput = true
+                useCaches = false
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("User-Agent", userAgent)
+                headers.forEach(::setRequestProperty)
+            }
         return try {
             connection.outputStream.use { output -> output.write(body.toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
@@ -70,6 +78,10 @@ internal class UrlConnectionCredoTransport(
         } finally {
             connection.disconnect()
         }
+    }
+
+    private companion object {
+        const val CREDO_HOST = "mobileapp.mycredo.ge"
     }
 }
 

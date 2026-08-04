@@ -514,7 +514,15 @@ This is a single-context repository with root domain documentation and system-wi
   (403/429 намеренно не ретраятся — защита сайта), per-account ошибки не прерывают остальные счета,
   а истёкшая авторизация (401/UNAUTHORIZED) останавливает прогон целиком, сбрасывает сессию и
   переводит UI в повторный вход с кодом SESSION_EXPIRED — молчаливый re-login невозможен by design
-  (нужен OTP). Покрыто Robolectric-тестами со скриптованным gateway. Остаётся наблюдение за
+  (нужен OTP). Покрыто Robolectric-тестами со скриптованным gateway.
+  Security hardening (2026-08-04): сохранение стало настоящим opt-in только при активной App Lock;
+  username и пароль лежат одним authenticated AES-256-GCM payload под versioned non-exportable
+  Android Keystore key без plaintext username, а legacy v1 ciphertext мигрирует без потери login.
+  Password исключён из Compose saved state и очищается после перехода к OTP. Transport принимает только
+  ожидаемый Credo HTTPS host, не следует redirect, а manifest запрещает cleartext globally. Экран честно
+  объясняет прямое соединение, memory-only OTP/tokens и что отсутствие payment API в WHFIN не превращает
+  банковский credential в scoped read-only доступ. Key size и v1→v2 проверены Android instrumentation.
+  Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной

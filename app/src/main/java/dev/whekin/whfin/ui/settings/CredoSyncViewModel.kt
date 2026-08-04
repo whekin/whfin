@@ -62,7 +62,6 @@ class CredoSyncViewModel internal constructor(
     private val db = (app as WhfinApp).db
     private val _state = MutableStateFlow(
         CredoSyncUiState(
-            savedUsername = secretStore.savedUsername(),
             hasSavedPassword = secretStore.hasCredentials(),
         ),
     )
@@ -72,6 +71,17 @@ class CredoSyncViewModel internal constructor(
     private var pendingCredentials: CredoCredentials? = null
     private var rememberPassword = false
     private var session: CredoSession? = null
+
+    fun revealSavedUsername() {
+        if (!_state.value.hasSavedPassword || _state.value.savedUsername != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val username = secretStore.savedUsername()
+            _state.value = _state.value.copy(
+                savedUsername = username,
+                hasSavedPassword = username != null,
+            )
+        }
+    }
 
     fun connect(username: String, credential: String, remember: Boolean) {
         if (_state.value.stage == CredoSyncStage.Connecting) return
@@ -221,6 +231,14 @@ class CredoSyncViewModel internal constructor(
         pendingCredentials = null
         session = null
         _state.value = CredoSyncUiState()
+    }
+
+    /** App Lock is the product gate for persisted bank credentials; without it, forget them. */
+    fun forgetSavedCredentials() {
+        viewModelScope.launch(Dispatchers.IO) {
+            secretStore.clear()
+            _state.value = _state.value.copy(savedUsername = null, hasSavedPassword = false)
+        }
     }
 
     fun dismissError() {

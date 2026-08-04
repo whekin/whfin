@@ -1,6 +1,6 @@
 # WHFIN Privacy Policy
 
-Effective date: July 14, 2026
+Effective date: August 4, 2026
 
 > Release status: the policy below reflects WHFIN 0.1.0. Before public distribution, publish this
 > document at a stable public URL and add the developer support contact used by the app-store listing.
@@ -77,14 +77,18 @@ not removed by uninstalling the app.
 WHFIN 0.1.0 contains an optional private, unsupported MyCredo connector. When the user explicitly
 connects, the username, password and OTP are sent directly from the device to Credo's current MyCredo
 service. WHFIN has no intermediary server. The connector can only request account metadata and XLSX
-statements; it contains no payment action. Access and refresh tokens remain in memory for the current
-foreground session and are not backed up or exported.
+statements; it contains no payment action. This describes WHFIN's implementation and does not turn the
+user's bank login into a bank-issued read-only credential. Access and refresh tokens remain in memory
+for the current foreground session and are not backed up or exported.
 
-The user may opt in to remembering the MyCredo password after enabling WHFIN App Lock. The password is
-encrypted on the device with an Android Keystore AES-GCM key. Its ciphertext, username and key are
-excluded from Android cloud/device-transfer backup and WHFIN JSON export. Choosing “Forget MyCredo
-login” removes the saved ciphertext and username. OTP codes are never stored. Because this protocol is
-unsupported, Credo may change or block it without notice.
+The user may opt in to remembering the MyCredo login while WHFIN App Lock is active. Username and
+password are stored together in an AES-256-GCM ciphertext protected by a non-exportable Android
+Keystore key; the username is not stored separately in plaintext preferences. The ciphertext and key
+are excluded from Android cloud/device-transfer backup and WHFIN JSON export. Choosing “Forget MyCredo
+login”, or opening the connector after App Lock has been disabled, removes the saved credentials. OTP
+codes are never stored. WHFIN disables cleartext network traffic and the connector accepts only the
+expected Credo HTTPS host. Because this protocol is unsupported, Credo may change or block it without
+notice.
 
 WHFIN does not currently integrate with official bank APIs, and such access is outside the active
 product roadmap. If it is reconsidered after a public launch, it will require separate consent,

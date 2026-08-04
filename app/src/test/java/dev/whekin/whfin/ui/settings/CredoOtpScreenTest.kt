@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -30,7 +31,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
-                    appLockHasPin = true,
+                    appLockEnabled = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = { submitted = it },
@@ -58,5 +59,56 @@ class CredoOtpScreenTest {
         compose.onNodeWithContentDescription(
             context.getString(R.string.credo_sync_otp_progress, 0, 4),
         ).assertExists()
+    }
+
+    @Test
+    fun loginExplainsSecurity_andRememberingIsOptInBehindAppLock() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var openedAppLock = false
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(),
+                    appLockEnabled = false,
+                    onOpenAppLock = { openedAppLock = true },
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.credo_sync_experimental_title)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_experimental_body)).assertExists()
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_protect_action))
+            .performScrollTo()
+            .performClick()
+        assertEquals(true, openedAppLock)
+    }
+
+    @Test
+    fun rememberingLoginDefaultsOffWhenAppLockIsAvailable() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(),
+                    appLockEnabled = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_remember_password))
+            .performScrollTo()
+            .assertIsOff()
     }
 }

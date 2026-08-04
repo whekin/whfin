@@ -56,7 +56,7 @@ fun PersonalSetupFlow(
             onBack = { page = PersonalSetupPage.Home },
         ) {
             CredoSyncRoute(
-                appLockHasPin = appLockHasPin,
+                appLockEnabled = appLockHasPin && appLockTimeout.enabled,
                 onOpenAppLock = { page = PersonalSetupPage.AppLock },
             )
         }

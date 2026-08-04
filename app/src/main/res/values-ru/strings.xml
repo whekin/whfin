@@ -155,11 +155,8 @@
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
     <string name="credo_sync_settings_summary">Войти один раз и импортировать выписки всех счетов</string>
-    <string name="credo_sync_experimental_title">Личный экспериментальный коннектор</string>
-    <string name="credo_sync_experimental_body">WHFIN обращается напрямую к MyCredo по текущему веб-протоколу. Доступ только для чтения; интеграция может сломаться после обновления сайта Credo и не является официальным Open Banking.</string>
-    <string name="credo_sync_lock_required_title">Задайте код приложения для сохранения пароля</string>
-    <string name="credo_sync_lock_required_body">Можно войти один раз, ничего не сохраняя. Чтобы запомнить пароль MyCredo на этом устройстве, сначала защитите WHFIN собственным кодом.</string>
-    <string name="credo_sync_open_app_lock">Задать код</string>
+    <string name="credo_sync_experimental_title">Прямое защищённое подключение</string>
+    <string name="credo_sync_experimental_body">WHFIN подключается к Credo напрямую с этого телефона — сервера-посредника нет. Коннектор читает список счетов и выписки, но не умеет совершать платежи; сам банковский логин не ограничен режимом «только чтение». Неофициальное подключение может сломаться после изменений Credo.</string>
     <string name="credo_sync_error_title">Не удалось продолжить</string>
     <string name="action_dismiss">Скрыть</string>
     <string name="credo_sync_sign_in_section">ВХОД В MYCREDO</string>
@@ -167,9 +164,10 @@
     <string name="credo_sync_password">Пароль</string>
     <string name="credo_sync_password_saved">Сохранён на устройстве</string>
     <string name="credo_sync_password_saved_body">Оставьте поле пустым, чтобы использовать уже сохранённый зашифрованный пароль.</string>
-    <string name="credo_sync_remember_password">Запомнить пароль</string>
-    <string name="credo_sync_remember_password_body">Зашифрован Android Keystore и исключён из backup и JSON-экспорта.</string>
-    <string name="credo_sync_remember_password_unavailable">Сначала включите блокировку WHFIN. Разовый вход без сохранения пароля уже доступен.</string>
+    <string name="credo_sync_remember_password">Запомнить вход</string>
+    <string name="credo_sync_remember_password_body">Логин/пароль: AES-256-GCM в Android Keystore, только на устройстве и вне резервных копий. OTP/сессия не сохраняются.</string>
+    <string name="credo_sync_remember_password_unavailable">Нужна блокировка WHFIN · разовый вход ничего не сохраняет.</string>
+    <string name="credo_sync_protect_action">Защитить</string>
     <string name="credo_sync_connecting">Подключаемся…</string>
     <string name="credo_sync_connect">Подключить MyCredo</string>
     <string name="credo_sync_otp_section">ПОДТВЕРЖДЕНИЕ ВХОДА</string>

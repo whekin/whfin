@@ -375,7 +375,7 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) {
                         CredoSyncRoute(
-                            appLockHasPin = appLockHasPin,
+                            appLockEnabled = appLockHasPin && appLockTimeout.enabled,
                             onOpenAppLock = { open(SecondaryDestination.AppLock) },
                         )
                     }

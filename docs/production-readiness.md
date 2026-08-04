@@ -26,6 +26,8 @@ This checklist tracks the difference between a good prototype and a build safe t
   optional Google Drive backup stores only encrypted copies in `appDataFolder`.
 - [x] Add WHFIN-code/strong-biometric App Lock, protected recent-apps snapshots and an explicit
   capture-only widget policy. Quick entry intentionally bypasses App Lock; it cannot read history/balances.
+- [x] Harden the private MyCredo connector: explicit versioned AES-256-GCM Keystore credentials,
+  encrypted username, active-App-Lock opt-in, HTTPS host/redirect enforcement and in-product disclosure.
 - [ ] Complete the Google Play Data safety form and the restricted SMS permission declaration.
 
 ## Release engineering

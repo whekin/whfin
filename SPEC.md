@@ -124,9 +124,11 @@ hash, тип, masked/parsed поля и результат. История чи�
   заблокированном устройстве без явного opt-in.
 - Для личной dogfood-сборки разрешён отдельный foreground-коннектор к текущему веб-протоколу MyCredo:
   он только скачивает XLSX,
-  не выполняет платежей и не обещает стабильность. Пароль можно не сохранять; при opt-in он хранится
-  только device-local как AES-GCM ciphertext с non-exportable Android Keystore key, исключён из
-  Android/JSON backup. OTP существует только в памяти текущего входа и отправляется по явной кнопке.
+  не выполняет платежей и не обещает стабильность. Login и пароль можно не сохранять; при явном opt-in
+  и активной App Lock они хранятся только device-local одним AES-256-GCM ciphertext с versioned
+  non-exportable Android Keystore key, без plaintext-дубликата username и вне Android/JSON backup.
+  OTP и session tokens существуют только в памяти текущего входа. Connector принимает только ожидаемый
+  Credo HTTPS host без redirect; это read-only поверхность WHFIN, а не банковское ограничение credential.
   Контракт и границы: [docs/credo-private-sync.md](docs/credo-private-sync.md).
 - История выписок хранит происхождение загрузки (`FILE | CREDO_SYNC`) отдельно от банковского
   StatementSource. Ручные и MyCredo-загрузки показываются вместе. Безопасно удалить можно только no-op

@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.credo
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.test.core.app.ApplicationProvider
 import java.util.ArrayDeque
 import kotlinx.coroutines.runBlocking
@@ -84,6 +85,28 @@ class MyCredoGatewayTest {
 
         assertTrue(error is CredoApiException)
         assertEquals("UNAUTHORIZED", (error as CredoApiException).code)
+    }
+
+    @Test
+    fun productionTransport_rejectsCleartextAndUnexpectedHostsBeforeSendingCredentials() {
+        val transport = UrlConnectionCredoTransport("WHFIN test")
+
+        val cleartext = runCatching {
+            transport.post("http://mobileapp.mycredo.ge/api/Auth/Initiate", emptyMap(), "secret")
+        }.exceptionOrNull()
+        val unexpectedHost = runCatching {
+            transport.post("https://example.com/api/Auth/Initiate", emptyMap(), "secret")
+        }.exceptionOrNull()
+
+        assertEquals("INSECURE_ENDPOINT", (cleartext as CredoApiException).code)
+        assertEquals("INSECURE_ENDPOINT", (unexpectedHost as CredoApiException).code)
+    }
+
+    @Test
+    fun applicationManifest_disablesCleartextTraffic() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        assertEquals(0, context.applicationInfo.flags and ApplicationInfo.FLAG_USES_CLEARTEXT_TRAFFIC)
     }
 
     private data class Call(
