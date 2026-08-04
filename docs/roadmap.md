@@ -116,8 +116,8 @@ production bank sync.
 
 - [x] Изолировать read-only adapter: login/OTP, accounts и экспорт XLSX; платежные mutations отсутствуют.
 - [x] Пускать каждую скачанную выписку через существующий `StatementImporter`, дедуп и реконсиляцию.
-- [x] Хранить optional login+пароль только в отдельном AES-256-GCM store с versioned Android Keystore
-  key; не дублировать username открытым, мигрировать legacy ciphertext, исключить secret preferences,
+- [x] Хранить optional login+пароль только в отдельном single-format AES-256-GCM store с Android Keystore
+  key; не дублировать username открытым, исключить secret preferences,
   OTP и access/refresh tokens из Android backup и переносимого JSON.
 - [x] Первый этап оставить foreground-only: access/refresh tokens не персистятся, фоновых retry нет,
   OTP не читается и не подтверждается автоматически.

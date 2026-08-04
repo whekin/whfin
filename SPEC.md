@@ -125,7 +125,7 @@ hash, тип, masked/parsed поля и результат. История чи�
 - Для личной dogfood-сборки разрешён отдельный foreground-коннектор к текущему веб-протоколу MyCredo:
   он только скачивает XLSX,
   не выполняет платежей и не обещает стабильность. Login и пароль можно не сохранять; при явном opt-in
-  и активной App Lock они хранятся только device-local одним AES-256-GCM ciphertext с versioned
+  и активной App Lock они хранятся только device-local одним AES-256-GCM ciphertext единственного формата с
   non-exportable Android Keystore key, без plaintext-дубликата username и вне Android/JSON backup.
   OTP и session tokens существуют только в памяти текущего входа. Connector принимает только ожидаемый
   Credo HTTPS host без redirect; это read-only поверхность WHFIN, а не банковское ограничение credential.

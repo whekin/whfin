@@ -24,15 +24,15 @@ a new OTP.
   read-only scope on the user's MyCredo credential.
 - OTP, access token and refresh token are memory-only and are not logged, exported or backed up.
 - Remembering the login is opt-in and disabled until WHFIN App Lock is actively enabled. Username and
-  password share one authenticated AES-256-GCM payload under a versioned, non-exportable Android
-  Keystore key; the username is not duplicated as plaintext preferences. Existing v1 ciphertext is
-  re-encrypted with the v2 key after the first successful read, then the legacy key is deleted.
+  password share one authenticated AES-256-GCM payload under a non-exportable Android Keystore key;
+  the username is not duplicated as plaintext preferences. Before production there is deliberately no
+  credential migration path: an incompatible development ciphertext is deleted and must be re-entered.
   App Lock is the product access gate; its PIN is not an encryption key and is not derivation material
   for the bank credential. Opening the connector without active App Lock deletes saved credentials.
 - `whfin_credo_secrets` and `whfin_credo_device` preferences are outside the strict Android backup
   allowlist. Portable JSON backup uses a database-table allowlist and cannot include either file.
-- “Forget MyCredo login” clears the stored ciphertext and deletes both current and legacy Keystore keys.
-  It does not revoke an active bank session server-side because the current public protocol exposes no
+- “Forget MyCredo login” clears the stored ciphertext and deletes its Keystore key. It does not revoke
+  an active bank session server-side because the current public protocol exposes no
   verified logout contract.
 
 ## Failure policy
@@ -61,7 +61,8 @@ Credential hardening (2026-08-04):
 
 - The Keystore key size is explicit rather than provider-dependent: AES-256-GCM with a 128-bit tag,
   randomized IV and purpose/version AAD. An Android instrumentation test reads `KeyInfo.keySize` from
-  the generated key and verifies the legacy-ciphertext migration on the platform Keystore.
+  the generated key and verifies round-trip, deletion and corrupted-ciphertext failure on the platform
+  Keystore. The unused legacy migration was removed before production; only one credential format exists.
 - The password field uses composition-only state and is cleared after the login challenge advances; it
   is never placed in Compose saved-instance state. Remembering is no longer preselected for new logins.
 - The sign-in screen explains the direct connection, local encryption, non-persistence of OTP/session
