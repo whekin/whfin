@@ -9,6 +9,7 @@ import dev.whekin.whfin.data.crypto.CryptoAddressValidator
 import dev.whekin.whfin.data.crypto.CryptoBalanceRepository
 import dev.whekin.whfin.data.crypto.CryptoEndpoints
 import dev.whekin.whfin.data.crypto.CryptoNetwork
+import dev.whekin.whfin.data.crypto.CryptoWalletRepository
 import dev.whekin.whfin.data.crypto.HttpCryptoBalanceProvider
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.preferences.nextDisplayCurrency
@@ -18,6 +19,7 @@ import dev.whekin.whfin.data.rates.NbgFiatRateProvider
 import dev.whekin.whfin.data.rates.NetWorthSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.data.rates.RatesRepository
+import dev.whekin.whfin.data.rates.toRate
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategorySeeder
@@ -58,6 +60,8 @@ data class AccountWithBalance(
     val cardMasks: List<String>,
     val virtualCardMasks: List<String> = emptyList(),
     val address: String? = null,
+    /** Chain of a watch-only ledger, so the UI can name the network the number came from. */
+    val chainId: String? = null,
     val groupName: String? = null,
     /** Watch-only chains report a balance instead of deriving it from transactions. */
     val onChain: OnChainBalance? = null,
@@ -123,14 +127,20 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
         val (groupById, addressById, balanceByAccount) = metadata
         list.map {
+            val walletAddress = it.walletAddressId?.let(addressById::get)
             AccountWithBalance(
-                it,
-                byAccount[it.id] ?: 0L,
-                cardsByAccount[it.id].orEmpty().filter { card -> card.type == PaymentInstrumentType.PHYSICAL_CARD }.map { card -> card.last4 },
-                cardsByAccount[it.id].orEmpty().filter { card -> card.type == PaymentInstrumentType.VIRTUAL_CARD }.map { card -> card.last4 },
-                it.walletAddressId?.let(addressById::get)?.address,
-                it.groupId?.let(groupById::get)?.name,
-                balanceByAccount[it.id]?.let { row ->
+                account = it,
+                balanceMinor = byAccount[it.id] ?: 0L,
+                cardMasks = cardsByAccount[it.id].orEmpty()
+                    .filter { card -> card.type == PaymentInstrumentType.PHYSICAL_CARD }
+                    .map { card -> card.last4 },
+                virtualCardMasks = cardsByAccount[it.id].orEmpty()
+                    .filter { card -> card.type == PaymentInstrumentType.VIRTUAL_CARD }
+                    .map { card -> card.last4 },
+                address = walletAddress?.address,
+                chainId = walletAddress?.chainId,
+                groupName = it.groupId?.let(groupById::get)?.name,
+                onChain = balanceByAccount[it.id]?.let { row ->
                     OnChainBalance(row.baseUnits, row.decimals, row.observedAt, row.source)
                 },
             )
@@ -174,16 +184,29 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         providers = listOf(NbgFiatRateProvider(), CoinGeckoPriceProvider()),
     )
 
-    private val balanceRepository = CryptoBalanceRepository(
-        db = db,
-        provider = HttpCryptoBalanceProvider(endpoints = { endpoints }),
-    )
+    private val chainProvider = HttpCryptoBalanceProvider(endpoints = { endpoints })
+
+    private val balanceRepository = CryptoBalanceRepository(db = db, provider = chainProvider)
+
+    private val walletRepository = CryptoWalletRepository(db = db, provider = chainProvider)
 
     @Volatile
     private var endpoints = CryptoEndpoints()
 
     private val _cryptoRefreshing = MutableStateFlow(false)
     val cryptoRefreshing: StateFlow<Boolean> = _cryptoRefreshing
+
+    /**
+     * Chain holdings read as one portfolio: a ticker held in three wallets is one number, and the
+     * subtotal follows the same display currency as the headline.
+     */
+    val cryptoPortfolio: StateFlow<CryptoPortfolio?> = combine(
+        accountRows,
+        db.exchangeRateDao().observeAll(),
+        preferences.displayCurrency,
+    ) { rows, rateRows, display ->
+        buildCryptoPortfolio(rows, rateRows.map(::toRate).associateBy { it.code }, display)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         viewModelScope.launch {
@@ -209,13 +232,21 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _cryptoRefreshing.value = true
             val app = getApplication<Application>()
-            val result = withContext(Dispatchers.IO) {
+            val outcome = withContext(Dispatchers.IO) {
                 // A wallet total is only meaningful with a price next to it, so both move together.
                 ratesRepository.refresh()
-                balanceRepository.refreshAll()
+                // An asset that arrived after the wallet was added has no ledger yet, so a refresh
+                // looks for it before re-reading the ones already known.
+                val discovered = runCatching { walletRepository.discoverNewAssets() }.getOrNull()
+                discovered to balanceRepository.refreshAll()
             }
+            val (discovered, result) = outcome
             _cryptoRefreshing.value = false
             _message.value = when {
+                discovered != null && discovered.created.isNotEmpty() -> app.getString(
+                    R.string.crypto_assets_discovered,
+                    discovered.created.joinToString(" · "),
+                )
                 result.isEmpty -> null
                 result.failed == 0 -> app.getString(R.string.crypto_refresh_done, result.refreshed)
                 result.refreshed == 0 -> app.getString(R.string.crypto_refresh_failed)
@@ -236,13 +267,51 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { _message.value = it.message ?: "Could not update debt" }
     }
 
+    /**
+     * A watch-only wallet is added by address alone: which assets it holds is a question for the
+     * chain, not for the person, so the ledgers appear from the reading.
+     */
+    fun addCryptoWallet(name: String?, network: CryptoNetwork, address: String) {
+        if (_cryptoRefreshing.value) return
+        viewModelScope.launch {
+            _cryptoRefreshing.value = true
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                // A wallet without prices reads as a bare token count, so quotes come along.
+                runCatching { ratesRepository.refreshIfStale() }
+                runCatching { walletRepository.addWallet(name, network, address) }
+            }
+            _cryptoRefreshing.value = false
+            _message.value = result.fold(
+                onSuccess = { outcome ->
+                    when (outcome) {
+                        is CryptoWalletRepository.AddResult.InvalidAddress -> when (outcome.problem) {
+                            CryptoAddressValidator.Problem.CHECKSUM ->
+                                app.getString(R.string.account_address_checksum)
+                            else -> app.getString(R.string.account_address_invalid, network.displayName)
+                        }
+                        CryptoWalletRepository.AddResult.UnsupportedNetwork ->
+                            app.getString(R.string.account_asset_unsupported)
+                        is CryptoWalletRepository.AddResult.Tracked -> when {
+                            outcome.funded.isNotEmpty() -> app.getString(
+                                R.string.crypto_wallet_added,
+                                outcome.funded.joinToString(" · "),
+                            )
+                            outcome.failed > 0 -> app.getString(R.string.crypto_wallet_added_unread)
+                            else -> app.getString(R.string.crypto_wallet_added_empty)
+                        }
+                    }
+                },
+                onFailure = { app.getString(R.string.crypto_wallet_add_failed) },
+            )
+        }
+    }
+
     fun addAccount(
         name: String,
         type: AccountType,
         currency: String,
-        address: String? = null,
         bankProvider: String? = null,
-        network: CryptoNetwork? = null,
     ) {
         viewModelScope.launch {
             db.withTransaction {
@@ -257,75 +326,20 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     return@withTransaction
                 }
-                if (type == AccountType.CRYPTO && address != null) {
-                    // The network is a user choice, never guessed from the address shape: a typo
-                    // must fail here instead of silently creating a ledger on the wrong chain.
-                    val chain = network ?: return@withTransaction fail(R.string.account_network_required)
-                    val checked = CryptoAddressValidator.check(chain, address)
-                    val validAddress = (checked as? CryptoAddressValidator.Result.Valid)?.address
-                        ?: return@withTransaction failAddress(chain, checked)
-                    val asset = chain.asset(normalizedCurrency)
-                        ?: return@withTransaction fail(R.string.account_asset_unsupported)
-
-                    val existingAddress = db.cryptoDao().address(chain.chainId, validAddress)
-                    val groupId = existingAddress?.groupId ?: db.financialGroupDao().insert(
-                        FinancialGroupEntity(
-                            name = normalizedName,
-                            type = FinancialGroupType.WALLET,
-                            provider = chain.chainId,
-                        ),
-                    )
-                    val addressId = existingAddress?.id ?: db.cryptoDao().insertAddress(
-                        WalletAddressEntity(groupId = groupId, chainId = chain.chainId, address = validAddress),
-                    )
-                    val existingAsset = db.cryptoDao().asset(chain.chainId, asset.contractAddress)
-                    val assetId = existingAsset?.id ?: db.cryptoDao().insertAsset(
-                        CryptoAssetEntity(
-                            chainId = chain.chainId,
-                            contractAddress = asset.contractAddress,
-                            symbol = asset.symbol,
-                            name = asset.name,
-                            decimals = asset.decimals,
-                        ),
-                    )
-                    db.accountDao().insert(
-                        AccountEntity(
-                            name = normalizedName,
-                            type = type,
-                            currency = asset.symbol,
-                            groupId = groupId,
-                            walletAddressId = addressId,
-                            cryptoAssetId = assetId,
-                        ),
-                    )
-                } else {
-                    val groupId = if (type == AccountType.BANK) {
-                        val provider = bankProvider ?: normalizedName
-                        db.financialGroupDao().byProvider(FinancialGroupType.BANK, provider)?.id
-                            ?: db.financialGroupDao().insert(
-                                FinancialGroupEntity(name = provider, type = FinancialGroupType.BANK, provider = provider),
-                            )
-                    } else null
-                    db.accountDao().insert(
-                        AccountEntity(
-                            name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
-                            savingsMode = SavingsMode.FLEXIBLE_RESERVE.takeIf { type == AccountType.SAVINGS },
-                        ),
-                    )
-                }
+                val groupId = if (type == AccountType.BANK) {
+                    val provider = bankProvider ?: normalizedName
+                    db.financialGroupDao().byProvider(FinancialGroupType.BANK, provider)?.id
+                        ?: db.financialGroupDao().insert(
+                            FinancialGroupEntity(name = provider, type = FinancialGroupType.BANK, provider = provider),
+                        )
+                } else null
+                db.accountDao().insert(
+                    AccountEntity(
+                        name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
+                        savingsMode = SavingsMode.FLEXIBLE_RESERVE.takeIf { type == AccountType.SAVINGS },
+                    ),
+                )
             }
-        }
-    }
-
-    private fun fail(messageRes: Int) {
-        _message.value = getApplication<Application>().getString(messageRes)
-    }
-
-    private fun failAddress(network: CryptoNetwork, result: CryptoAddressValidator.Result) {
-        val app = getApplication<Application>()
-        _message.value = when ((result as? CryptoAddressValidator.Result.Invalid)?.problem) {
-            CryptoAddressValidator.Problem.CHECKSUM -> app.getString(R.string.account_address_checksum)
-            else -> app.getString(R.string.account_address_invalid, network.displayName)
         }
     }
 
@@ -340,6 +354,23 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             val normalizedName = name.trim().ifBlank { if (account.type == AccountType.CASH) "Cash" else account.name }
             val groupId = account.groupId
             val iban = account.iban
+            // A wallet is one address with several asset ledgers under it, and the name belongs to
+            // the wallet: renaming one asset row and leaving the others is not a state worth having.
+            if (account.type == AccountType.CRYPTO) {
+                db.withTransaction {
+                    if (groupId != null) {
+                        db.financialGroupDao().byId(groupId)?.let { group ->
+                            db.financialGroupDao().update(group.copy(name = normalizedName))
+                        }
+                        db.accountDao().byGroup(groupId).forEach { row ->
+                            db.accountDao().update(row.copy(name = normalizedName))
+                        }
+                    } else {
+                        db.accountDao().update(account.copy(name = normalizedName))
+                    }
+                }
+                return@launch
+            }
             if (groupId != null && iban != null &&
                 (account.type == AccountType.BANK || account.type == AccountType.SAVINGS)
             ) {
@@ -416,6 +447,28 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             _message.value = "Account deleted"
+        }
+    }
+
+    /**
+     * Deleting one asset row of a watch-only wallet would be undone by the next discovery pass, so
+     * the address goes as a whole: its ledgers and observations follow it by CASCADE.
+     */
+    fun deleteCryptoWallet(account: AccountEntity) {
+        viewModelScope.launch {
+            db.withTransaction {
+                val addressId = account.walletAddressId
+                if (addressId == null) {
+                    db.accountDao().delete(account.id)
+                } else {
+                    db.cryptoDao().deleteAddress(addressId)
+                }
+                val groupId = account.groupId
+                if (groupId != null && db.accountDao().countInGroup(groupId) == 0) {
+                    db.financialGroupDao().delete(groupId)
+                }
+            }
+            _message.value = getApplication<Application>().getString(R.string.crypto_wallet_deleted)
         }
     }
 

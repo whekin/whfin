@@ -1,5 +1,6 @@
 package dev.whekin.whfin.data.crypto
 
+import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -79,9 +80,13 @@ class CryptoAddressValidatorTest {
 
     @Test
     fun `each network exposes only assets it can actually track`() {
-        assertEquals(listOf("ETH", "USDT"), CryptoNetwork.ETHEREUM.assets.map { it.symbol })
-        assertEquals(listOf("TRX", "USDT"), CryptoNetwork.TRON.assets.map { it.symbol })
-        assertEquals(listOf("ETH", "USDT", "TRX"), CryptoNetwork.supportedSymbols)
+        assertEquals(listOf("ETH", "USDT", "USDC"), CryptoNetwork.ETHEREUM.assets.map { it.symbol })
+        assertEquals(listOf("TRX", "USDT", "USDC"), CryptoNetwork.TRON.assets.map { it.symbol })
+        assertEquals(listOf("ETH", "USDT", "USDC", "TRX"), CryptoNetwork.supportedSymbols)
+        // Discovery reads the whole catalog per address, and every ticker in it must be priceable.
+        assertTrue(CryptoNetwork.supportedSymbols.all { it in CoinGeckoPriceProvider.ASSETS.values })
+        assertEquals("ETH", CryptoNetwork.ETHEREUM.nativeAsset.symbol)
+        assertEquals("TRX", CryptoNetwork.TRON.nativeAsset.symbol)
         assertNull(CryptoNetwork.ETHEREUM.asset("BTC"))
         assertNull(CryptoNetwork.TRON.asset("TON"))
     }

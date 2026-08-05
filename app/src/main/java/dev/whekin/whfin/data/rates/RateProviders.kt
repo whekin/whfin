@@ -136,6 +136,7 @@ class CoinGeckoPriceProvider(
             "ethereum" to "ETH",
             "tron" to "TRX",
             "tether" to "USDT",
+            "usd-coin" to "USDC",
         )
         private val PRECISION = MathContext(24)
     }

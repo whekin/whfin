@@ -52,6 +52,10 @@ interface AccountDao {
 
     @Query("SELECT * FROM accounts WHERE groupId = :groupId AND isArchived = 0 ORDER BY sortOrder, id")
     suspend fun byGroup(groupId: Long): List<AccountEntity>
+
+    /** Every asset ledger of one watch-only address, archived ones included: they still hold the index. */
+    @Query("SELECT * FROM accounts WHERE walletAddressId = :addressId ORDER BY id")
+    suspend fun byWalletAddress(addressId: Long): List<AccountEntity>
 }
 
 @Dao
@@ -164,6 +168,10 @@ interface CryptoDao {
     @Query("SELECT * FROM wallet_addresses WHERE chainId = :chainId AND address = :address LIMIT 1")
     suspend fun address(chainId: String, address: String): WalletAddressEntity?
     @Query("SELECT * FROM wallet_addresses ORDER BY id") fun observeAddresses(): Flow<List<WalletAddressEntity>>
+    @Query("SELECT * FROM wallet_addresses ORDER BY id") suspend fun allAddresses(): List<WalletAddressEntity>
+
+    /** Accounts and their observations hang off the address by CASCADE, so this drops the wallet. */
+    @Query("DELETE FROM wallet_addresses WHERE id = :id") suspend fun deleteAddress(id: Long)
     @Query("SELECT * FROM crypto_assets WHERE id = :id") suspend fun assetById(id: Long): CryptoAssetEntity?
 
     @Query("SELECT * FROM crypto_balances ORDER BY accountId") fun observeBalances(): Flow<List<CryptoBalanceEntity>>

@@ -22,6 +22,12 @@ enum class CryptoNetwork(val chainId: String, val displayName: String) {
                     decimals = 6,
                     contractAddress = "0xdac17f958d2ee523a2206206994597c13d831ec7",
                 ),
+                CryptoAssetSpec(
+                    symbol = "USDC",
+                    name = "USD Coin",
+                    decimals = 6,
+                    contractAddress = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                ),
             )
             TRON -> listOf(
                 CryptoAssetSpec("TRX", "Tronix", decimals = 6, contractAddress = null),
@@ -31,8 +37,17 @@ enum class CryptoNetwork(val chainId: String, val displayName: String) {
                     decimals = 6,
                     contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
                 ),
+                CryptoAssetSpec(
+                    symbol = "USDC",
+                    name = "USD Coin",
+                    decimals = 6,
+                    contractAddress = "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8",
+                ),
             )
         }
+
+    /** Coin of the chain itself: the one asset an address always has, even at zero. */
+    val nativeAsset: CryptoAssetSpec get() = assets.first { it.contractAddress == null }
 
     fun asset(symbol: String): CryptoAssetSpec? =
         assets.firstOrNull { it.symbol.equals(symbol.trim(), ignoreCase = true) }

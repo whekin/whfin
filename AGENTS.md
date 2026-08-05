@@ -492,6 +492,24 @@ This is a single-context repository with root domain documentation and system-wi
   16 unit-тестов (конвертер + адаптеры на реальных формах ответов), 5 instrumented тестов repository
   и migration 5→6; на disposable Pixel проверено 34 975.97 ₾ → $13 316.06 → 1 066 112.95 RUB с
   совпадением Feed и Accounts. Детали: `docs/exchange-rates.md`
+  Четвёртый слайс сделал кошелёк address-first и убрал руками выбираемый актив. `CryptoWalletRepository`
+  создаёт кошелёк по паре сеть+адрес: чтение всех активов каталога идёт ДО транзакции, ledger появляется
+  только у актива с непустым балансом (пустой USDC не оставляет вечный нулевой счёт), а адрес, который
+  не удалось прочитать вообще, сохраняется с нативным непрочитанным ledger — набранный адрес не теряется.
+  Повторное добавление того же адреса больше не падает на unique-индексе `(walletAddressId, cryptoAssetId)`
+  (реальный краш на OnePlus при USDT-TRC20), а дополняет тот же кошелёк; refresh сначала ищет активы,
+  появившиеся позже (`discoverNewAssets`), и только потом перечитывает известные. Каталог расширен USDC
+  на обеих сетях, CoinGecko получил `usd-coin`; любой тикер каталога обязан быть в списке цен (закреплено
+  тестом). В Accounts крипта — отдельная секция, а не «everyday»-счёт: строка на тикер с суммой по всем
+  кошелькам (USDT-ERC20 + USDT-TRC20 в одной строке, в базе по-прежнему разные активы), раскрытие даёт
+  каждый кошелёк с сетью и коротким адресом, а подытог всей крипты крутится тем же GEL/USD/RUB, что и
+  шапка. Ничего не оценено — прочерк, а не ложный `0.00 ₾`. Watch-only ledger больше не предлагает
+  Adjust balance и не показывает сумму транзакций как баланс: в Account activity стоит on-chain число с
+  датой чтения, Rename wallet и удаление всего адреса (удалить один актив бессмысленно — его вернёт
+  следующая discovery). Обзор счетов не печатает `0.00 USDT` для watch-only. 7 unit-тестов агрегации,
+  обновлённые Compose-тесты формы и 6 instrumented тестов repository; 64 instrumented теста и весь
+  unit-прогон зелёные на disposable Pixel, там же проверены demo-портфель, раскрытие USDT по двум
+  кошелькам, повторное добавление уже отслеживаемого адреса без краша и EN/RU при font 1.5
 - [ ] Google Play release — отдельный этап: stable privacy URL/support, third-party notices,
   release signing/versioning, store listing, Data Safety + restricted SMS declaration,
   internal/closed testing, pre-launch report и полный release QA. Официальные банковские API

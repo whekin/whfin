@@ -32,20 +32,29 @@ class AddAccountSheetTest {
         val name: String,
         val type: AccountType,
         val currency: String,
-        val address: String?,
-        val network: CryptoNetwork?,
+    )
+
+    private data class SavedWallet(
+        val name: String?,
+        val network: CryptoNetwork,
+        val address: String,
     )
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
-    private fun show(initialType: AccountType, onSave: (Saved) -> Unit) {
+    private fun show(
+        initialType: AccountType,
+        onSave: (Saved) -> Unit = {},
+        onSaveWallet: (SavedWallet) -> Unit = {},
+    ) {
         compose.setContent {
             WhfinTheme {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, address, _, network ->
-                        onSave(Saved(name, type, currency, address, network))
+                    onConfirm = { name, type, currency, _ -> onSave(Saved(name, type, currency)) },
+                    onConfirmWallet = { name, network, address ->
+                        onSaveWallet(SavedWallet(name, network, address))
                     },
                     initialType = initialType,
                 )
@@ -61,7 +70,7 @@ class AddAccountSheetTest {
     @Test
     fun cashNameIsOptionalAndDefaultsToCash() {
         var saved: Saved? = null
-        show(AccountType.CASH) { saved = it }
+        show(AccountType.CASH, onSave = { saved = it })
 
         compose.onNodeWithText(context.getString(R.string.account_name)).assertExists()
         compose.onNodeWithText(context.getString(R.string.action_save)).assertIsEnabled().performClick()
@@ -69,7 +78,6 @@ class AddAccountSheetTest {
         assertEquals("Cash", saved?.name)
         assertEquals(AccountType.CASH, saved?.type)
         assertEquals("GEL", saved?.currency)
-        assertNull(saved?.network)
     }
 
     @Test
@@ -80,9 +88,7 @@ class AddAccountSheetTest {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, address, _, network ->
-                        saved = Saved(name, type, currency, address, network)
-                    },
+                    onConfirm = { name, type, currency, _ -> saved = Saved(name, type, currency) },
                 )
             }
         }
@@ -95,48 +101,41 @@ class AddAccountSheetTest {
     }
 
     @Test
-    fun cryptoRequiresAnAddressThatMatchesTheSelectedNetwork() {
-        var saved: Saved? = null
-        show(AccountType.CRYPTO) { saved = it }
+    fun aWalletIsTrackedByAddressAndNetworkAlone() {
+        var wallet: SavedWallet? = null
+        show(AccountType.CRYPTO, onSaveWallet = { wallet = it })
 
-        type(R.string.account_name, "Wallet")
-        val save = compose.onNodeWithText(context.getString(R.string.action_save))
-        save.assertIsNotEnabled()
-
-        // A valid Tron address is not a valid Ethereum address: the chosen network decides.
+        val track = compose.onNodeWithText(context.getString(R.string.crypto_wallet_track))
+        // Nothing else is required, but an address on the wrong chain still is not one.
+        track.assertIsNotEnabled()
         type(R.string.account_address, TRON_ADDRESS)
-        save.assertIsNotEnabled()
+        track.assertIsNotEnabled()
         compose.onNodeWithText(
             context.getString(R.string.account_address_invalid, CryptoNetwork.ETHEREUM.displayName),
         ).assertExists()
 
         tap(CryptoNetwork.TRON.displayName)
-        save.assertIsEnabled().performClick()
+        track.assertIsEnabled().performClick()
 
-        assertEquals(CryptoNetwork.TRON, saved?.network)
-        assertEquals(TRON_ADDRESS, saved?.address)
-        assertEquals("TRX", saved?.currency)
+        assertEquals(CryptoNetwork.TRON, wallet?.network)
+        assertEquals(TRON_ADDRESS, wallet?.address)
+        // An unnamed wallet is named after its chain and address later, not with an empty string.
+        assertNull(wallet?.name)
     }
 
     @Test
-    fun switchingNetworkKeepsAnAssetThatExistsOnBothChains() {
-        var saved: Saved? = null
-        show(AccountType.CRYPTO) { saved = it }
+    fun theAssetsAreNotAskedOfThePerson() {
+        show(AccountType.CRYPTO)
 
-        type(R.string.account_name, "Wallet")
-        tap("USDT")
-        tap(CryptoNetwork.TRON.displayName)
-        type(R.string.account_address, TRON_ADDRESS)
-        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
-
-        // USDT exists on both chains, so the ticker survives while the network changes.
-        assertEquals("USDT", saved?.currency)
-        assertEquals(CryptoNetwork.TRON, saved?.network)
+        // Which tokens sit on an address is a question for the chain: no asset rail, no tickers.
+        compose.onNodeWithText(context.getString(R.string.account_asset)).assertDoesNotExist()
+        compose.onNodeWithText("USDT").assertDoesNotExist()
+        compose.onNodeWithText("TRX").assertDoesNotExist()
     }
 
     @Test
     fun unimplementedChainsAreNotOffered() {
-        show(AccountType.CRYPTO) {}
+        show(AccountType.CRYPTO)
 
         compose.onNodeWithText("BTC").assertDoesNotExist()
         compose.onNodeWithText("TON").assertDoesNotExist()

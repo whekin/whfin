@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinActionMenu
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
@@ -70,6 +71,7 @@ import dev.whekin.whfin.ui.feed.DebtPersonSheet
 import dev.whekin.whfin.ui.feed.AddTransactionSheet
 import dev.whekin.whfin.ui.feed.FeedViewModel
 import dev.whekin.whfin.ui.currencySymbol
+import dev.whekin.whfin.ui.formatBaseUnits
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
@@ -274,13 +276,23 @@ internal fun AccountTransactionsScreen(
                 bankMapping = false
             },
         )
+        // Deleting one asset row of a wallet would come back with the next discovery pass, so a
+        // watch-only ledger is removed as the whole address it belongs to.
+        val isWallet = item.account.type == AccountType.CRYPTO
         if (deleteAccount) WhfinConfirmDialog(
-            title = stringResource(R.string.account_delete),
-            body = stringResource(R.string.account_delete_confirmation, item.account.name),
-            confirmLabel = stringResource(R.string.account_delete),
+            title = stringResource(if (isWallet) R.string.crypto_wallet_delete else R.string.account_delete),
+            body = stringResource(
+                if (isWallet) R.string.crypto_wallet_delete_confirmation
+                else R.string.account_delete_confirmation,
+                item.account.name,
+            ),
+            confirmLabel = stringResource(
+                if (isWallet) R.string.crypto_wallet_delete else R.string.account_delete,
+            ),
             dismissLabel = stringResource(R.string.action_cancel),
             onConfirm = {
-                    accountsViewModel.deleteAccountContainer(containerRows.map { it.account })
+                    if (isWallet) accountsViewModel.deleteCryptoWallet(item.account)
+                    else accountsViewModel.deleteAccountContainer(containerRows.map { it.account })
                     deleteAccount = false
                     onBack()
             },
@@ -349,10 +361,16 @@ private fun AccountTransactionsContent(
                 )
             }
             if (empty) item(key = "account-transactions-empty") {
+                val chain = account.type == AccountType.CRYPTO
                 WhfinStatePane(
                     WhfinPaneState.Empty,
-                    stringResource(R.string.account_transactions_empty),
-                    stringResource(R.string.account_transactions_empty_body),
+                    stringResource(
+                        if (chain) R.string.crypto_activity_empty else R.string.account_transactions_empty,
+                    ),
+                    stringResource(
+                        if (chain) R.string.crypto_activity_empty_body
+                        else R.string.account_transactions_empty_body,
+                    ),
                     Modifier.fillMaxWidth(),
                 )
             }
@@ -407,16 +425,26 @@ private fun AccountTransactionsScope(
     onBankMapping: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val accountDetail = account.iban?.let {
-        stringResource(R.string.account_transactions_iban_currency, it.takeLast(4), account.currency)
-    } ?: account.currency
+    val isChain = account.type == AccountType.CRYPTO
+    val accountDetail = when {
+        // A watch-only row is one asset at one address: naming the chain says more than a ticker.
+        isChain -> listOfNotNull(
+            accountRow?.chainId?.let { CryptoNetwork.byChainId(it)?.displayName },
+            account.currency,
+            accountRow?.address?.let(::shortAddress),
+        ).joinToString(" · ")
+        account.iban != null ->
+            stringResource(R.string.account_transactions_iban_currency, account.iban.takeLast(4), account.currency)
+        else -> account.currency
+    }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         WhfinSectionHeader(
-            title = account.name,
+            // A wallet is named once, at the address; the ticker belongs to the line under it.
+            title = if (isChain) accountRow?.groupName ?: account.name else account.name,
             supportingText = accountDetail,
             trailing = if (accountRow == null) null else {
                 {
@@ -446,7 +474,10 @@ private fun AccountTransactionsScope(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        stringResource(R.string.account_delete),
+                                        stringResource(
+                                            if (isChain) R.string.crypto_wallet_delete
+                                            else R.string.account_delete,
+                                        ),
                                         color = MaterialTheme.colorScheme.error,
                                     )
                                 },
@@ -467,21 +498,37 @@ private fun AccountTransactionsScope(
                 }
             },
         )
-        WhfinFieldLabel(stringResource(R.string.account_transactions_balance))
+        // A chain balance is the last reading of the address, never a sum of local rows: showing the
+        // transactions total here would print a confident zero for money that is plainly there.
+        val onChain = accountRow?.onChain.takeIf { isChain }
+        WhfinFieldLabel(
+            if (isChain) {
+                onChain?.let { stringResource(R.string.crypto_observed_at, relativeTime(it.observedAt)) }
+                    ?: stringResource(R.string.crypto_never_refreshed)
+            } else {
+                stringResource(R.string.account_transactions_balance)
+            },
+        )
         WhfinAmount(
-            formatMinor(balanceMinor, account.currency),
-            symbol = currencySymbol(account.currency),
+            when {
+                !isChain -> formatMinor(balanceMinor, account.currency)
+                onChain != null -> "${formatBaseUnits(onChain.baseUnits, onChain.decimals)} ${account.currency}"
+                else -> "—"
+            },
+            symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
             style = MaterialTheme.typography.headlineLarge,
         )
         if (accountRow != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AccountActivityAction(
                     icon = Icons.Default.Edit,
-                    label = stringResource(R.string.account_edit),
+                    label = stringResource(if (isChain) R.string.crypto_wallet_rename else R.string.account_edit),
                     onClick = onEdit,
                     modifier = Modifier.weight(1f),
                 )
-                AccountActivityAction(
+                // Adjusting a watch-only balance would be arguing with the chain, so the action is
+                // absent rather than disabled.
+                if (!isChain) AccountActivityAction(
                     icon = Icons.Default.Tune,
                     label = stringResource(R.string.account_adjust_currency, account.currency),
                     onClick = onAdjust,

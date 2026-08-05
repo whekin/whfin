@@ -68,7 +68,6 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.data.rates.ConvertedTotal
 import dev.whekin.whfin.ui.convertedTotalLabel
-import dev.whekin.whfin.ui.formatBaseUnits
 import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.settings.BankStatementsViewModel
@@ -97,7 +96,7 @@ import androidx.compose.foundation.verticalScroll
 
 /** "just now" beats a precise timestamp for a value the user just pulled themselves. */
 @Composable
-private fun relativeTime(millis: Long): String = android.text.format.DateUtils.getRelativeTimeSpanString(
+internal fun relativeTime(millis: Long): String = android.text.format.DateUtils.getRelativeTimeSpanString(
     millis,
     System.currentTimeMillis(),
     android.text.format.DateUtils.MINUTE_IN_MILLIS,
@@ -131,8 +130,11 @@ fun AccountsScreen(
     val netWorth by viewModel.netWorth.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
-    val gelBalance = accounts.filter { it.account.currency == "GEL" }.sumOf { it.balanceMinor }
-    val accountContainers = accounts.groupBy { item ->
+    val cryptoPortfolio by viewModel.cryptoPortfolio.collectAsState()
+    // A watch-only wallet is not an everyday account: it has its own reading below, grouped by asset
+    // instead of by container, so it never lands in the fiat sections.
+    val ledgerAccounts = accounts.filterNot { it.account.type == AccountType.CRYPTO }
+    val accountContainers = ledgerAccounts.groupBy { item ->
         item.account.groupId to (item.account.iban ?: "account-${item.account.id}")
     }.values
     val everydayAccounts = accountContainers.filterNot { container ->
@@ -233,7 +235,9 @@ fun AccountsScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp),
                 ) {
                     item(key = "accounts-summary") {
-                        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { AccountsSummary(accounts) }
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                            AccountsSummary(ledgerAccounts)
+                        }
                     }
                     listOf(
                         R.string.accounts_everyday_section to everydayAccounts,
@@ -258,19 +262,11 @@ fun AccountsScreen(
                                             onAccountSettings = { items ->
                                                 items.firstOrNull()?.let { onOpenAccountTransactions(it.account.id) }
                                             },
-                                            onRefreshOnChain = {
-                                                viewModel.refreshCryptoBalances()
-                                            }.takeIf {
-                                                groupAccounts.any { row ->
-                                                    row.account.type == AccountType.CRYPTO
-                                                }
-                                            },
-                                            refreshing = cryptoRefreshing,
                                             onOpenGroupDetails = {
                                                 val seed = groupAccounts.first().account
                                                 val related = when {
-                                                    seed.groupId != null -> accounts.filter { it.account.groupId == seed.groupId }
-                                                    seed.type == AccountType.CASH -> accounts.filter { it.account.type == AccountType.CASH }
+                                                    seed.groupId != null -> ledgerAccounts.filter { it.account.groupId == seed.groupId }
+                                                    seed.type == AccountType.CASH -> ledgerAccounts.filter { it.account.type == AccountType.CASH }
                                                     else -> groupAccounts
                                                 }
                                                 groupDetailsFor = AccountGroupSelection(groupName, related)
@@ -278,6 +274,19 @@ fun AccountsScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                    cryptoPortfolio?.takeIf { !it.isEmpty }?.let { portfolio ->
+                        item(key = "crypto-portfolio") {
+                            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                                CryptoPortfolioSection(
+                                    portfolio = portfolio,
+                                    refreshing = cryptoRefreshing,
+                                    onRefresh = viewModel::refreshCryptoBalances,
+                                    onRotateCurrency = viewModel::rotateDisplayCurrency,
+                                    onOpenHolding = onOpenAccountTransactions,
+                                )
                             }
                         }
                     }
@@ -310,8 +319,12 @@ fun AccountsScreen(
                 showAdd = false
                 statementPicker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
             },
-            onConfirm = { name, type, currency, address, bankProvider, network ->
-                viewModel.addAccount(name, type, currency, address, bankProvider, network)
+            onConfirm = { name, type, currency, bankProvider ->
+                viewModel.addAccount(name, type, currency, bankProvider)
+                showAdd = false
+            },
+            onConfirmWallet = { name, network, address ->
+                viewModel.addCryptoWallet(name, network, address)
                 showAdd = false
             },
         )
@@ -346,29 +359,17 @@ fun AccountsScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AccountsSummary(accounts: List<AccountWithBalance>) {
-    // A watch-only ledger has no transactions, so summing them would print a confident zero for a
-    // balance nobody has read yet. Chain currencies come from their observation or stay out.
-    val (chainAccounts, ledgerAccounts) = accounts.partition { it.account.type == AccountType.CRYPTO }
-    val all = ledgerAccounts.groupBy { it.account.currency }
+    // Chain balances are read, not summed from transactions, so they have their own reading below
+    // and never mix into these currency chips.
+    val all = accounts.groupBy { it.account.currency }
         .mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    val chainTotals = chainAccounts.mapNotNull { row -> row.onChain?.let { row.account.currency to it } }
-        .groupBy({ it.first }, { it.second })
-        .mapNotNull { (currency, observations) ->
-            val decimals = observations.first().decimals
-            if (observations.any { it.decimals != decimals }) return@mapNotNull null
-            val total = observations.fold(java.math.BigInteger.ZERO) { sum, item ->
-                sum + java.math.BigInteger(item.baseUnits)
-            }
-            currency to formatBaseUnits(total.toString(), decimals)
-        }
-        .sortedBy { it.first }
     val available = accounts.filter { it.account.savingsMode == null && it.account.type != AccountType.SAVINGS }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
     val reserve = accounts.filter { it.account.savingsMode != null || it.account.type == AccountType.SAVINGS }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val secondary = all.entries.filter { it.key != "GEL" }.sortedBy { it.key }
-                .map { (currency, amount) -> currency to formatMinor(amount, currency) } + chainTotals
+                .map { (currency, amount) -> currency to formatMinor(amount, currency) }
             if (secondary.isNotEmpty()) {
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -421,8 +422,6 @@ private fun AccountGroupCard(
     onOpenTransactions: (AccountWithBalance) -> Unit,
     onAccountSettings: (List<AccountWithBalance>) -> Unit,
     onOpenGroupDetails: () -> Unit,
-    onRefreshOnChain: (() -> Unit)? = null,
-    refreshing: Boolean = false,
 ) {
     val containers = accounts
         .groupBy { it.account.iban ?: "account-${it.account.id}" }
@@ -437,23 +436,12 @@ private fun AccountGroupCard(
                     pluralStringResource(R.plurals.accounts_container_count, count, count)
                 },
                 trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // A watch-only balance is only ever as fresh as the last manual read, so the
-                        // action that refreshes it belongs to the wallet it belongs to.
-                        if (onRefreshOnChain != null) WhfinIconButton(
-                            icon = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.crypto_refresh),
-                            onClick = onRefreshOnChain,
-                            outlined = false,
-                            enabled = !refreshing,
-                        )
-                        WhfinIconButton(
-                            icon = Icons.Default.Info,
-                            contentDescription = stringResource(R.string.account_source_details),
-                            onClick = onOpenGroupDetails,
-                            outlined = false,
-                        )
-                    }
+                    WhfinIconButton(
+                        icon = Icons.Default.Info,
+                        contentDescription = stringResource(R.string.account_source_details),
+                        onClick = onOpenGroupDetails,
+                        outlined = false,
+                    )
                 },
             )
             containers.forEach { (_, ibanAccounts) ->
@@ -644,10 +632,6 @@ private fun CurrencyAccountRow(
             // одинаково. Здесь остаётся только то, что действительно отличает эту строку:
             // назначение (резерв/депозит/цель) или собственное имя счёта.
             val detail = when {
-                // A watch-only ledger explains where its number came from instead of repeating a name.
-                item.account.type == AccountType.CRYPTO -> item.onChain?.let { onChain ->
-                    stringResource(R.string.crypto_observed_at, relativeTime(onChain.observedAt))
-                } ?: stringResource(R.string.crypto_never_refreshed)
                 item.account.savingsMode == SavingsMode.FLEXIBLE_RESERVE ->
                     stringResource(R.string.account_purpose_reserve)
                 item.account.savingsMode == SavingsMode.TERM_DEPOSIT ->
@@ -662,17 +646,9 @@ private fun CurrencyAccountRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Never refreshed is not zero, so an unread chain ledger shows a dash rather than a balance.
-        val amount = when {
-            item.account.type != AccountType.CRYPTO ->
-                formatMinor(item.balanceMinor, item.account.currency)
-            item.onChain != null -> formatBaseUnits(item.onChain.baseUnits, item.onChain.decimals)
-            else -> "—"
-        }
         WhfinAmount(
-            amount,
-            symbol = if (item.account.type == AccountType.CRYPTO && item.onChain == null) ""
-            else currencySymbol(item.account.currency),
+            formatMinor(item.balanceMinor, item.account.currency),
+            symbol = currencySymbol(item.account.currency),
             style = MaterialTheme.typography.titleMedium,
         )
     }

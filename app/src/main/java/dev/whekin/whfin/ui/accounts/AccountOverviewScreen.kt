@@ -69,7 +69,10 @@ internal data class AccountOverviewData(
     val otherCurrencies: List<NativeCurrencyBalance>,
 )
 
-internal fun accountOverviewData(accounts: List<AccountWithBalance>): AccountOverviewData {
+internal fun accountOverviewData(rows: List<AccountWithBalance>): AccountOverviewData {
+    // This screen explains a balance built from transactions. A watch-only ledger has none, so
+    // including it would print a confident `0.00 USDT` next to money that is plainly on the chain.
+    val accounts = rows.filterNot { it.account.type == AccountType.CRYPTO }
     val gel = accounts.filter { it.account.currency == "GEL" }
     val assets = gel.sumOf { it.balanceMinor.coerceAtLeast(0L) }
     val liabilities = -gel.sumOf { it.balanceMinor.coerceAtMost(0L) }
