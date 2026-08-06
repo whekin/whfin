@@ -27,16 +27,22 @@ class CryptoWalletRepository(
 
     sealed interface AddResult {
         /**
-         * The address is tracked. [funded] are the tickers a ledger now exists for, [failed] the
-         * assets whose read did not answer, so the caller can say "added, but read nothing yet".
+         * The address is tracked, with the outcome of every asset the chain was asked about.
+         *
+         * The three groups are kept apart because they mean different things to the person: [funded]
+         * became ledgers, [empty] answered zero, and [unread] did not answer at all. Reporting only
+         * the first would turn a failed read into an apparently empty wallet.
          */
         data class Tracked(
             val address: String,
             val network: CryptoNetwork,
             val funded: List<String>,
-            val failed: Int,
+            val empty: List<String>,
+            val unread: List<String>,
             val alreadyTracked: Boolean,
-        ) : AddResult
+        ) : AddResult {
+            val failed: Int get() = unread.size
+        }
 
         data class InvalidAddress(val problem: CryptoAddressValidator.Problem) : AddResult
 
@@ -104,7 +110,8 @@ class CryptoWalletRepository(
             address = address,
             network = network,
             funded = funded.distinct(),
-            failed = readings.count { it.baseUnits == null },
+            empty = readings.filter { it.baseUnits?.signum() == 0 }.map { it.asset.symbol },
+            unread = readings.filter { it.baseUnits == null }.map { it.asset.symbol },
             alreadyTracked = existing != null,
         )
     }

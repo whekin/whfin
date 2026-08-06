@@ -811,6 +811,8 @@
     <string name="crypto_wallet_added">Кошелёк добавлен: %1$s</string>
     <string name="crypto_wallet_added_unread">Кошелёк добавлен, но баланс пока не удалось прочитать. Попробуй обновить.</string>
     <string name="crypto_wallet_added_empty">Кошелёк добавлен. На этом адресе сеть не видит поддерживаемых активов.</string>
+    <string name="crypto_wallet_empty_assets">пусто: %1$s</string>
+    <string name="crypto_wallet_unread_assets">не ответили: %1$s</string>
     <string name="crypto_wallet_add_failed">Не удалось добавить кошелёк.</string>
     <string name="crypto_assets_discovered">Новое на кошельках: %1$s</string>
     <string name="crypto_wallet_rename">Переименовать</string>

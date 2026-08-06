@@ -804,6 +804,8 @@
     <string name="crypto_wallet_added">Wallet added: %1$s</string>
     <string name="crypto_wallet_added_unread">Wallet added, but no balance could be read yet. Try Refresh.</string>
     <string name="crypto_wallet_added_empty">Wallet added. The chain reports no supported assets on this address.</string>
+    <string name="crypto_wallet_empty_assets">empty: %1$s</string>
+    <string name="crypto_wallet_unread_assets">no answer: %1$s</string>
     <string name="crypto_wallet_add_failed">Could not add this wallet.</string>
     <string name="crypto_assets_discovered">New on your wallets: %1$s</string>
     <string name="crypto_wallet_rename">Rename wallet</string>

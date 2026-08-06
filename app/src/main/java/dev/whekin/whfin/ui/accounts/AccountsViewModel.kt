@@ -242,15 +242,18 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             }
             val (discovered, result) = outcome
             _cryptoRefreshing.value = false
+            // A search for new assets that could not reach the chain counts as a failed read too:
+            // otherwise a silent `updated 1` would stand in for "USDT never answered".
+            val failed = result.failed + (discovered?.failed ?: 0)
             _message.value = when {
                 discovered != null && discovered.created.isNotEmpty() -> app.getString(
                     R.string.crypto_assets_discovered,
                     discovered.created.joinToString(" · "),
                 )
                 result.isEmpty -> null
-                result.failed == 0 -> app.getString(R.string.crypto_refresh_done, result.refreshed)
+                failed == 0 -> app.getString(R.string.crypto_refresh_done, result.refreshed)
                 result.refreshed == 0 -> app.getString(R.string.crypto_refresh_failed)
-                else -> app.getString(R.string.crypto_refresh_partial, result.refreshed, result.failed)
+                else -> app.getString(R.string.crypto_refresh_partial, result.refreshed, failed)
             }
         }
     }
@@ -292,19 +295,38 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                         }
                         CryptoWalletRepository.AddResult.UnsupportedNetwork ->
                             app.getString(R.string.account_asset_unsupported)
-                        is CryptoWalletRepository.AddResult.Tracked -> when {
-                            outcome.funded.isNotEmpty() -> app.getString(
-                                R.string.crypto_wallet_added,
-                                outcome.funded.joinToString(" · "),
-                            )
-                            outcome.failed > 0 -> app.getString(R.string.crypto_wallet_added_unread)
-                            else -> app.getString(R.string.crypto_wallet_added_empty)
-                        }
+                        is CryptoWalletRepository.AddResult.Tracked -> walletAddedMessage(outcome)
                     }
                 },
                 onFailure = { app.getString(R.string.crypto_wallet_add_failed) },
             )
         }
+    }
+
+    /**
+     * Names what the chain actually said about every asset.
+     *
+     * "Added: TRX" alone made a failed USDT read look like an empty wallet, which is the one thing a
+     * watch-only balance must never do: an asset that answered zero and an asset that did not answer
+     * are different facts, and only the second one is worth retrying.
+     */
+    private fun walletAddedMessage(outcome: CryptoWalletRepository.AddResult.Tracked): String {
+        val app = getApplication<Application>()
+        if (outcome.funded.isEmpty()) {
+            return when {
+                outcome.unread.isNotEmpty() -> app.getString(R.string.crypto_wallet_added_unread)
+                else -> app.getString(R.string.crypto_wallet_added_empty)
+            }
+        }
+        return buildList {
+            add(app.getString(R.string.crypto_wallet_added, outcome.funded.joinToString(" · ")))
+            if (outcome.empty.isNotEmpty()) {
+                add(app.getString(R.string.crypto_wallet_empty_assets, outcome.empty.joinToString(", ")))
+            }
+            if (outcome.unread.isNotEmpty()) {
+                add(app.getString(R.string.crypto_wallet_unread_assets, outcome.unread.joinToString(", ")))
+            }
+        }.joinToString(" · ")
     }
 
     fun addAccount(
