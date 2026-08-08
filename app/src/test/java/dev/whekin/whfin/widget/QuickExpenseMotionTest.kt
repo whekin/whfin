@@ -5,9 +5,14 @@ import org.junit.Test
 
 class QuickExpenseMotionTest {
     @Test
-    fun `scrim follows sheet offset continuously`() {
+    fun `scrim stays present through two thirds of the drag`() {
         assertEquals(1f, sheetScrimProgress(100f, 100f, 1_000f))
-        assertEquals(0.5f, sheetScrimProgress(550f, 100f, 1_000f))
+        assertEquals(0.84375f, sheetScrimProgress(550f, 100f, 1_000f))
+        assertEquals(
+            425f / 729f,
+            sheetScrimProgress(700f, 100f, 1_000f),
+            0.0001f,
+        )
         assertEquals(0f, sheetScrimProgress(1_000f, 100f, 1_000f))
     }
 

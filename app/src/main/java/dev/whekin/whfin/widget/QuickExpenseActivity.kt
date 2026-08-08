@@ -340,7 +340,13 @@ internal fun sheetScrimProgress(
 ): Float {
     val travel = hiddenOffset - expandedOffset
     if (!travel.isFinite() || travel <= 0f) return 0f
-    return ((hiddenOffset - offset) / travel).coerceIn(0f, 1f)
+    val dragFraction = ((offset - expandedOffset) / travel).coerceIn(0f, 1f)
+    // Hold the visual connection to the background through most of the gesture. A linear alpha
+    // already looks nearly clear halfway down because the full scrim is intentionally only 32%.
+    // Squaring the input delays the reveal; smoothstep makes both ends settle without an alpha snap.
+    val delayedFraction = dragFraction * dragFraction
+    val reveal = delayedFraction * delayedFraction * (3f - 2f * delayedFraction)
+    return 1f - reveal
 }
 
 @Preview(name = "quick_expense_light", widthDp = 360, heightDp = 780)
