@@ -8,8 +8,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.click
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -54,12 +52,12 @@ class QuickExpenseCategoryTest {
             }
         }
         compose.onNodeWithContentDescription("QuickTestCat").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("whfin-amount-key-DIGIT_5").performClick()
-        compose.onAllNodes(hasContentDescription("5 GEL", substring = true))[0].assertIsDisplayed()
+        compose.onNodeWithTag("whfin-amount-key-DIGIT_5").performScrollTo().performClick()
+        compose.onAllNodes(hasContentDescription("5 GEL", substring = true))[0].fetchSemanticsNode()
         compose.onNodeWithTag("quick-expense-save")
             .assertIsEnabled()
             .performScrollTo()
-            .performTouchInput { click() }
+            .performClick()
         compose.waitForIdle()
 
         compose.runOnIdle {

@@ -315,7 +315,8 @@ This is a single-context repository with root domain documentation and system-wi
   исключение возможно только с явным согласием и заранее проверенным backup/restore.
   Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех
   1–4-cell вариантах и их picker-preview. Quick expense больше не зависит от высоты OEM decimal IME:
-  сумма вводится общим in-app calculator keypad (`00`, decimal, backspace, `+ − × ÷`, `%`, `=`),
+  сумма вводится общим in-app calculator keypad: вычисления вынесены в верхний rail
+  (`% ÷ × − + =`), ниже строгая трёхколоночная цифровая сетка с `.`, `0` и backspace в последнем ряду;
   незавершённое выражение вычисляется при Save, а обычная системная text IME открывается только для
   Description и временно заменяет keypad. Арифметика, category→save callback, widget previews и сборка
   проверены JVM-тестами; keypad закреплён light/dark/font 1.5 screenshot references. Финальный render

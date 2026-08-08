@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 
 enum class WhfinAmountKey(val label: String) {
     DIGIT_0("0"),
-    DIGIT_00("00"),
     DIGIT_1("1"),
     DIGIT_2("2"),
     DIGIT_3("3"),
@@ -65,68 +64,56 @@ fun WhfinAmountKeypad(
         onKey(key)
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AmountKeyRow(
-            keys = listOf(
-                WhfinAmountKey.DIGIT_7,
-                WhfinAmountKey.DIGIT_8,
-                WhfinAmountKey.DIGIT_9,
-                WhfinAmountKey.DIVIDE,
-                WhfinAmountKey.BACKSPACE,
-            ),
+        CalculationRail(
             deleteContentDescription = deleteContentDescription,
             enabled = enabled,
             onKey = send,
         )
-        AmountKeyRow(
-            keys = listOf(
-                WhfinAmountKey.DIGIT_4,
-                WhfinAmountKey.DIGIT_5,
-                WhfinAmountKey.DIGIT_6,
-                WhfinAmountKey.MULTIPLY,
-                WhfinAmountKey.PERCENT,
-            ),
-            deleteContentDescription = deleteContentDescription,
-            enabled = enabled,
-            onKey = send,
-        )
-        Row(
-            Modifier.fillMaxWidth().height(112.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(
-                Modifier.weight(4f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AmountKeyRow(
-                    keys = listOf(
-                        WhfinAmountKey.DIGIT_1,
-                        WhfinAmountKey.DIGIT_2,
-                        WhfinAmountKey.DIGIT_3,
-                        WhfinAmountKey.SUBTRACT,
-                    ),
-                    deleteContentDescription = deleteContentDescription,
-                    enabled = enabled,
-                    onKey = send,
-                )
-                AmountKeyRow(
-                    keys = listOf(
-                        WhfinAmountKey.DIGIT_00,
-                        WhfinAmountKey.DIGIT_0,
-                        WhfinAmountKey.DECIMAL,
-                        WhfinAmountKey.ADD,
-                    ),
-                    deleteContentDescription = deleteContentDescription,
-                    enabled = enabled,
-                    onKey = send,
-                )
-            }
-            AmountKey(
-                key = WhfinAmountKey.EQUALS,
+        listOf(
+            listOf(WhfinAmountKey.DIGIT_1, WhfinAmountKey.DIGIT_2, WhfinAmountKey.DIGIT_3),
+            listOf(WhfinAmountKey.DIGIT_4, WhfinAmountKey.DIGIT_5, WhfinAmountKey.DIGIT_6),
+            listOf(WhfinAmountKey.DIGIT_7, WhfinAmountKey.DIGIT_8, WhfinAmountKey.DIGIT_9),
+            listOf(WhfinAmountKey.DECIMAL, WhfinAmountKey.DIGIT_0, WhfinAmountKey.BACKSPACE),
+        ).forEach { keys ->
+            AmountKeyRow(
+                keys = keys,
                 deleteContentDescription = deleteContentDescription,
                 enabled = enabled,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                onClick = { send(WhfinAmountKey.EQUALS) },
+                onKey = send,
             )
+        }
+    }
+}
+
+@Composable
+private fun CalculationRail(
+    deleteContentDescription: String,
+    enabled: Boolean,
+    onKey: (WhfinAmountKey) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf(
+                WhfinAmountKey.PERCENT,
+                WhfinAmountKey.DIVIDE,
+                WhfinAmountKey.MULTIPLY,
+                WhfinAmountKey.SUBTRACT,
+                WhfinAmountKey.ADD,
+                WhfinAmountKey.EQUALS,
+            ).forEach { key ->
+                AmountKey(
+                    key = key,
+                    deleteContentDescription = deleteContentDescription,
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = { onKey(key) },
+                    calculationRail = true,
+                )
+            }
         }
     }
 }
@@ -144,7 +131,7 @@ private fun AmountKeyRow(
                 key = key,
                 deleteContentDescription = deleteContentDescription,
                 enabled = enabled,
-                modifier = Modifier.weight(1f).height(52.dp),
+                modifier = Modifier.weight(1f).height(48.dp),
                 onClick = { onKey(key) },
             )
         }
@@ -158,17 +145,11 @@ private fun AmountKey(
     enabled: Boolean,
     modifier: Modifier,
     onClick: () -> Unit,
+    calculationRail: Boolean = false,
 ) {
-    val isOperator = key in setOf(
-        WhfinAmountKey.ADD,
-        WhfinAmountKey.SUBTRACT,
-        WhfinAmountKey.MULTIPLY,
-        WhfinAmountKey.DIVIDE,
-        WhfinAmountKey.PERCENT,
-    )
     val color = when {
         key == WhfinAmountKey.EQUALS -> MaterialTheme.colorScheme.primaryContainer
-        isOperator -> MaterialTheme.colorScheme.surfaceContainerHigh
+        calculationRail -> Color.Transparent
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
     Surface(
@@ -179,7 +160,7 @@ private fun AmountKey(
                 Modifier.semantics { contentDescription = deleteContentDescription }
             } else Modifier,
         ),
-        shape = MaterialTheme.shapes.medium,
+        shape = if (calculationRail) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
         color = color,
     ) {
         Box(contentAlignment = Alignment.Center) {

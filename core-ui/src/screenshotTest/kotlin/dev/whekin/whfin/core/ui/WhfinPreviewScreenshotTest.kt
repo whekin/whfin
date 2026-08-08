@@ -149,21 +149,21 @@ private fun CodeInputScreenshotContent() {
 }
 
 @PreviewTest
-@Preview(name = "amount_keypad_light", widthDp = 400, heightDp = 300)
+@Preview(name = "amount_keypad_light", widthDp = 400, heightDp = 320)
 @Composable
 fun amountKeypadLightScreenshot() {
     WhfinTheme(darkTheme = false) { AmountKeypadScreenshotContent() }
 }
 
 @PreviewTest
-@Preview(name = "amount_keypad_dark", widthDp = 400, heightDp = 300, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "amount_keypad_dark", widthDp = 400, heightDp = 320, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun amountKeypadDarkScreenshot() {
     WhfinTheme(darkTheme = true) { AmountKeypadScreenshotContent() }
 }
 
 @PreviewTest
-@Preview(name = "amount_keypad_font_150", widthDp = 400, heightDp = 350, fontScale = 1.5f)
+@Preview(name = "amount_keypad_font_150", widthDp = 400, heightDp = 360, fontScale = 1.5f)
 @Composable
 fun amountKeypadLargeFontScreenshot() {
     WhfinTheme(darkTheme = false) { AmountKeypadScreenshotContent() }

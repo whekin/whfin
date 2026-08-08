@@ -32,7 +32,6 @@ internal data class AmountCalculator(
 
     fun press(key: WhfinAmountKey): AmountCalculator = when (key) {
         WhfinAmountKey.DIGIT_0 -> append("0")
-        WhfinAmountKey.DIGIT_00 -> append("00")
         WhfinAmountKey.DIGIT_1 -> append("1")
         WhfinAmountKey.DIGIT_2 -> append("2")
         WhfinAmountKey.DIGIT_3 -> append("3")
