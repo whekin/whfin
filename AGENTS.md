@@ -314,13 +314,22 @@ This is a single-context repository with root domain documentation and system-wi
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
   исключение возможно только с явным согласием и заранее проверенным backup/restore.
   Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех
-  1–4-cell вариантах и их picker-preview. Quick expense больше не зависит от высоты OEM decimal IME:
+  1–4-cell вариантах и их picker-preview; отдельный divider перед кругом убран как лишняя колонка,
+  а подписи центрируются в оставшемся перед action пространстве с 2dp оптическим сдвигом к кругу,
+  выравнивающим видимые зазоры вместо скрытых touch-слотов.
+  Quick expense больше не зависит от высоты OEM decimal IME:
   сумма вводится общим in-app calculator keypad: вычисления вынесены в верхний rail
   (`% ÷ × − + =`), ниже строгая трёхколоночная цифровая сетка с `.`, `0` и backspace в последнем ряду;
   незавершённое выражение вычисляется при Save, а обычная системная text IME открывается только для
-  Description и временно заменяет keypad. Арифметика, category→save callback, widget previews и сборка
-  проверены JVM-тестами; keypad закреплён light/dark/font 1.5 screenshot references. Финальный render
-  всего quick-entry на Galaxy S25 остаётся повторить: телефон исчез из ADB до установки debug upgrade.
+  Description и временно заменяет keypad. Quick expense размещён в настоящем Material modal bottom sheet:
+  закрывается свайпом вниз, тапом по scrim или явным крестиком. Translucent host не добавляет системный
+  window-dim поверх Compose scrim, поэтому фон launcher возвращается вместе с sheet, а не вторым тактом.
+  Арифметика, category→save callback,
+  widget previews и сборка проверены JVM-тестами; keypad закреплён light/dark/font 1.5 screenshot references.
+  Финальная сборка установлена на Galaxy S25 через `install -r` без очистки данных: видимые зазоры
+  `pill→Cash` и `Cash→круг` равны 108/109 px, divider отсутствует, а свайп от drag handle вниз закрывает
+  QuickExpenseActivity без сохранения операции. Короткая покадровая запись подтверждает, что launcher
+  светлеет одновременно с уходящим sheet без второго window-dim такта после закрытия.
 - [x] Rich Accounts UI: одна карточка на FinancialGroup (Credo/Wallet) с вложенными валютными счетами,
   итогами каждой валюты и переходом к выпискам; сверху сводка «Все счета / Доступно / Резерв» без
   ложного сложения разных валют. Счёт можно удалить с подтверждением. Любой BANK/SAVINGS можно

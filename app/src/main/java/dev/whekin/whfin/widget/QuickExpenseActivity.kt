@@ -5,9 +5,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -20,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -127,7 +123,7 @@ class QuickExpenseActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun QuickExpenseScreen(
     initialCurrency: String,
@@ -145,107 +141,112 @@ internal fun QuickExpenseScreen(
     val minor = parseToMinor(calculator.resolvedText())?.takeIf { it > 0L }
     val imeVisible = WindowInsets.isImeVisible
 
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .18f)).clickable(onClick = onDismiss), contentAlignment = Alignment.BottomCenter) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                detectTapGestures(onTap = {})
-            },
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.background,
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.background,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                modifier = Modifier.testTag("quick-expense-drag-handle"),
+            )
+        },
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp)
+                .padding(bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Column(
-                Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 22.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Icon(Icons.Default.Payments, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(10.dp))
+                }
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(stringResource(R.string.quick_expense), style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "$sourceLabel · $currency",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                WhfinIconButton(Icons.Default.Close, stringResource(R.string.action_cancel), onDismiss, outlined = false)
+            }
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "${calculator.expression.orEmpty()} ${calculator.display.ifEmpty { "0.00" }} $currency"
+                },
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) {
-                        Icon(Icons.Default.Payments, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(10.dp))
-                    }
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(stringResource(R.string.quick_expense), style = MaterialTheme.typography.headlineSmall)
+                Column(Modifier.weight(1f)) {
+                    calculator.expression?.let { expression ->
                         Text(
-                            "$sourceLabel · $currency",
-                            style = MaterialTheme.typography.bodyMedium,
+                            expression,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
                         )
                     }
-                    WhfinIconButton(Icons.Default.Close, stringResource(R.string.action_cancel), onDismiss, outlined = false)
-                }
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier.semantics(mergeDescendants = true) {
-                        contentDescription = "${calculator.expression.orEmpty()} ${calculator.display.ifEmpty { "0.00" }} $currency"
-                    },
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        calculator.expression?.let { expression ->
-                            Text(
-                                expression,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            calculator.display.ifEmpty { "0.00" },
-                            style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                            color = if (calculator.error) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                        )
-                    }
-                    Text(currency, style = MaterialTheme.typography.titleLarge)
-                }
-                if (categories.isNotEmpty()) {
-                    // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки.
-                    // Выбор фиксирует порядок на момент тапа, чтобы кружок не прыгал под пальцем.
-                    var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
-                    val displayed = lockedOrder ?: remember(categories, suggester, minor) {
-                        if (suggester == null || minor == null) categories
-                        else suggester.rankCategories(categories, -minor, currency)
-                    }
-                    QuickCategoryRow(
-                        categories = displayed,
-                        selectedId = categoryId,
-                        onSelect = { selected ->
-                            if (categoryId == selected.id) {
-                                categoryId = null
-                                lockedOrder = null
-                            } else {
-                                categoryId = selected.id
-                                lockedOrder = displayed
-                            }
-                        },
+                    Text(
+                        calculator.display.ifEmpty { "0.00" },
+                        style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                        color = if (calculator.error) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
                     )
                 }
-                WhfinField(
-                    value = description,
-                    onValueChange = { description = it.take(80) },
-                    label = stringResource(R.string.quick_description),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (!imeVisible) {
-                    WhfinAmountKeypad(
-                        deleteContentDescription = stringResource(R.string.quick_delete_digit),
-                        onKey = { calculator = calculator.press(it) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                Text(currency, style = MaterialTheme.typography.titleLarge)
+            }
+            if (categories.isNotEmpty()) {
+                // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки.
+                // Выбор фиксирует порядок на момент тапа, чтобы кружок не прыгал под пальцем.
+                var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
+                val displayed = lockedOrder ?: remember(categories, suggester, minor) {
+                    if (suggester == null || minor == null) categories
+                    else suggester.rankCategories(categories, -minor, currency)
                 }
-                WhfinButton(
-                    label = stringResource(R.string.action_save),
-                    onClick = {
-                        minor?.let {
-                            onSave(it, currency, sourceAccountId, description.trim().takeIf(String::isNotEmpty), categoryId)
+                QuickCategoryRow(
+                    categories = displayed,
+                    selectedId = categoryId,
+                    onSelect = { selected ->
+                        if (categoryId == selected.id) {
+                            categoryId = null
+                            lockedOrder = null
+                        } else {
+                            categoryId = selected.id
+                            lockedOrder = displayed
                         }
                     },
-                    enabled = minor != null,
-                    modifier = Modifier.fillMaxWidth().testTag("quick-expense-save"),
                 )
             }
+            WhfinField(
+                value = description,
+                onValueChange = { description = it.take(80) },
+                label = stringResource(R.string.quick_description),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (!imeVisible) {
+                WhfinAmountKeypad(
+                    deleteContentDescription = stringResource(R.string.quick_delete_digit),
+                    onKey = { calculator = calculator.press(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            WhfinButton(
+                label = stringResource(R.string.action_save),
+                onClick = {
+                    minor?.let {
+                        onSave(it, currency, sourceAccountId, description.trim().takeIf(String::isNotEmpty), categoryId)
+                    }
+                },
+                enabled = minor != null,
+                modifier = Modifier.fillMaxWidth().testTag("quick-expense-save"),
+            )
         }
     }
 }

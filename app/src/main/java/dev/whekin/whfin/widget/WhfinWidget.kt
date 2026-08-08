@@ -44,6 +44,7 @@ import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import dev.whekin.whfin.WhfinApp
@@ -215,7 +216,6 @@ private fun CompactWidget(
                     textColor = GlanceTheme.colors.onSurfaceVariant,
                 )
             }
-            WidgetDivider()
             InlineAddButton(addAction)
         }
     }
@@ -270,13 +270,20 @@ private fun WidgetDivider() {
 @Composable
 private fun WidgetSegment(text: String, modifier: GlanceModifier, textColor: ColorProvider) {
         Box(
-            modifier = modifier.padding(horizontal = 8.dp),
+            // The trailing action is a visible circle inset inside a rectangular touch slot.
+            // Nudge toward it so the two visible gaps, not the hidden layout slots, are equal.
+            modifier = modifier.padding(start = 10.dp, end = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text,
                 maxLines = 1,
-                style = TextStyle(color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                style = TextStyle(
+                    color = textColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                ),
             )
         }
 }

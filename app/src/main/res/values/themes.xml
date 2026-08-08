@@ -7,8 +7,9 @@
     <style name="Theme.Whfin.QuickEntry" parent="Theme.Whfin">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.55</item>
+        <!-- ModalBottomSheet owns the animated scrim. A second window-level dim would remain
+             until Activity.finish(), making the launcher wake up one beat after the sheet. -->
+        <item name="android:backgroundDimEnabled">false</item>
         <item name="android:colorAccent">#78906F</item>
     </style>
 </resources>

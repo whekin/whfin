@@ -13,6 +13,8 @@
         android:layout_weight="1"
         android:gravity="center"
         android:maxLines="1"
+        android:paddingStart="10dp"
+        android:paddingEnd="6dp"
         android:text="@string/widget_preview_account"
         android:textColor="@color/widget_preview_on_background"
         android:textSize="13sp" />
@@ -23,11 +25,11 @@
         android:layout_width="64dp"
         android:layout_height="match_parent"
         android:gravity="center"
+        android:paddingStart="10dp"
+        android:paddingEnd="6dp"
         android:text="GEL"
         android:textColor="@color/widget_preview_secondary_text"
         android:textSize="13sp" />
-
-    <TextView android:layout_width="1dp" android:layout_height="24dp" android:background="@color/widget_preview_outline" />
 
     <FrameLayout
         android:layout_width="48dp"
