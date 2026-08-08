@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
@@ -57,9 +58,11 @@ fun SettingsScreen(
     appThemeMode: AppThemeMode = AppThemeMode.System,
     dynamicColorsEnabled: Boolean = false,
     useSystemFont: Boolean = false,
+    quickExpenseKeypadEnabled: Boolean = true,
     onAppThemeModeChange: (AppThemeMode) -> Unit = {},
     onDynamicColorsEnabledChange: (Boolean) -> Unit = {},
     onUseSystemFontChange: (Boolean) -> Unit = {},
+    onQuickExpenseKeypadEnabledChange: (Boolean) -> Unit = {},
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean = true,
     hasSmsPermission: Boolean,
@@ -143,6 +146,20 @@ fun SettingsScreen(
                         checked = useSystemFont,
                         onCheckedChange = onUseSystemFontChange,
                         contentDescription = stringResource(R.string.settings_system_font_toggle),
+                    )
+                },
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.settings_quick_keypad),
+                supportingText = stringResource(R.string.settings_quick_keypad_body),
+                supportingMaxLines = 4,
+                icon = Icons.Default.Calculate,
+                trailing = {
+                    WhfinSwitch(
+                        checked = quickExpenseKeypadEnabled,
+                        onCheckedChange = onQuickExpenseKeypadEnabledChange,
+                        contentDescription = stringResource(R.string.settings_quick_keypad_toggle),
                     )
                 },
             )

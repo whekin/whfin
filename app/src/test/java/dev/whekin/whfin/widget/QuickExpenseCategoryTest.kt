@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -64,5 +65,35 @@ class QuickExpenseCategoryTest {
             assertEquals(500L, savedAmount)
             assertEquals(category.id, savedCategory)
         }
+    }
+
+    @Test
+    fun systemKeyboardModeReplacesCalculatorAndSavesTypedAmount() {
+        var savedAmount: Long? = null
+        compose.setContent {
+            WhfinTheme {
+                QuickExpenseScreen(
+                    initialCurrency = "GEL",
+                    sourceLabel = "Cash",
+                    sourceAccountId = null,
+                    categories = emptyList(),
+                    suggester = null,
+                    quickExpenseKeypadEnabled = false,
+                    onDismiss = {},
+                    onSave = { amount, _, _, _, _ -> savedAmount = amount },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("whfin-amount-key-DIGIT_5").assertDoesNotExist()
+        compose.onNodeWithTag("quick-expense-system-amount")
+            .assertIsDisplayed()
+            .performTextInput("12,50")
+        compose.onNodeWithTag("quick-expense-save")
+            .assertIsEnabled()
+            .performScrollTo()
+            .performClick()
+
+        compose.runOnIdle { assertEquals(1_250L, savedAmount) }
     }
 }

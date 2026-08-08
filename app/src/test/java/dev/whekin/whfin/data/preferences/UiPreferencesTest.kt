@@ -108,4 +108,23 @@ class UiPreferencesTest {
             file.delete()
         }
     }
+
+    @Test
+    fun quickExpenseKeypad_defaultsOnAndPersistsBothStates() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
+        val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
+        val preferences = UiPreferences(dataStore)
+
+        try {
+            assertTrue(preferences.quickExpenseKeypadEnabled.first())
+            preferences.setQuickExpenseKeypadEnabled(false)
+            assertFalse(preferences.quickExpenseKeypadEnabled.first())
+            preferences.setQuickExpenseKeypadEnabled(true)
+            assertTrue(preferences.quickExpenseKeypadEnabled.first())
+        } finally {
+            scope.cancel()
+            file.delete()
+        }
+    }
 }

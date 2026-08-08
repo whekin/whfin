@@ -13,8 +13,8 @@
         android:layout_weight="1"
         android:gravity="center"
         android:maxLines="1"
-        android:paddingStart="10dp"
-        android:paddingEnd="6dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="4dp"
         android:text="@string/widget_preview_account"
         android:textColor="@color/widget_preview_on_background"
         android:textSize="13sp" />

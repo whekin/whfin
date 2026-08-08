@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -17,10 +18,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -34,11 +45,13 @@ import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.ui.CategoryIcons
 import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.whekin.whfin.core.ui.WhfinButton
@@ -59,6 +72,9 @@ class QuickExpenseActivity : ComponentActivity() {
         window.isNavigationBarContrastEnforced = false
         setContent {
             WhfinTheme {
+                val uiPreferences = remember { UiPreferences(applicationContext) }
+                val quickExpenseKeypadEnabled by uiPreferences.quickExpenseKeypadEnabled
+                    .collectAsState(initial = true)
                 // Категории и статистика грузятся асинхронно и не задерживают
                 // первый кадр с фокусом суммы.
                 val suggestions by produceState<Pair<List<CategoryEntity>, CategorySuggester>?>(null) {
@@ -82,6 +98,7 @@ class QuickExpenseActivity : ComponentActivity() {
                     sourceAccountId = intent.getLongExtra(EXTRA_ACCOUNT_ID, -1L).takeIf { it > 0 },
                     categories = suggestions?.first.orEmpty(),
                     suggester = suggestions?.second,
+                    quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
                     onDismiss = ::finish,
                     onSave = ::save,
                 )
@@ -131,6 +148,7 @@ internal fun QuickExpenseScreen(
     sourceAccountId: Long?,
     categories: List<CategoryEntity>,
     suggester: CategorySuggester?,
+    quickExpenseKeypadEnabled: Boolean = true,
     onDismiss: () -> Unit,
     onSave: (Long, String, Long?, String?, Long?) -> Unit,
 ) {
@@ -140,13 +158,43 @@ internal fun QuickExpenseScreen(
     var categoryId by remember { mutableStateOf<Long?>(null) }
     val minor = parseToMinor(calculator.resolvedText())?.takeIf { it > 0L }
     val imeVisible = WindowInsets.isImeVisible
+    val amountFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val amountContentDescription = stringResource(R.string.tx_amount)
+
+    LaunchedEffect(quickExpenseKeypadEnabled) {
+        if (!quickExpenseKeypadEnabled) amountFocusRequester.requestFocus()
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val hiddenSheetOffset = with(LocalDensity.current) {
+        LocalConfiguration.current.screenHeightDp.dp.toPx()
+    }
+    var expandedSheetOffset by remember(hiddenSheetOffset) {
+        mutableFloatStateOf(hiddenSheetOffset)
+    }
+    var currentSheetOffset by remember(hiddenSheetOffset) {
+        mutableFloatStateOf(hiddenSheetOffset)
+    }
+    LaunchedEffect(sheetState, hiddenSheetOffset) {
+        snapshotFlow { runCatching { sheetState.requireOffset() }.getOrNull() }
+            .filterNotNull()
+            .collect { offset ->
+                currentSheetOffset = offset
+                expandedSheetOffset = minOf(expandedSheetOffset, offset)
+            }
+    }
+    val scrimProgress = sheetScrimProgress(
+        offset = currentSheetOffset,
+        expandedOffset = expandedSheetOffset,
+        hiddenOffset = hiddenSheetOffset,
+    )
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = MaterialTheme.shapes.extraLarge,
         containerColor = MaterialTheme.colorScheme.background,
+        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f * scrimProgress),
         dragHandle = {
             BottomSheetDefaults.DragHandle(
                 modifier = Modifier.testTag("quick-expense-drag-handle"),
@@ -180,24 +228,58 @@ internal fun QuickExpenseScreen(
             }
             Row(
                 verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.semantics(mergeDescendants = true) {
-                    contentDescription = "${calculator.expression.orEmpty()} ${calculator.display.ifEmpty { "0.00" }} $currency"
-                },
+                modifier = if (quickExpenseKeypadEnabled) {
+                    Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = "${calculator.expression.orEmpty()} ${calculator.display.ifEmpty { "0.00" }} $currency"
+                    }
+                } else Modifier,
             ) {
-                Column(Modifier.weight(1f)) {
-                    calculator.expression?.let { expression ->
+                if (quickExpenseKeypadEnabled) {
+                    Column(Modifier.weight(1f)) {
+                        calculator.expression?.let { expression ->
+                            Text(
+                                expression,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         Text(
-                            expression,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            calculator.display.ifEmpty { "0.00" },
+                            style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                            color = if (calculator.error) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
                         )
                     }
-                    Text(
-                        calculator.display.ifEmpty { "0.00" },
-                        style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                        color = if (calculator.error) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                } else {
+                    BasicTextField(
+                        value = calculator.display,
+                        onValueChange = { calculator = AmountCalculator(input = normalizeAmountInput(it)) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(amountFocusRequester)
+                            .semantics { contentDescription = amountContentDescription }
+                            .testTag("quick-expense-system-amount"),
+                        textStyle = MaterialTheme.typography.displayLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                        singleLine = true,
+                        decorationBox = { input ->
+                            if (calculator.display.isEmpty()) {
+                                Text(
+                                    "0.00",
+                                    style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else input()
+                        },
                     )
                 }
                 Text(currency, style = MaterialTheme.typography.titleLarge)
@@ -230,7 +312,7 @@ internal fun QuickExpenseScreen(
                 label = stringResource(R.string.quick_description),
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (!imeVisible) {
+            if (quickExpenseKeypadEnabled && !imeVisible) {
                 WhfinAmountKeypad(
                     deleteContentDescription = stringResource(R.string.quick_delete_digit),
                     onKey = { calculator = calculator.press(it) },
@@ -249,6 +331,16 @@ internal fun QuickExpenseScreen(
             )
         }
     }
+}
+
+internal fun sheetScrimProgress(
+    offset: Float,
+    expandedOffset: Float,
+    hiddenOffset: Float,
+): Float {
+    val travel = hiddenOffset - expandedOffset
+    if (!travel.isFinite() || travel <= 0f) return 0f
+    return ((hiddenOffset - offset) / travel).coerceIn(0f, 1f)
 }
 
 @Preview(name = "quick_expense_light", widthDp = 360, heightDp = 780)
@@ -291,6 +383,23 @@ private fun QuickExpensePreview() {
                 ),
             ),
             suggester = null,
+            onDismiss = {},
+            onSave = { _, _, _, _, _ -> },
+        )
+    }
+}
+
+@Preview(name = "quick_expense_system_keyboard", widthDp = 360, heightDp = 780)
+@Composable
+private fun QuickExpenseSystemKeyboardPreview() {
+    WhfinTheme {
+        QuickExpenseScreen(
+            initialCurrency = "GEL",
+            sourceLabel = "Cash",
+            sourceAccountId = null,
+            categories = emptyList(),
+            suggester = null,
+            quickExpenseKeypadEnabled = false,
             onDismiss = {},
             onSave = { _, _, _, _, _ -> },
         )

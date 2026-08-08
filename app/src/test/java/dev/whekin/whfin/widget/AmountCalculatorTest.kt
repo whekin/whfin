@@ -76,6 +76,13 @@ class AmountCalculatorTest {
         assertEquals("3.5", calculator.resolvedText())
     }
 
+    @Test
+    fun `system amount input accepts one localized decimal and twelve digits`() {
+        assertEquals("0.5", normalizeAmountInput(",5"))
+        assertEquals("12.34", normalizeAmountInput("1a2,3.4"))
+        assertEquals("123456789012", normalizeAmountInput("123456789012345"))
+    }
+
     private fun keys(vararg keys: WhfinAmountKey): AmountCalculator =
         keys.fold(AmountCalculator()) { calculator, key -> calculator.press(key) }
 }

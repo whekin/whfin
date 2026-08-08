@@ -134,6 +134,7 @@ class MainActivity : FragmentActivity() {
             val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
             val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = false)
             val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
+            val quickExpenseKeypadEnabled by uiPreferences.quickExpenseKeypadEnabled.collectAsState(initial = true)
             val systemDark = isSystemInDarkTheme()
             val effectiveDark = when (appThemeMode) {
                 AppThemeMode.System -> systemDark
@@ -274,6 +275,7 @@ class MainActivity : FragmentActivity() {
                                 appThemeMode = appThemeMode,
                                 dynamicColorsEnabled = dynamicColorsEnabled,
                                 useSystemFont = useSystemFont,
+                                quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
                                 onAppThemeModeChange = { mode ->
                                     scope.launch { uiPreferences.setAppThemeMode(mode) }
                                 },
@@ -282,6 +284,9 @@ class MainActivity : FragmentActivity() {
                                 },
                                 onUseSystemFontChange = { enabled ->
                                     scope.launch { uiPreferences.setUseSystemFont(enabled) }
+                                },
+                                onQuickExpenseKeypadEnabledChange = { enabled ->
+                                    scope.launch { uiPreferences.setQuickExpenseKeypadEnabled(enabled) }
                                 },
                                 smsImportEnabled = smsImportEnabled == true,
                                 hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,

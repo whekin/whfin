@@ -128,3 +128,23 @@ internal data class AmountCalculator(
         val HUNDRED: BigDecimal = BigDecimal("100")
     }
 }
+
+internal fun normalizeAmountInput(raw: String): String {
+    val result = StringBuilder()
+    var decimalSeen = false
+    var digitCount = 0
+    raw.forEach { character ->
+        when {
+            character.isDigit() && digitCount < 12 -> {
+                result.append(character)
+                digitCount += 1
+            }
+            (character == '.' || character == ',') && !decimalSeen -> {
+                if (result.isEmpty()) result.append('0')
+                result.append('.')
+                decimalSeen = true
+            }
+        }
+    }
+    return result.toString()
+}

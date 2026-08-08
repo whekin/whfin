@@ -206,6 +206,7 @@ private fun CompactWidget(
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     .clickable(key = "cycle-source", block = cycleSource),
                 textColor = GlanceTheme.colors.onSurface,
+                nudgeTowardAction = level == 2,
             )
             if (level >= 3) {
                 WidgetDivider()
@@ -268,11 +269,17 @@ private fun WidgetDivider() {
 }
 
 @Composable
-private fun WidgetSegment(text: String, modifier: GlanceModifier, textColor: ColorProvider) {
+private fun WidgetSegment(
+    text: String,
+    modifier: GlanceModifier,
+    textColor: ColorProvider,
+    nudgeTowardAction: Boolean = false,
+) {
         Box(
-            // The trailing action is a visible circle inset inside a rectangular touch slot.
-            // Nudge toward it so the two visible gaps, not the hidden layout slots, are equal.
-            modifier = modifier.padding(start = 10.dp, end = 6.dp),
+            // The filled circle is visually much heavier than the label. In the 2-cell composition,
+            // shift only the source label toward it; currency/source segments remain geometric.
+            modifier = if (nudgeTowardAction) modifier.padding(start = 24.dp, end = 4.dp)
+            else modifier.padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(

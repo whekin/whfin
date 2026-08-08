@@ -159,6 +159,41 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun quickExpenseKeypadSwitch_exposesStateAndToggles() {
+        var enabled = true
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val description = context.getString(R.string.settings_quick_keypad_toggle)
+        compose.setContent {
+            WhfinTheme {
+                SettingsScreen(
+                    quickExpenseKeypadEnabled = enabled,
+                    onQuickExpenseKeypadEnabledChange = { enabled = it },
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription(description)
+            .performScrollTo()
+            .assertIsOn()
+            .performClick()
+        assertFalse(enabled)
+    }
+
+    @Test
     fun smsMonitoringSwitch_enablesBeforeCardMapping_andRequestsPermission() {
         var enabled = false
         var diagnosticsOpened = false

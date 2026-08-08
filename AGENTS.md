@@ -315,8 +315,8 @@ This is a single-context repository with root domain documentation and system-wi
   исключение возможно только с явным согласием и заранее проверенным backup/restore.
   Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех
   1–4-cell вариантах и их picker-preview; отдельный divider перед кругом убран как лишняя колонка,
-  а подписи центрируются в оставшемся перед action пространстве с 2dp оптическим сдвигом к кругу,
-  выравнивающим видимые зазоры вместо скрытых touch-слотов.
+  а source-подпись 2-cell варианта получила отдельный 10dp оптический сдвиг к визуально тяжёлому кругу;
+  более широкие source/currency сегменты остаются геометрически центрированными.
   Quick expense больше не зависит от высоты OEM decimal IME:
   сумма вводится общим in-app calculator keypad: вычисления вынесены в верхний rail
   (`% ÷ × − + =`), ниже строгая трёхколоночная цифровая сетка с `.`, `0` и backspace в последнем ряду;
@@ -324,12 +324,14 @@ This is a single-context repository with root domain documentation and system-wi
   Description и временно заменяет keypad. Quick expense размещён в настоящем Material modal bottom sheet:
   закрывается свайпом вниз, тапом по scrim или явным крестиком. Translucent host не добавляет системный
   window-dim поверх Compose scrim, поэтому фон launcher возвращается вместе с sheet, а не вторым тактом.
+  Scrim alpha теперь следует фактическому drag offset, а не бинарному Expanded/Hidden target, поэтому
+  медленное закрытие непрерывно проявляет фон. В Settings → Appearance добавлен persistent toggle
+  клавиатуры Quick expense (по умолчанию включён); выключение даёт автофокус системному decimal IME.
   Арифметика, category→save callback,
   widget previews и сборка проверены JVM-тестами; keypad закреплён light/dark/font 1.5 screenshot references.
-  Финальная сборка установлена на Galaxy S25 через `install -r` без очистки данных: видимые зазоры
-  `pill→Cash` и `Cash→круг` равны 108/109 px, divider отсутствует, а свайп от drag handle вниз закрывает
-  QuickExpenseActivity без сохранения операции. Короткая покадровая запись подтверждает, что launcher
-  светлеет одновременно с уходящим sheet без второго window-dim такта после закрытия.
+  На disposable Pixel 9 Pro API 36.1 при RU/dark/font scale 1.5 проверены Settings toggle, системная Gboard,
+  возврат встроенного keypad и медленный трёхсекундный dismiss; покадровая запись показывает непрерывное
+  осветление фона. Финальную 2-cell геометрию после 10dp сдвига остаётся подтвердить на Galaxy S25.
 - [x] Rich Accounts UI: одна карточка на FinancialGroup (Credo/Wallet) с вложенными валютными счетами,
   итогами каждой валюты и переходом к выпискам; сверху сводка «Все счета / Доступно / Резерв» без
   ложного сложения разных валют. Счёт можно удалить с подтверждением. Любой BANK/SAVINGS можно

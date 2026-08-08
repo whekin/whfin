@@ -151,6 +151,9 @@
     <string name="settings_system_font">Device font</string>
     <string name="settings_system_font_body">Use your device font for titles and large totals</string>
     <string name="settings_system_font_toggle">Use device font</string>
+    <string name="settings_quick_keypad">Quick expense keypad</string>
+    <string name="settings_quick_keypad_body">Use WHFIN’s compact calculator keypad instead of the device keyboard</string>
+    <string name="settings_quick_keypad_toggle">Use the WHFIN keypad for Quick expense</string>
     <string name="settings_automation">AUTOMATION</string>
     <string name="credo_sync_title">Credo sync</string>
     <string name="credo_sync_settings_summary">Sign in once and import every account statement</string>
