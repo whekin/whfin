@@ -66,8 +66,17 @@ class AnalyticsCalculatorTest {
 
         assertEquals(7_500L, data.categoryExpenseMinor)
         assertEquals(6_000L, data.categoryValues.first { it.categoryId == food.id }.expenseMinor)
-        assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.take(3).map { it.expenseMinor })
-        assertTrue(data.trendValues.drop(3).all { it.expenseMinor == 0L })
+        assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.takeLast(3).map { it.expenseMinor })
+        assertTrue(data.trendValues.dropLast(3).all { it.expenseMinor == 0L })
+        assertEquals(1_000L, data.spendingAverageMinor)
+        assertEquals(
+            3_000L,
+            data.spendingCategoryValues.single { it.categoryId == food.id }.expenseMinor,
+        )
+        assertEquals(
+            1_000L,
+            data.spendingCategoryValues.single { it.categoryId == food.id }.averageExpenseMinor,
+        )
     }
 
     @Test

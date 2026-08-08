@@ -49,6 +49,7 @@ class AnalyticsScreenTest {
                         onRangeChange = { range = it },
                         onShowAllTrend = { filter = AnalyticsTrendFilter.All },
                         onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
+                        onOpenExpenses = {},
                         onOpenTransactions = {},
                     )
                 }
@@ -81,6 +82,7 @@ class AnalyticsScreenTest {
                         onRangeChange = {},
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
+                        onOpenExpenses = {},
                         onOpenTransactions = { opened = it },
                     )
                 }
@@ -88,8 +90,8 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
-        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
-        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
+        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("110.00 ₾")
         compose.waitForIdle()
         compose.onNodeWithTag("analytics-view-transactions").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(timeoutMillis = 1_000) { opened != null }
@@ -98,7 +100,7 @@ class AnalyticsScreenTest {
             assertEquals(YearMonth.of(2026, 6), opened?.month)
             assertEquals(true, opened?.categoryFilterEnabled)
             assertEquals(1L, opened?.categoryId)
-            assertEquals(6_000L, opened?.expectedExpenseMinor)
+            assertEquals(11_000L, opened?.expectedExpenseMinor)
         }
     }
 
@@ -116,6 +118,7 @@ class AnalyticsScreenTest {
                         onRangeChange = {},
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
+                        onOpenExpenses = {},
                         onOpenTransactions = { opened = it },
                     )
                 }
@@ -135,6 +138,64 @@ class AnalyticsScreenTest {
         }
     }
 
+    @Test
+    fun expenseMetricOpensFocusedSpendingAnalysis() {
+        var opened = false
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        data = contentData,
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onRangeChange = {},
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenExpenses = { opened = true },
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-open-expenses").performClick()
+        compose.runOnIdle { assertEquals(true, opened) }
+    }
+
+    @Test
+    fun focusedSpendingSelectsCategoryAndShowsItsComparison() {
+        var filter by mutableStateOf<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    ExpenseAnalysisContent(
+                        data = contentData.copy(
+                            spendingAverageMinor = 60_000,
+                            spendingCategoryValues = listOf(
+                                AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000, 40_000),
+                                AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 35_000),
+                            ),
+                            trendFilter = filter,
+                            trendFilterName = (filter as? AnalyticsTrendFilter.Category)?.let { "Food" },
+                        ),
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onShowAllTrend = { filter = AnalyticsTrendFilter.All },
+                        onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithText("100.00 ₾ above the previous 3-month average").assertExists()
+        compose.onNodeWithTag("expense-category-1").performClick()
+        compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
+    }
+
     private val contentData = AnalyticsData(
         selectedMonth = YearMonth.of(2026, 7),
         incomeMinor = 400_000,
@@ -147,7 +208,9 @@ class AnalyticsScreenTest {
         ),
         trendFilter = AnalyticsTrendFilter.All,
         trendFilterName = null,
-        trendValues = (1..12).map { AnalyticsMonthValue(YearMonth.of(2026, it), it * 1_000L) },
+        trendValues = (0L..11L).map {
+            AnalyticsMonthValue(YearMonth.of(2025, 8).plusMonths(it), (it + 1) * 1_000L)
+        },
         previousTrendExpenseMinor = 6_000,
         unaccountedNetMinor = 0,
         otherCurrencyExpenses = emptyList(),

@@ -32,6 +32,7 @@ import dev.whekin.whfin.ui.accounts.AccountsScreen
 import dev.whekin.whfin.ui.accounts.AccountOverviewScreen
 import dev.whekin.whfin.ui.accounts.AccountTransactionsScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsScreen
+import dev.whekin.whfin.ui.analytics.ExpenseAnalysisScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsRequest
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsScreen
 import dev.whekin.whfin.ui.components.LedgerIconButton
@@ -84,7 +85,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AppLock, Backup, Privacy, About, Categories, People }
+internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Privacy, About, Categories, People }
 
 internal enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -95,7 +96,8 @@ internal enum class ShellScene(val depth: Int) {
     AccountOverview(1),
     AccountTransactions(1),
     Analytics(1),
-    AnalyticsTransactions(2),
+    AnalyticsExpenses(2),
+    AnalyticsTransactions(3),
     AppLock(2),
     Backup(2),
     Privacy(2),
@@ -138,6 +140,7 @@ internal fun shellTargetFor(
             SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
             SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
             SecondaryDestination.Analytics -> ShellScene.Analytics
+            SecondaryDestination.AnalyticsExpenses -> ShellScene.AnalyticsExpenses
             SecondaryDestination.AppLock -> ShellScene.AppLock
             SecondaryDestination.Backup -> ShellScene.Backup
             SecondaryDestination.Privacy -> ShellScene.Privacy
@@ -242,6 +245,9 @@ fun MainScreen(
             secondaryDestination == SecondaryDestination.AccountTransactions -> {
                 accountTransactionsId = null
                 secondaryDestination = null
+            }
+            secondaryDestination == SecondaryDestination.AnalyticsExpenses -> {
+                secondaryDestination = SecondaryDestination.Analytics
             }
             secondaryDestination == SecondaryDestination.CredoSync ||
                 secondaryDestination == SecondaryDestination.Statements ||
@@ -471,6 +477,14 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) { PeopleRoute() }
                     ShellScene.Analytics -> AnalyticsScreen(
+                        onBack = { goBack(withHaptic = true) },
+                        onOpenExpenses = { open(SecondaryDestination.AnalyticsExpenses) },
+                        onOpenTransactions = { request ->
+                            haptics.performHapticFeedback(WhfinHaptics.navigation)
+                            analyticsTransactions = request
+                        },
+                    )
+                    ShellScene.AnalyticsExpenses -> ExpenseAnalysisScreen(
                         onBack = { goBack(withHaptic = true) },
                         onOpenTransactions = { request ->
                             haptics.performHapticFeedback(WhfinHaptics.navigation)

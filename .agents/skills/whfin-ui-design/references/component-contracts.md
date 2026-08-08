@@ -57,6 +57,9 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinTotalRule`: the accounting double rule that closes a result block. Ordinary row separators stay
   single `HorizontalDivider`s.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
+- `WhfinDonutChart`: a restrained, non-interactive proportional summary for category composition. The
+  adjacent ledger rows own selection and navigation so tiny arcs never become inaccessible touch targets;
+  the ring exposes one complete accessibility description and may dim non-selected segments.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.
 
 Interactive surfaces own their click semantics: use the clickable `Surface` overload or clip the indication to the same shape before `clickable`. Circular controls must never produce square pressed states. Full-bleed ledger rows use an edge-to-edge rectangular pressed state while their content and dividers remain on the shared horizontal rail.

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -89,6 +90,41 @@ fun monthlyChartDarkScreenshot() {
 @Composable
 fun monthlyChartLargeFontScreenshot() {
     WhfinTheme(darkTheme = false) { MonthlyChartScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "donut_chart_light", widthDp = 260, heightDp = 260)
+@Composable
+fun donutChartLightScreenshot() {
+    WhfinTheme(darkTheme = false) { DonutChartScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "donut_chart_dark", widthDp = 260, heightDp = 260, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun donutChartDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { DonutChartScreenshotContent() }
+}
+
+@Composable
+private fun DonutChartScreenshotContent() {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            WhfinDonutChart(
+                segments = listOf(
+                    WhfinDistributionSegment(54f, WhfinThemeTokens.colors.clay),
+                    WhfinDistributionSegment(24f, WhfinThemeTokens.colors.bottle),
+                    WhfinDistributionSegment(14f, WhfinThemeTokens.colors.sage),
+                    WhfinDistributionSegment(8f, MaterialTheme.colorScheme.secondary),
+                ),
+                contentDescription = "Four expense categories",
+                modifier = Modifier.size(196.dp),
+            )
+        }
+    }
 }
 
 @Composable

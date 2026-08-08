@@ -107,6 +107,13 @@ that have current-month spending; each row opens that category's current-month t
 Keep this sequence as result → pace → drivers → category detail → year trend, without dashboard tiles
 or a second competing hero.
 
+The expense amount opens a focused Spending scene rather than expanding the overview further. That scene
+leads with the selected-month expense total and its average over the three preceding complete months,
+then keeps category ring, rolling twelve-month trend, and category ledger in one connected reading flow.
+The ring is a summary rather than a control: category rows select the trend and the trend action opens the
+filtered transaction ledger. Show at most five named ring segments plus Other, keep uncategorized expenses
+inside the distribution, and keep balance adjustments outside it.
+
 ### Composer
 
 Treat the amount as the active focal field. Keep type selection explicit, account/category/date choices as compact decision rows, and the save action pinned above navigation/IME. Category selection is a full internal step, not a modal stacked over another modal.

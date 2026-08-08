@@ -153,6 +153,13 @@ takes a tonal slot, and a month with no expenses draws a quiet baseline rule ins
 The chart carries no instructional caption: selection and swipe are evident from the emphasized month and the
 amount that follows it. “View transactions” opens a focused ledger filtered by that trend month and the active category, while Back restores the unchanged Statistics context. The drill-down queries the full month rather than Feed's bounded recent-history window. Transfers and debt allocations are excluded. Linked automatic conversion funding is attributed to the purchase category in GEL, while unconverted foreign expenses stay in native-currency rows. System Unaccounted adjustments are visible in a separate section but excluded from income, expenses, category shares, and trends.
 
+The expense metric opens a dedicated Spending scene. It compares the selected month with the arithmetic
+average of the three preceding complete months, then connects a category ring, a rolling twelve-month trend,
+and ledger rows with share, amount, and category-specific average delta. The ring itself is one accessible
+summary rather than a collection of tiny touch targets; rows own category selection, and the existing trend
+action owns navigation into transactions. At most five categories receive named ring segments and the rest
+collapse into Other. Back from the filtered ledger restores Spending, and Back again restores Statistics.
+
 ## Widget loading contract
 
 Glance widget metadata uses `@layout/glance_default_loading_layout` for `initialLayout`. Picker previews may mirror the WHFIN composition, but must remain valid `RemoteViews`: only supported layout/view classes, vector assets for icon actions, and no generic `<View>` dividers or Unicode icon substitutes. This prevents launchers such as ColorOS from briefly showing “Error loading widget” before the first Glance composition arrives.
@@ -186,6 +193,10 @@ It shows a coherent loading surface followed directly by the full Cash/deposit h
 Monthly Statistics was rendered in RU and EN on the same Pixel 9 Pro AVD: populated light/dark, font scale 1.5 at the top and final scroll position, category drill-down, system back, and a scrolling title/status-bar boundary. The host suite covers range/category interaction plus transfers, debts, adjustments, FX-funded purchases, and unsupported native-currency expenses.
 
 The selectable year trend and its filtered ledger were additionally exercised end to end: changing the selected month updates the exact amount and comparison, zero months disable drill-down, and non-zero months open a full-month/category query. The filtered row opens transaction details; both the in-app Back action and Android system Back restore the same Statistics month, category, selected bar, and scroll context. Final renders were checked in light and dark mode, at font scale 1.5, and after an in-place EN→RU locale change.
+
+Focused Spending was rendered on the disposable Pixel 9 Pro API 36.1 AVD in RU light/font 1.0,
+RU dark/font 1.5, and EN light/font 1.0. The category selection → rolling trend → filtered transactions →
+system Back path restored both Spending and the parent Statistics scene without losing the category filter.
 
 The dismissible Feed SMS proposal was rendered in dark mode and in light mode at font scale 1.5. Its close action was exercised through the accessibility node, the app was force-stopped and relaunched to verify persistent dismissal, and Settings was reopened to confirm that SMS permission remains available there.
 

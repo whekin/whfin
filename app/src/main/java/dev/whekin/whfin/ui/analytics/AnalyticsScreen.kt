@@ -85,6 +85,7 @@ import kotlin.math.abs
 @Composable
 internal fun AnalyticsScreen(
     onBack: () -> Unit,
+    onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     viewModel: AnalyticsViewModel = viewModel(),
 ) {
@@ -125,6 +126,10 @@ internal fun AnalyticsScreen(
             onRangeChange = viewModel::setCategoryRange,
             onShowAllTrend = viewModel::showAllExpensesTrend,
             onShowCategoryTrend = viewModel::showCategoryTrend,
+            onOpenExpenses = {
+                viewModel.showAllExpensesTrend()
+                onOpenExpenses()
+            },
             onOpenTransactions = onOpenTransactions,
         )
     }
@@ -161,17 +166,16 @@ internal fun AnalyticsContent(
     onRangeChange: (Int) -> Unit,
     onShowAllTrend: () -> Unit,
     onShowCategoryTrend: (Long?) -> Unit,
+    onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
     val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var selectedTrendMonthNumber by rememberSaveable(data.selectedMonth.year, data.trendFilter) {
-        mutableIntStateOf(data.selectedMonth.monthValue)
+    var selectedTrendIndex by rememberSaveable(data.selectedMonth.toString(), data.trendFilter) {
+        mutableIntStateOf(data.trendValues.lastIndex.coerceAtLeast(0))
     }
-    val selectedTrendMonth = remember(data.selectedMonth.year, selectedTrendMonthNumber) {
-        YearMonth.of(data.selectedMonth.year, selectedTrendMonthNumber)
-    }
+    val selectedTrendMonth = data.trendValues.getOrNull(selectedTrendIndex)?.month ?: data.selectedMonth
     val trendItemIndex = 3 +
         (if (data.pace != null) 1 else 0) +
         (if (data.categoryChanges.isNotEmpty()) 1 else 0)
@@ -184,7 +188,7 @@ internal fun AnalyticsContent(
             item(key = "analytics-header") { AnalyticsHeader(onBack) }
             item(key = "month-result") {
                 Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 28.dp)) {
-                    MonthResult(data, onPreviousMonth, onNextMonth)
+                    MonthResult(data, onPreviousMonth, onNextMonth, onOpenExpenses)
                 }
             }
             data.pace?.let { pace ->
@@ -227,7 +231,11 @@ internal fun AnalyticsContent(
                     YearTrend(
                         data = data,
                         selectedMonth = selectedTrendMonth,
-                        onSelectMonth = { selectedTrendMonthNumber = it.monthValue },
+                        onSelectMonth = { month ->
+                            selectedTrendIndex = data.trendValues.indexOfFirst { it.month == month }
+                                .takeIf { it >= 0 }
+                                ?: data.trendValues.lastIndex
+                        },
                         onShowAllTrend = onShowAllTrend,
                         onOpenTransactions = onOpenTransactions,
                     )
@@ -249,7 +257,7 @@ internal fun AnalyticsContent(
 }
 
 @Composable
-private fun AnalyticsHeader(onBack: () -> Unit) {
+internal fun AnalyticsHeader(onBack: () -> Unit, title: String = stringResource(R.string.analytics_title)) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth().statusBarsPadding()) {
             Row(
@@ -258,7 +266,7 @@ private fun AnalyticsHeader(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 WhfinBackButton(stringResource(R.string.action_back), onBack)
-                Text(stringResource(R.string.analytics_title), style = MaterialTheme.typography.headlineSmall)
+                Text(title, style = MaterialTheme.typography.headlineSmall)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -266,7 +274,12 @@ private fun AnalyticsHeader(onBack: () -> Unit) {
 }
 
 @Composable
-private fun MonthResult(data: AnalyticsData, onPreviousMonth: () -> Unit, onNextMonth: () -> Unit) {
+private fun MonthResult(
+    data: AnalyticsData,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onOpenExpenses: () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         MonthSelector(data.selectedMonth, onPreviousMonth, onNextMonth)
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -297,6 +310,7 @@ private fun MonthResult(data: AnalyticsData, onPreviousMonth: () -> Unit, onNext
                 formatMinor(data.expenseMinor, "GEL"),
                 MaterialTheme.colorScheme.tertiary,
                 Modifier.weight(1f),
+                onClick = onOpenExpenses,
             )
         }
         if (data.pendingCount > 0) Text(
@@ -308,7 +322,7 @@ private fun MonthResult(data: AnalyticsData, onPreviousMonth: () -> Unit, onNext
 }
 
 @Composable
-private fun MonthSelector(
+internal fun MonthSelector(
     month: YearMonth,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
@@ -338,15 +352,34 @@ private fun MonthSelector(
 }
 
 @Composable
-private fun AnalyticsMetric(label: String, value: String, color: Color, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        WhfinAmount(
-            value,
-            symbol = currencySymbol("GEL"),
-            style = MaterialTheme.typography.titleLarge,
-            color = color,
+private fun AnalyticsMetric(
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    val content: @Composable () -> Unit = {
+        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WhfinAmount(
+                value,
+                symbol = currencySymbol("GEL"),
+                style = MaterialTheme.typography.titleLarge,
+                color = color,
+            )
+        }
+    }
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier.heightIn(min = 48.dp).testTag("analytics-open-expenses"),
+            shape = MaterialTheme.shapes.small,
+            color = Color.Transparent,
+            content = content,
         )
+    } else {
+        Box(modifier.heightIn(min = 48.dp)) { content() }
     }
 }
 
@@ -640,7 +673,7 @@ private fun CategoryRow(
 }
 
 @Composable
-private fun YearTrend(
+internal fun YearTrend(
     data: AnalyticsData,
     selectedMonth: YearMonth,
     onSelectMonth: (YearMonth) -> Unit,
@@ -677,6 +710,7 @@ private fun YearTrend(
                             value = point.expenseMinor,
                             amountDescription = formatMinor(point.expenseMinor, "GEL"),
                             selected = point.month == selectedMonth,
+                            periodDescription = monthTitle(point.month),
                         )
                     },
                     onBarClick = { index -> data.trendValues.getOrNull(index)?.month?.let(onSelectMonth) },
@@ -749,7 +783,7 @@ private fun UnaccountedSection(amountMinor: Long) {
 }
 
 @Composable
-private fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
+internal fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_other_currencies),
@@ -849,7 +883,7 @@ private val previewData = AnalyticsData(
 private fun AnalyticsPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsContent(previewData, {}, {}, {}, {}, {}, {}, {})
+            AnalyticsContent(previewData, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

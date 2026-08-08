@@ -55,6 +55,16 @@ class ShellNavigationTest {
     }
 
     @Test
+    fun `spending analysis is a child of statistics`() {
+        val analytics = shellTargetFor(SecondaryDestination.Analytics, null, null)
+        val spending = shellTargetFor(SecondaryDestination.AnalyticsExpenses, null, null)
+
+        assertEquals(ShellScene.AnalyticsExpenses, spending.scene)
+        assertTrue(shellTransitionIsForward(analytics, spending))
+        assertFalse(shellTransitionIsForward(spending, analytics))
+    }
+
+    @Test
     fun `only a shallower destination animates as a return`() {
         val primary = shellTargetFor(null, null, null)
         val settings = shellTargetFor(SecondaryDestination.Settings, null, null)

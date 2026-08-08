@@ -31,6 +31,7 @@ internal data class AnalyticsCategoryValue(
     val icon: String?,
     val color: Int?,
     val expenseMinor: Long,
+    val averageExpenseMinor: Long = 0L,
 )
 
 internal data class AnalyticsCurrencyValue(
@@ -63,6 +64,9 @@ internal data class AnalyticsData(
     val categoryRangeMonths: Int,
     val categoryExpenseMinor: Long,
     val categoryValues: List<AnalyticsCategoryValue>,
+    /** Selected-month categories with a per-category average over the three preceding months. */
+    val spendingCategoryValues: List<AnalyticsCategoryValue> = emptyList(),
+    val spendingAverageMinor: Long = 0L,
     val trendFilter: AnalyticsTrendFilter,
     val trendFilterName: String?,
     val trendValues: List<AnalyticsMonthValue>,
@@ -173,6 +177,12 @@ internal fun calculateAnalytics(
     val previousMonth = selectedMonth.minusMonths(1)
     val previousBase = baseSlices.filter { it.month == previousMonth }
     val previousExpenses = -previousBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
+    val comparisonMonths = (1L..3L).map(selectedMonth::minusMonths)
+    val spendingAverage = comparisonMonths.sumOf { comparisonMonth ->
+        -baseSlices
+            .filter { it.month == comparisonMonth }
+            .sumOf { it.gelMinor!!.coerceAtMost(0L) }
+    } / comparisonMonths.size
     val pace = if (selectedMonth == YearMonth.from(today)) {
         AnalyticsPace(
             daysElapsed = today.dayOfMonth,
@@ -191,6 +201,23 @@ internal fun calculateAnalytics(
         .filter { it.gelMinor!! < 0L }
         .groupBy { it.categoryId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
+    val averageCategoryExpenses = baseSlices
+        .filter { it.month in comparisonMonths && it.gelMinor!! < 0L }
+        .groupBy { it.categoryId }
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonMonths.size }
+    val spendingCategoryValues = currentCategoryExpenses
+        .map { (categoryId, expenseMinor) ->
+            val category = categoryId?.let(categoryById::get)
+            AnalyticsCategoryValue(
+                categoryId = categoryId,
+                name = category?.name,
+                icon = category?.icon,
+                color = category?.color,
+                expenseMinor = expenseMinor,
+                averageExpenseMinor = averageCategoryExpenses[categoryId] ?: 0L,
+            )
+        }
+        .sortedByDescending { it.expenseMinor }
     val categoryChanges = currentCategoryExpenses
         .map { (categoryId, expenseMinor) ->
             val category = categoryId?.let(categoryById::get)
@@ -225,8 +252,8 @@ internal fun calculateAnalytics(
         }
         .sortedByDescending { it.expenseMinor }
 
-    val trendValues = (1..12).map { monthNumber ->
-        val month = YearMonth.of(selectedMonth.year, monthNumber)
+    val trendValues = (11L downTo 0L).map { monthsAgo ->
+        val month = selectedMonth.minusMonths(monthsAgo)
         val expense = -baseSlices
             .filter {
                 it.month == month && it.gelMinor!! < 0L && when (trendFilter) {
@@ -261,6 +288,8 @@ internal fun calculateAnalytics(
         categoryRangeMonths = categoryRangeMonths,
         categoryExpenseMinor = categoryValues.sumOf { it.expenseMinor },
         categoryValues = categoryValues,
+        spendingCategoryValues = spendingCategoryValues,
+        spendingAverageMinor = spendingAverage,
         trendFilter = trendFilter,
         trendFilterName = (trendFilter as? AnalyticsTrendFilter.Category)
             ?.categoryId

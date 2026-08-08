@@ -1,6 +1,7 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -66,6 +67,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
@@ -467,12 +470,68 @@ data class WhfinDistributionSegment(
     val color: Color,
 )
 
+/**
+ * A restrained category distribution ring. Labels and interaction stay in the adjacent ledger rows;
+ * the ring is one accessible summary, so small segments never create unusable touch targets.
+ */
+@Composable
+fun WhfinDonutChart(
+    segments: List<WhfinDistributionSegment>,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    selectedIndex: Int? = null,
+    centerContent: @Composable () -> Unit = {},
+) {
+    val visible = segments.filter { it.weight > 0f }
+    val total = visible.sumOf { it.weight.toDouble() }.toFloat().coerceAtLeast(1f)
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    Box(
+        modifier
+            .size(196.dp)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize().padding(12.dp)) {
+            val strokeWidth = 24.dp.toPx()
+            drawArc(
+                color = track,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(strokeWidth, cap = StrokeCap.Butt),
+            )
+            if (visible.isNotEmpty()) {
+                val gap = if (visible.size == 1) 0f else 2.5f
+                val availableSweep = 360f - gap * visible.size
+                var start = -90f
+                visible.forEachIndexed { index, segment ->
+                    val sweep = availableSweep * (segment.weight / total)
+                    drawArc(
+                        color = if (selectedIndex == null || selectedIndex == index) {
+                            segment.color
+                        } else {
+                            segment.color.copy(alpha = .24f)
+                        },
+                        startAngle = start,
+                        sweepAngle = sweep.coerceAtLeast(0f),
+                        useCenter = false,
+                        style = Stroke(strokeWidth, cap = StrokeCap.Butt),
+                    )
+                    start += sweep + gap
+                }
+            }
+        }
+        centerContent()
+    }
+}
+
 @Immutable
 data class WhfinMonthlyBar(
     val label: String,
     val value: Long,
     val amountDescription: String,
     val selected: Boolean = false,
+    val periodDescription: String = label,
 )
 
 /** A compact, selectable period comparison with accessible 48 dp month targets. */
@@ -505,7 +564,7 @@ fun WhfinMonthlyBarChart(
                 .fillMaxHeight()
                 .testTag("whfin-monthly-bar-$index")
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "${bar.label}, ${bar.amountDescription}"
+                    contentDescription = "${bar.periodDescription}, ${bar.amountDescription}"
                     selected = bar.selected
                 }
             val content: @Composable () -> Unit = {
