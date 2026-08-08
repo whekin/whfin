@@ -637,6 +637,7 @@
     <string name="money_source_choose">Choose source and currency</string>
     <string name="currency_add">Add currency</string>
     <string name="quick_expense">Quick expense</string>
+    <string name="quick_delete_digit">Delete digit</string>
     <string name="quick_expense_hint">Cash · tap a currency to enter</string>
     <string name="quick_description">Description</string>
     <string name="quick_saved">Expense saved</string>

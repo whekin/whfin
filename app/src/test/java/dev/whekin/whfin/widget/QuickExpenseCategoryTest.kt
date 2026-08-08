@@ -1,23 +1,19 @@
 package dev.whekin.whfin.widget
 
-import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
-import androidx.test.core.app.ActivityScenario
-import androidx.test.core.app.ApplicationProvider
-import dev.whekin.whfin.R
-import dev.whekin.whfin.WhfinApp
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,44 +24,47 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class QuickExpenseCategoryTest {
     @get:Rule
-    val compose = createEmptyComposeRule()
+    val compose = createComposeRule()
 
     @Test
     fun expenseSavesWithSelectedCategory() {
-        val app = ApplicationProvider.getApplicationContext<Application>() as WhfinApp
-        val db = app.userDb
-        val categoryId = runBlocking {
-            db.categoryDao().insert(
-                CategoryEntity(name = "QuickTestCat", kind = CategoryKind.EXPENSE, icon = "ShoppingCart", color = 1),
-            )
+        val category = CategoryEntity(
+            id = 42,
+            name = "QuickTestCat",
+            kind = CategoryKind.EXPENSE,
+            icon = "ShoppingCart",
+            color = 1,
+        )
+        var savedAmount: Long? = null
+        var savedCategory: Long? = null
+        compose.setContent {
+            WhfinTheme {
+                QuickExpenseScreen(
+                    initialCurrency = "GEL",
+                    sourceLabel = "Cash",
+                    sourceAccountId = null,
+                    categories = listOf(category),
+                    suggester = null,
+                    onDismiss = {},
+                    onSave = { amount, _, _, _, categoryId ->
+                        savedAmount = amount
+                        savedCategory = categoryId
+                    },
+                )
+            }
         }
-        val context = ApplicationProvider.getApplicationContext<Application>()
+        compose.onNodeWithContentDescription("QuickTestCat").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("whfin-amount-key-DIGIT_5").performClick()
+        compose.onAllNodes(hasContentDescription("5 GEL", substring = true))[0].assertIsDisplayed()
+        compose.onNodeWithTag("quick-expense-save")
+            .assertIsEnabled()
+            .performScrollTo()
+            .performTouchInput { click() }
+        compose.waitForIdle()
 
-        ActivityScenario.launch(QuickExpenseActivity::class.java).use {
-            compose.waitUntil(5_000) {
-                compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
-            }
-            // Ряд категорий подгружается асинхронно после первого кадра.
-            compose.waitUntil(5_000) {
-                compose.onAllNodes(
-                    androidx.compose.ui.test.hasContentDescription("QuickTestCat"),
-                ).fetchSemanticsNodes().isNotEmpty()
-            }
-            compose.onNodeWithContentDescription("QuickTestCat").assertIsDisplayed().performClick()
-            compose.onAllNodes(hasSetTextAction())[0].performTextInput("5")
-            compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
-
-            val saved = runBlocking {
-                val deadline = System.currentTimeMillis() + 5_000
-                while (System.currentTimeMillis() < deadline) {
-                    val feed = db.transactionDao().observeFeed(limit = 10).first()
-                    feed.firstOrNull { it.amountMinor == -500L }?.let { return@runBlocking it }
-                    Thread.sleep(50)
-                }
-                fail("Quick expense was not saved")
-                error("unreachable")
-            }
-            assertEquals(categoryId, saved.categoryId)
+        compose.runOnIdle {
+            assertEquals(500L, savedAmount)
+            assertEquals(category.id, savedCategory)
         }
     }
 }

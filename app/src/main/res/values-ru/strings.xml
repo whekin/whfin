@@ -642,6 +642,7 @@
     <string name="money_source_choose">Источник и валюта</string>
     <string name="currency_add">Добавить валюту</string>
     <string name="quick_expense">Быстрый расход</string>
+    <string name="quick_delete_digit">Удалить цифру</string>
     <string name="quick_expense_hint">Наличные · выбери валюту для ввода</string>
     <string name="quick_description">Описание</string>
     <string name="quick_saved">Расход сохранён</string>

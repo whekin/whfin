@@ -313,6 +313,13 @@ This is a single-context repository with root domain documentation and system-wi
   `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
   исключение возможно только с явным согласием и заранее проверенным backup/restore.
+  Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех
+  1–4-cell вариантах и их picker-preview. Quick expense больше не зависит от высоты OEM decimal IME:
+  сумма вводится общим in-app calculator keypad (`00`, decimal, backspace, `+ − × ÷`, `%`, `=`),
+  незавершённое выражение вычисляется при Save, а обычная системная text IME открывается только для
+  Description и временно заменяет keypad. Арифметика, category→save callback, widget previews и сборка
+  проверены JVM-тестами; keypad закреплён light/dark/font 1.5 screenshot references. Финальный render
+  всего quick-entry на Galaxy S25 остаётся повторить: телефон исчез из ADB до установки debug upgrade.
 - [x] Rich Accounts UI: одна карточка на FinancialGroup (Credo/Wallet) с вложенными валютными счетами,
   итогами каждой валюты и переходом к выпискам; сверху сводка «Все счета / Доступно / Резерв» без
   ложного сложения разных валют. Счёт можно удалить с подтверждением. Любой BANK/SAVINGS можно

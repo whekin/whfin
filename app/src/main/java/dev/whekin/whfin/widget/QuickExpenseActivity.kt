@@ -1,16 +1,17 @@
 package dev.whekin.whfin.widget
 
 import android.os.Bundle
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Payments
@@ -18,12 +19,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import dev.whekin.whfin.R
@@ -44,6 +46,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinAmountKeypad
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinIconButton
 
@@ -56,9 +59,6 @@ class QuickExpenseActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setSoftInputMode(
-            window.attributes.softInputMode or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE,
-        )
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
         setContent {
@@ -127,8 +127,9 @@ class QuickExpenseActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuickExpenseScreen(
+internal fun QuickExpenseScreen(
     initialCurrency: String,
     sourceLabel: String,
     sourceAccountId: Long?,
@@ -138,27 +139,26 @@ private fun QuickExpenseScreen(
     onSave: (Long, String, Long?, String?, Long?) -> Unit,
 ) {
     val currency = initialCurrency
-    var amount by remember { mutableStateOf("") }
+    var calculator by remember { mutableStateOf(AmountCalculator()) }
     var description by remember { mutableStateOf("") }
     var categoryId by remember { mutableStateOf<Long?>(null) }
-    val minor = parseToMinor(amount)
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) {
-        withFrameNanos { }
-        focusRequester.requestFocus()
-        keyboard?.show()
-    }
+    val minor = parseToMinor(calculator.resolvedText())?.takeIf { it > 0L }
+    val imeVisible = WindowInsets.isImeVisible
 
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .18f)).clickable(onClick = onDismiss), contentAlignment = Alignment.BottomCenter) {
         Surface(
-            onClick = {},
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
+                detectTapGestures(onTap = {})
+            },
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.background,
         ) {
             Column(
-                Modifier.navigationBarsPadding().imePadding().padding(horizontal = 22.dp, vertical = 18.dp),
+                Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 22.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -176,16 +176,28 @@ private fun QuickExpenseScreen(
                     }
                     WhfinIconButton(Icons.Default.Close, stringResource(R.string.action_cancel), onDismiss, outlined = false)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        amount, { amount = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12) },
-                        placeholder = { Text("0.00", style = MaterialTheme.typography.displayLarge) },
-                        textStyle = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent),
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester),
-                    )
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = "${calculator.expression.orEmpty()} ${calculator.display.ifEmpty { "0.00" }} $currency"
+                    },
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        calculator.expression?.let { expression ->
+                            Text(
+                                expression,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            calculator.display.ifEmpty { "0.00" },
+                            style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                            color = if (calculator.error) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                    }
                     Text(currency, style = MaterialTheme.typography.titleLarge)
                 }
                 if (categories.isNotEmpty()) {
@@ -216,6 +228,13 @@ private fun QuickExpenseScreen(
                     label = stringResource(R.string.quick_description),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (!imeVisible) {
+                    WhfinAmountKeypad(
+                        deleteContentDescription = stringResource(R.string.quick_delete_digit),
+                        onKey = { calculator = calculator.press(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 WhfinButton(
                     label = stringResource(R.string.action_save),
                     onClick = {
@@ -224,10 +243,56 @@ private fun QuickExpenseScreen(
                         }
                     },
                     enabled = minor != null,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("quick-expense-save"),
                 )
             }
         }
+    }
+}
+
+@Preview(name = "quick_expense_light", widthDp = 360, heightDp = 780)
+@Preview(
+    name = "quick_expense_dark",
+    widthDp = 360,
+    heightDp = 780,
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "quick_expense_font_150", widthDp = 360, heightDp = 780, fontScale = 1.5f)
+@Preview(name = "quick_expense_compact", widthDp = 360, heightDp = 600)
+@Composable
+private fun QuickExpensePreview() {
+    WhfinTheme {
+        QuickExpenseScreen(
+            initialCurrency = "GEL",
+            sourceLabel = "Cash",
+            sourceAccountId = null,
+            categories = listOf(
+                CategoryEntity(
+                    id = 1,
+                    name = "Groceries",
+                    kind = CategoryKind.EXPENSE,
+                    icon = "ShoppingCart",
+                    color = 0xFF6F8D60.toInt(),
+                ),
+                CategoryEntity(
+                    id = 2,
+                    name = "Eating out",
+                    kind = CategoryKind.EXPENSE,
+                    icon = "Restaurant",
+                    color = 0xFFC16B4D.toInt(),
+                ),
+                CategoryEntity(
+                    id = 3,
+                    name = "Transport",
+                    kind = CategoryKind.EXPENSE,
+                    icon = "DirectionsBus",
+                    color = 0xFFB17D3F.toInt(),
+                ),
+            ),
+            suggester = null,
+            onDismiss = {},
+            onSave = { _, _, _, _, _ -> },
+        )
     }
 }
 

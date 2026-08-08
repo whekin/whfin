@@ -186,7 +186,7 @@ private fun CompactWidget(
             AddButton(
                 modifier = GlanceModifier.size(46.dp)
                     .background(GlanceTheme.colors.primaryContainer)
-                    .cornerRadius(15.dp),
+                    .cornerRadius(23.dp),
                 action = addAction,
                 color = GlanceTheme.colors.onPrimaryContainer,
             )
@@ -224,13 +224,13 @@ private fun CompactWidget(
 @Composable
 private fun InlineAddButton(action: androidx.glance.action.Action) {
     Box(
-        modifier = GlanceModifier.size(48.dp).cornerRadius(16.dp).clickable(action),
+        modifier = GlanceModifier.size(48.dp).cornerRadius(24.dp).clickable(action),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = GlanceModifier.size(40.dp)
                 .background(GlanceTheme.colors.primaryContainer)
-                .cornerRadius(13.dp),
+                .cornerRadius(20.dp),
             contentAlignment = Alignment.Center,
         ) {
             Image(

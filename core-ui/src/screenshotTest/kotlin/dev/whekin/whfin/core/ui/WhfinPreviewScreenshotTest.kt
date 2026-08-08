@@ -149,6 +149,38 @@ private fun CodeInputScreenshotContent() {
 }
 
 @PreviewTest
+@Preview(name = "amount_keypad_light", widthDp = 400, heightDp = 300)
+@Composable
+fun amountKeypadLightScreenshot() {
+    WhfinTheme(darkTheme = false) { AmountKeypadScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "amount_keypad_dark", widthDp = 400, heightDp = 300, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun amountKeypadDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { AmountKeypadScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "amount_keypad_font_150", widthDp = 400, heightDp = 350, fontScale = 1.5f)
+@Composable
+fun amountKeypadLargeFontScreenshot() {
+    WhfinTheme(darkTheme = false) { AmountKeypadScreenshotContent() }
+}
+
+@Composable
+private fun AmountKeypadScreenshotContent() {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        WhfinAmountKeypad(
+            deleteContentDescription = "Delete digit",
+            onKey = {},
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "input_choice_light", widthDp = 400, heightDp = 390)
 @Composable
 fun inputChoiceLightScreenshot() {
