@@ -232,8 +232,8 @@ This is a single-context repository with root domain documentation and system-wi
   игнорирует входящие сообщения до повторного включения; включение ведёт в permission flow только при необходимости;
   переходы app shell атомарно меняют непрозрачную сцену целиком, поэтому top bar и body вторичного экрана
   больше не могут на кадр получить геометрию разных destinations. Forward/Back получили короткое направленное
-  движение; dock Feed/Accounts не двигает indicator между уже сменившимися экранами: каждый пункт локально
-  и за 140ms меняет только цвет иконки/подписи, оставаясь на месте; центральный `+` — отдельная
+  движение; dock Home/Accounts остаётся на месте и за 140ms локально меняет цвет, outline→filled
+  иконку и плотность подписи без отдельной selection-полоски; центральный `+` — отдельная
   primary-кнопка с 48dp target.
   Motion pass (2026-07-31): аргументы сцены едут внутри анимируемого `ShellTarget`, поэтому уходящий экран
   продолжает рисовать свой счёт/месяц вместо мгновенного опустошения при Back (раньше pop из Account
@@ -314,7 +314,8 @@ This is a single-context repository with root domain documentation and system-wi
   (`SUN, 26 JUL`), год — только для прошлых лет. Light/dark EN и RU при font scale 1.5 проверены
   на disposable Pixel 9 Pro API 36.1; пять dark screenshot references перегенерированы.
   Shell polish (2026-07-29): общий `WhfinDock` перенесён в `:core-ui`; полноширинный dock получил
-  inset-rule, outlined 22dp glyphs и короткий локальный selection-rule без движущейся подложки.
+  inset-rule и стационарные 22dp glyphs; активный пункт использует filled-иконку, semibold-подпись
+  и primary-цвет без отдельной selection-полоски или движущейся подложки.
   Центральный `+` встроен в тот же icon-over-label ритм как отдельная кнопка `New`/`Новая`: без
   заливки, подъёма и selection-rule, но с primary-цветом, 2.5dp rounded stroke в оптический вес
   соседних outlined-глифов и 48dp+ target. `WhfinContextHeader`
@@ -647,8 +648,8 @@ This is a single-context repository with root domain documentation and system-wi
   категориям и сортировке; обычный sheet показывает три наиболее используемые подходящие категории
   и `Ещё`, а полный lazy-список категорий открывается отдельным экраном; быстрые чипы и Settings убраны с рабочей поверхности Transactions,
   а глобальное добавление операции встроено отдельной незалитой icon-over-label кнопкой в центр dock. Пункты dock используют
-  icon-over-label, сохраняют однострочные названия при font scale 1.5 и выделяют активный раздел цветом
-  и короткой ledger-чертой без постоянной подложки;
+  icon-over-label, сохраняют однострочные названия при font scale 1.5 и выделяют активный раздел
+  filled-иконкой, semibold-подписью и цветом без отдельной полоски или постоянной подложки;
   свои переводы не показывают сырое грузинское банковское описание и оформлены отдельными tonal-карточками.
   Long-press включает multi-select без отдельного режима в меню: выбранным операциям можно пакетно
   назначить Pending/Confirmed/Manual или удалить их после явного предупреждения; у transfer/conversion

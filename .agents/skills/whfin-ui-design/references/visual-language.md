@@ -58,9 +58,10 @@ Material beneath a custom language.
 - Use outlined or tonal containers only for coherent groups: month summary, one IBAN with its ledgers, permission explanation, import result, or decision block.
 - Avoid card-in-card. Inside a group, separate rows with rules.
 - Keep the app dock visually grounded but lighter than content: use an inset rule aligned to the 20 dp
-  rail, stationary outlined destination glyphs, and a short local selection rule. Align the separate
+  rail and stationary destination glyphs. Show selection with a filled glyph, semibold label, and
+  primary color instead of an extra line or persistent selected-item fill. Align the separate
   create action to the same icon-and-label rhythm, without a fill or vertical lift. Use the primary color
-  and no selection rule so it stays discoverable without pretending to be a third destination. It must
+  so it stays discoverable without pretending to be a third destination. It must
   not obscure the last ledger rows.
 - Group primary-header actions into one low-tonal rail. Keep every action's 48 dp target and use the
   amount component for the metric so the shell speaks the same numeric language as the ledger.

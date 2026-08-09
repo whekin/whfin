@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AccountBalanceWallet as FilledAccountBalanceWallet
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong as FilledReceiptLong
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 
 @Composable
@@ -133,10 +135,12 @@ fun WhfinShellChromeGallery() {
             WhfinDock(
                 leading = WhfinDockDestination(
                     icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                    selectedIcon = Icons.AutoMirrored.Filled.FilledReceiptLong,
                     label = "Transactions",
                 ),
                 trailing = WhfinDockDestination(
                     icon = Icons.Outlined.AccountBalanceWallet,
+                    selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
                     label = "Accounts",
                 ),
                 selectedIndex = 0,

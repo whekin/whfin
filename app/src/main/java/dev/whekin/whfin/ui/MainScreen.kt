@@ -12,6 +12,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet as FilledAccountBalanceWallet
+import androidx.compose.material.icons.filled.Home as FilledHome
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
@@ -562,11 +564,13 @@ private fun SecondaryPage(
     WhfinDock(
         leading = WhfinDockDestination(
             icon = Icons.Outlined.Home,
+            selectedIcon = Icons.Filled.FilledHome,
             label = stringResource(R.string.tab_feed),
             testTag = "dock-feed",
         ),
         trailing = WhfinDockDestination(
             icon = Icons.Outlined.AccountBalanceWallet,
+            selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
             label = stringResource(R.string.tab_accounts),
             testTag = "dock-accounts",
         ),

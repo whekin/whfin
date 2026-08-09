@@ -43,7 +43,6 @@ data class WhfinSizes(
     val buttonHeight: Dp = 52.dp,
     val dockHeight: Dp = 64.dp,
     val dockIcon: Dp = 22.dp,
-    val dockIndicatorWidth: Dp = 24.dp,
     val dockCenterSlot: Dp = 64.dp,
     val ledgerMarker: Dp = 3.dp,
 )

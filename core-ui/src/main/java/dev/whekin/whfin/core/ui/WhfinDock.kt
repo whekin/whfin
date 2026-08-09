@@ -1,10 +1,9 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,20 +36,23 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Immutable
 data class WhfinDockDestination(
     val icon: ImageVector,
     val label: String,
+    val selectedIcon: ImageVector = icon,
     val testTag: String? = null,
 )
 
 /**
  * The primary WHFIN shell: two stable destinations and one independent create action.
  *
- * The dock is deliberately grounded in the screen canvas. Selection is shown by a short ledger
- * rule. The create action shares the same visual rhythm without pretending to be a destination.
+ * The dock is deliberately grounded in the screen canvas. Selection is shown by a filled glyph,
+ * stronger label and color. The create action shares the same visual rhythm without pretending to
+ * be a destination.
  */
 @Composable
 fun WhfinDock(
@@ -185,11 +186,6 @@ private fun WhfinDockItem(
         animationSpec = WhfinMotion.quick(),
         label = "dock content",
     )
-    val indicatorColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        animationSpec = WhfinMotion.quick(),
-        label = "dock indicator",
-    )
     val taggedModifier = if (destination.testTag != null) {
         modifier.testTag(destination.testTag)
     } else {
@@ -217,31 +213,33 @@ private fun WhfinDockItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Box(
+            Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(sizes.ledgerMarker),
-                contentAlignment = Alignment.Center,
-            ) {
-                Spacer(
-                    Modifier
-                        .width(sizes.dockIndicatorWidth)
-                        .height(2.dp)
-                        .background(indicatorColor, CircleShape),
-                )
-            }
-            Icon(
-                imageVector = destination.icon,
-                contentDescription = null,
+            )
+            Crossfade(
+                targetState = selected,
+                animationSpec = WhfinMotion.quick(),
+                label = "dock icon emphasis",
                 modifier = Modifier
                     .padding(top = 3.dp)
                     .size(sizes.dockIcon),
-                tint = contentColor,
-            )
+            ) { isSelected ->
+                Icon(
+                    imageVector = if (isSelected) destination.selectedIcon else destination.icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                )
+            }
             Text(
                 text = destination.label,
                 modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.labelMedium,
+                style = if (selected) {
+                    MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                } else {
+                    MaterialTheme.typography.labelMedium
+                },
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
