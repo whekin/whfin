@@ -33,6 +33,10 @@ import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.categorization.CategorySuggester
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
+import dev.whekin.whfin.data.mutation.AllocationMutation
+import dev.whekin.whfin.data.mutation.ManualMutation
+import dev.whekin.whfin.data.mutation.MutationSelection
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import dev.whekin.whfin.ui.sms.SmsRoutingAccount
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -226,6 +230,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val debtRepository = dev.whekin.whfin.data.debt.DebtRepository(db)
     private val smsImporter = SmsTransactionImporter(db)
+    private val transactionMutations = TransactionMutationModule(db)
     private val zone = ZoneId.systemDefault()
 
     val categories: StateFlow<List<CategoryEntity>> = db.categoryDao().observeAll()
@@ -329,51 +334,18 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addManual(tx: ManualTransaction) {
         viewModelScope.launch {
-            val account = db.accountDao().byId(tx.accountId) ?: return@launch
             // Сегодняшняя запись получает текущее время, вчерашняя — полдень,
             // чтобы не прыгать в начало дня в ленте
             val time = if (tx.day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
-            if (tx.destinationAccountId != null) {
-                val destination = db.accountDao().byId(tx.destinationAccountId) ?: return@launch
-                db.withTransaction {
-                    val now = System.currentTimeMillis()
-                    val groupId = db.transactionDao().insertTransferGroup(
-                        TransferGroupEntity(
-                            type = if (account.currency == destination.currency) TransferGroupType.TRANSFER
-                                else TransferGroupType.CONVERSION,
-                            note = tx.note,
-                            createdAt = now,
-                        ),
-                    )
-                    val occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli()
-                    db.transactionDao().insertAll(
-                        listOf(
-                            TransactionEntity(
-                                accountId = account.id, amountMinor = -kotlin.math.abs(tx.amountMinor), currency = account.currency,
-                                occurredAt = occurredAt, note = tx.note, status = TxStatus.MANUAL, source = TxSource.MANUAL,
-                                transferGroupId = groupId, isTransfer = true, createdAt = now,
-                            ),
-                            TransactionEntity(
-                                accountId = destination.id,
-                                amountMinor = kotlin.math.abs(tx.destinationAmountMinor ?: tx.amountMinor),
-                                currency = destination.currency,
-                                occurredAt = occurredAt, note = tx.note, status = TxStatus.MANUAL, source = TxSource.MANUAL,
-                                transferGroupId = groupId, isTransfer = true, createdAt = now,
-                            ),
-                        ),
-                    )
-                }
-            } else db.transactionDao().insert(
-                TransactionEntity(
-                    accountId = account.id,
+            transactionMutations.createManual(
+                ManualMutation(
+                    accountId = tx.accountId,
                     amountMinor = tx.amountMinor,
-                    currency = account.currency,
-                    occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli(),
+                    destinationAccountId = tx.destinationAccountId,
+                    destinationAmountMinor = tx.destinationAmountMinor,
                     categoryId = tx.categoryId,
                     note = tx.note,
-                    status = TxStatus.MANUAL,
-                    source = TxSource.MANUAL,
-                    createdAt = System.currentTimeMillis(),
+                    occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli(),
                 ),
             )
         }
@@ -436,7 +408,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun assignCategory(item: FeedItem, categoryId: Long) {
         viewModelScope.launch {
-            db.transactionDao().update(item.tx.copy(categoryId = categoryId))
+            transactionMutations.assignCategory(item.tx.id, categoryId)
             item.merchant?.let { merchant ->
                 db.merchantDao().setCategory(merchant.id, categoryId)
                 db.transactionDao().categorizeUnassignedForMerchant(merchant.id, categoryId)
@@ -475,66 +447,36 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     fun updateManual(item: FeedItem, value: ManualTransaction) {
         if (item.tx.source != TxSource.MANUAL) return
         viewModelScope.launch {
-            val account = db.accountDao().byId(value.accountId) ?: return@launch
             val oldTime = Instant.ofEpochMilli(item.tx.occurredAt).atZone(zone).toLocalTime()
             val occurredAt = value.day.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
-            db.withTransaction {
-                val groupId = item.tx.transferGroupId
-                if (groupId == null) {
-                    db.transactionDao().update(item.tx.copy(
-                        accountId = account.id,
-                        amountMinor = value.amountMinor,
-                        currency = account.currency,
-                        categoryId = value.categoryId,
-                        note = value.note,
-                        occurredAt = occurredAt,
-                    ))
-                } else {
-                    val destination = value.destinationAccountId?.let { db.accountDao().byId(it) } ?: return@withTransaction
-                    val legs = db.transactionDao().byTransferGroup(groupId)
-                    val outgoing = legs.firstOrNull { it.amountMinor < 0 } ?: item.tx
-                    val incoming = legs.firstOrNull { it.id != outgoing.id } ?: return@withTransaction
-                    db.transactionDao().updateTransferGroup(
-                        groupId,
-                        if (account.currency == destination.currency) TransferGroupType.TRANSFER else TransferGroupType.CONVERSION,
-                        value.note,
-                    )
-                    db.transactionDao().update(outgoing.copy(
-                        accountId = account.id, currency = account.currency,
-                        amountMinor = -kotlin.math.abs(value.amountMinor), occurredAt = occurredAt, note = value.note,
-                    ))
-                    db.transactionDao().update(incoming.copy(
-                        accountId = destination.id, currency = destination.currency,
-                        amountMinor = kotlin.math.abs(value.destinationAmountMinor ?: value.amountMinor),
-                        occurredAt = occurredAt, note = value.note,
-                    ))
-                }
-            }
+            transactionMutations.updateManual(
+                item.tx.id,
+                ManualMutation(
+                    accountId = value.accountId,
+                    amountMinor = value.amountMinor,
+                    destinationAccountId = value.destinationAccountId,
+                    destinationAmountMinor = value.destinationAmountMinor,
+                    categoryId = value.categoryId,
+                    note = value.note,
+                    occurredAt = occurredAt,
+                ),
+            )
         }
     }
 
     fun deleteManual(item: FeedItem) {
         if (item.tx.source != TxSource.MANUAL) return
         viewModelScope.launch {
-            db.withTransaction {
-                val groupId = item.tx.transferGroupId
-                if (groupId != null) {
-                    db.transactionDao().deleteManualTransferGroup(groupId)
-                    db.transactionDao().deleteTransferGroup(groupId)
-                } else {
-                    db.transactionDao().delete(item.tx.id)
-                }
-            }
+            transactionMutations.delete(listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)))
         }
     }
 
     fun assignDebt(item: FeedItem, personId: Long) {
         if (item.tx.amountMinor >= 0) return
         viewModelScope.launch {
-            db.transactionAllocationDao().replaceForTransaction(
+            transactionMutations.replaceAllocations(
                 item.tx.id,
-                listOf(TransactionAllocationEntity(
-                    transactionId = item.tx.id,
+                listOf(AllocationMutation(
                     amountMinor = item.tx.amountMinor,
                     categoryId = item.tx.categoryId,
                     personId = personId,
@@ -557,7 +499,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearAllocations(item: FeedItem) {
-        viewModelScope.launch { db.transactionAllocationDao().deleteForTransaction(item.tx.id) }
+        viewModelScope.launch { transactionMutations.replaceAllocations(item.tx.id, emptyList()) }
     }
 
     /**
@@ -570,31 +512,40 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (item.tx.amountMinor >= 0) return
         viewModelScope.launch {
             val total = kotlin.math.abs(item.tx.amountMinor)
-            val assigned = onPeople.sumOf { it.amountMinor }.coerceIn(0, total)
-            if (assigned == 0L) {
-                db.transactionAllocationDao().deleteForTransaction(item.tx.id)
-                return@launch
-            }
+            var remaining = total
             val allocations = buildList {
                 onPeople.filter { it.amountMinor > 0 }.forEach { share ->
+                    val amount = share.amountMinor.coerceAtMost(remaining)
+                    if (amount <= 0L) return@forEach
+                    remaining -= amount
                     add(TransactionAllocationEntity(
                         transactionId = item.tx.id,
-                        amountMinor = -share.amountMinor,
+                        amountMinor = -amount,
                         categoryId = item.tx.categoryId,
                         personId = share.personId,
                         purpose = share.purpose,
                     ))
                 }
-                val remainder = total - assigned
-                if (remainder > 0) add(TransactionAllocationEntity(
+                if (remaining > 0) add(TransactionAllocationEntity(
                     transactionId = item.tx.id,
-                    amountMinor = -remainder,
+                    amountMinor = -remaining,
                     categoryId = item.tx.categoryId,
                     personId = null,
                     purpose = AllocationPurpose.PERSONAL,
                 ))
             }
-            db.transactionAllocationDao().replaceForTransaction(item.tx.id, allocations)
+            transactionMutations.replaceAllocations(
+                item.tx.id,
+                allocations.map { allocation ->
+                    AllocationMutation(
+                        amountMinor = allocation.amountMinor,
+                        categoryId = allocation.categoryId,
+                        personId = allocation.personId,
+                        purpose = allocation.purpose,
+                        note = allocation.note,
+                    )
+                },
+            )
         }
     }
 
@@ -609,33 +560,28 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateStatus(item: FeedItem, status: TxStatus) {
         if (item.tx.status == status) return
-        viewModelScope.launch { db.transactionDao().update(item.tx.copy(status = status)) }
+        viewModelScope.launch {
+            transactionMutations.setReviewStatus(
+                listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)),
+                status,
+            )
+        }
     }
 
     fun updateStatuses(items: List<FeedItem>, status: TxStatus) {
         if (items.isEmpty()) return
         viewModelScope.launch {
-            db.withTransaction {
-                val groupIds = items.mapNotNull { it.tx.transferGroupId }.distinct()
-                val transactionIds = items.filter { it.tx.transferGroupId == null }.map { it.tx.id }.distinct()
-                if (transactionIds.isNotEmpty()) db.transactionDao().updateStatus(transactionIds, status)
-                if (groupIds.isNotEmpty()) db.transactionDao().updateTransferGroupStatus(groupIds, status)
-            }
+            transactionMutations.setReviewStatus(
+                items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) },
+                status,
+            )
         }
     }
 
     fun deleteItems(items: List<FeedItem>) {
         if (items.isEmpty()) return
         viewModelScope.launch {
-            db.withTransaction {
-                val groupIds = items.mapNotNull { it.tx.transferGroupId }.distinct()
-                val transactionIds = items.filter { it.tx.transferGroupId == null }.map { it.tx.id }.distinct()
-                if (transactionIds.isNotEmpty()) db.transactionDao().deleteByIds(transactionIds)
-                if (groupIds.isNotEmpty()) {
-                    db.transactionDao().deleteByTransferGroupIds(groupIds)
-                    db.transactionDao().deleteTransferGroups(groupIds)
-                }
-            }
+            transactionMutations.delete(items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) })
         }
     }
 }

@@ -2,6 +2,9 @@ package dev.whekin.whfin.data.debt
 
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.db.*
+import dev.whekin.whfin.data.mutation.AllocationMutation
+import dev.whekin.whfin.data.mutation.ManualMutation
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 
 data class NewDebt(
     val personId: Long? = null,
@@ -27,6 +30,8 @@ data class DebtSettlement(
 )
 
 class DebtRepository(private val db: WhfinDatabase) {
+    private val transactionMutations = TransactionMutationModule(db)
+
     suspend fun open(input: NewDebt): Long = db.withTransaction {
         require(input.amountMinor > 0)
         val personId = input.personId ?: db.personDao().insert(
@@ -34,14 +39,22 @@ class DebtRepository(private val db: WhfinDatabase) {
         )
         val txId = input.accountId?.let { accountId ->
             val signed = if (input.direction == DebtDirection.THEY_OWE_ME) -input.amountMinor else input.amountMinor
-            db.transactionDao().insert(
-                TransactionEntity(accountId = accountId, amountMinor = signed, currency = input.currency,
-                    occurredAt = input.occurredAt, note = input.note, status = TxStatus.MANUAL,
-                    source = TxSource.MANUAL, createdAt = System.currentTimeMillis()),
+            transactionMutations.createManual(
+                ManualMutation(
+                    accountId = accountId,
+                    amountMinor = signed,
+                    occurredAt = input.occurredAt,
+                    note = input.note,
+                ),
             ).also { id ->
-                db.transactionAllocationDao().insertAll(listOf(TransactionAllocationEntity(
-                    transactionId = id, amountMinor = signed, personId = personId, purpose = AllocationPurpose.LOAN,
-                )))
+                transactionMutations.replaceAllocations(
+                    id,
+                    listOf(AllocationMutation(
+                        amountMinor = signed,
+                        personId = personId,
+                        purpose = AllocationPurpose.LOAN,
+                    )),
+                )
             }
         }
         val caseId = db.debtDao().insertCase(DebtCaseEntity(
@@ -64,13 +77,23 @@ class DebtRepository(private val db: WhfinDatabase) {
         val credit = if (input.close) remaining else requireNotNull(input.debtValueMinor).coerceIn(0, remaining)
         val txId = if (input.accountId != null && input.actualAmountMinor != null && input.actualCurrency != null) {
             val signed = if (debt.direction == DebtDirection.THEY_OWE_ME) input.actualAmountMinor else -input.actualAmountMinor
-            db.transactionDao().insert(TransactionEntity(
-                accountId = input.accountId, amountMinor = signed, currency = input.actualCurrency,
-                occurredAt = input.occurredAt, note = input.note, status = TxStatus.MANUAL,
-                source = TxSource.MANUAL, createdAt = System.currentTimeMillis(),
-            )).also { id -> db.transactionAllocationDao().insertAll(listOf(TransactionAllocationEntity(
-                transactionId = id, amountMinor = signed, personId = debt.personId, purpose = AllocationPurpose.REPAYMENT,
-            ))) }
+            transactionMutations.createManual(
+                ManualMutation(
+                    accountId = input.accountId,
+                    amountMinor = signed,
+                    occurredAt = input.occurredAt,
+                    note = input.note,
+                ),
+            ).also { id ->
+                transactionMutations.replaceAllocations(
+                    id,
+                    listOf(AllocationMutation(
+                        amountMinor = signed,
+                        personId = debt.personId,
+                        purpose = AllocationPurpose.REPAYMENT,
+                    )),
+                )
+            }
         } else null
         db.debtDao().insertEvent(DebtEventEntity(
             debtCaseId = debt.id, kind = if (input.close) DebtEventKind.CLOSED else DebtEventKind.SETTLEMENT,

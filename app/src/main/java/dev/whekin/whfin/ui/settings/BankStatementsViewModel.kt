@@ -16,6 +16,7 @@ import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,7 @@ sealed interface StatementImportUiState {
 
 class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
+    private val transactionMutations = TransactionMutationModule(db)
 
     val histories: StateFlow<List<AccountStatementHistory>> = combine(
         db.accountDao().observeActive(),
@@ -135,13 +137,15 @@ class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             db.withTransaction {
                 db.reconciliationIssueDao().keep(item.issue.id)
-                db.transactionDao().update(item.transaction.copy(status = TxStatus.MANUAL))
+                transactionMutations.keepReviewDraft(item.transaction.id)
             }
         }
     }
 
     fun deleteDraft(item: ReconciliationIssueWithTransaction) {
-        viewModelScope.launch(Dispatchers.IO) { db.transactionDao().delete(item.transaction.id) }
+        viewModelScope.launch(Dispatchers.IO) {
+            transactionMutations.deleteDraft(item.transaction.id)
+        }
     }
 
     fun removeNoEffectImport(item: StatementImportEntity) {

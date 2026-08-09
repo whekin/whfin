@@ -42,9 +42,8 @@ import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
-import dev.whekin.whfin.data.db.TransactionEntity
-import dev.whekin.whfin.data.db.TxSource
-import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.mutation.ManualMutation
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.ui.CategoryIcons
 import dev.whekin.whfin.ui.parseToMinor
@@ -121,17 +120,15 @@ class QuickExpenseActivity : ComponentActivity() {
                         name = if (currency == "GEL") "Cash" else "Cash $currency",
                         type = AccountType.CASH, currency = currency, sortOrder = 1000,
                     )).let { db.accountDao().byId(it)!! }
-                db.transactionDao().insert(TransactionEntity(
-                    accountId = account.id,
-                    amountMinor = -kotlin.math.abs(amountMinor),
-                    currency = currency,
-                    occurredAt = System.currentTimeMillis(),
-                    note = description,
-                    categoryId = categoryId,
-                    status = TxStatus.MANUAL,
-                    source = TxSource.MANUAL,
-                    createdAt = System.currentTimeMillis(),
-                ))
+                TransactionMutationModule(db).createManual(
+                    ManualMutation(
+                        accountId = account.id,
+                        amountMinor = -kotlin.math.abs(amountMinor),
+                        occurredAt = System.currentTimeMillis(),
+                        note = description,
+                        categoryId = categoryId,
+                    ),
+                )
             }
             Toast.makeText(this@QuickExpenseActivity, R.string.quick_saved, Toast.LENGTH_SHORT).show()
             finish()

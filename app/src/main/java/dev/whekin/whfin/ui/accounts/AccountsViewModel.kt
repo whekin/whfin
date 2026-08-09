@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.whekin.whfin.data.db.*
 import dev.whekin.whfin.data.debt.*
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 
 data class DebtCaseUi(
     val debt: DebtCaseEntity,
@@ -98,6 +99,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = (app as WhfinApp).db
     private val debtRepository = DebtRepository(db)
+    private val transactionMutations = TransactionMutationModule(db)
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
@@ -412,17 +414,11 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     fun adjustBalance(item: AccountWithBalance, deltaMinor: Long) {
         viewModelScope.launch {
             val unaccounted = db.categoryDao().systemByName(CategorySeeder.UNACCOUNTED)
-            db.transactionDao().insert(
-                TransactionEntity(
-                    accountId = item.account.id,
-                    amountMinor = deltaMinor,
-                    currency = item.account.currency,
-                    occurredAt = System.currentTimeMillis(),
-                    categoryId = unaccounted?.id,
-                    status = TxStatus.MANUAL,
-                    source = TxSource.ADJUSTMENT,
-                    createdAt = System.currentTimeMillis(),
-                ),
+            transactionMutations.createAdjustment(
+                accountId = item.account.id,
+                amountMinor = deltaMinor,
+                categoryId = unaccounted?.id,
+                occurredAt = System.currentTimeMillis(),
             )
         }
     }
