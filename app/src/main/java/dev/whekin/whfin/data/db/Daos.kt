@@ -45,9 +45,6 @@ interface AccountDao {
     @Query("UPDATE accounts SET name = :name, savingsMode = :savingsMode WHERE groupId = :groupId AND iban = :iban")
     suspend fun updateIbanContainer(groupId: Long, iban: String, name: String, savingsMode: SavingsMode?)
 
-    @Query("DELETE FROM accounts WHERE id = :id")
-    suspend fun delete(id: Long)
-
     @Query("SELECT COUNT(*) FROM accounts WHERE groupId = :groupId")
     suspend fun countInGroup(groupId: Long): Int
 
@@ -92,7 +89,6 @@ interface FinancialGroupDao {
 
     @Insert suspend fun insert(group: FinancialGroupEntity): Long
     @Update suspend fun update(group: FinancialGroupEntity)
-    @Query("DELETE FROM financial_groups WHERE id = :id") suspend fun delete(id: Long)
 }
 
 @Dao
@@ -192,7 +188,6 @@ interface CryptoDao {
     @Query("SELECT * FROM wallet_addresses ORDER BY id") suspend fun allAddresses(): List<WalletAddressEntity>
 
     /** Accounts and their observations hang off the address by CASCADE, so this drops the wallet. */
-    @Query("DELETE FROM wallet_addresses WHERE id = :id") suspend fun deleteAddress(id: Long)
     @Query("SELECT * FROM crypto_assets WHERE id = :id") suspend fun assetById(id: Long): CryptoAssetEntity?
 
     @Query("SELECT * FROM crypto_balances ORDER BY accountId") fun observeBalances(): Flow<List<CryptoBalanceEntity>>
@@ -411,20 +406,11 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
 
-    @Query("DELETE FROM transactions WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<Long>)
-
     @Query("DELETE FROM transactions WHERE transferGroupId IN (:groupIds)")
     suspend fun deleteByTransferGroupIds(groupIds: List<Long>)
 
-    @Query("DELETE FROM transactions WHERE transferGroupId = :groupId AND source = 'MANUAL'")
-    suspend fun deleteManualTransferGroup(groupId: Long)
-
     @Query("SELECT * FROM transactions WHERE transferGroupId = :groupId ORDER BY amountMinor")
     suspend fun byTransferGroup(groupId: Long): List<TransactionEntity>
-
-    @Query("DELETE FROM transfer_groups WHERE id = :groupId")
-    suspend fun deleteTransferGroup(groupId: Long)
 
     @Query("DELETE FROM transfer_groups WHERE id IN (:groupIds)")
     suspend fun deleteTransferGroups(groupIds: List<Long>)

@@ -141,6 +141,7 @@ import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.data.mutation.MutationRejection
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
@@ -203,12 +204,19 @@ fun FeedScreen(
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val rejected by viewModel.rejected.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val rejectionMessage = stringResource(R.string.mutation_rejected)
-    // A refused change is rare and never silent: the entry stayed as it was, and saying so beats
-    // leaving the user to discover a missing row later.
+    // A refused change is never silent: the data stayed as it was, and saying why beats leaving the
+    // user to discover later that the row they picked is still there.
+    val rejectionMessages = mapOf(
+        MutationRejection.IMPORTED_IS_PROTECTED to stringResource(R.string.mutation_rejected_imported),
+        MutationRejection.DEBT_LINKED to stringResource(R.string.mutation_rejected_debt),
+        MutationRejection.ALLOCATIONS_LOCK_AMOUNT to stringResource(R.string.mutation_rejected_allocations),
+        MutationRejection.ALREADY_CORRECTED to stringResource(R.string.mutation_rejected_already_corrected),
+        MutationRejection.INCOME_NOT_SHAREABLE to stringResource(R.string.mutation_rejected_income),
+        MutationRejection.INVALID_INPUT to stringResource(R.string.mutation_rejected),
+    )
     LaunchedEffect(rejected) {
-        if (rejected) {
-            snackbarHostState.showSnackbar(rejectionMessage)
+        rejected?.let { reason ->
+            snackbarHostState.showSnackbar(rejectionMessages.getValue(reason))
             viewModel.dismissRejection()
         }
     }
@@ -658,9 +666,17 @@ fun FeedScreen(
         },
     )
 
-    if (showBatchDelete) WhfinConfirmDialog(
+    if (showBatchDelete) {
+        // Bank truth survives a bulk delete, so the count that matters is the one that will actually
+        // go. Saying it before the tap beats a dialog that promises more than it can do.
+        val deletable = selectedItems.count { it.tx.source == TxSource.MANUAL }
+        WhfinConfirmDialog(
         title = stringResource(R.string.transactions_delete_selected),
-        body = stringResource(R.string.transactions_delete_selected_body, selectedItems.size),
+        body = if (deletable == selectedItems.size) {
+            stringResource(R.string.transactions_delete_selected_body, selectedItems.size)
+        } else {
+            stringResource(R.string.transactions_delete_selected_partial_body, deletable, selectedItems.size)
+        },
         confirmLabel = stringResource(R.string.action_delete),
         dismissLabel = stringResource(R.string.action_cancel),
         onConfirm = {
@@ -669,7 +685,8 @@ fun FeedScreen(
                 selectedIds = emptySet()
         },
         onDismiss = { showBatchDelete = false },
-    )
+        )
+    }
 
     // Форма получает то же умное ранжирование, что quick-entry: подсказки пере-считываются
     // по введённой сумме и валюте выбранного ledger'а.

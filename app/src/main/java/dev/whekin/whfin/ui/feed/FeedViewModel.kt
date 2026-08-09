@@ -39,6 +39,8 @@ import dev.whekin.whfin.data.mutation.MutationSelection
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import dev.whekin.whfin.data.mutation.MutationRejection
+import dev.whekin.whfin.data.mutation.MutationReport
 import dev.whekin.whfin.data.mutation.TransactionMutationException
 import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import dev.whekin.whfin.ui.sms.SmsRoutingAccount
@@ -237,7 +239,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val transactionMutations = TransactionMutationModule(db)
     private val zone = ZoneId.systemDefault()
 
-    private val _rejected = MutableStateFlow(false)
+    private val _rejected = MutableStateFlow<MutationRejection?>(null)
 
     /**
      * True when the ledger refused the last change.
@@ -247,9 +249,24 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * pay for it with a crash and a lost entry. The refusal itself is what the user sees; the
      * specific rule goes to the log, because it names an internal invariant, not something they did.
      */
-    val rejected: StateFlow<Boolean> = _rejected.asStateFlow()
+    val rejected: StateFlow<MutationRejection?> = _rejected.asStateFlow()
 
-    fun dismissRejection() { _rejected.value = false }
+    fun dismissRejection() { _rejected.value = null }
+
+    /**
+     * Runs a batch change and speaks up when it did nothing.
+     *
+     * A protected row is skipped rather than refused, so a delete that removes none of the selected
+     * operations would otherwise look exactly like a delete that worked.
+     */
+    private fun mutateBatch(block: suspend () -> MutationReport) {
+        mutate {
+            val report = block()
+            if (report.changed == 0 && report.skipped > 0) {
+                _rejected.value = report.skippedReason ?: MutationRejection.IMPORTED_IS_PROTECTED
+            }
+        }
+    }
 
     /** Runs a ledger change, turning a refused one into a message instead of a crash. */
     private fun mutate(block: suspend () -> Unit) {
@@ -258,7 +275,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 block()
             } catch (rejection: TransactionMutationException) {
                 Log.w("WHFIN", "Ledger refused a change: ${rejection.message}")
-                _rejected.value = true
+                _rejected.value = rejection.rejection
             }
         }
     }
@@ -499,7 +516,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteManual(item: FeedItem) {
         if (item.tx.source != TxSource.MANUAL) return
-        mutate {
+        mutateBatch {
             transactionMutations.delete(listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)))
         }
     }
@@ -616,7 +633,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateStatuses(items: List<FeedItem>, status: TxStatus) {
         if (items.isEmpty()) return
-        mutate {
+        mutateBatch {
             transactionMutations.setReviewStatus(
                 items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) },
                 status,
@@ -626,7 +643,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteItems(items: List<FeedItem>) {
         if (items.isEmpty()) return
-        mutate {
+        mutateBatch {
             transactionMutations.delete(items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) })
         }
     }

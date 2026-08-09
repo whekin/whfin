@@ -49,7 +49,7 @@ class TransactionBatchInstrumentedTest {
         assertEquals(TxStatus.CONFIRMED, db.transactionDao().byId(pendingId)?.status)
         assertEquals(setOf(TxStatus.CONFIRMED), db.transactionDao().byTransferGroup(groupId).map { it.status }.toSet())
 
-        db.transactionDao().deleteByIds(listOf(pendingId))
+        db.transactionDao().delete(pendingId)
         db.transactionDao().deleteByTransferGroupIds(listOf(groupId))
         db.transactionDao().deleteTransferGroups(listOf(groupId))
 

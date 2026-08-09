@@ -356,7 +356,13 @@
     <string name="backup_safety_action">Go back to it</string>
     <string name="backup_safety_confirm_title">Return to the previous data?</string>
     <string name="backup_safety_confirm_body">Everything restored since then is replaced by the copy taken before the last restore. A copy of the current data is taken first.</string>
+    <string name="transactions_delete_selected_partial_body">Only %1$d of the %2$d selected operations can be deleted. Imported ones stay: correct them instead.</string>
     <string name="mutation_rejected">The ledger refused that change. Nothing was saved.</string>
+    <string name="mutation_rejected_imported">Imported operations are not deleted or edited — correct them instead. Nothing was changed.</string>
+    <string name="mutation_rejected_debt">This movement belongs to a debt. Change it in the debt itself.</string>
+    <string name="mutation_rejected_allocations">Clear the split before changing the amount or the currency.</string>
+    <string name="mutation_rejected_already_corrected">This operation already has a correction.</string>
+    <string name="mutation_rejected_income">Only spending can be shared between people.</string>
     <string name="data_health_title">Data health</string>
     <string name="data_health_settings_summary">Check the ledger for contradictions and reach the screens that fix them.</string>
     <string name="data_health_checking">Checking</string>

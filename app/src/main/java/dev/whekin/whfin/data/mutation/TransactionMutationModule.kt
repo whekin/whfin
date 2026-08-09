@@ -37,9 +37,41 @@ data class MutationSelection(
 data class MutationReport(
     val changed: Int,
     val skipped: Int,
+    /** Why the skipped rows were left alone, when they were all left alone for the same reason. */
+    val skippedReason: MutationRejection? = null,
 )
 
-class TransactionMutationException(message: String) : IllegalArgumentException(message)
+/**
+ * Why the ledger refused, in terms a person can be told.
+ *
+ * The exception message names the exact invariant and belongs in a log; these categories are what
+ * a screen can honestly show. Keeping them apart stops internal wording from leaking into the UI and
+ * stops the UI from having to parse sentences.
+ */
+enum class MutationRejection {
+    /** Bank truth is not edited or deleted, only corrected. */
+    IMPORTED_IS_PROTECTED,
+
+    /** The movement belongs to a debt and has to be corrected through it. */
+    DEBT_LINKED,
+
+    /** Changing the amount would leave the split describing a different sum. */
+    ALLOCATIONS_LOCK_AMOUNT,
+
+    /** There is already a correction hiding this row. */
+    ALREADY_CORRECTED,
+
+    /** Sharing is a property of spending, not of money coming in. */
+    INCOME_NOT_SHAREABLE,
+
+    /** The screen asked for something the ledger cannot represent. */
+    INVALID_INPUT,
+}
+
+class TransactionMutationException(
+    val rejection: MutationRejection,
+    message: String,
+) : IllegalArgumentException(message)
 
 /**
  * The single write seam for user-authored transaction state.
@@ -124,7 +156,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         val current = transaction(transactionId)
         requireManual(current)
         if (hasDebtEvent(current)) {
-            reject("A debt-linked transaction must be corrected through its debt case.")
+            reject("A debt-linked transaction must be corrected through its debt case.", MutationRejection.DEBT_LINKED)
         }
         val currentAllocations = db.transactionAllocationDao().forTransaction(current.id)
         val account = account(input.accountId)
@@ -132,7 +164,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         if (currentAllocations.isNotEmpty() &&
             (input.amountMinor != current.amountMinor || account.currency != current.currency)
         ) {
-            reject("Clear allocations before changing amount or currency.")
+            reject("Clear allocations before changing amount or currency.", MutationRejection.ALLOCATIONS_LOCK_AMOUNT)
         }
         val destination = input.destinationAccountId?.let { account(it) }
         if (destination == null && input.destinationAmountMinor != null) {
@@ -222,40 +254,53 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                 status in setOf(TxStatus.CONFIRMED, TxStatus.MANUAL)
         }
         if (eligible.isNotEmpty()) db.transactionDao().updateStatus(eligible.map { it.id }, status)
-        MutationReport(changed = eligible.size, skipped = rows.size - eligible.size)
+        MutationReport(
+            changed = eligible.size,
+            skipped = rows.size - eligible.size,
+            skippedReason = MutationRejection.IMPORTED_IS_PROTECTED.takeIf { eligible.size < rows.size },
+        )
     }
 
     /** Deletes only manual rows. Debt movements stay until their debt event is corrected explicitly. */
     suspend fun delete(selection: List<MutationSelection>): MutationReport = db.withTransaction {
         var changed = 0
         var skipped = 0
+        val reasons = mutableSetOf<MutationRejection>()
         val seenGroups = mutableSetOf<Long>()
         selection.forEach { selected ->
             val row = db.transactionDao().byId(selected.transactionId)
             if (row == null) {
                 skipped++
+                reasons += MutationRejection.INVALID_INPUT
                 return@forEach
             }
-            val groupId = row.transferGroupId ?: selected.transferGroupId
+            // A selection carries the group it was shown with, but the row is the authority: acting
+            // on a stale group id would delete a different movement than the one that was picked.
+            val groupId = row.transferGroupId
             if (groupId != null) {
                 if (!seenGroups.add(groupId)) return@forEach
                 val legs = db.transactionDao().byTransferGroup(groupId)
                 val debtLinked = legs.any { leg -> hasDebtEvent(leg) }
                 if (legs.size != 2 || legs.any { it.source != TxSource.MANUAL } || debtLinked) {
                     skipped++
+                    reasons += if (debtLinked) MutationRejection.DEBT_LINKED
+                    else MutationRejection.IMPORTED_IS_PROTECTED
                 } else {
+                    // Both legs or neither: half a transfer is money appearing from nowhere.
                     db.transactionDao().deleteByTransferGroupIds(listOf(groupId))
                     db.transactionDao().deleteTransferGroups(listOf(groupId))
                     changed += legs.size
                 }
             } else if (row.source != TxSource.MANUAL || hasDebtEvent(row)) {
                 skipped++
+                reasons += if (hasDebtEvent(row)) MutationRejection.DEBT_LINKED
+                else MutationRejection.IMPORTED_IS_PROTECTED
             } else {
                 db.transactionDao().delete(row.id)
                 changed++
             }
         }
-        MutationReport(changed, skipped)
+        MutationReport(changed, skipped, reasons.singleOrNull())
     }
 
     /** Review queue drafts may be withdrawn only while they are still provisional SMS rows. */
@@ -267,7 +312,12 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         var debtLinked = false
         for (candidate in rows) if (hasDebtEvent(candidate)) debtLinked = true
         val safe = rows.all { it.source == TxSource.SMS && it.status == TxStatus.PENDING } && !debtLinked
-        if (!safe) return@withTransaction MutationReport(changed = 0, skipped = rows.size)
+        if (!safe) return@withTransaction MutationReport(
+            changed = 0,
+            skipped = rows.size,
+            skippedReason = if (debtLinked) MutationRejection.DEBT_LINKED
+            else MutationRejection.IMPORTED_IS_PROTECTED,
+        )
         row.transferGroupId?.let { groupId ->
             db.transactionDao().deleteByTransferGroupIds(listOf(groupId))
             db.transactionDao().deleteTransferGroups(listOf(groupId))
@@ -282,12 +332,12 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
     suspend fun voidTransaction(transactionId: Long, reason: String? = null): MutationReport = db.withTransaction {
         val rows = correctionRows(transactionId)
         if (rows.any { it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
-            reject("Only active statement or SMS transactions can be corrected.")
+            reject("Only active statement or SMS transactions can be corrected.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
         for (row in rows) {
-            if (hasDebtEvent(row)) reject("A debt-linked transaction must be corrected through its debt case.")
+            if (hasDebtEvent(row)) reject("A debt-linked transaction must be corrected through its debt case.", MutationRejection.DEBT_LINKED)
             if (db.transactionDao().activeCorrectionsFor(row.id).isNotEmpty()) {
-                reject("This transaction already has a correction.")
+                reject("This transaction already has a correction.", MutationRejection.ALREADY_CORRECTED)
             }
         }
         val now = System.currentTimeMillis()
@@ -327,7 +377,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
     suspend fun restoreTransaction(transactionId: Long): MutationReport = db.withTransaction {
         val rows = correctionRows(transactionId)
         if (rows.any { !it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
-            reject("Only voided statement or SMS transactions can be restored.")
+            reject("Only voided statement or SMS transactions can be restored.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
         val corrections = rows.map { row ->
             db.transactionDao().activeCorrectionsFor(row.id).firstOrNull()
@@ -377,7 +427,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
     suspend fun keepReviewDraft(transactionId: Long) = db.withTransaction {
         val row = transaction(transactionId)
         if (row.source !in setOf(TxSource.SMS, TxSource.MANUAL)) {
-            reject("A statement row cannot be kept as a draft.")
+            reject("A statement row cannot be kept as a draft.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
         if (row.status == TxStatus.PENDING) {
             db.transactionDao().update(row.copy(status = TxStatus.MANUAL))
@@ -395,7 +445,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         val debtOnly = allocations.all {
             it.purpose in setOf(AllocationPurpose.LOAN, AllocationPurpose.REPAYMENT)
         }
-        if (row.amountMinor > 0 && !debtOnly) reject("Only an expense can be shared between people.")
+        if (row.amountMinor > 0 && !debtOnly) reject("Only an expense can be shared between people.", MutationRejection.INCOME_NOT_SHAREABLE)
         if (allocations.any { it.amountMinor == 0L || (it.amountMinor < 0) != (row.amountMinor < 0) }) {
             reject("Allocation signs must match the transaction.")
         }
@@ -436,7 +486,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
 
     private fun requireManual(row: TransactionEntity) {
         if (row.source != TxSource.MANUAL || row.status != TxStatus.MANUAL) {
-            reject("Only a manual transaction can be edited.")
+            reject("Only a manual transaction can be edited.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
     }
 
@@ -467,5 +517,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         if (amountMinor == 0L) reject("A transaction cannot be zero.")
     }
 
-    private fun reject(message: String): Nothing = throw TransactionMutationException(message)
+    private fun reject(
+        message: String,
+        rejection: MutationRejection = MutationRejection.INVALID_INPUT,
+    ): Nothing = throw TransactionMutationException(rejection, message)
 }

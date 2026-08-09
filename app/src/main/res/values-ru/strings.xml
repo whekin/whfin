@@ -357,7 +357,13 @@
     <string name="backup_safety_action">Вернуться к ней</string>
     <string name="backup_safety_confirm_title">Вернуться к прежним данным?</string>
     <string name="backup_safety_confirm_body">Всё, что восстановлено с тех пор, заменит копия, сделанная перед последним восстановлением. Копия текущих данных будет создана до замены.</string>
+    <string name="transactions_delete_selected_partial_body">Удалить можно только %1$d из %2$d выбранных операций. Импортированные останутся — их исправляют.</string>
     <string name="mutation_rejected">Книга отклонила изменение. Ничего не сохранено.</string>
+    <string name="mutation_rejected_imported">Импортированные операции не удаляют и не редактируют — их исправляют. Ничего не изменено.</string>
+    <string name="mutation_rejected_debt">Это движение принадлежит долгу. Меняйте его в самом долге.</string>
+    <string name="mutation_rejected_allocations">Сначала уберите разбивку, потом меняйте сумму или валюту.</string>
+    <string name="mutation_rejected_already_corrected">У этой операции уже есть исправление.</string>
+    <string name="mutation_rejected_income">Делить между людьми можно только расход.</string>
     <string name="data_health_title">Состояние данных</string>
     <string name="data_health_settings_summary">Проверить книгу на противоречия и перейти к экранам, где их исправляют.</string>
     <string name="data_health_checking">Проверяю</string>

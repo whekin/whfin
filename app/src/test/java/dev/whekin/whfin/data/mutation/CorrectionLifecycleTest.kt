@@ -255,6 +255,107 @@ class CorrectionLifecycleTest {
     }
 
     @Test
+    fun deletingAnImportedRow_reportsWhyNothingHappened() = runBlocking {
+        val statementId = statementRow()
+
+        val report = mutations.delete(listOf(MutationSelection(statementId)))
+
+        assertEquals(0, report.changed)
+        assertEquals(1, report.skipped)
+        assertEquals(MutationRejection.IMPORTED_IS_PROTECTED, report.skippedReason)
+        assertEquals(TxSource.STATEMENT, db.transactionDao().byId(statementId)?.source)
+    }
+
+    @Test
+    fun deletingADebtMovement_reportsTheDebtRatherThanTheSource() = runBlocking {
+        val personId = db.personDao().insert(PersonEntity(name = "Lasha", color = 1))
+        val debts = DebtRepository(db)
+        val caseId = debts.open(
+            NewDebt(
+                personId = personId,
+                direction = DebtDirection.THEY_OWE_ME,
+                amountMinor = 4_000,
+                currency = "GEL",
+                accountId = accountId,
+                occurredAt = 1_000,
+            ),
+        )
+        val txId = requireNotNull(db.debtDao().eventsForCase(caseId).single().transactionId)
+
+        val report = mutations.delete(listOf(MutationSelection(txId)))
+
+        assertEquals(0, report.changed)
+        assertEquals(MutationRejection.DEBT_LINKED, report.skippedReason)
+        assertNotNull(db.transactionDao().byId(txId))
+    }
+
+    @Test
+    fun deletingATransfer_takesBothLegsOrNeither() = runBlocking {
+        val other = db.accountDao().insert(
+            AccountEntity(name = "Reserve", type = AccountType.SAVINGS, currency = "GEL"),
+        )
+        val legId = mutations.createManual(
+            ManualMutation(
+                accountId = accountId,
+                amountMinor = -5_000,
+                destinationAccountId = other,
+                occurredAt = 1_000,
+            ),
+        )
+        val groupId = requireNotNull(requireNotNull(db.transactionDao().byId(legId)).transferGroupId)
+
+        val report = mutations.delete(listOf(MutationSelection(legId)))
+
+        assertEquals(2, report.changed)
+        assertTrue(db.transactionDao().byTransferGroup(groupId).isEmpty())
+        assertTrue(DataIntegrityChecker(db).run().isHealthy)
+    }
+
+    @Test
+    fun aStaleGroupIdInTheSelection_cannotReachAnotherMovement() = runBlocking {
+        val other = db.accountDao().insert(
+            AccountEntity(name = "Reserve", type = AccountType.SAVINGS, currency = "GEL"),
+        )
+        val transferLeg = mutations.createManual(
+            ManualMutation(
+                accountId = accountId,
+                amountMinor = -5_000,
+                destinationAccountId = other,
+                occurredAt = 1_000,
+            ),
+        )
+        val groupId = requireNotNull(requireNotNull(db.transactionDao().byId(transferLeg)).transferGroupId)
+        val plain = mutations.createManual(
+            ManualMutation(accountId = accountId, amountMinor = -900, occurredAt = 2_000),
+        )
+
+        // The screen may hand over a group the row does not belong to; the row decides.
+        val report = mutations.delete(listOf(MutationSelection(plain, transferGroupId = groupId)))
+
+        assertEquals(1, report.changed)
+        assertNull(db.transactionDao().byId(plain))
+        assertEquals(2, db.transactionDao().byTransferGroup(groupId).size)
+    }
+
+    @Test
+    fun aBatch_deletesWhatItMayAndKeepsTheRest() = runBlocking {
+        val manual = mutations.createManual(
+            ManualMutation(accountId = accountId, amountMinor = -700, occurredAt = 1_000),
+        )
+        val imported = statementRow(amountMinor = -800)
+
+        val report = mutations.delete(
+            listOf(MutationSelection(manual), MutationSelection(imported)),
+        )
+
+        assertEquals(1, report.changed)
+        assertEquals(1, report.skipped)
+        assertEquals(MutationRejection.IMPORTED_IS_PROTECTED, report.skippedReason)
+        assertNull(db.transactionDao().byId(manual))
+        assertNotNull(db.transactionDao().byId(imported))
+    }
+
+    @Test
     fun aSingleLeggedTransferGroupIsReported() = runBlocking {
         val other = db.accountDao().insert(
             AccountEntity(name = "Reserve", type = AccountType.SAVINGS, currency = "GEL"),

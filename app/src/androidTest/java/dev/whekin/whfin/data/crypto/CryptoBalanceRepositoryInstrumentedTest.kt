@@ -217,7 +217,7 @@ class CryptoBalanceRepositoryInstrumentedTest {
         repository.refreshAll()
         assertNotNull(db.cryptoDao().balance(accountId))
 
-        db.accountDao().delete(accountId)
+        db.openHelper.writableDatabase.execSQL("DELETE FROM accounts WHERE id = " + accountId)
 
         assertNull(db.cryptoDao().balance(accountId))
     }
