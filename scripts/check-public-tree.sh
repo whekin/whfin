@@ -15,6 +15,13 @@ report_files() {
     fi
 }
 
+# Every check below uses `git grep -I`, which skips anything git considers binary — and a single NUL
+# byte is enough to earn that label. A source file that acquires one silently leaves the privacy
+# scan, so the scan first proves that nothing but real assets is invisible to it.
+unscannable="$(comm -13 <(git grep -Il '' | sort) <(git ls-files | sort) |
+    grep -vEi '\.(png|jpg|jpeg|webp|gif|ico|jar|ttf|otf|woff2?|zip|gz|bin|keystore|jks|p12|pdf|so|apk)$' || true)"
+report_files "a file is invisible to these checks; git treats it as binary" "$unscannable"
+
 secret_files="$({
     git grep -Il -E -- '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[0-9A-Za-z]{20,}|github_pat_[0-9A-Za-z_]{20,}|sk-[0-9A-Za-z_-]{20,}|xox[baprs]-[0-9A-Za-z-]{10,}' || true
     git grep -Il -E -- '(api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|password)[[:space:]]*[:=][[:space:]]*[^$<{[:space:]]' || true
