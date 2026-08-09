@@ -226,6 +226,7 @@ private fun CompactWidget(
                     .clickable(key = "cycle-source", block = cycleSource),
                 textColor = GlanceTheme.colors.onSurface,
                 nudgeTowardAction = level == 2 && !showOpenAppButton,
+                centerBetweenActions = level == 2 && showOpenAppButton,
             )
             if (level >= if (showOpenAppButton) 4 else 3) {
                 WidgetDivider()
@@ -315,12 +316,19 @@ private fun WidgetSegment(
     modifier: GlanceModifier,
     textColor: ColorProvider,
     nudgeTowardAction: Boolean = false,
+    centerBetweenActions: Boolean = false,
 ) {
         Box(
             // The filled circle is visually much heavier than the label. In the 2-cell composition,
             // shift only the source label toward it; currency/source segments remain geometric.
-            modifier = if (nudgeTowardAction) modifier.padding(start = 24.dp, end = 4.dp)
-            else modifier.padding(horizontal = 8.dp),
+            modifier = when {
+                nudgeTowardAction -> modifier.padding(start = 24.dp, end = 4.dp)
+                // Smart Launcher places the weighted label about 8 dp left of the midpoint between
+                // two fixed 48 dp actions. Keep the normal 16 dp padding budget while moving that
+                // budget to the leading edge, so the label shifts without losing text width.
+                centerBetweenActions -> modifier.padding(start = 16.dp)
+                else -> modifier.padding(horizontal = 8.dp)
+            },
             contentAlignment = Alignment.Center,
         ) {
             Text(
