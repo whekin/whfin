@@ -44,7 +44,7 @@ class PeopleViewModel(app: Application) : AndroidViewModel(app) {
         db.transactionAllocationDao().observePersonSpending(monthBounds.first, monthBounds.second),
     ) { people, cases, events, spending ->
         val creditedByCase = events.groupBy { it.debtCaseId }
-            .mapValues { (_, list) -> list.sumOf { it.debtValueMinor } }
+            .mapValues { (_, list) -> list.filterNot { it.isVoided }.sumOf { it.debtValueMinor } }
         people.map { person ->
             val open = cases.filter { it.personId == person.id && it.status == DebtStatus.OPEN }
             fun remaining(direction: DebtDirection) = open

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "exportedAt": "2026-07-31T18:00:00Z",
   "appVersion": "0.1.0-demo (1)",
-  "databaseVersion": 8,
+  "databaseVersion": 9,
   "primaryCurrency": "GEL",
   "tables": {
     "financial_groups": [

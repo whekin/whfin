@@ -157,7 +157,13 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         cases.mapNotNull { debt ->
             val caseEvents = events.filter { it.debtCaseId == debt.id }
             personById[debt.personId]?.let { person ->
-                DebtCaseUi(debt, person, (debt.originalAmountMinor - caseEvents.sumOf { it.debtValueMinor }).coerceAtLeast(0), caseEvents)
+                DebtCaseUi(
+                    debt,
+                    person,
+                    (debt.originalAmountMinor - caseEvents.filterNot { it.isVoided }.sumOf { it.debtValueMinor })
+                        .coerceAtLeast(0),
+                    caseEvents,
+                )
             }
         }
     }

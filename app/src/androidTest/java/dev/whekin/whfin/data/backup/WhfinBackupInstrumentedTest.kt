@@ -256,7 +256,11 @@ class WhfinBackupInstrumentedTest {
             )
             sqlite.execSQL("INSERT INTO transaction_allocations VALUES (1, 1, -1250, 1, 1, 'SHARED', 'Half')")
             sqlite.execSQL("INSERT INTO debt_cases VALUES (1, 1, 'THEY_OWE_ME', 1250, 'GEL', 2000, 'OPEN', NULL, 'Lunch')")
-            sqlite.execSQL("INSERT INTO debt_events VALUES (1, 1, 'OPENED', NULL, NULL, NULL, NULL, 0, 0, 2000, NULL)")
+            sqlite.execSQL(
+                "INSERT INTO debt_events (id, debtCaseId, kind, actualAmountMinor, actualCurrency, " +
+                    "accountId, transactionId, debtValueMinor, closesCase, occurredAt, note) " +
+                    "VALUES (1, 1, 'OPENED', NULL, NULL, NULL, NULL, 0, 0, 2000, NULL)",
+            )
             sqlite.execSQL("INSERT INTO statement_imports VALUES (1, 1, 1, 'statement.xlsx', 'FILE', 1, 31, 0, 10000, 1, 1, 0, 0, 0, 4000)")
             sqlite.execSQL("INSERT INTO reconciliation_issues VALUES (1, 1, 1, 1, 'OPEN', 5000)")
             sqlite.setTransactionSuccessful()

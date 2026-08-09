@@ -552,11 +552,15 @@ interface DebtDao {
     @Query("SELECT * FROM debt_events WHERE debtCaseId = :caseId ORDER BY occurredAt, id")
     suspend fun eventsForCase(caseId: Long): List<DebtEventEntity>
 
+    @Query("SELECT * FROM debt_events WHERE id = :eventId")
+    suspend fun eventById(eventId: Long): DebtEventEntity?
+
     @Query("SELECT * FROM debt_events WHERE transactionId = :transactionId LIMIT 1")
     suspend fun eventsForTransaction(transactionId: Long): List<DebtEventEntity>
 
     @Insert suspend fun insertCase(item: DebtCaseEntity): Long
     @Insert suspend fun insertEvent(item: DebtEventEntity): Long
+    @Update suspend fun updateEvent(item: DebtEventEntity)
     @Update suspend fun updateCase(item: DebtCaseEntity)
 }
 

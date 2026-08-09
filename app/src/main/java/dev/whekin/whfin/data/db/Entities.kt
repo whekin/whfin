@@ -363,7 +363,10 @@ data class DebtCaseEntity(
         ForeignKey(entity = AccountEntity::class, parentColumns = ["id"], childColumns = ["accountId"], onDelete = ForeignKey.SET_NULL),
         ForeignKey(entity = TransactionEntity::class, parentColumns = ["id"], childColumns = ["transactionId"], onDelete = ForeignKey.SET_NULL),
     ],
-    indices = [Index("debtCaseId"), Index("accountId"), Index("transactionId"), Index("occurredAt")],
+    indices = [
+        Index("debtCaseId"), Index("accountId"), Index("transactionId"), Index("occurredAt"),
+        Index("correctionOfEventId"), Index("isVoided"),
+    ],
 )
 data class DebtEventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -379,6 +382,9 @@ data class DebtEventEntity(
     val closesCase: Boolean = false,
     val occurredAt: Long,
     val note: String? = null,
+    /** Corrections are append-only audit rows; both the mistaken event and its correction are hidden from active debt totals. */
+    @ColumnInfo(defaultValue = "0") val isVoided: Boolean = false,
+    val correctionOfEventId: Long? = null,
 )
 
 @Entity(

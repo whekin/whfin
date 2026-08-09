@@ -203,6 +203,11 @@ internal object WhfinBackupSchema {
             listOf(
                 "id", "debtCaseId", "kind", "actualAmountMinor", "actualCurrency", "accountId",
                 "transactionId", "debtValueMinor", "closesCase", "occurredAt", "note",
+                "isVoided", "correctionOfEventId",
+            ),
+            legacyColumns = mapOf(
+                "isVoided" to BackupLegacyColumn(introducedInDatabaseVersion = 9, defaultValue = BackupValue.Integer(0)),
+                "correctionOfEventId" to BackupLegacyColumn(introducedInDatabaseVersion = 9, defaultValue = null),
             ),
             enumColumns = mapOf("kind" to setOf("OPENED", "SETTLEMENT", "ADJUSTMENT", "CLOSED")),
         ),

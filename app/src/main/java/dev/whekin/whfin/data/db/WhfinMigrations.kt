@@ -184,6 +184,19 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+/** Debt corrections preserve the event log while removing mistaken events from balances. */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `debt_events` ADD COLUMN `isVoided` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `debt_events` ADD COLUMN `correctionOfEventId` INTEGER")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_debt_events_correctionOfEventId` " +
+                "ON `debt_events` (`correctionOfEventId`)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_debt_events_isVoided` ON `debt_events` (`isVoided`)")
+    }
+}
+
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -192,4 +205,5 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_5_6,
     MIGRATION_6_7,
     MIGRATION_7_8,
+    MIGRATION_8_9,
 )
