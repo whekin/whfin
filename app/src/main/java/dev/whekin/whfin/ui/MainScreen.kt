@@ -13,7 +13,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.*
@@ -555,7 +554,6 @@ private fun SecondaryPage(
             testTag = "dock-accounts",
         ),
         selectedIndex = selected,
-        addIcon = Icons.Default.Add,
         addLabel = stringResource(R.string.dock_add),
         addContentDescription = stringResource(R.string.add_transaction),
         onAdd = onAdd,

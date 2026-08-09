@@ -303,7 +303,8 @@ This is a single-context repository with root domain documentation and system-wi
   Shell polish (2026-07-29): общий `WhfinDock` перенесён в `:core-ui`; полноширинный dock получил
   inset-rule, outlined 22dp glyphs и короткий локальный selection-rule без движущейся подложки.
   Центральный `+` встроен в тот же icon-over-label ритм как отдельная кнопка `New`/`Новая`: без
-  заливки, подъёма и selection-rule, но с primary-цветом и 48dp+ target. `WhfinContextHeader`
+  заливки, подъёма и selection-rule, но с primary-цветом, 2.5dp rounded stroke в оптический вес
+  соседних outlined-глифов и 48dp+ target. `WhfinContextHeader`
   выравнивает метрику по 20dp rail, набирает её через
   `WhfinAmount` и собирает 48dp действия в единый low-tonal action rail. Контракт и screenshot gallery
   закреплены в локальном `whfin-ui-design` skill и `:core-ui`. Screenshot references проверены в

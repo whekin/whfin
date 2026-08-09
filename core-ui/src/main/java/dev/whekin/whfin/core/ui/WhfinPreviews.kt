@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
@@ -141,7 +140,6 @@ fun WhfinShellChromeGallery() {
                     label = "Accounts",
                 ),
                 selectedIndex = 0,
-                addIcon = Icons.Default.Add,
                 addLabel = "New",
                 addContentDescription = "Add transaction",
                 onAdd = {},

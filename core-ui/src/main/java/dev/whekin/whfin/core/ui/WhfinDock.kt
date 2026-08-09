@@ -1,6 +1,7 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,10 +27,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -54,7 +58,6 @@ fun WhfinDock(
     leading: WhfinDockDestination,
     trailing: WhfinDockDestination,
     selectedIndex: Int,
-    addIcon: ImageVector,
     addLabel: String,
     addContentDescription: String,
     onAdd: () -> Unit,
@@ -109,13 +112,12 @@ fun WhfinDock(
                                 .fillMaxWidth()
                                 .height(sizes.ledgerMarker),
                         )
-                        Icon(
-                            imageVector = addIcon,
+                        WhfinDockAddMark(
                             contentDescription = addContentDescription,
                             modifier = Modifier
                                 .padding(top = 3.dp)
                                 .size(sizes.dockIcon),
-                            tint = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
                             text = addLabel,
@@ -135,6 +137,33 @@ fun WhfinDock(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun WhfinDockAddMark(
+    contentDescription: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val strokeWidth = 2.5.dp
+    Canvas(modifier.semantics { this.contentDescription = contentDescription }) {
+        val inset = strokeWidth.toPx()
+        val center = Offset(size.width / 2f, size.height / 2f)
+        drawLine(
+            color = color,
+            start = Offset(inset, center.y),
+            end = Offset(size.width - inset, center.y),
+            strokeWidth = strokeWidth.toPx(),
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(center.x, inset),
+            end = Offset(center.x, size.height - inset),
+            strokeWidth = strokeWidth.toPx(),
+            cap = StrokeCap.Round,
+        )
     }
 }
 
