@@ -225,7 +225,7 @@ private fun CompactWidget(
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     .clickable(key = "cycle-source", block = cycleSource),
                 textColor = GlanceTheme.colors.onSurface,
-                nudgeTowardAction = level == 2,
+                nudgeTowardAction = level == 2 && !showOpenAppButton,
             )
             if (level >= if (showOpenAppButton) 4 else 3) {
                 WidgetDivider()
