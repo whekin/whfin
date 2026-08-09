@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
@@ -79,6 +80,7 @@ fun SettingsScreen(
     onOpenAppLock: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenCorrections: () -> Unit = {},
+    onOpenDataHealth: () -> Unit = {},
     onOpenPrivacy: () -> Unit,
     onOpenAbout: () -> Unit,
     appVersion: String,
@@ -316,6 +318,14 @@ fun SettingsScreen(
                 icon = Icons.Default.Restore,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenCorrections,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.data_health_title),
+                supportingText = stringResource(R.string.data_health_settings_summary),
+                icon = Icons.Default.HealthAndSafety,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenDataHealth,
                 divider = true,
             )
             WhfinLedgerRow(

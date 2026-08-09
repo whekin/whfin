@@ -350,6 +350,26 @@
     <string name="corrections_section">IMPORTED OPERATIONS</string>
     <string name="corrections_empty_title">No corrections</string>
     <string name="corrections_empty_body">Imported operations you correct will appear here and can be restored.</string>
+    <string name="data_health_title">Data health</string>
+    <string name="data_health_settings_summary">Check the ledger for contradictions and reach the screens that fix them.</string>
+    <string name="data_health_checking">Checking</string>
+    <string name="data_health_checking_body">Reading every account, split, correction and debt.</string>
+    <string name="data_health_ok_title">Everything adds up</string>
+    <string name="data_health_ok_body">Splits match their operations, corrections match what they hide, and debts stay within their amount.</string>
+    <plurals name="data_health_issues_title">
+        <item quantity="one">%1$d contradiction found</item>
+        <item quantity="other">%1$d contradictions found</item>
+    </plurals>
+    <string name="data_health_issues_body">Nothing was changed. Each line names what disagrees so it can be corrected by hand.</string>
+    <string name="data_health_check_action">Check again</string>
+    <string name="data_health_section">WHAT DISAGREES</string>
+    <string name="data_health_shortcuts_section">GO TO</string>
+    <string name="data_health_backup_summary">Export an encrypted copy before repairing anything.</string>
+    <string name="data_health_family_allocations">A split does not match its operation</string>
+    <string name="data_health_family_corrections">A correction disagrees with what it hides</string>
+    <string name="data_health_family_transfers">A transfer lost one of its legs</string>
+    <string name="data_health_family_debts">A debt does not match its events</string>
+    <string name="data_health_family_links">A record points at something missing</string>
     <string name="app_lock_title">App Lock</string>
     <string name="app_lock_settings_summary">WHFIN code and biometrics · %1$s</string>
     <string name="app_lock_intro_title">A code made for WHFIN</string>

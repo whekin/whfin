@@ -7788,6 +7788,15 @@
         "note": null
       },
       {
+        "id": 3,
+        "transactionId": 287,
+        "amountMinor": -4800,
+        "categoryId": 3,
+        "personId": null,
+        "purpose": "PERSONAL",
+        "note": null
+      },
+      {
         "id": 2,
         "transactionId": 288,
         "amountMinor": -14000,

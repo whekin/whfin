@@ -57,6 +57,7 @@ import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.CategoriesRoute
 import dev.whekin.whfin.ui.settings.PeopleRoute
 import dev.whekin.whfin.ui.settings.CorrectionsScreen
+import dev.whekin.whfin.ui.settings.DataHealthRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -88,7 +89,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, Privacy, About, Categories, People }
+internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, People }
 
 internal enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -105,6 +106,7 @@ internal enum class ShellScene(val depth: Int) {
     AppLock(2),
     Backup(2),
     Corrections(2),
+    DataHealth(2),
     Privacy(2),
     About(2),
     Categories(2),
@@ -150,6 +152,7 @@ internal fun shellTargetFor(
             SecondaryDestination.AppLock -> ShellScene.AppLock
             SecondaryDestination.Backup -> ShellScene.Backup
             SecondaryDestination.Corrections -> ShellScene.Corrections
+            SecondaryDestination.DataHealth -> ShellScene.DataHealth
             SecondaryDestination.Privacy -> ShellScene.Privacy
             SecondaryDestination.About -> ShellScene.About
             SecondaryDestination.Categories -> ShellScene.Categories
@@ -264,6 +267,7 @@ fun MainScreen(
                 secondaryDestination == SecondaryDestination.AppLock ||
                 secondaryDestination == SecondaryDestination.Backup ||
                 secondaryDestination == SecondaryDestination.Corrections ||
+                secondaryDestination == SecondaryDestination.DataHealth ||
                 secondaryDestination == SecondaryDestination.Privacy ||
                 secondaryDestination == SecondaryDestination.About ||
                 secondaryDestination == SecondaryDestination.Categories ||
@@ -394,6 +398,7 @@ fun MainScreen(
                             onOpenAppLock = { open(SecondaryDestination.AppLock) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
                             onOpenCorrections = { open(SecondaryDestination.Corrections) },
+                            onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
                             onOpenPrivacy = { open(SecondaryDestination.Privacy) },
                             onOpenAbout = { open(SecondaryDestination.About) },
                             onOpenCategories = { open(SecondaryDestination.Categories) },
@@ -485,6 +490,15 @@ fun MainScreen(
                         title = stringResource(R.string.corrections_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { CorrectionsScreen() }
+                    ShellScene.DataHealth -> SecondaryPage(
+                        title = stringResource(R.string.data_health_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) {
+                        DataHealthRoute(
+                            onOpenCorrections = { open(SecondaryDestination.Corrections) },
+                            onOpenBackup = { open(SecondaryDestination.Backup) },
+                        )
+                    }
                     ShellScene.Privacy -> SecondaryPage(
                         title = stringResource(R.string.privacy_title),
                         onBack = { goBack(withHaptic = true) },

@@ -391,8 +391,12 @@ dinner = f.tx(EVERYDAY_GEL, -9_600, GEL, at(LAST, 12, hour=20), category=EATING,
               counterparty="Copper Table", key="demo:shared-dinner")
 gift = f.tx(EVERYDAY_GEL, -14_000, GEL, at(LAST - 1, 18), category=GIFTS, merchant=13,
             counterparty="Marigold Flowers", key="demo:shared-gift")
+# A split names who benefited from every lari, so the friend's half needs the matching own half:
+# a lone SHARED share would leave the rest of the bill belonging to nobody.
 f.allocations.append({"id": 1, "transactionId": dinner, "amountMinor": -4_800, "categoryId": EATING,
                       "personId": 1, "purpose": "SHARED", "note": None})
+f.allocations.append({"id": 3, "transactionId": dinner, "amountMinor": -4_800, "categoryId": EATING,
+                      "personId": None, "purpose": "PERSONAL", "note": None})
 f.allocations.append({"id": 2, "transactionId": gift, "amountMinor": -14_000, "categoryId": GIFTS,
                       "personId": 2, "purpose": "GIFT", "note": None})
 
@@ -530,9 +534,18 @@ def validate(tables: dict[str, list[dict]]) -> None:
         assert booked == (row["currency"] != "GEL"), "only foreign rows carry a booked lari value"
     keys = [row["externalKey"] for row in tables["transactions"]]
     assert len(keys) == len(set(keys)), "external keys must stay unique"
+    parent_amount = {row["id"]: row["amountMinor"] for row in tables["transactions"]}
+    split_total: dict[int, int] = {}
     for row in tables["transaction_allocations"]:
         assert row["transactionId"] in ids["transactions"]
         assert row["personId"] is None or row["personId"] in ids["people"]
+        parent = parent_amount[row["transactionId"]]
+        assert row["amountMinor"] != 0 and (row["amountMinor"] < 0) == (parent < 0), \
+            "an allocation divides its transaction, so it shares its sign"
+        split_total[row["transactionId"]] = split_total.get(row["transactionId"], 0) + row["amountMinor"]
+    for transaction_id, total in split_total.items():
+        assert total == parent_amount[transaction_id], \
+            f"allocations of transaction {transaction_id} do not sum to it"
     for row in tables["debt_events"]:
         assert row["debtCaseId"] in ids["debt_cases"]
     for row in tables["payment_instruments"]:
