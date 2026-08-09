@@ -36,6 +36,10 @@ import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.mutation.AllocationMutation
 import dev.whekin.whfin.data.mutation.ManualMutation
 import dev.whekin.whfin.data.mutation.MutationSelection
+import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import dev.whekin.whfin.data.mutation.TransactionMutationException
 import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import dev.whekin.whfin.ui.sms.SmsRoutingAccount
 import kotlinx.coroutines.flow.SharingStarted
@@ -233,6 +237,32 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val transactionMutations = TransactionMutationModule(db)
     private val zone = ZoneId.systemDefault()
 
+    private val _rejected = MutableStateFlow(false)
+
+    /**
+     * True when the ledger refused the last change.
+     *
+     * The mutation module is a contract, and a screen that breaks it used to take the whole app
+     * down with it — a rejection is a bug in the caller, but the person typing an expense must not
+     * pay for it with a crash and a lost entry. The refusal itself is what the user sees; the
+     * specific rule goes to the log, because it names an internal invariant, not something they did.
+     */
+    val rejected: StateFlow<Boolean> = _rejected.asStateFlow()
+
+    fun dismissRejection() { _rejected.value = false }
+
+    /** Runs a ledger change, turning a refused one into a message instead of a crash. */
+    private fun mutate(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (rejection: TransactionMutationException) {
+                Log.w("WHFIN", "Ledger refused a change: ${rejection.message}")
+                _rejected.value = true
+            }
+        }
+    }
+
     val categories: StateFlow<List<CategoryEntity>> = db.categoryDao().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -336,7 +366,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addManual(tx: ManualTransaction) {
-        viewModelScope.launch {
+        mutate {
             // Сегодняшняя запись получает текущее время, вчерашняя — полдень,
             // чтобы не прыгать в начало дня в ленте
             val time = if (tx.day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
@@ -355,7 +385,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addDebt(debt: dev.whekin.whfin.data.debt.NewDebt) {
-        viewModelScope.launch { debtRepository.open(debt) }
+        mutate { debtRepository.open(debt) }
     }
 
     fun resolveUnrouted(
@@ -410,7 +440,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         db.insertBankLedger(CREDO_PROVIDER, name, currency)
 
     fun assignCategory(item: FeedItem, categoryId: Long) {
-        viewModelScope.launch {
+        mutate {
             transactionMutations.assignCategory(item.tx.id, categoryId)
             item.merchant?.let { merchant ->
                 db.merchantDao().setCategory(merchant.id, categoryId)
@@ -449,7 +479,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateManual(item: FeedItem, value: ManualTransaction) {
         if (item.tx.source != TxSource.MANUAL) return
-        viewModelScope.launch {
+        mutate {
             val oldTime = Instant.ofEpochMilli(item.tx.occurredAt).atZone(zone).toLocalTime()
             val occurredAt = value.day.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
             transactionMutations.updateManual(
@@ -469,27 +499,27 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteManual(item: FeedItem) {
         if (item.tx.source != TxSource.MANUAL) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.delete(listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)))
         }
     }
 
     fun correctImported(item: FeedItem) {
         if (item.tx.source !in setOf(TxSource.STATEMENT, TxSource.SMS)) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.voidTransaction(item.tx.id)
         }
     }
 
     fun restoreImported(transactionId: Long) {
-        viewModelScope.launch {
+        mutate {
             transactionMutations.restoreTransaction(transactionId)
         }
     }
 
     fun assignDebt(item: FeedItem, personId: Long) {
         if (item.tx.amountMinor >= 0) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.replaceAllocations(
                 item.tx.id,
                 listOf(AllocationMutation(
@@ -515,7 +545,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearAllocations(item: FeedItem) {
-        viewModelScope.launch { transactionMutations.replaceAllocations(item.tx.id, emptyList()) }
+        mutate { transactionMutations.replaceAllocations(item.tx.id, emptyList()) }
     }
 
     /**
@@ -526,7 +556,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun saveSplit(item: FeedItem, onPeople: List<SplitShare>) {
         if (item.tx.amountMinor >= 0) return
-        viewModelScope.launch {
+        mutate {
             val total = kotlin.math.abs(item.tx.amountMinor)
             var remaining = total
             val allocations = buildList {
@@ -576,7 +606,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateStatus(item: FeedItem, status: TxStatus) {
         if (item.tx.status == status) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.setReviewStatus(
                 listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)),
                 status,
@@ -586,7 +616,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateStatuses(items: List<FeedItem>, status: TxStatus) {
         if (items.isEmpty()) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.setReviewStatus(
                 items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) },
                 status,
@@ -596,7 +626,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteItems(items: List<FeedItem>) {
         if (items.isEmpty()) return
-        viewModelScope.launch {
+        mutate {
             transactionMutations.delete(items.map { MutationSelection(it.tx.id, it.tx.transferGroupId) })
         }
     }

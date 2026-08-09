@@ -78,6 +78,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -199,6 +201,17 @@ fun FeedScreen(
     val accounts by viewModel.accounts.collectAsState()
     val people by viewModel.people.collectAsState()
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
+    val rejected by viewModel.rejected.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val rejectionMessage = stringResource(R.string.mutation_rejected)
+    // A refused change is rare and never silent: the entry stayed as it was, and saying so beats
+    // leaving the user to discover a missing row later.
+    LaunchedEffect(rejected) {
+        if (rejected) {
+            snackbarHostState.showSnackbar(rejectionMessage)
+            viewModel.dismissRejection()
+        }
+    }
     val smsRoutingAccounts by viewModel.smsRoutingAccounts.collectAsState()
     // Confirming a draft is reversible from the transaction details, so it needs no ceremony here.
     val confirmPending: (FeedItem) -> Unit = { viewModel.updateStatus(it, TxStatus.CONFIRMED) }
@@ -329,6 +342,7 @@ fun FeedScreen(
             .then(if (selectionMode) Modifier else Modifier.nestedScroll(headerScrollBehavior.nestedScrollConnection)),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (selectionMode) {
                 WhfinContextHeader(

@@ -206,10 +206,17 @@ fun AddTransactionSheet(
             ))
             return
         }
+        // Only a transfer has a receiving side. An expense that still carried a destination amount
+        // described money arriving somewhere it never went, and the ledger rightly refused it.
+        val transfer = kind == ManualKind.TRANSFER
         val result = ManualTransaction(
             accountId = account!!.id,
-            destinationAccountId = destinationId,
-            destinationAmountMinor = if (conversion) destinationMinor else amountMinor,
+            destinationAccountId = destinationId.takeIf { transfer },
+            destinationAmountMinor = when {
+                !transfer -> null
+                conversion -> destinationMinor
+                else -> amountMinor
+            },
             amountMinor = if (kind == ManualKind.INCOME) amountMinor!! else -amountMinor!!,
             categoryId = categoryId.takeIf { kind != ManualKind.TRANSFER },
             note = note.trim().takeIf(String::isNotEmpty), day = day,

@@ -174,6 +174,44 @@ class CorrectionLifecycleTest {
     }
 
     @Test
+    fun aPlainExpense_isNotTreatedAsATransfer() = runBlocking {
+        // The composer used to send the amount as a destination amount for every kind, which
+        // described money arriving somewhere it never went and crashed the save.
+        val id = mutations.createManual(
+            ManualMutation(
+                accountId = accountId,
+                amountMinor = -1_234,
+                destinationAccountId = null,
+                destinationAmountMinor = null,
+                occurredAt = 1_000,
+            ),
+        )
+
+        val row = requireNotNull(db.transactionDao().byId(id))
+        assertEquals(-1_234, row.amountMinor)
+        assertNull(row.transferGroupId)
+        assertFalse(row.isTransfer)
+    }
+
+    @Test
+    fun aDestinationAmountWithoutADestination_isRefusedRatherThanGuessed() = runBlocking {
+        var rejected = false
+        try {
+            mutations.createManual(
+                ManualMutation(
+                    accountId = accountId,
+                    amountMinor = -1_234,
+                    destinationAmountMinor = 1_234,
+                    occurredAt = 1_000,
+                ),
+            )
+        } catch (_: TransactionMutationException) {
+            rejected = true
+        }
+        assertTrue(rejected)
+    }
+
+    @Test
     fun incomeCannotBeSharedBetweenPeople() = runBlocking {
         val personId = db.personDao().insert(PersonEntity(name = "Data", color = 1))
         val incomeId = mutations.createManual(
