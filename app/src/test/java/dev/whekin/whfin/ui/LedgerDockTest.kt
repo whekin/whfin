@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -38,7 +39,7 @@ class LedgerDockTest {
         compose.onNodeWithTag("dock-accounts").assertIsSelected()
         compose.onNodeWithTag("dock-feed").performClick()
         compose.onNodeWithTag("dock-feed").assertIsSelected()
-        compose.onNodeWithTag("dock-add").performClick()
+        compose.onNodeWithTag("dock-add").assertTextEquals("New").performClick()
         assertEquals(0, selected)
         assertEquals(1, addRequests)
     }

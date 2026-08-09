@@ -302,8 +302,9 @@ This is a single-context repository with root domain documentation and system-wi
   на disposable Pixel 9 Pro API 36.1; пять dark screenshot references перегенерированы.
   Shell polish (2026-07-29): общий `WhfinDock` перенесён в `:core-ui`; полноширинный dock получил
   inset-rule, outlined 22dp glyphs и короткий локальный selection-rule без движущейся подложки.
-  Центральный `+` — плоский залитый primary-круг 48dp, поднятый внутри собственного 64dp slot без
-  outline/notch/shadow. `WhfinContextHeader` выравнивает метрику по 20dp rail, набирает её через
+  Центральный `+` встроен в тот же icon-over-label ритм как отдельная кнопка `New`/`Новая`: без
+  заливки, подъёма и selection-rule, но с primary-цветом и 48dp+ target. `WhfinContextHeader`
+  выравнивает метрику по 20dp rail, набирает её через
   `WhfinAmount` и собирает 48dp действия в единый low-tonal action rail. Контракт и screenshot gallery
   закреплены в локальном `whfin-ui-design` skill и `:core-ui`. Screenshot references проверены в
   light/dark/font scale 1.5; на disposable Pixel 9 Pro API 36.1 проверены populated Feed/Accounts,
@@ -624,7 +625,7 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] Feed UX: поиск по операции/счёту/IBAN и единый компактный фильтр по типу, нескольким
   категориям и сортировке; обычный sheet показывает три наиболее используемые подходящие категории
   и `Ещё`, а полный lazy-список категорий открывается отдельным экраном; быстрые чипы и Settings убраны с рабочей поверхности Transactions,
-  а глобальное добавление операции встроено отдельной залитой 48dp-кнопкой в центр dock. Пункты dock используют
+  а глобальное добавление операции встроено отдельной незалитой icon-over-label кнопкой в центр dock. Пункты dock используют
   icon-over-label, сохраняют однострочные названия при font scale 1.5 и выделяют активный раздел цветом
   и короткой ledger-чертой без постоянной подложки;
   свои переводы не показывают сырое грузинское банковское описание и оформлены отдельными tonal-карточками.

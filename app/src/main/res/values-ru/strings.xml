@@ -46,6 +46,7 @@
     <string name="personal_setup_skip_action">Продолжить без настройки</string>
     <string name="tab_feed">Транзакции</string>
     <string name="tab_accounts">Счета</string>
+    <string name="dock_add">Новая</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
     <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
     <string name="feed_unrouted_choose_account">Выбрать счёт</string>

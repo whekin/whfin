@@ -552,6 +552,7 @@ private fun SecondaryPage(
         ),
         selectedIndex = selected,
         addIcon = Icons.Default.Add,
+        addLabel = stringResource(R.string.dock_add),
         addContentDescription = stringResource(R.string.add_transaction),
         onAdd = onAdd,
         onSelect = onSelect,

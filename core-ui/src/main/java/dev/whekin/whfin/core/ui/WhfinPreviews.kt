@@ -142,6 +142,7 @@ fun WhfinShellChromeGallery() {
                 ),
                 selectedIndex = 0,
                 addIcon = Icons.Default.Add,
+                addLabel = "New",
                 addContentDescription = "Add transaction",
                 onAdd = {},
                 onSelect = {},

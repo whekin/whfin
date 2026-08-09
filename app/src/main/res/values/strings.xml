@@ -45,6 +45,7 @@
     <string name="personal_setup_skip_action">Continue without setup</string>
     <string name="tab_feed">Transactions</string>
     <string name="tab_accounts">Accounts</string>
+    <string name="dock_add">New</string>
     <string name="feed_empty">No transactions yet.\nImport a bank statement to get started.</string>
     <string name="feed_unrouted_operation">Unrouted operation</string>
     <string name="feed_unrouted_choose_account">Choose account</string>

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,7 +47,7 @@ data class WhfinDockDestination(
  * The primary WHFIN shell: two stable destinations and one independent create action.
  *
  * The dock is deliberately grounded in the screen canvas. Selection is shown by a short ledger
- * rule, while the filled center action carries the only strong visual emphasis.
+ * rule. The create action shares the same visual rhythm without pretending to be a destination.
  */
 @Composable
 fun WhfinDock(
@@ -56,6 +55,7 @@ fun WhfinDock(
     trailing: WhfinDockDestination,
     selectedIndex: Int,
     addIcon: ImageVector,
+    addLabel: String,
     addContentDescription: String,
     onAdd: () -> Unit,
     onSelect: (Int) -> Unit,
@@ -87,29 +87,44 @@ fun WhfinDock(
                     modifier = Modifier.weight(1f),
                     onClick = { onSelect(0) },
                 )
-                Box(
+                Surface(
+                    onClick = onAdd,
                     modifier = Modifier
                         .width(sizes.dockCenterSlot)
-                        .heightIn(min = sizes.dockHeight),
-                    contentAlignment = Alignment.Center,
+                        .heightIn(min = sizes.dockHeight)
+                        .testTag("dock-add")
+                        .semantics { role = Role.Button },
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color.Transparent,
                 ) {
-                    Surface(
-                        onClick = onAdd,
+                    Column(
                         modifier = Modifier
-                            .size(sizes.minTouchTarget)
-                            .offset(y = -spacing.xxs)
-                            .testTag("dock-add"),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = addIcon,
-                                contentDescription = addContentDescription,
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
+                        Spacer(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(sizes.ledgerMarker),
+                        )
+                        Icon(
+                            imageVector = addIcon,
+                            contentDescription = addContentDescription,
+                            modifier = Modifier
+                                .padding(top = 3.dp)
+                                .size(sizes.dockIcon),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = addLabel,
+                            modifier = Modifier.padding(top = 2.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
                 WhfinDockItem(
