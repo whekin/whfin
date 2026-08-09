@@ -39,15 +39,22 @@ private data class AnalyticsInputs(
 
 private data class AnalyticsControls(
     val selectedMonth: YearMonth,
+    val trendEndMonth: YearMonth,
     val categoryRangeMonths: Int,
     val trendFilter: AnalyticsTrendFilter,
+)
+
+private data class AnalyticsPeriod(
+    val selectedMonth: YearMonth,
+    val trendEndMonth: YearMonth,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val zoneId = ZoneId.systemDefault()
-    private val selectedMonth = MutableStateFlow(YearMonth.now(zoneId))
+    private val initialMonth = YearMonth.now(zoneId)
+    private val period = MutableStateFlow(AnalyticsPeriod(initialMonth, initialMonth))
     private val categoryRangeMonths = MutableStateFlow(1)
     private val trendFilter = MutableStateFlow<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
 
@@ -65,10 +72,11 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private val transactions: Flow<List<TransactionEntity>> = selectedMonth.flatMapLatest { month ->
+    private val transactions: Flow<List<TransactionEntity>> = period.flatMapLatest { value ->
+        val month = value.selectedMonth
         val yearStart = YearMonth.of(month.year, 1)
-        val rangeStart = minOf(yearStart, month.minusMonths(11))
-        val rangeEnd = YearMonth.of(month.year + 1, 1)
+        val rangeStart = minOf(yearStart, month.minusMonths(11), value.trendEndMonth.minusMonths(11))
+        val rangeEnd = maxOf(YearMonth.of(month.year + 1, 1), value.trendEndMonth.plusMonths(1))
         db.transactionDao().observeRange(
             rangeStart.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
             rangeEnd.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
@@ -83,8 +91,8 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         AnalyticsInputs(transactions, categories, allocations)
     }
 
-    private val controls = combine(selectedMonth, categoryRangeMonths, trendFilter) { month, range, filter ->
-        AnalyticsControls(month, range, filter)
+    private val controls = combine(period, categoryRangeMonths, trendFilter) { value, range, filter ->
+        AnalyticsControls(value.selectedMonth, value.trendEndMonth, range, filter)
     }
 
     val uiState = combine(inputs, controls) { input, control ->
@@ -96,25 +104,31 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             categoryRangeMonths = control.categoryRangeMonths,
             trendFilter = control.trendFilter,
             zoneId = zoneId,
+            trendEndMonth = control.trendEndMonth,
         )
     }.map<AnalyticsData, AnalyticsUiState> { data ->
         if (data.hasAnyTransactions) AnalyticsUiState.Content(data)
         else AnalyticsUiState.Empty(data.selectedMonth)
     }.catch {
-        emit(AnalyticsUiState.Error(selectedMonth.value))
+        emit(AnalyticsUiState.Error(period.value.selectedMonth))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState.Loading)
 
     fun previousMonth() {
-        selectedMonth.value = selectedMonth.value.minusMonths(1)
+        selectMonth(period.value.selectedMonth.minusMonths(1))
     }
 
     fun nextMonth() {
-        val next = selectedMonth.value.plusMonths(1)
-        if (next <= YearMonth.now(zoneId)) selectedMonth.value = next
+        selectMonth(period.value.selectedMonth.plusMonths(1))
     }
 
     fun selectMonth(month: YearMonth) {
-        if (month <= YearMonth.now(zoneId)) selectedMonth.value = month
+        if (month <= YearMonth.now(zoneId)) {
+            val current = period.value
+            period.value = AnalyticsPeriod(
+                selectedMonth = month,
+                trendEndMonth = trendWindowEndAfterSelecting(current.trendEndMonth, month),
+            )
+        }
     }
 
     fun setCategoryRange(months: Int) {

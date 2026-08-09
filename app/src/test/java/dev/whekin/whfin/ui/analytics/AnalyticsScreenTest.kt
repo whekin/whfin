@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -280,6 +281,87 @@ class AnalyticsScreenTest {
         compose.onNodeWithText("Transport").assertExists()
         compose.onNodeWithText("Food").assertDoesNotExist()
     }
+
+    @Test
+    fun statisticsKeepsLaterTrendMonthReachableAfterSelectingEarlierMonth() {
+        var month by mutableStateOf(YearMonth.of(2026, 8))
+        var trendEnd by mutableStateOf(YearMonth.of(2026, 8))
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        data = contentData.copy(
+                            selectedMonth = month,
+                            trendValues = trendEndingAt(trendEnd),
+                        ),
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onSelectMonth = {
+                            month = it
+                            trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
+                        },
+                        onRangeChange = {},
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenExpenses = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
+        compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
+    }
+
+    @Test
+    fun spendingKeepsLaterTrendMonthReachableAfterSelectingEarlierMonth() {
+        var month by mutableStateOf(YearMonth.of(2026, 8))
+        var trendEnd by mutableStateOf(YearMonth.of(2026, 8))
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    ExpenseAnalysisContent(
+                        data = contentData.copy(
+                            selectedMonth = month,
+                            trendValues = trendEndingAt(trendEnd),
+                        ),
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onSelectMonth = {
+                            month = it
+                            trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
+                        },
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(3)
+        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
+        compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
+    }
+
+    private fun trendEndingAt(end: YearMonth): List<AnalyticsMonthValue> =
+        (11L downTo 0L).map { monthsAgo ->
+            val month = end.minusMonths(monthsAgo)
+            AnalyticsMonthValue(
+                month = month,
+                expenseMinor = when (month) {
+                    YearMonth.of(2026, 7) -> 213_205L
+                    YearMonth.of(2026, 8) -> 32_154L
+                    else -> 0L
+                },
+            )
+        }
 
     private val contentData = AnalyticsData(
         selectedMonth = YearMonth.of(2026, 7),

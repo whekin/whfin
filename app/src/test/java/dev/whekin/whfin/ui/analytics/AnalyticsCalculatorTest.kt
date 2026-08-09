@@ -21,6 +21,17 @@ class AnalyticsCalculatorTest {
     private val unaccounted = CategoryEntity(3, "Unaccounted", kind = CategoryKind.EXPENSE, icon = "Category", color = 0, isSystem = true)
 
     @Test
+    fun trendWindowStaysPutWhileSelectingMonthsAlreadyInsideIt() {
+        val august = YearMonth.of(2026, 8)
+
+        val afterJuly = trendWindowEndAfterSelecting(august, YearMonth.of(2026, 7))
+        val afterReturning = trendWindowEndAfterSelecting(afterJuly, august)
+
+        assertEquals(august, afterJuly)
+        assertEquals(august, afterReturning)
+    }
+
+    @Test
     fun excludesTransfersDebtsAndAdjustmentsFromMonthTotals() {
         val transactions = listOf(
             tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id, status = TxStatus.PENDING),

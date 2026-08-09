@@ -25,6 +25,19 @@ internal data class AnalyticsMonthValue(
     val expenseMinor: Long,
 )
 
+/**
+ * Keeps a selected month inside the current rolling twelve-month window without needlessly
+ * re-anchoring that window. This lets a user move back and then return through the same chart.
+ */
+internal fun trendWindowEndAfterSelecting(currentEnd: YearMonth, selectedMonth: YearMonth): YearMonth {
+    val currentStart = currentEnd.minusMonths(11)
+    return when {
+        selectedMonth > currentEnd -> selectedMonth
+        selectedMonth < currentStart -> selectedMonth.plusMonths(11)
+        else -> currentEnd
+    }
+}
+
 internal data class AnalyticsCategoryValue(
     val categoryId: Long?,
     val name: String?,
@@ -109,6 +122,7 @@ internal fun calculateAnalytics(
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zoneId),
+    trendEndMonth: YearMonth = selectedMonth,
 ): AnalyticsData {
     require(categoryRangeMonths in setOf(1, 3, 6, 12))
     val categoryById = categories.associateBy { it.id }
@@ -253,7 +267,7 @@ internal fun calculateAnalytics(
         .sortedByDescending { it.expenseMinor }
 
     val trendValues = (11L downTo 0L).map { monthsAgo ->
-        val month = selectedMonth.minusMonths(monthsAgo)
+        val month = trendEndMonth.minusMonths(monthsAgo)
         val expense = -baseSlices
             .filter {
                 it.month == month && it.gelMinor!! < 0L && when (trendFilter) {
