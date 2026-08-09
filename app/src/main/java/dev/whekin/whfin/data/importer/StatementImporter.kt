@@ -7,8 +7,6 @@ import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.db.StatementImportOrigin
-import dev.whekin.whfin.data.db.FinancialGroupEntity
-import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.StatementSourceType
 import dev.whekin.whfin.data.db.TransferGroupEntity
@@ -109,6 +107,8 @@ class StatementImporter(private val db: WhfinDatabase) {
     ): Result {
         onPhase(Phase.READING)
         val statement = StatementParsers.parse(StatementFile.read(input, fileName))
+        onPhase(Phase.VERIFYING)
+        StatementValidator.validate(statement)
         onPhase(Phase.IMPORTING)
         // Одна SQLite-транзакция на весь файл: иначе 1000+ отдельных коммитов = десятки секунд
         return db.withTransaction { importParsed(statement, fileName, origin, onPhase) }
@@ -120,59 +120,21 @@ class StatementImporter(private val db: WhfinDatabase) {
         origin: StatementImportOrigin,
         onPhase: (Phase) -> Unit,
     ): Result {
-        var accountCreated = false
-        val account = db.accountDao().byIbanAndCurrency(statement.accountIban, statement.currency) ?: run {
-            accountCreated = true
-            val bank = statement.bank
-            val group = db.financialGroupDao().byProvider(FinancialGroupType.BANK, bank.provider)
-            val groupId = group?.id ?: db.financialGroupDao().insert(
-                FinancialGroupEntity(
-                    name = bank.displayName,
-                    type = FinancialGroupType.BANK,
-                    provider = bank.provider,
-                ),
-            )
-            val id = db.accountDao().insert(
-                AccountEntity(
-                    name = "${bank.displayName} ${statement.currency} •${statement.accountIban.takeLast(4)}",
-                    type = AccountType.BANK,
-                    groupId = groupId,
-                    currency = statement.currency,
-                    iban = statement.accountIban,
-                ),
-            )
-            db.accountDao().byId(id)!!
-        }
-
-        // Начальный баланс на старт периода — иначе баланс счёта = только сумма операций.
-        // isTransfer=true исключает его из статистики доходов/расходов.
-        val opening = statement.openingBalanceMinor
-        if (accountCreated && opening != null && opening != 0L && statement.periodFrom != null) {
-            db.transactionDao().insert(
-                TransactionEntity(
-                    accountId = account.id,
-                    amountMinor = opening,
-                    currency = statement.currency,
-                    occurredAt = statement.periodFrom.minusDays(1).atMillis(),
-                    status = TxStatus.CONFIRMED,
-                    source = TxSource.ADJUSTMENT,
-                    isTransfer = true,
-                    externalKey = "opening|${statement.accountIban}|${statement.periodFrom}",
-                    createdAt = System.currentTimeMillis(),
-                ),
-            )
-        }
+        val resolved = BankLedgerResolver(db).resolve(statement)
+        val account = resolved.account
+        updateOpeningAnchor(account.id, statement)
 
         var inserted = 0
         var duplicates = 0
         var reconciled = 0
         val keyCounts = mutableMapOf<String, Int>()
-        val existingKeys = db.transactionDao().allExternalKeys().toHashSet()
+        val existingKeys = db.transactionDao().externalKeysForAccount(account.id).toHashSet()
 
         for ((rowIndex, row) in statement.rows.withIndex()) {
             if (rowIndex == statement.rows.size / 2) onPhase(Phase.RECONCILING)
             val baseKey = listOf(
                 statement.accountIban,
+                statement.currency,
                 row.postedDate,
                 row.amountMinor,
                 row.balanceAfterMinor ?: "",
@@ -223,6 +185,8 @@ class StatementImporter(private val db: WhfinDatabase) {
                         isTransfer = isOwnTransfer,
                         balanceAfterMinor = row.balanceAfterMinor,
                         externalKey = externalKey,
+                        gelValueMinor = null,
+                        gelRateOn = null,
                     ),
                 )
                 existingKeys += externalKey
@@ -264,7 +228,6 @@ class StatementImporter(private val db: WhfinDatabase) {
         }
 
         pairOwnTransfers(account, statement.periodFrom, statement.periodTo)
-        onPhase(Phase.VERIFYING)
         val reviewCandidates = if (statement.periodFrom != null && statement.periodTo != null) {
             val safeTo = statement.periodTo.minusDays(3)
             if (safeTo >= statement.periodFrom) {
@@ -318,7 +281,7 @@ class StatementImporter(private val db: WhfinDatabase) {
         }
         return Result(
             accountId = account.id,
-            accountCreated = accountCreated,
+            accountCreated = resolved.created,
             totalRows = statement.rows.size,
             inserted = inserted,
             duplicates = duplicates,
@@ -375,6 +338,43 @@ class StatementImporter(private val db: WhfinDatabase) {
 
     private fun LocalDate.atMillis(): Long =
         atStartOfDay(zone).toInstant().toEpochMilli()
+
+    /**
+     * Fiat balance is the sum of ledger rows, so exactly one opening anchor must describe the earliest
+     * imported period. Importing older history moves that anchor instead of stacking another opening
+     * balance on top of the existing ledger.
+     */
+    private suspend fun updateOpeningAnchor(accountId: Long, statement: BankStatement) {
+        val current = statement.periodFrom?.let { from ->
+            statement.openingBalanceMinor?.let { opening -> OpeningSnapshot(from, opening) }
+        }
+        val stored = db.statementImportDao().earliestWithOpeningBalance(accountId)?.let { item ->
+            OpeningSnapshot(
+                date = LocalDate.ofEpochDay(requireNotNull(item.periodFrom)),
+                amountMinor = requireNotNull(item.openingBalanceMinor),
+            )
+        }
+        val earliest = listOfNotNull(current, stored).minByOrNull(OpeningSnapshot::date) ?: return
+        val key = "opening|${statement.accountIban}|${statement.currency}|${earliest.date}"
+        val occurredAt = earliest.date.minusDays(1).atMillis()
+        val existing = db.transactionDao().openingAnchor(accountId)
+        val replacement = TransactionEntity(
+            id = existing?.id ?: 0,
+            accountId = accountId,
+            amountMinor = earliest.amountMinor,
+            currency = statement.currency,
+            occurredAt = occurredAt,
+            status = TxStatus.CONFIRMED,
+            source = TxSource.ADJUSTMENT,
+            isTransfer = true,
+            externalKey = key,
+            createdAt = existing?.createdAt?.takeIf { it != 0L } ?: System.currentTimeMillis(),
+        )
+        if (existing == null) db.transactionDao().insert(replacement)
+        else if (existing != replacement) db.transactionDao().update(replacement)
+    }
+
+    private data class OpeningSnapshot(val date: LocalDate, val amountMinor: Long)
 
     private suspend fun pairOwnTransfers(account: AccountEntity, from: LocalDate?, to: LocalDate?) {
         val groupId = account.groupId ?: return

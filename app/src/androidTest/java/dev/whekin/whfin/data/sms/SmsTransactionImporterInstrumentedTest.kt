@@ -404,6 +404,48 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(1, transactionCount())
     }
 
+    @Test
+    fun cancellation_afterStatementAttachment_keepsStatementTruth() = runBlocking {
+        val account = AccountEntity(
+            id = db.accountDao().insert(
+                AccountEntity(
+                    name = "Main GEL",
+                    type = AccountType.BANK,
+                    groupId = groupId,
+                    currency = "GEL",
+                ),
+            ),
+            name = "Main GEL",
+            type = AccountType.BANK,
+            groupId = groupId,
+            currency = "GEL",
+        )
+        db.paymentInstrumentDao().linkForAccount(account, "0001", PaymentInstrumentType.PHYSICAL_CARD)
+        val statementId = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = account.id,
+                amountMinor = -1_234,
+                currency = "GEL",
+                occurredAt = LocalDateTime.of(2026, 4, 3, 20, 48, 5)
+                    .atZone(ZoneId.of("Asia/Tbilisi"))
+                    .toInstant()
+                    .toEpochMilli(),
+                rawCounterparty = "EXAMPLE MARKET",
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+                externalKey = "stmt|cancellation-example",
+            ),
+        )
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, importer.import(CARD_PAYMENT, RECEIVED_AT).outcome)
+
+        val canceled = importer.import(CANCELED_CARD_PAYMENT, RECEIVED_AT + 1_000)
+
+        assertEquals(SmsDiagnosticOutcome.CANCELED, canceled.outcome)
+        assertNotNull(db.transactionDao().byId(statementId))
+        assertEquals(TxSource.STATEMENT, db.transactionDao().byId(statementId)?.source)
+        assertEquals(1, transactionCount())
+    }
+
     private fun transactionCount(): Int = db.openHelper.writableDatabase
         .query("SELECT COUNT(*) FROM transactions")
         .use { cursor ->
@@ -437,6 +479,13 @@ class SmsTransactionImporterInstrumentedTest {
             Balance: 545.91 GEL
             03/04/2026 21:03:05
             Details: https://mycredo.page.link/Pdk
+        """.trimIndent()
+        val CANCELED_CARD_PAYMENT = """
+            Canceled operation
+            Payment: 12.34 GEL
+            Card N ****0001
+            EXAMPLE MARKET>Tbilisi                 GE
+            03/04/2026 20:48:05
         """.trimIndent()
         val OUTGOING_TRANSFER = """
             Outgoing transfer

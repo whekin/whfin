@@ -5,6 +5,7 @@ import dev.whekin.whfin.data.statement.StatementOperation
 import dev.whekin.whfin.data.statement.StatementParsers
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Row
+import dev.whekin.whfin.data.statement.MalformedStatementException
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -158,5 +159,17 @@ class CredoSyntheticStatementTest {
 
         assertTrue(!CredoStatementParser.canParse(file))
         assertThrows(UnsupportedStatementException::class.java) { StatementParsers.parse(file) }
+    }
+
+    @Test
+    fun `a financial-looking row is never silently dropped`() {
+        val malformed = Row(
+            date = LocalDate.of(2026, 1, 12),
+            operation = "გადახდები",
+            balance = "92.86",
+            description = "Missing debit and credit",
+        )
+
+        assertThrows(MalformedStatementException::class.java) { parse(malformed) }
     }
 }

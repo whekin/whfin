@@ -3,6 +3,9 @@ package dev.whekin.whfin.data.importer
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
@@ -78,6 +81,29 @@ class StatementImporterInstrumentedTest {
             ),
         ),
         fileName = "statement.xlsx",
+    )
+
+    private suspend fun importStatement(
+        iban: String = SyntheticCredoWorkbook.IBAN,
+        currency: String = "GEL",
+        periodFrom: LocalDate,
+        periodTo: LocalDate,
+        opening: String,
+        closing: String,
+        rows: List<Row>,
+    ) = importer.import(
+        ByteArrayInputStream(
+            SyntheticCredoWorkbook.build(
+                iban = iban,
+                currency = currency,
+                periodFrom = periodFrom,
+                periodTo = periodTo,
+                openingBalance = opening,
+                closingBalance = closing,
+                rows = rows,
+            ),
+        ),
+        fileName = "statement-$currency-$periodFrom.xlsx",
     )
 
     @Test
@@ -157,6 +183,94 @@ class StatementImporterInstrumentedTest {
         }
 
         assertEquals(emptyList<Any>(), db.accountDao().allActive())
+        assertNull(db.financialGroupDao().byProvider(FinancialGroupType.BANK, "Credo"))
+    }
+
+    @Test
+    fun precreatedSmsLedger_isAdoptedByItsFirstStatement() = runBlocking {
+        val groupId = db.financialGroupDao().insert(
+            FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK, provider = "Credo"),
+        )
+        val pendingAccountId = db.accountDao().insert(
+            AccountEntity(name = "Everyday", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+
+        val result = import(cardPayment, conversion, incoming)
+
+        assertEquals(pendingAccountId, result.accountId)
+        assertTrue(!result.accountCreated)
+        assertEquals(SyntheticCredoWorkbook.IBAN, db.accountDao().byId(pendingAccountId)?.iban)
+        assertEquals(1, db.accountDao().allActive().size)
+        assertEquals(9_086L, db.transactionDao().sumByAccount(pendingAccountId))
+    }
+
+    @Test
+    fun importingOlderHistory_movesTheSingleOpeningAnchor() = runBlocking {
+        val february = importStatement(
+            periodFrom = LocalDate.of(2026, 2, 1),
+            periodTo = LocalDate.of(2026, 2, 28),
+            opening = "200.00",
+            closing = "150.00",
+            rows = listOf(Row(LocalDate.of(2026, 2, 10), "გადახდები", debit = "50.00", balance = "150.00")),
+        )
+        importStatement(
+            periodFrom = LocalDate.of(2026, 1, 1),
+            periodTo = LocalDate.of(2026, 1, 31),
+            opening = "100.00",
+            closing = "200.00",
+            rows = listOf(Row(LocalDate.of(2026, 1, 15), "სხვა ბანკიდან ჩარიცხვა", credit = "100.00", balance = "200.00")),
+        )
+
+        val rows = db.transactionDao().observeByAccount(february.accountId).first()
+        assertEquals(1, rows.count { it.source == TxSource.ADJUSTMENT && it.externalKey?.startsWith("opening|") == true })
+        assertEquals(15_000L, db.transactionDao().sumByAccount(february.accountId))
+        assertTrue(rows.single { it.source == TxSource.ADJUSTMENT }.externalKey!!.contains("|GEL|2026-01-01"))
+    }
+
+    @Test
+    fun sameIbanRowsInDifferentCurrencies_haveDifferentIdentities() = runBlocking {
+        val date = LocalDate.of(2026, 3, 5)
+        val gel = importStatement(
+            currency = "GEL",
+            periodFrom = LocalDate.of(2026, 3, 1),
+            periodTo = LocalDate.of(2026, 3, 31),
+            opening = "100.00",
+            closing = "90.00",
+            rows = listOf(Row(date, "გადახდები", debit = "10.00", balance = "90.00")),
+        )
+        val usd = importStatement(
+            currency = "USD",
+            periodFrom = LocalDate.of(2026, 3, 1),
+            periodTo = LocalDate.of(2026, 3, 31),
+            opening = "100.00",
+            closing = "90.00",
+            rows = listOf(Row(date, "გადახდები", debit = "10.00", balance = "90.00")),
+        )
+
+        assertTrue(gel.accountId != usd.accountId)
+        val keys = listOf(gel.accountId, usd.accountId).flatMap { accountId ->
+            db.transactionDao().externalKeysForAccount(accountId).filter { it.startsWith("stmt|") }
+        }
+        assertEquals(2, keys.distinct().size)
+        assertTrue(keys.any { it.contains("|GEL|") })
+        assertTrue(keys.any { it.contains("|USD|") })
+    }
+
+    @Test
+    fun brokenBalanceChain_isRejectedWithoutTouchingTheLedger() = runBlocking {
+        assertThrows(InvalidStatementException::class.java) {
+            runBlocking {
+                importStatement(
+                    periodFrom = LocalDate.of(2026, 4, 1),
+                    periodTo = LocalDate.of(2026, 4, 30),
+                    opening = "100.00",
+                    closing = "90.00",
+                    rows = listOf(Row(LocalDate.of(2026, 4, 2), "გადახდები", debit = "10.00", balance = "91.00")),
+                )
+            }
+        }
+
+        assertTrue(db.accountDao().allActive().isEmpty())
         assertNull(db.financialGroupDao().byProvider(FinancialGroupType.BANK, "Credo"))
     }
 }

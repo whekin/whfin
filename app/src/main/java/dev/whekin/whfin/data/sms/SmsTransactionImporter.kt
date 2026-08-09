@@ -324,14 +324,21 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         if (!persist) return SmsImportResult(SmsDiagnosticOutcome.CANCELED)
 
         original?.transactionId?.let { transactionId ->
-            db.transactionDao().delete(transactionId)
-            db.smsDiagnosticDao().update(
-                original.copy(
-                    outcome = SmsDiagnosticOutcome.CANCELED,
-                    transactionId = null,
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
+            val transaction = db.transactionDao().byId(transactionId)
+            // Reconciliation may have turned the original SMS draft into statement truth while the
+            // diagnostic kept pointing at the same row. A later SMS cancellation is evidence, not
+            // authority to erase a confirmed bank-statement row; its eventual reversal belongs to
+            // the next statement. Only a still-provisional SMS row may be withdrawn here.
+            if (transaction?.source == TxSource.SMS) {
+                db.transactionDao().delete(transactionId)
+                db.smsDiagnosticDao().update(
+                    original.copy(
+                        outcome = SmsDiagnosticOutcome.CANCELED,
+                        transactionId = null,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
+            }
         }
         val diagnostic = diagnosticFor(
             sms = payment,

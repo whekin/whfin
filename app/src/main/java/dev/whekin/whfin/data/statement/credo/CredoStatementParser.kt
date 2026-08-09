@@ -6,6 +6,7 @@ import dev.whekin.whfin.data.statement.StatementFile
 import dev.whekin.whfin.data.statement.StatementOperation
 import dev.whekin.whfin.data.statement.StatementParser
 import dev.whekin.whfin.data.statement.StatementRow
+import dev.whekin.whfin.data.statement.MalformedStatementException
 import dev.whekin.whfin.data.statement.XlsxSheetReader
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -80,8 +81,16 @@ object CredoStatementParser : StatementParser {
         val header = txSheet.firstOrNull { it.cells["A"] == "Date" }
             ?: error("Transactions header row not found")
         val rows = txSheet
-            .filter { it.index > header.index }
-            .mapNotNull(::parseRow)
+            .filter { row ->
+                row.index > header.index &&
+                    (row.cells["A"]?.toDoubleOrNull() != null ||
+                        listOf("B", "C", "D", "E").any { column -> !row.cells[column].isNullOrBlank() })
+            }
+            .map { row ->
+                parseRow(row) ?: throw MalformedStatementException(
+                    "Credo statement row ${row.index} contains incomplete financial data.",
+                )
+            }
 
         return BankStatement(
             bank = bank,

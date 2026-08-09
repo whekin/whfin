@@ -24,6 +24,12 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE iban = :iban AND currency = :currency LIMIT 1")
     suspend fun byIbanAndCurrency(iban: String, currency: String): AccountEntity?
 
+    @Query(
+        "SELECT * FROM accounts WHERE groupId = :groupId AND currency = :currency " +
+            "AND iban IS NULL AND isArchived = 0 AND type IN ('BANK', 'SAVINGS') ORDER BY id",
+    )
+    suspend fun unboundBankLedgers(groupId: Long, currency: String): List<AccountEntity>
+
     @Insert
     suspend fun insert(account: AccountEntity): Long
 
@@ -293,8 +299,14 @@ interface TransactionDao {
     @Query("UPDATE transactions SET gelValueMinor = :gelValueMinor, gelRateOn = :gelRateOn WHERE id = :id")
     suspend fun setGelValue(id: Long, gelValueMinor: Long, gelRateOn: String)
 
-    @Query("SELECT externalKey FROM transactions WHERE externalKey IS NOT NULL")
-    suspend fun allExternalKeys(): List<String>
+    @Query("SELECT externalKey FROM transactions WHERE accountId = :accountId AND externalKey IS NOT NULL")
+    suspend fun externalKeysForAccount(accountId: Long): List<String>
+
+    @Query(
+        "SELECT * FROM transactions WHERE accountId = :accountId AND source = 'ADJUSTMENT' " +
+            "AND externalKey LIKE 'opening|%' ORDER BY occurredAt, id LIMIT 1",
+    )
+    suspend fun openingAnchor(accountId: Long): TransactionEntity?
 
     /**
      * SMS rows remain reconcilable after an explicit user confirmation: source records provenance,
@@ -533,6 +545,12 @@ interface StatementImportDao {
 
     @Insert
     suspend fun insert(item: StatementImportEntity): Long
+
+    @Query(
+        "SELECT * FROM statement_imports WHERE accountId = :accountId AND periodFrom IS NOT NULL " +
+            "AND openingBalanceMinor IS NOT NULL ORDER BY periodFrom, importedAt, id LIMIT 1",
+    )
+    suspend fun earliestWithOpeningBalance(accountId: Long): StatementImportEntity?
 
     /** Only no-op imports are safe to forget: no ledger rows or reconciliations depend on them. */
     @Query(

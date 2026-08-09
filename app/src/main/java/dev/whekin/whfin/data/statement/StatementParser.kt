@@ -24,6 +24,9 @@ class StatementFile(val fileName: String?, private val bytes: ByteArray) {
 class UnsupportedStatementException(val fileName: String?) :
     IllegalArgumentException("Unsupported statement file: ${fileName ?: "unnamed"}")
 
+/** An adapter recognized the file, but one of its financial rows could not be parsed safely. */
+class MalformedStatementException(message: String) : IllegalArgumentException(message)
+
 /**
  * Bank-specific boundary. An adapter turns one bank's export into a [BankStatement]; deduplication,
  * import, reconciliation, coverage/history and the review queue stay shared for every bank.
