@@ -48,6 +48,11 @@
     <string name="dock_add">New</string>
     <string name="feed_empty">No transactions yet.\nImport a bank statement to get started.</string>
     <string name="home_empty_title">Your financial picture will appear here</string>
+    <string name="home_integrity_title">Your data needs a look</string>
+    <plurals name="home_integrity_body">
+        <item quantity="one">One record contradicts another. Nothing was changed automatically.</item>
+        <item quantity="other">%1$d records contradict each other. Nothing was changed automatically.</item>
+    </plurals>
     <string name="home_needs_attention">Needs attention</string>
     <string name="home_review_all">Review all</string>
     <string name="home_today">Today</string>
@@ -376,6 +381,13 @@
     <string name="data_health_issues_body">Nothing was changed. Each line names what disagrees so it can be corrected by hand.</string>
     <string name="data_health_check_action">Check again</string>
     <string name="data_health_section">WHAT DISAGREES</string>
+    <string name="data_health_status_section">WHERE THE LEDGER STANDS</string>
+    <string name="data_health_status_pending">Waiting for you</string>
+    <string name="data_health_status_pending_body">%1$d drafts awaiting confirmation, %2$d bank messages without an account.</string>
+    <string name="data_health_status_sync">Last statement imported</string>
+    <string name="data_health_status_sync_never">No statement has been imported on this device yet.</string>
+    <string name="data_health_status_kept">Kept aside</string>
+    <string name="data_health_status_kept_body">%1$d corrected operations, %2$d archived accounts. Nothing here was deleted.</string>
     <string name="data_health_shortcuts_section">GO TO</string>
     <string name="data_health_backup_summary">Export an encrypted copy before repairing anything.</string>
     <string name="data_health_family_allocations">A split does not match its operation</string>

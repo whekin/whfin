@@ -239,6 +239,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val transactionMutations = TransactionMutationModule(db)
     private val zone = ZoneId.systemDefault()
 
+    /** Contradictions the last integrity pass found; Home says so rather than only the log. */
+    val integrityIssues: StateFlow<Int> = (app as WhfinApp).integrityIssues
+
     private val _rejected = MutableStateFlow<MutationRejection?>(null)
 
     /**

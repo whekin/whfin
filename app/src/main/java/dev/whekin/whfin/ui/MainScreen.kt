@@ -336,6 +336,7 @@ fun MainScreen(
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
                                 onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
+                                onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
                                 addRequestKey = addRequestKey,
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,

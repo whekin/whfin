@@ -49,6 +49,13 @@
     <string name="dock_add">Новая</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
+    <string name="home_integrity_title">Данные требуют проверки</string>
+    <plurals name="home_integrity_body">
+        <item quantity="one">Одна запись противоречит другой. Автоматически ничего не изменено.</item>
+        <item quantity="few">%1$d записи противоречат друг другу. Автоматически ничего не изменено.</item>
+        <item quantity="many">%1$d записей противоречат друг другу. Автоматически ничего не изменено.</item>
+        <item quantity="other">%1$d записи противоречат друг другу. Автоматически ничего не изменено.</item>
+    </plurals>
     <string name="home_needs_attention">Требует внимания</string>
     <string name="home_review_all">Разобрать всё</string>
     <string name="home_today">Сегодня</string>
@@ -379,6 +386,13 @@
     <string name="data_health_issues_body">Ничего не изменено. Каждая строка называет, что именно расходится, — исправить можно вручную.</string>
     <string name="data_health_check_action">Проверить снова</string>
     <string name="data_health_section">ЧТО РАСХОДИТСЯ</string>
+    <string name="data_health_status_section">ГДЕ СЕЙЧАС КНИГА</string>
+    <string name="data_health_status_pending">Ждёт вас</string>
+    <string name="data_health_status_pending_body">Черновиков без подтверждения: %1$d, банковских SMS без счёта: %2$d.</string>
+    <string name="data_health_status_sync">Последняя загруженная выписка</string>
+    <string name="data_health_status_sync_never">На этом устройстве ещё не загружали выписок.</string>
+    <string name="data_health_status_kept">Отложено</string>
+    <string name="data_health_status_kept_body">Исправленных операций: %1$d, архивных счетов: %2$d. Ничего из этого не удалено.</string>
     <string name="data_health_shortcuts_section">ПЕРЕЙТИ</string>
     <string name="data_health_backup_summary">Сделать зашифрованную копию до любых исправлений.</string>
     <string name="data_health_family_allocations">Доля не сходится со своей операцией</string>

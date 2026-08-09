@@ -11,6 +11,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SaveAlt
@@ -25,6 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,6 +50,7 @@ import dev.whekin.whfin.data.integrity.IntegrityIssue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -57,14 +66,34 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
         data class Checked(val issues: List<IntegrityIssue>) : State
     }
 
-    private val checker = DataIntegrityChecker((app as WhfinApp).db)
+    /** What the ledger currently holds that a person may want to act on. */
+    data class Status(
+        val pending: Int = 0,
+        val unrouted: Int = 0,
+        val corrections: Int = 0,
+        val archivedAccounts: Int = 0,
+        val lastImportAt: Long? = null,
+    )
+
+    private val db = (app as WhfinApp).db
+    private val checker = DataIntegrityChecker(db)
     private val _state = MutableStateFlow<State>(State.Checking)
     val state: StateFlow<State> = _state.asStateFlow()
+
+    private val _status = MutableStateFlow(Status())
+    val status: StateFlow<Status> = _status.asStateFlow()
 
     fun check() {
         _state.value = State.Checking
         viewModelScope.launch {
             _state.value = State.Checked(checker.run().issues)
+            _status.value = Status(
+                pending = db.transactionDao().pendingCount(),
+                unrouted = db.smsDiagnosticDao().observeUnrouted().first().size,
+                corrections = db.transactionDao().observeVoidedImported().first().size,
+                archivedAccounts = db.accountDao().observeArchived().first().size,
+                lastImportAt = db.statementImportDao().observeAll().first().firstOrNull()?.importedAt,
+            )
         }
     }
 }
@@ -85,9 +114,11 @@ fun DataHealthRoute(
     viewModel: DataHealthViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val status by viewModel.status.collectAsState()
     LaunchedEffect(Unit) { viewModel.check() }
     DataHealthScreen(
         state = state,
+        status = status,
         onCheck = viewModel::check,
         onOpenCorrections = onOpenCorrections,
         onOpenBackup = onOpenBackup,
@@ -97,6 +128,7 @@ fun DataHealthRoute(
 @Composable
 fun DataHealthScreen(
     state: DataHealthViewModel.State,
+    status: DataHealthViewModel.Status = DataHealthViewModel.Status(),
     onCheck: () -> Unit = {},
     onOpenCorrections: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
@@ -166,6 +198,46 @@ fun DataHealthScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // Home stays quiet, so the standing state of the ledger is gathered here rather than
+        // spread over the screen a person opens to see their money.
+        item { WhfinSectionLabel(stringResource(R.string.data_health_status_section)) }
+        item {
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                WhfinLedgerRow(
+                    title = stringResource(R.string.data_health_status_pending),
+                    supportingText = stringResource(
+                        R.string.data_health_status_pending_body,
+                        status.pending,
+                        status.unrouted,
+                    ),
+                    supportingMaxLines = 3,
+                    icon = Icons.Default.PendingActions,
+                    divider = true,
+                )
+                WhfinLedgerRow(
+                    title = stringResource(R.string.data_health_status_sync),
+                    supportingText = status.lastImportAt?.let { millis ->
+                        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                            .withLocale(Locale.getDefault())
+                            .format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+                    } ?: stringResource(R.string.data_health_status_sync_never),
+                    supportingMaxLines = 3,
+                    icon = Icons.Default.CloudSync,
+                    divider = true,
+                )
+                WhfinLedgerRow(
+                    title = stringResource(R.string.data_health_status_kept),
+                    supportingText = stringResource(
+                        R.string.data_health_status_kept_body,
+                        status.corrections,
+                        status.archivedAccounts,
+                    ),
+                    supportingMaxLines = 3,
+                    icon = Icons.Default.Inventory2,
+                )
             }
         }
 

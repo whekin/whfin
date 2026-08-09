@@ -8,6 +8,9 @@ import dev.whekin.whfin.data.importer.StatementImporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 import android.util.Log
@@ -29,6 +32,24 @@ class WhfinApp : Application() {
 
     val isDemoMode: Boolean
         get() = runtimeModes.demoMode
+
+    private val _integrityIssues = MutableStateFlow(0)
+
+    /**
+     * How many contradictions the last check found in the personal ledger.
+     *
+     * The check is a full pass over the data, so it runs at startup and when something asks for it,
+     * not on every screen. Screens read the answer; they never sit on the ledger recomputing it.
+     */
+    val integrityIssues: StateFlow<Int> = _integrityIssues.asStateFlow()
+
+    suspend fun refreshIntegrity() {
+        val report = DataIntegrityChecker(userDb).run()
+        if (report.issues.isNotEmpty()) {
+            Log.e("WHFIN", "Ledger integrity issues: ${report.issues.joinToString { it.code }}")
+        }
+        _integrityIssues.value = report.issues.size
+    }
 
     suspend fun setDemoMode(enabled: Boolean) {
         if (enabled) resetDemoData()
@@ -86,10 +107,7 @@ class WhfinApp : Application() {
             activeAccounts.filter { it.type == AccountType.CASH && it.sortOrder == -100 }
                 .forEach { userDb.accountDao().update(it.copy(sortOrder = 1000)) }
             GeorgiaMerchantPreset.applyToUncategorized(userDb)
-            val integrity = DataIntegrityChecker(userDb).run()
-            if (integrity.issues.isNotEmpty()) {
-                Log.e("WHFIN", "Ledger integrity issues: ${integrity.issues.joinToString { it.code }}")
-            }
+            refreshIntegrity()
         }
     }
 }

@@ -1,10 +1,12 @@
 package dev.whekin.whfin.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.integrity.IntegrityIssue
@@ -52,11 +54,9 @@ class DataHealthScreenTest {
         }
 
         compose.onNodeWithText(context.resources.getQuantityString(R.plurals.data_health_issues_title, 1, 1)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.data_health_family_allocations))
-            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.data_health_family_allocations)).assertIsDisplayed()
         // The rule name stays visible: it is what makes a report actionable in a bug thread.
-        compose.onNodeWithText("transactions · #42 · allocation_total_mismatch")
-            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("transactions · #42 · allocation_total_mismatch").assertIsDisplayed()
     }
 
     @Test
@@ -71,8 +71,7 @@ class DataHealthScreenTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.data_health_check_action))
-            .performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.data_health_check_action)).performClick()
 
         assertTrue(checked == 1)
     }
@@ -89,8 +88,10 @@ class DataHealthScreenTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.data_health_backup_summary))
-            .performScrollTo().performClick()
+        // The screen is a lazy list, so the row has to be scrolled into composition before it exists.
+        val summary = context.getString(R.string.data_health_backup_summary)
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(summary))
+        compose.onNodeWithText(summary).performClick()
 
         assertTrue(opened)
     }

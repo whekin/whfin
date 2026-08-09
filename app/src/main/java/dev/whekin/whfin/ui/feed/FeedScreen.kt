@@ -100,6 +100,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -142,6 +143,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.data.mutation.MutationRejection
+import androidx.compose.material.icons.filled.ReportProblem
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
@@ -189,6 +191,7 @@ fun FeedScreen(
     onDismissSmsOnboarding: () -> Unit,
     onOpenAnalytics: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onOpenDataHealth: () -> Unit = {},
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
@@ -203,6 +206,7 @@ fun FeedScreen(
     val people by viewModel.people.collectAsState()
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val rejected by viewModel.rejected.collectAsState()
+    val integrityIssues by viewModel.integrityIssues.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     // A refused change is never silent: the data stayed as it was, and saying why beats leaving the
     // user to discover later that the row they picked is still there.
@@ -450,6 +454,23 @@ fun FeedScreen(
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
             if (showSmsOnboarding) item(key = "sms-onboarding") {
                 SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
+            }
+            // Home stays quiet unless the ledger contradicts itself. Everything else about its
+            // standing state lives in Data health; this is the one thing worth interrupting for.
+            if (integrityIssues > 0) item(key = "integrity") {
+                WhfinNotice(
+                    title = stringResource(R.string.home_integrity_title),
+                    body = pluralStringResource(
+                        R.plurals.home_integrity_body,
+                        integrityIssues,
+                        integrityIssues,
+                    ),
+                    icon = Icons.Default.ReportProblem,
+                    kind = WhfinNoticeKind.Error,
+                    actionLabel = stringResource(R.string.data_health_title),
+                    onAction = onOpenDataHealth,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             val attention = (

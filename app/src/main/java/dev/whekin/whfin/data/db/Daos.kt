@@ -317,6 +317,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id")
     suspend fun allForIntegrity(): List<TransactionEntity>
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING' AND isVoided = 0")
+    suspend fun pendingCount(): Int
+
     @Query(
         "SELECT * FROM transactions WHERE isVoided = 1 AND source IN ('STATEMENT', 'SMS') " +
             "ORDER BY occurredAt DESC, id DESC",
