@@ -1,8 +1,27 @@
+import java.util.Properties
+import org.gradle.api.tasks.Exec
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     jacoco
+}
+
+val releaseSigningPropertiesFile = providers.gradleProperty("whfinSigningProperties")
+    .map(::file)
+    .getOrElse(file("${System.getProperty("user.home")}/.config/whfin/signing/release.properties"))
+val releaseSigningProperties = Properties().apply {
+    if (releaseSigningPropertiesFile.isFile) {
+        releaseSigningPropertiesFile.inputStream().use(::load)
+    }
+}
+val releaseSigningPropertiesPath = releaseSigningPropertiesFile.absolutePath
+
+val verifyReleaseSigning by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails release builds unless the private WHFIN signing configuration is complete."
+    commandLine(rootProject.file("scripts/verify-release-signing.sh"), releaseSigningPropertiesPath)
 }
 
 android {
@@ -18,8 +37,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningPropertiesFile.isFile) {
+            create("release") {
+                storeFile = file(releaseSigningProperties.getProperty("storeFile"))
+                storePassword = releaseSigningProperties.getProperty("storePassword")
+                keyAlias = releaseSigningProperties.getProperty("keyAlias")
+                keyPassword = releaseSigningProperties.getProperty("keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -47,6 +82,10 @@ android {
         getByName("test").kotlin.srcDir("src/sharedTest/java")
         getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
     }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(verifyReleaseSigning)
 }
 
 ksp {

@@ -24,6 +24,12 @@ This is a single-context repository with root domain documentation and system-wi
 
 - [x] Спека собрана из обсуждения (SPEC.md)
 - [x] Каркас проекта: собирается `./gradlew :app:assembleDebug` (Gradle 9.4.1, AGP 9.2.1, built-in Kotlin, Compose, Room+KSP подключены)
+- [x] Personal production/dogfood release: R8/minify + lintVital, постоянный RSA-4096 PKCS12 signing key
+  хранится вне репозитория в owner-only config, release build fail-fast проверяет конфигурацию и выдаёт
+  подписанный `app-release.apk`. Сертификат и процесс обновления описаны в `docs/release-signing.md`.
+  Чистый signed release проверен Welcome → Demo → Home → composer → restart на disposable Pixel и затем
+  установлен вместо debug на Samsung S25 (SM-S931B); сертификат установленного APK сверен. Осталось:
+  зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана как clean Room DB v1 (`whfin-v2.db`, старые dev-данные намеренно
   сброшены): Person + TransactionAllocation; FinancialGroup→Account; PaymentInstrument physical/virtual
   many-to-many с валютными счетами; StatementSource по IBAN/карте; WalletAddress + chain-specific
