@@ -113,6 +113,10 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         if (next <= YearMonth.now(zoneId)) selectedMonth.value = next
     }
 
+    fun selectMonth(month: YearMonth) {
+        if (month <= YearMonth.now(zoneId)) selectedMonth.value = month
+    }
+
     fun setCategoryRange(months: Int) {
         if (months in setOf(1, 3, 6, 12)) categoryRangeMonths.value = months
     }

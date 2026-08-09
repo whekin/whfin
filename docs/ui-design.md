@@ -159,6 +159,8 @@ and ledger rows with share, amount, and category-specific average delta. The rin
 summary rather than a collection of tiny touch targets; rows own category selection, and the existing trend
 action owns navigation into transactions. At most five categories receive named ring segments and the rest
 collapse into Other. Back from the filtered ledger restores Spending, and Back again restores Statistics.
+Selecting a month bar promotes that month to the scene's selected period, so the hero total, three-month
+comparison, ring, per-category amounts/shares, and transaction drill-down all refresh together.
 
 ## Widget loading contract
 

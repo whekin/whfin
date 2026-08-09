@@ -182,6 +182,7 @@ class AnalyticsScreenTest {
                         onBack = {},
                         onPreviousMonth = {},
                         onNextMonth = {},
+                        onSelectMonth = {},
                         onShowAllTrend = { filter = AnalyticsTrendFilter.All },
                         onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
                         onOpenTransactions = {},
@@ -194,6 +195,44 @@ class AnalyticsScreenTest {
         compose.onNodeWithText("100.00 ₾ above the previous 3-month average").assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
+    }
+
+    @Test
+    fun focusedSpendingMonthBarRefreshesRingAndCategorySummary() {
+        var month by mutableStateOf(YearMonth.of(2026, 7))
+        compose.setContent {
+            val category = if (month == YearMonth.of(2026, 7)) {
+                AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000, 40_000)
+            } else {
+                AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 35_000)
+            }
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    ExpenseAnalysisContent(
+                        data = contentData.copy(
+                            selectedMonth = month,
+                            expenseMinor = category.expenseMinor,
+                            spendingCategoryValues = listOf(category),
+                        ),
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onSelectMonth = { month = it },
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithText("Food").assertExists()
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(3)
+        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithText("Transport").assertExists()
+        compose.onNodeWithText("Food").assertDoesNotExist()
     }
 
     private val contentData = AnalyticsData(
