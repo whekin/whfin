@@ -225,7 +225,7 @@ private fun CompactWidget(
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     .clickable(key = "cycle-source", block = cycleSource),
                 textColor = GlanceTheme.colors.onSurface,
-                nudgeTowardAction = level == 2 && !showOpenAppButton,
+                nudgeTowardAction = level == 2,
             )
             if (level >= if (showOpenAppButton) 4 else 3) {
                 WidgetDivider()
@@ -247,12 +247,19 @@ private fun OpenAppButton(action: androidx.glance.action.Action, contentDescript
         modifier = GlanceModifier.size(48.dp).clickable(action),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            provider = ImageProvider(R.drawable.ic_launcher_foreground),
-            contentDescription = contentDescription,
-            modifier = GlanceModifier.size(40.dp),
-            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
-        )
+        Box(
+            modifier = GlanceModifier.size(40.dp)
+                .background(GlanceTheme.colors.secondaryContainer)
+                .cornerRadius(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_widget_app),
+                contentDescription = contentDescription,
+                modifier = GlanceModifier.size(24.dp),
+                colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer),
+            )
+        }
     }
 }
 

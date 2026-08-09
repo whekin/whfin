@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Compact form of the WHFIN lari mark. Unlike the adaptive launcher foreground, this
+         viewport has no icon-mask safe zone, so it can sit at its intended visual size. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="53"
+        android:scaleX="0.4"
+        android:scaleY="0.4"
+        android:translateX="-42"
+        android:translateY="-41">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 50.03,73.96Q 45.75,72.25 42.43,69.4Q 39.1,66.55 37.18,62.6Q 35.26,58.66 35.26,53.76Q 35.26,48.26 37.45,44Q 39.63,39.75 43.96,37.31Q 48.28,34.87 54.61,34.87Q 59.34,34.87 62.79,36.01Q 66.24,37.15 68.46,39Q 70.68,40.85 71.74,42.99Q 72.81,45.12 72.81,47.08Q 72.81,48.71 72.15,49.89Q 71.48,51.07 70.14,51.69Q 68.8,52.31 66.72,52.31Q 66.72,49.72 66.25,47.49Q 65.77,45.27 64.81,43.55Q 63.85,41.84 62.39,40.62Q 60.93,39.41 58.95,38.77Q 56.98,38.13 54.51,38.13Q 50.08,38.13 47.46,40.08Q 44.83,42.03 43.69,45.55Q 42.56,49.08 42.56,53.76Q 42.56,57.15 43.2,59.98Q 43.85,62.8 45.1,65.15Q 46.35,67.49 48.24,69.35Q 50.13,71.22 52.58,72.72ZM 35.19,77V 70.77H 70.63V 77ZM 49.45,52.31V 29H 52.84V 52.31ZM 56.31,52.31V 29H 59.71V 52.31Z" />
+    </group>
+</vector>

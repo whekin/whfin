@@ -6,4 +6,5 @@
     <color name="widget_preview_outline">#8B867D</color>
     <color name="widget_preview_action">#D8E8D0</color>
     <color name="widget_preview_on_action">#182D17</color>
+    <color name="widget_preview_open">#E2DDD4</color>
 </resources>
