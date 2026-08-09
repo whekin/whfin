@@ -291,6 +291,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         applyDebtAllocations(items, allocations, people)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val voidedImported: StateFlow<List<TransactionEntity>> = db.transactionDao().observeVoidedImported()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Скоринг умных подсказок: частота с затуханием + совместимость суммы. */
     val categorySuggester: StateFlow<CategorySuggester?> = db.transactionDao()
         .observeCategorySamples(System.currentTimeMillis() - CategorySuggester.LOOKBACK_MILLIS)
@@ -475,6 +478,12 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (item.tx.source !in setOf(TxSource.STATEMENT, TxSource.SMS)) return
         viewModelScope.launch {
             transactionMutations.voidTransaction(item.tx.id)
+        }
+    }
+
+    fun restoreImported(transactionId: Long) {
+        viewModelScope.launch {
+            transactionMutations.restoreTransaction(transactionId)
         }
     }
 

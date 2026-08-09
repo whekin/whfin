@@ -78,6 +78,7 @@ fun SettingsScreen(
     appLockTimeout: AppLockTimeout,
     onOpenAppLock: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenCorrections: () -> Unit = {},
     onOpenPrivacy: () -> Unit,
     onOpenAbout: () -> Unit,
     appVersion: String,
@@ -307,6 +308,14 @@ fun SettingsScreen(
                 titleColor = if (demoMode) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 trailing = if (demoMode) null else ({ androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }),
                 onClick = if (demoMode) null else onOpenBackup,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.corrections_title),
+                supportingText = stringResource(R.string.corrections_settings_summary),
+                icon = Icons.Default.Restore,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenCorrections,
                 divider = true,
             )
             WhfinLedgerRow(

@@ -346,6 +346,11 @@
     <string name="action_retry">Повторить</string>
     <string name="settings_privacy_section">ПРИВАТНОСТЬ И ДАННЫЕ</string>
     <string name="backup_title">Бэкап и экспорт</string>
+    <string name="corrections_title">Исправления</string>
+    <string name="corrections_settings_summary">Восстановить импортированные операции, скрытые audit-коррекцией.</string>
+    <string name="corrections_section">ИМПОРТИРОВАННЫЕ ОПЕРАЦИИ</string>
+    <string name="corrections_empty_title">Исправлений нет</string>
+    <string name="corrections_empty_body">Исправленные импортированные операции появятся здесь — их можно восстановить.</string>
     <string name="app_lock_title">Блокировка WHFIN</string>
     <string name="app_lock_settings_summary">Код WHFIN и биометрия · %1$s</string>
     <string name="app_lock_intro_title">Собственный код WHFIN</string>

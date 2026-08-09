@@ -310,6 +310,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id")
     suspend fun allForIntegrity(): List<TransactionEntity>
 
+    @Query(
+        "SELECT * FROM transactions WHERE isVoided = 1 AND source IN ('STATEMENT', 'SMS') " +
+            "ORDER BY occurredAt DESC, id DESC",
+    )
+    fun observeVoidedImported(): Flow<List<TransactionEntity>>
+
     /**
      * Foreign-currency rows still waiting for the GEL value of their own day.
      * Transfers are skipped: they never reach income, expenses or category totals.

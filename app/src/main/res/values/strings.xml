@@ -345,6 +345,11 @@
     <string name="action_retry">Try again</string>
     <string name="settings_privacy_section">PRIVACY &amp; DATA</string>
     <string name="backup_title">Backup &amp; export</string>
+    <string name="corrections_title">Corrections</string>
+    <string name="corrections_settings_summary">Restore imported operations hidden by an audit correction.</string>
+    <string name="corrections_section">IMPORTED OPERATIONS</string>
+    <string name="corrections_empty_title">No corrections</string>
+    <string name="corrections_empty_body">Imported operations you correct will appear here and can be restored.</string>
     <string name="app_lock_title">App Lock</string>
     <string name="app_lock_settings_summary">WHFIN code and biometrics · %1$s</string>
     <string name="app_lock_intro_title">A code made for WHFIN</string>
