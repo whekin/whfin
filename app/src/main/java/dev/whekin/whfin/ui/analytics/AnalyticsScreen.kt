@@ -33,11 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -123,6 +119,7 @@ internal fun AnalyticsScreen(
             onBack = onBack,
             onPreviousMonth = viewModel::previousMonth,
             onNextMonth = viewModel::nextMonth,
+            onSelectMonth = viewModel::selectMonth,
             onRangeChange = viewModel::setCategoryRange,
             onShowAllTrend = viewModel::showAllExpensesTrend,
             onShowCategoryTrend = viewModel::showCategoryTrend,
@@ -163,6 +160,7 @@ internal fun AnalyticsContent(
     onBack: () -> Unit,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onSelectMonth: (YearMonth) -> Unit,
     onRangeChange: (Int) -> Unit,
     onShowAllTrend: () -> Unit,
     onShowCategoryTrend: (Long?) -> Unit,
@@ -172,10 +170,6 @@ internal fun AnalyticsContent(
     val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var selectedTrendIndex by rememberSaveable(data.selectedMonth.toString(), data.trendFilter) {
-        mutableIntStateOf(data.trendValues.lastIndex.coerceAtLeast(0))
-    }
-    val selectedTrendMonth = data.trendValues.getOrNull(selectedTrendIndex)?.month ?: data.selectedMonth
     val trendItemIndex = 3 +
         (if (data.pace != null) 1 else 0) +
         (if (data.categoryChanges.isNotEmpty()) 1 else 0)
@@ -230,12 +224,8 @@ internal fun AnalyticsContent(
                 ) {
                     YearTrend(
                         data = data,
-                        selectedMonth = selectedTrendMonth,
-                        onSelectMonth = { month ->
-                            selectedTrendIndex = data.trendValues.indexOfFirst { it.month == month }
-                                .takeIf { it >= 0 }
-                                ?: data.trendValues.lastIndex
-                        },
+                        selectedMonth = data.selectedMonth,
+                        onSelectMonth = onSelectMonth,
                         onShowAllTrend = onShowAllTrend,
                         onOpenTransactions = onOpenTransactions,
                     )
@@ -883,7 +873,7 @@ private val previewData = AnalyticsData(
 private fun AnalyticsPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsContent(previewData, {}, {}, {}, {}, {}, {}, {}, {})
+            AnalyticsContent(previewData, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

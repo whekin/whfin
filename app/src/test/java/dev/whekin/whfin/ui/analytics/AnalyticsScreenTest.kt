@@ -46,6 +46,7 @@ class AnalyticsScreenTest {
                         onBack = {},
                         onPreviousMonth = {},
                         onNextMonth = {},
+                        onSelectMonth = {},
                         onRangeChange = { range = it },
                         onShowAllTrend = { filter = AnalyticsTrendFilter.All },
                         onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
@@ -68,17 +69,20 @@ class AnalyticsScreenTest {
     @Test
     fun trendBarSelectionUpdatesAmountAndOpensMatchingTransactions() {
         var opened: AnalyticsTransactionsRequest? = null
+        var month by mutableStateOf(YearMonth.of(2026, 7))
         compose.setContent {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
                         data = contentData.copy(
+                            selectedMonth = month,
                             trendFilter = AnalyticsTrendFilter.Category(1),
                             trendFilterName = "Food",
                         ),
                         onBack = {},
                         onPreviousMonth = {},
                         onNextMonth = {},
+                        onSelectMonth = { month = it },
                         onRangeChange = {},
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
@@ -115,6 +119,7 @@ class AnalyticsScreenTest {
                         onBack = {},
                         onPreviousMonth = {},
                         onNextMonth = {},
+                        onSelectMonth = {},
                         onRangeChange = {},
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
@@ -149,6 +154,7 @@ class AnalyticsScreenTest {
                         onBack = {},
                         onPreviousMonth = {},
                         onNextMonth = {},
+                        onSelectMonth = {},
                         onRangeChange = {},
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
@@ -195,6 +201,46 @@ class AnalyticsScreenTest {
         compose.onNodeWithText("100.00 ₾ above the previous 3-month average").assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
+    }
+
+    @Test
+    fun lastTwelveMonthsSelectionRefreshesStatisticsCategories() {
+        var month by mutableStateOf(YearMonth.of(2026, 7))
+        compose.setContent {
+            val category = if (month == YearMonth.of(2026, 7)) {
+                AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000)
+            } else {
+                AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000)
+            }
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        data = contentData.copy(
+                            selectedMonth = month,
+                            categoryExpenseMinor = category.expenseMinor,
+                            categoryValues = listOf(category),
+                        ),
+                        onBack = {},
+                        onPreviousMonth = {},
+                        onNextMonth = {},
+                        onSelectMonth = { month = it },
+                        onRangeChange = {},
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenExpenses = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithTag("analytics-category-1").assertExists()
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithTag("analytics-category-2").assertExists()
+        compose.onNodeWithTag("analytics-category-1").assertDoesNotExist()
     }
 
     @Test
