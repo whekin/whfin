@@ -123,6 +123,10 @@ This is a single-context repository with root domain documentation and system-wi
 - [~] Core UI: есть лента (группировка по дням, иконки категорий, переводы серым), счета (баланс
   реактивно, диалог добавления), импорт через SAF-пикер, EN+RU, тёмная тема, сидер 20 категорий
   (`CategorySeeder`, RU/EN по локали), настройки и UX-запрос разрешения SMS. Выбрано дизайн-направление:
+  Основная навигация теперь Home / New / Accounts: Home показывает результат текущего месяца, до трёх
+  pending/unrouted операций и короткий блок Today/Recent. Полный ledger вынесен в отдельную Transaction
+  history с прежними поиском, фильтрами, multi-select и review-flow; статистика и история доступны одним
+  тапом из Home. Проверено на disposable Pixel в demo workspace при dark + font scale 1.5.
   тёплый editorial Material 3 (cream + sage + terracotta); первый проход применён: дизайн-система,
   крупный баланс, итоги месяца, новая лента и pending-chip. Есть выбор категории из bottom sheet с
   обучением Merchant→Category. Есть ручное добавление (FAB → FormSheet: расход/доход, сумма,

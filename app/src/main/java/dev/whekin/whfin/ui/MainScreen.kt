@@ -12,8 +12,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +42,7 @@ import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import androidx.activity.compose.BackHandler
 import dev.whekin.whfin.ui.feed.FeedScreen
+import dev.whekin.whfin.ui.feed.FeedMode
 import dev.whekin.whfin.ui.feed.FeedViewModel
 import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.SettingsScreen
@@ -84,10 +85,11 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Privacy, About, Categories, People }
+internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Privacy, About, Categories, People }
 
 internal enum class ShellScene(val depth: Int) {
     Primary(0),
+    TransactionHistory(1),
     Settings(1),
     CredoSync(2),
     Statements(2),
@@ -133,6 +135,7 @@ internal fun shellTargetFor(
     )
     else -> ShellTarget(
         when (secondaryDestination) {
+            SecondaryDestination.TransactionHistory -> ShellScene.TransactionHistory
             SecondaryDestination.Settings -> ShellScene.Settings
             SecondaryDestination.CredoSync -> ShellScene.CredoSync
             SecondaryDestination.Statements -> ShellScene.Statements
@@ -317,10 +320,12 @@ fun MainScreen(
                             label = "primary-pane",
                         ) { currentTab ->
                             if (currentTab == 0) FeedScreen(
+                                mode = FeedMode.HOME,
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
+                                onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
                                 addRequestKey = addRequestKey,
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,
@@ -340,6 +345,18 @@ fun MainScreen(
                                 addRequestKey += 1
                             },
                             onSelect = { tab = it },
+                        )
+                    }
+                    ShellScene.TransactionHistory -> SecondaryPage(
+                        title = stringResource(R.string.transactions_history_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) {
+                        FeedScreen(
+                            mode = FeedMode.HISTORY,
+                            showSmsOnboarding = false,
+                            onEnableSms = {},
+                            onDismissSmsOnboarding = {},
+                            viewModel = feedViewModel,
                         )
                     }
                     ShellScene.Settings -> SecondaryPage(
@@ -544,7 +561,7 @@ private fun SecondaryPage(
 @Composable internal fun LedgerDock(selected: Int, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
     WhfinDock(
         leading = WhfinDockDestination(
-            icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+            icon = Icons.Outlined.Home,
             label = stringResource(R.string.tab_feed),
             testTag = "dock-feed",
         ),

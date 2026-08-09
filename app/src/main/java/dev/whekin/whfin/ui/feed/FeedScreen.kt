@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -172,13 +173,17 @@ private sealed interface FeedTimelineEntry {
     }
 }
 
+enum class FeedMode { HOME, HISTORY }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
+    mode: FeedMode = FeedMode.HISTORY,
     showSmsOnboarding: Boolean,
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
     onOpenAnalytics: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
@@ -371,23 +376,38 @@ fun FeedScreen(
                     onValueClick = viewModel::rotateDisplayCurrency,
                     valueClickLabel = stringResource(R.string.net_worth_rotate),
                 ) {
-                    WhfinIconButton(
-                        icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,
-                        contentDescription = stringResource(if (showSearch) R.string.feed_search_close else R.string.feed_search_open),
-                        onClick = {
-                            showSearch = !showSearch
-                            if (!showSearch) search = ""
-                        },
-                        outlined = false,
-                        selected = showSearch,
-                    )
-                    WhfinIconButton(
-                        icon = Icons.Default.FilterAlt,
-                        contentDescription = stringResource(R.string.feed_filter_sort),
-                        onClick = { showFilterSheet = true },
-                        outlined = false,
-                        selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST || categoryFilters.isNotEmpty(),
-                    )
+                    if (mode == FeedMode.HOME) {
+                        WhfinIconButton(
+                            icon = Icons.Default.TrendingUp,
+                            contentDescription = stringResource(R.string.analytics_open),
+                            onClick = onOpenAnalytics,
+                            outlined = false,
+                        )
+                        WhfinIconButton(
+                            icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                            contentDescription = stringResource(R.string.transactions_history_title),
+                            onClick = onOpenHistory,
+                            outlined = false,
+                        )
+                    } else {
+                        WhfinIconButton(
+                            icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = stringResource(if (showSearch) R.string.feed_search_close else R.string.feed_search_open),
+                            onClick = {
+                                showSearch = !showSearch
+                                if (!showSearch) search = ""
+                            },
+                            outlined = false,
+                            selected = showSearch,
+                        )
+                        WhfinIconButton(
+                            icon = Icons.Default.FilterAlt,
+                            contentDescription = stringResource(R.string.feed_filter_sort),
+                            onClick = { showFilterSheet = true },
+                            outlined = false,
+                            selected = filter != FeedFilter.ALL || sort != FeedSort.NEWEST || categoryFilters.isNotEmpty(),
+                        )
+                    }
                 }
             }
         },
@@ -396,28 +416,89 @@ fun FeedScreen(
             Modifier.fillMaxSize().consumeWindowInsets(contentPadding),
             contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 28.dp),
         ) {
-        if (!selectionMode) {
+        if (mode == FeedMode.HOME && !selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
-            item(key = "feed-tools") {
-                FeedSearch(
-                    search = search,
-                    onSearchChange = { search = it },
-                    searchVisible = showSearch,
-                )
-            }
             if (showSmsOnboarding) item(key = "sms-onboarding") {
                 SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
             }
-        }
-        if (items.isEmpty() && unroutedOperations.isEmpty()) {
-            item(key = "empty") {
-                WhfinStatePane(
-                    state = WhfinPaneState.Empty,
-                    title = stringResource(R.string.tab_feed),
-                    body = stringResource(R.string.feed_empty),
-                )
+
+            val attention = (
+                unroutedOperations.map(FeedTimelineEntry::Unrouted) +
+                    items.filter { it.tx.status == TxStatus.PENDING }.map(FeedTimelineEntry::Transaction)
+                ).sortedByDescending(FeedTimelineEntry::occurredAt)
+            if (attention.isNotEmpty()) {
+                item(key = "attention-header") {
+                    HomeSectionHeader(
+                        title = stringResource(R.string.home_needs_attention),
+                        action = stringResource(R.string.home_review_all),
+                        onAction = onOpenHistory,
+                    )
+                }
+                items(attention.take(3), key = {
+                    when (it) {
+                        is FeedTimelineEntry.Transaction -> "home-pending-${it.item.tx.id}"
+                        is FeedTimelineEntry.Unrouted -> "home-unrouted-${it.operation.diagnostic.id}"
+                    }
+                }) { entry ->
+                    when (entry) {
+                        is FeedTimelineEntry.Transaction -> FeedRow(
+                            item = entry.item,
+                            onClick = { details = entry.item },
+                            onConfirmPending = { confirmPending(entry.item) },
+                        )
+                        is FeedTimelineEntry.Unrouted -> UnroutedOperationRow(
+                            operation = entry.operation,
+                            onClick = { routingFor = entry.operation },
+                        )
+                    }
+                }
             }
-        }
+
+            val todayItems = items.filter { it.day == now && it.tx.status != TxStatus.PENDING }.take(5)
+            val recentItems = if (todayItems.isNotEmpty()) todayItems
+                else items.filter { it.tx.status != TxStatus.PENDING }.take(3)
+            if (recentItems.isNotEmpty()) {
+                item(key = "recent-header") {
+                    HomeSectionHeader(
+                        title = stringResource(
+                            if (todayItems.isNotEmpty()) R.string.home_today else R.string.home_recent_activity,
+                        ),
+                        action = stringResource(R.string.home_all_transactions),
+                        onAction = onOpenHistory,
+                    )
+                }
+                items(recentItems, key = { "home-recent-${it.tx.id}" }) { item ->
+                    FeedRow(item = item, onClick = { details = item })
+                }
+            }
+            if (items.isEmpty() && unroutedOperations.isEmpty()) {
+                item(key = "empty") {
+                    WhfinStatePane(
+                        state = WhfinPaneState.Empty,
+                        title = stringResource(R.string.home_empty_title),
+                        body = stringResource(R.string.feed_empty),
+                    )
+                }
+            }
+        } else if (mode == FeedMode.HISTORY) {
+            if (!selectionMode) {
+                item(key = "feed-tools") {
+                    FeedSearch(
+                        search = search,
+                        onSearchChange = { search = it },
+                        searchVisible = showSearch,
+                    )
+                }
+            }
+            if (items.isEmpty() && unroutedOperations.isEmpty()) {
+                item(key = "empty") {
+                    WhfinStatePane(
+                        state = WhfinPaneState.Empty,
+                        title = stringResource(R.string.transactions_history_title),
+                        body = stringResource(R.string.feed_empty),
+                    )
+                }
+            }
         grouped.forEach { (day, dayEntries) ->
             val dayItems = dayEntries.mapNotNull { (it as? FeedTimelineEntry.Transaction)?.item }
             item(key = "header-$day") {
@@ -488,6 +569,7 @@ fun FeedScreen(
                     }
                 }
             }
+        }
         }
         }
     }
@@ -1851,6 +1933,21 @@ internal fun CategoryPickerSheet(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSectionHeader(
+    title: String,
+    action: String,
+    onAction: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 22.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        WhfinSectionLabel(title, Modifier.weight(1f))
+        TextButton(onClick = onAction) { Text(action) }
     }
 }
 

@@ -55,6 +55,16 @@ class ShellNavigationTest {
     }
 
     @Test
+    fun `transaction history is one level below home`() {
+        val home = shellTargetFor(null, null, null)
+        val history = shellTargetFor(SecondaryDestination.TransactionHistory, null, null)
+
+        assertEquals(ShellScene.TransactionHistory, history.scene)
+        assertTrue(shellTransitionIsForward(home, history))
+        assertFalse(shellTransitionIsForward(history, home))
+    }
+
+    @Test
     fun `spending analysis is a child of statistics`() {
         val analytics = shellTargetFor(SecondaryDestination.Analytics, null, null)
         val spending = shellTargetFor(SecondaryDestination.AnalyticsExpenses, null, null)
