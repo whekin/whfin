@@ -15,6 +15,9 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE isArchived = 0 ORDER BY sortOrder, id")
     fun observeActive(): Flow<List<AccountEntity>>
 
+    @Query("SELECT * FROM accounts WHERE isArchived = 1 ORDER BY sortOrder, id")
+    fun observeArchived(): Flow<List<AccountEntity>>
+
     @Query("SELECT * FROM accounts WHERE isArchived = 0")
     suspend fun allActive(): List<AccountEntity>
 
@@ -62,6 +65,15 @@ interface AccountDao {
     /** Every asset ledger of one watch-only address, archived ones included: they still hold the index. */
     @Query("SELECT * FROM accounts WHERE walletAddressId = :addressId ORDER BY id")
     suspend fun byWalletAddress(addressId: Long): List<AccountEntity>
+
+    @Query("UPDATE accounts SET isArchived = 1 WHERE id = :id")
+    suspend fun archive(id: Long)
+
+    @Query("UPDATE accounts SET isArchived = 1 WHERE walletAddressId = :addressId")
+    suspend fun archiveWallet(addressId: Long)
+
+    @Query("UPDATE accounts SET isArchived = 0 WHERE id = :id")
+    suspend fun restore(id: Long)
 }
 
 @Dao

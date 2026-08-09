@@ -124,6 +124,7 @@ fun AccountsScreen(
     val readyState = screenState as? AccountsScreenState.Ready
     val accounts = readyState?.accounts.orEmpty()
     val debts = readyState?.debts.orEmpty()
+    val archivedAccounts = readyState?.archivedAccounts.orEmpty()
     val people by viewModel.people.collectAsState()
     val message by viewModel.message.collectAsState()
     val cryptoRefreshing by viewModel.cryptoRefreshing.collectAsState()
@@ -215,7 +216,7 @@ fun AccountsScreen(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                     )
                 }
-            } else if (accounts.isEmpty() && debts.isEmpty()) {
+            } else if (accounts.isEmpty() && debts.isEmpty() && archivedAccounts.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(padding)) {
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,
@@ -293,6 +294,42 @@ fun AccountsScreen(
                     item(key = "debts") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                             DebtsSummary(debts, onClick = { showDebts = true })
+                        }
+                    }
+                    if (archivedAccounts.isNotEmpty()) {
+                        item(key = "archived-accounts") {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                WhfinSectionLabel(stringResource(R.string.accounts_archived_section))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                                    shape = MaterialTheme.shapes.large,
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        archivedAccounts.forEachIndexed { index, account ->
+                                            Row(
+                                                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(account.name, style = MaterialTheme.typography.bodyLarge)
+                                                    Text(
+                                                        "${account.type.name.lowercase().replaceFirstChar(Char::titlecase)} · ${account.currency}",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                TextButton(onClick = { viewModel.restoreAccount(account) }) {
+                                                    Text(stringResource(R.string.account_restore))
+                                                }
+                                            }
+                                            if (index < archivedAccounts.lastIndex) HorizontalDivider()
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

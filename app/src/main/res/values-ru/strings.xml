@@ -76,6 +76,10 @@
     <string name="accounts_reserve">Резерв</string>
     <string name="accounts_no_fx_note">Валюты показаны отдельно, пока не включены курсы обмена.</string>
     <string name="accounts_add">Добавить счёт</string>
+    <string name="accounts_archived_section">Архивные счета</string>
+    <string name="account_restore">Восстановить</string>
+    <string name="account_archived">Счёт архивирован</string>
+    <string name="account_restored">Счёт восстановлен</string>
     <string name="account_name">Название</string>
     <string name="cash_name_optional_hint">Необязательно — например Карманные деньги или На чёрный день.</string>
     <string name="account_name_in_bank">Название счёта</string>
@@ -624,8 +628,8 @@
     <string name="account_transactions_empty_body">Загруженные или добавленные операции этого счёта появятся здесь.</string>
     <string name="account_transactions_error">Не удалось загрузить операции</string>
     <string name="account_transactions_error_body">Данные остаются на устройстве. Вернитесь назад и откройте счёт ещё раз.</string>
-    <string name="account_delete">Удалить счёт</string>
-    <string name="account_delete_confirmation">Удалить %1$s и все его операции? Это действие нельзя отменить.</string>
+    <string name="account_delete">Архивировать счёт</string>
+    <string name="account_delete_confirmation">Архивировать %1$s? Операции останутся в безопасности, счёт можно будет восстановить.</string>
     <string name="account_mark_reserve">Отнести в резерв</string>
     <string name="account_remove_reserve">Вернуть в доступные</string>
     <string name="account_address">Адрес кошелька</string>
@@ -851,9 +855,9 @@
     <string name="crypto_wallet_add_failed">Не удалось добавить кошелёк.</string>
     <string name="crypto_assets_discovered">Новое на кошельках: %1$s</string>
     <string name="crypto_wallet_rename">Переименовать</string>
-    <string name="crypto_wallet_delete">Удалить кошелёк</string>
-    <string name="crypto_wallet_delete_confirmation">Перестать отслеживать %1$s? Будут удалены все балансы активов, прочитанные с этого адреса. В сети ничего не изменится.</string>
-    <string name="crypto_wallet_deleted">Кошелёк удалён</string>
+    <string name="crypto_wallet_delete">Архивировать кошелёк</string>
+    <string name="crypto_wallet_delete_confirmation">Архивировать %1$s? Балансы активов и адрес сохранятся, в сети ничего не изменится.</string>
+    <string name="crypto_wallet_archived">Кошелёк архивирован</string>
     <string name="crypto_wallet_edit_hint">Какие активы здесь появятся, решает сеть; вручную задаётся только имя.</string>
     <string name="crypto_address_unknown">Адрес неизвестен</string>
     <string name="crypto_activity_empty">Читается из сети</string>

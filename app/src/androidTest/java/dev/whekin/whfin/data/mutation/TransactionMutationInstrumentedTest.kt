@@ -19,6 +19,7 @@ import dev.whekin.whfin.data.db.TransferGroupEntity
 import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.WhfinDatabase
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -224,5 +225,21 @@ class TransactionMutationInstrumentedTest {
         assertFalse(db.transactionDao().byId(transactionId)?.isVoided == true)
         assertTrue(db.transactionDao().byId(correction.id)?.isVoided == true)
         assertEquals(-1_250L, db.transactionDao().sumByAccount(accountId))
+    }
+
+    @Test
+    fun accountArchive_preservesLedgerAndCanRestore() = runBlocking {
+        val transactionId = mutations.createManual(
+            ManualMutation(accountId, -700, occurredAt = 1_000),
+        )
+
+        db.accountDao().archive(accountId)
+
+        assertEquals(0, db.accountDao().allActive().count { it.id == accountId })
+        assertEquals(transactionId, db.transactionDao().byId(transactionId)?.id)
+        assertEquals(1, db.accountDao().observeArchived().first().count { it.id == accountId })
+
+        db.accountDao().restore(accountId)
+        assertEquals(accountId, db.accountDao().allActive().single().id)
     }
 }

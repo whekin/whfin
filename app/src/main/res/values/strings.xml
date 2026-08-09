@@ -75,6 +75,10 @@
     <string name="accounts_reserve">Reserve</string>
     <string name="accounts_no_fx_note">Currencies are shown separately until exchange rates are enabled.</string>
     <string name="accounts_add">Add account</string>
+    <string name="accounts_archived_section">Archived accounts</string>
+    <string name="account_restore">Restore</string>
+    <string name="account_archived">Account archived</string>
+    <string name="account_restored">Account restored</string>
     <string name="account_name">Name</string>
     <string name="cash_name_optional_hint">Optional — for example Pocket money or Rainy day.</string>
     <string name="account_name_in_bank">Account name</string>
@@ -619,8 +623,8 @@
     <string name="account_transactions_empty_body">Transactions imported or added to this account will appear here.</string>
     <string name="account_transactions_error">Couldn’t load account activity</string>
     <string name="account_transactions_error_body">Your data is still stored locally. Go back and try opening the account again.</string>
-    <string name="account_delete">Delete account</string>
-    <string name="account_delete_confirmation">Delete %1$s and all of its transactions? This can’t be undone.</string>
+    <string name="account_delete">Archive account</string>
+    <string name="account_delete_confirmation">Archive %1$s? Its transactions stay safe and you can restore the account later.</string>
     <string name="account_mark_reserve">Mark as reserve</string>
     <string name="account_remove_reserve">Move to available</string>
     <string name="account_address">Wallet address</string>
@@ -844,9 +848,9 @@
     <string name="crypto_wallet_add_failed">Could not add this wallet.</string>
     <string name="crypto_assets_discovered">New on your wallets: %1$s</string>
     <string name="crypto_wallet_rename">Rename wallet</string>
-    <string name="crypto_wallet_delete">Delete wallet</string>
-    <string name="crypto_wallet_delete_confirmation">Stop tracking %1$s? Every asset balance read from this address is removed. Nothing changes on the chain.</string>
-    <string name="crypto_wallet_deleted">Wallet removed</string>
+    <string name="crypto_wallet_delete">Archive wallet</string>
+    <string name="crypto_wallet_delete_confirmation">Archive %1$s? Its asset balances and address stay saved, and nothing changes on the chain.</string>
+    <string name="crypto_wallet_archived">Wallet archived</string>
     <string name="crypto_wallet_edit_hint">The chain decides which assets appear here; only the name is yours to set.</string>
     <string name="crypto_address_unknown">Address unknown</string>
     <string name="crypto_activity_empty">Read from the chain</string>

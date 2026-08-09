@@ -291,8 +291,8 @@ internal fun AccountTransactionsScreen(
             ),
             dismissLabel = stringResource(R.string.action_cancel),
             onConfirm = {
-                    if (isWallet) accountsViewModel.deleteCryptoWallet(item.account)
-                    else accountsViewModel.deleteAccountContainer(containerRows.map { it.account })
+                    if (isWallet) accountsViewModel.archiveCryptoWallet(item.account)
+                    else accountsViewModel.archiveAccountContainer(containerRows.map { it.account })
                     deleteAccount = false
                     onBack()
             },

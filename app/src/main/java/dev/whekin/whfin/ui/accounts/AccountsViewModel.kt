@@ -86,6 +86,7 @@ sealed interface AccountsScreenState {
     data class Ready(
         val accounts: List<AccountWithBalance>,
         val debts: List<DebtCaseUi>,
+        val archivedAccounts: List<AccountEntity> = emptyList(),
     ) : AccountsScreenState
 }
 
@@ -165,8 +166,12 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         .map<List<AccountWithBalance>, AccountRowsState>(AccountRowsState::Ready)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountRowsState.Loading)
 
-    val screenState: StateFlow<AccountsScreenState> = combine(accountRows, debtRows) { accounts, debts ->
-        AccountsScreenState.Ready(accounts, debts)
+    val screenState: StateFlow<AccountsScreenState> = combine(
+        accountRows,
+        debtRows,
+        db.accountDao().observeArchived(),
+    ) { accounts, debts, archived ->
+        AccountsScreenState.Ready(accounts, debts, archived)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsScreenState.Loading)
 
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
@@ -455,16 +460,12 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun consumeMessage() { _message.value = null }
 
-    fun deleteAccount(account: AccountEntity) {
+    fun archiveAccount(account: AccountEntity) {
         viewModelScope.launch {
             db.withTransaction {
-                val groupId = account.groupId
-                db.accountDao().delete(account.id)
-                if (groupId != null && db.accountDao().countInGroup(groupId) == 0) {
-                    db.financialGroupDao().delete(groupId)
-                }
+                db.accountDao().archive(account.id)
             }
-            _message.value = "Account deleted"
+            _message.value = getApplication<Application>().getString(R.string.account_archived)
         }
     }
 
@@ -472,35 +473,34 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
      * Deleting one asset row of a watch-only wallet would be undone by the next discovery pass, so
      * the address goes as a whole: its ledgers and observations follow it by CASCADE.
      */
-    fun deleteCryptoWallet(account: AccountEntity) {
+    fun archiveCryptoWallet(account: AccountEntity) {
         viewModelScope.launch {
             db.withTransaction {
                 val addressId = account.walletAddressId
                 if (addressId == null) {
-                    db.accountDao().delete(account.id)
+                    db.accountDao().archive(account.id)
                 } else {
-                    db.cryptoDao().deleteAddress(addressId)
-                }
-                val groupId = account.groupId
-                if (groupId != null && db.accountDao().countInGroup(groupId) == 0) {
-                    db.financialGroupDao().delete(groupId)
+                    db.accountDao().archiveWallet(addressId)
                 }
             }
-            _message.value = getApplication<Application>().getString(R.string.crypto_wallet_deleted)
+            _message.value = getApplication<Application>().getString(R.string.crypto_wallet_archived)
         }
     }
 
-    fun deleteAccountContainer(accounts: List<AccountEntity>) {
+    fun archiveAccountContainer(accounts: List<AccountEntity>) {
         if (accounts.isEmpty()) return
         viewModelScope.launch {
             db.withTransaction {
-                val groupIds = accounts.mapNotNull(AccountEntity::groupId).distinct()
-                accounts.forEach { db.accountDao().delete(it.id) }
-                groupIds.forEach { groupId ->
-                    if (db.accountDao().countInGroup(groupId) == 0) db.financialGroupDao().delete(groupId)
-                }
+                accounts.forEach { db.accountDao().archive(it.id) }
             }
-            _message.value = "Account deleted"
+            _message.value = getApplication<Application>().getString(R.string.account_archived)
+        }
+    }
+
+    fun restoreAccount(account: AccountEntity) {
+        viewModelScope.launch {
+            db.accountDao().restore(account.id)
+            _message.value = getApplication<Application>().getString(R.string.account_restored)
         }
     }
 
