@@ -197,6 +197,25 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+/**
+ * Taking a correction back must stay distinguishable from never having corrected at all.
+ *
+ * Existing corrections are all active: before this column a restore could not be recorded, so every
+ * stored correction still describes a currently voided row.
+ */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `correctionRevokedAt` INTEGER")
+        // A pre-v10 restore un-voided the source but left its correction looking active. Mark those
+        // corrections revoked so the ledger matches what the user actually sees.
+        db.execSQL(
+            "UPDATE `transactions` SET `correctionRevokedAt` = `createdAt` " +
+                "WHERE `correctionOfTransactionId` IS NOT NULL AND `correctionOfTransactionId` IN " +
+                "(SELECT `id` FROM `transactions` WHERE `isVoided` = 0)",
+        )
+    }
+}
+
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -206,4 +225,5 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_6_7,
     MIGRATION_7_8,
     MIGRATION_8_9,
+    MIGRATION_9_10,
 )

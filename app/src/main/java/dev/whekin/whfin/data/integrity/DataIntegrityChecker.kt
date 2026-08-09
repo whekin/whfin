@@ -35,8 +35,19 @@ class DataIntegrityChecker(private val db: WhfinDatabase) {
                 val transaction = byTransaction[transactionId]
                 if (transaction == null) {
                     add(error("orphan_allocation", "transaction_allocations", transactionId, "Allocation points to a missing transaction."))
-                } else if (rows.sumOf { it.amountMinor } != transaction.amountMinor) {
-                    add(error("allocation_total_mismatch", "transactions", transactionId, "Allocation total does not equal the parent amount."))
+                } else {
+                    if (rows.sumOf { it.amountMinor } != transaction.amountMinor) {
+                        add(error("allocation_total_mismatch", "transactions", transactionId, "Allocation total does not equal the parent amount."))
+                    }
+                    // A share pointing the other way would subtract from the parent instead of
+                    // dividing it, so an over-allocation could hide behind a matching total.
+                    rows.filter { it.amountMinor == 0L || (it.amountMinor < 0) != (transaction.amountMinor < 0) }
+                        .forEach { row ->
+                            add(error("allocation_sign_mismatch", "transaction_allocations", row.id, "Allocation does not divide its transaction."))
+                        }
+                    if (transaction.transferGroupId != null || transaction.isTransfer) {
+                        add(error("allocation_on_transfer", "transactions", transactionId, "A transfer leg cannot be split between people."))
+                    }
                 }
             }
 
@@ -50,21 +61,47 @@ class DataIntegrityChecker(private val db: WhfinDatabase) {
                     }
                 }
                 if (transaction.isVoided && transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS)) {
-                    val corrections = transactions.filter { it.correctionOfTransactionId == transaction.id }
+                    val corrections = transactions.filter {
+                        it.correctionOfTransactionId == transaction.id && it.correctionRevokedAt == null
+                    }
                     if (corrections.none { it.isVoided && it.source == TxSource.ADJUSTMENT }) {
-                        add(error("missing_transaction_correction", "transactions", transaction.id, "Voided imported transaction has no audit correction."))
+                        add(error("missing_transaction_correction", "transactions", transaction.id, "Voided imported transaction has no active audit correction."))
                     }
                 }
                 if (transaction.correctionOfTransactionId != null) {
                     val source = byTransaction[transaction.correctionOfTransactionId]
-                    if (source == null || !source.isVoided) {
-                        add(error("orphan_transaction_correction", "transactions", transaction.id, "Correction does not point to a voided source row."))
+                    // Only a correction that has not been revoked claims its source is withdrawn.
+                    // A revoked one is history: the same row may since have been corrected again by
+                    // a newer correction, so it must not constrain the current state.
+                    if (source == null || (transaction.correctionRevokedAt == null && !source.isVoided)) {
+                        add(error("orphan_transaction_correction", "transactions", transaction.id, "Active correction does not point to a voided source row."))
                     }
                     if (transaction.source != TxSource.ADJUSTMENT || !transaction.isVoided) {
                         add(error("active_transaction_correction", "transactions", transaction.id, "Correction rows must stay voided adjustment audit records."))
                     }
+                } else if (transaction.correctionRevokedAt != null) {
+                    add(error("revoked_without_correction", "transactions", transaction.id, "Only a correction row can carry a revocation."))
                 }
             }
+
+            // A transfer group is the only thing that keeps the legs of one movement together, so a
+            // group left with a single active leg means the other side was lost and the money now
+            // looks like a plain expense or income. Multi-part transfers may legitimately hold more.
+            transactions.filterNot { it.isVoided }
+                .filter { it.transferGroupId != null }
+                .groupBy { it.transferGroupId!! }
+                .forEach { (groupId, legs) ->
+                    if (legs.size < 2) {
+                        add(
+                            error(
+                                "incomplete_transfer_group",
+                                "transfer_groups",
+                                groupId,
+                                "Transfer group has a single active leg instead of a pair.",
+                            ),
+                        )
+                    }
+                }
 
             val cases = db.debtDao().allCasesForIntegrity().associateBy { it.id }
             val events = db.debtDao().allEventsForIntegrity()

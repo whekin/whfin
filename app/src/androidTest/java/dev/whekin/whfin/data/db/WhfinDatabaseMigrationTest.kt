@@ -192,6 +192,48 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate9To10_marksCorrectionsOfRestoredRowsAsRevoked() {
+        helper.createDatabase(TEST_DB_9_10, 9).apply {
+            execSQL("INSERT INTO `accounts` VALUES (1, 'Everyday', 'BANK', NULL, 'GEL', NULL, NULL, NULL, NULL, NULL, 0, 0)")
+            // A row the user corrected and never took back.
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `isVoided`, `createdAt`) " +
+                    "VALUES (1, 1, -2500, 'GEL', 1000, 'CONFIRMED', 'STATEMENT', 0, 1, 1000)",
+            )
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `isVoided`, `correctionOfTransactionId`, `createdAt`) " +
+                    "VALUES (2, 1, 2500, 'GEL', 1000, 'MANUAL', 'ADJUSTMENT', 1, 1, 1, 2000)",
+            )
+            // A row an older build restored: it is active again, but its correction still looks live.
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `isVoided`, `createdAt`) " +
+                    "VALUES (3, 1, -700, 'GEL', 1000, 'CONFIRMED', 'STATEMENT', 0, 0, 3000)",
+            )
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `isVoided`, `correctionOfTransactionId`, `createdAt`) " +
+                    "VALUES (4, 1, 700, 'GEL', 1000, 'MANUAL', 'ADJUSTMENT', 1, 1, 3, 4000)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_9_10, 10, true, MIGRATION_9_10).apply {
+            query("SELECT `correctionRevokedAt` FROM `transactions` WHERE `id` = 2").use { cursor ->
+                check(cursor.moveToFirst())
+                check(cursor.isNull(0)) { "A correction of a still-voided row stays active" }
+            }
+            query("SELECT `correctionRevokedAt` FROM `transactions` WHERE `id` = 4").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(4000, cursor.getLong(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
@@ -200,5 +242,6 @@ class WhfinDatabaseMigrationTest {
         const val TEST_DB_4_5 = "whfin-migration-4-5"
         const val TEST_DB_5_6 = "whfin-migration-5-6"
         const val TEST_DB_6_7 = "whfin-migration-6-7"
+        const val TEST_DB_9_10 = "whfin-migration-9-10"
     }
 }

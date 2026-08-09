@@ -307,6 +307,18 @@ interface TransactionDao {
     )
     suspend fun correctionsFor(transactionId: Long): List<TransactionEntity>
 
+    /**
+     * Corrections that still claim their source is withdrawn.
+     *
+     * A revoked correction stays in the table as evidence, so "is this row corrected right now"
+     * cannot be answered by mere existence.
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE correctionOfTransactionId = :transactionId " +
+            "AND correctionRevokedAt IS NULL ORDER BY createdAt DESC, id DESC",
+    )
+    suspend fun activeCorrectionsFor(transactionId: Long): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions ORDER BY id")
     suspend fun allForIntegrity(): List<TransactionEntity>
 

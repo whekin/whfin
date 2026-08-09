@@ -268,6 +268,15 @@ data class TransactionEntity(
     val isVoided: Boolean = false,
     /** Non-null only for an adjustment created by [TransactionMutationModule]. */
     val correctionOfTransactionId: Long? = null,
+    /**
+     * When the user took a correction back, restoring the source row.
+     *
+     * A correction cannot simply disappear — it is the evidence that the row was once withdrawn — so
+     * undoing one marks it revoked instead of deleting it. Only a correction with no revocation
+     * claims that its source is currently voided; a revoked one is history, and the same transaction
+     * may be corrected again.
+     */
+    val correctionRevokedAt: Long? = null,
     @ColumnInfo(defaultValue = "0")
     val createdAt: Long = 0,
 )

@@ -172,13 +172,16 @@ internal object WhfinBackupSchema {
                 "occurredAt", "postedAt", "merchantId", "rawCounterparty", "counterpartyIban",
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
                 "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "isVoided",
-                "correctionOfTransactionId", "createdAt",
+                "correctionOfTransactionId", "correctionRevokedAt", "createdAt",
             ),
             legacyColumns = mapOf(
                 "gelValueMinor" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
                 "gelRateOn" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
                 "isVoided" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = BackupValue.Integer(0)),
                 "correctionOfTransactionId" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = null),
+                // A pre-v10 backup could not record a revoked correction: every correction it holds
+                // still describes a voided row.
+                "correctionRevokedAt" to BackupLegacyColumn(introducedInDatabaseVersion = 10, defaultValue = null),
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),

@@ -286,7 +286,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         }
         for (row in rows) {
             if (hasDebtEvent(row)) reject("A debt-linked transaction must be corrected through its debt case.")
-            if (db.transactionDao().correctionsFor(row.id).isNotEmpty()) {
+            if (db.transactionDao().activeCorrectionsFor(row.id).isNotEmpty()) {
                 reject("This transaction already has a correction.")
             }
         }
@@ -317,18 +317,25 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         MutationReport(changed = rows.size, skipped = 0)
     }
 
-    /** Restores a voided source by voiding its balancing correction, preserving both audit rows. */
+    /**
+     * Restores a voided source by revoking its correction, preserving both audit rows.
+     *
+     * The correction is not deleted: it is the record that this row was once withdrawn. Marking it
+     * revoked is also what lets the same transaction be corrected again later — an existing
+     * correction row would otherwise block that forever.
+     */
     suspend fun restoreTransaction(transactionId: Long): MutationReport = db.withTransaction {
         val rows = correctionRows(transactionId)
         if (rows.any { !it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
             reject("Only voided statement or SMS transactions can be restored.")
         }
         val corrections = rows.map { row ->
-            db.transactionDao().correctionsFor(row.id).firstOrNull()
+            db.transactionDao().activeCorrectionsFor(row.id).firstOrNull()
                 ?: reject("Voided transaction has no correction.")
         }
+        val now = System.currentTimeMillis()
         corrections.forEach { correction ->
-            db.transactionDao().update(correction.copy(isVoided = true))
+            db.transactionDao().update(correction.copy(correctionRevokedAt = now))
         }
         rows.forEach { row -> db.transactionDao().update(row.copy(isVoided = false)) }
         MutationReport(changed = rows.size, skipped = 0)
@@ -383,8 +390,15 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
             db.transactionAllocationDao().deleteForTransaction(transactionId)
             return
         }
-        if (row.amountMinor >= 0) reject("Only an expense can have allocations.")
-        if (allocations.any { it.amountMinor >= 0 }) reject("Allocation signs must match the expense.")
+        // Borrowing money and being repaid are inflows, and both are debt movements that must carry
+        // their person. Only the "who benefited" split of a purchase is expense-shaped.
+        val debtOnly = allocations.all {
+            it.purpose in setOf(AllocationPurpose.LOAN, AllocationPurpose.REPAYMENT)
+        }
+        if (row.amountMinor > 0 && !debtOnly) reject("Only an expense can be shared between people.")
+        if (allocations.any { it.amountMinor == 0L || (it.amountMinor < 0) != (row.amountMinor < 0) }) {
+            reject("Allocation signs must match the transaction.")
+        }
         if (allocations.sumOf { it.amountMinor } != row.amountMinor) {
             reject("Allocations must sum exactly to the parent transaction.")
         }

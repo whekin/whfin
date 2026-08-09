@@ -24,6 +24,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "app/src/main/assets/whfin-demo-v7.json"
 
+# Read from the source of truth: a hand-typed number here silently drifts behind the schema, and the
+# restore then claims to be a backup of a database version that no longer exists.
+_DB_SOURCE = (ROOT / "app/src/main/java/dev/whekin/whfin/data/db/WhfinDatabase.kt").read_text(encoding="utf-8")
+_DB_MATCH = re.search(r"WHFIN_DATABASE_VERSION\s*=\s*(\d+)", _DB_SOURCE)
+if not _DB_MATCH:
+    raise SystemExit("Could not read WHFIN_DATABASE_VERSION from WhfinDatabase.kt")
+DATABASE_VERSION = int(_DB_MATCH.group(1))
+
 # The fixture is anchored so assertions stay deterministic; the installer shifts it to today.
 ANCHOR = sys.argv[2] if len(sys.argv) > 2 else "2026-07-31"
 if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", ANCHOR):
@@ -545,7 +553,7 @@ document = {
     "schemaVersion": 1,
     "exportedAt": EXPORTED_AT,
     "appVersion": "0.1.0-demo (1)",
-    "databaseVersion": 7,
+    "databaseVersion": DATABASE_VERSION,
     "primaryCurrency": GEL,
     "tables": tables,
 }
