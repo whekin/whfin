@@ -153,6 +153,8 @@ import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.sms.SmsRoutingSheet
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
+import dev.whekin.whfin.ui.analytics.AnalyticsUiState
+import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
 
 private sealed interface FeedTimelineEntry {
     val day: LocalDate
@@ -188,6 +190,7 @@ fun FeedScreen(
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
 ) {
+    val homeAnalyticsState = collectHomeAnalyticsState(mode == FeedMode.HOME)
     val items by viewModel.items.collectAsState()
     val netWorth by viewModel.netWorth.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
@@ -230,8 +233,12 @@ fun FeedScreen(
     val monthGelValues = monthItems.mapNotNull {
         if (it.tx.currency == "GEL") it.tx.amountMinor else it.tx.gelValueMinor
     }
-    val income = monthGelValues.sumOf { it.coerceAtLeast(0) }
-    val expenses = -monthGelValues.sumOf { it.coerceAtMost(0) }
+    val fallbackIncome = monthGelValues.sumOf { it.coerceAtLeast(0) }
+    val fallbackExpenses = -monthGelValues.sumOf { it.coerceAtMost(0) }
+    val homeAnalytics = (homeAnalyticsState as? AnalyticsUiState.Content)?.data
+    val income = homeAnalytics?.incomeMinor ?: fallbackIncome
+    val expenses = homeAnalytics?.expenseMinor ?: fallbackExpenses
+    val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
     val visibleItems = items.filter { item ->
         val matchesType = when (filter) {
             FeedFilter.ALL -> true
@@ -451,6 +458,12 @@ fun FeedScreen(
                             onClick = { routingFor = entry.operation },
                         )
                     }
+                }
+            }
+
+            if (homeInsights.isNotEmpty()) {
+                item(key = "insights") {
+                    HomeInsightsSection(homeInsights, onOpenAnalytics)
                 }
             }
 
@@ -774,6 +787,14 @@ fun FeedScreen(
             onSave = { shares -> viewModel.saveSplit(item, shares); splitFor = null },
         )
     }
+}
+
+@Composable
+private fun collectHomeAnalyticsState(enabled: Boolean): AnalyticsUiState? {
+    if (!enabled) return null
+    val analyticsViewModel: AnalyticsViewModel = viewModel(key = "home-analytics")
+    val state by analyticsViewModel.uiState.collectAsState()
+    return state
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1952,6 +1973,104 @@ private fun HomeSectionHeader(
 }
 
 @Composable
+private fun HomeInsightsSection(
+    insights: List<HomeInsight>,
+    onOpenAnalytics: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        WhfinSectionLabel(stringResource(R.string.home_insights_title))
+        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            insights.forEachIndexed { index, insight ->
+                HomeInsightRow(insight, onOpenAnalytics)
+                if (index < insights.lastIndex) HorizontalDivider(
+                    Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeInsightRow(
+    insight: HomeInsight,
+    onClick: () -> Unit,
+) {
+    val projected = when (insight) {
+        is HomeInsight.SpendingPace -> insight.projectedExpenseMinor
+        is HomeInsight.CategoryDriver -> insight.projectedExpenseMinor
+    }
+    val previous = when (insight) {
+        is HomeInsight.SpendingPace -> insight.previousMonthExpenseMinor
+        is HomeInsight.CategoryDriver -> insight.previousMonthExpenseMinor
+    }
+    val improving = projected < previous
+    val accent = if (improving) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+    val title = when (insight) {
+        is HomeInsight.SpendingPace -> stringResource(
+            R.string.home_insight_pace,
+            formatMinor(projected, "GEL"),
+        )
+        is HomeInsight.CategoryDriver -> stringResource(
+            if (improving) R.string.home_insight_category_lower else R.string.home_insight_category_higher,
+            insight.name ?: stringResource(R.string.analytics_uncategorized),
+        )
+    }
+    val supporting = when (insight) {
+        is HomeInsight.SpendingPace -> stringResource(
+            R.string.home_insight_previous_month,
+            formatMinor(previous, "GEL"),
+        )
+        is HomeInsight.CategoryDriver -> stringResource(
+            R.string.home_insight_category_comparison,
+            formatMinor(projected, "GEL"),
+            formatMinor(previous, "GEL"),
+        )
+    }
+    val icon = when (insight) {
+        is HomeInsight.SpendingPace -> Icons.Default.TrendingUp
+        is HomeInsight.CategoryDriver -> Icons.Default.Category
+    }
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.ui.graphics.RectangleShape,
+        color = Color.Transparent,
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(38.dp).background(accent.copy(alpha = .14f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
@@ -2416,9 +2535,10 @@ internal fun FeedRow(
     }
 }
 
-@Preview(name = "Feed populated", widthDp = 400, heightDp = 900, showBackground = true)
-@Preview(name = "Feed dark", widthDp = 400, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Feed font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f, showBackground = true)
+@Preview(name = "Home populated", widthDp = 400, heightDp = 900, showBackground = true)
+@Preview(name = "Home dark", widthDp = 400, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Home font 1.5", widthDp = 400, heightDp = 1200, fontScale = 1.5f, showBackground = true)
+@Preview(name = "Home compact", widthDp = 400, heightDp = 500, showBackground = true)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedContentPreview() {
@@ -2453,13 +2573,19 @@ private fun FeedContentPreview() {
                     formatMinor(559_417, "GEL"),
                     valueSymbol = currencySymbol("GEL"),
                 ) {
-                    WhfinIconButton(Icons.Default.Search, "Search", {}, outlined = false)
-                    WhfinIconButton(Icons.Default.FilterAlt, "Filter", {}, outlined = false)
+                    WhfinIconButton(Icons.Default.TrendingUp, "Statistics", {}, outlined = false)
+                    WhfinIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "History", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
-                SmsOnboardingCard({}, {})
-                DayHeader(LocalDate.now(), mapOf("USD" to 2_360), 6_346, true, {})
-                FeedRow(item, {}, selected = true)
+                HomeInsightsSection(
+                    listOf(
+                        HomeInsight.SpendingPace(169_147, 96_000),
+                        HomeInsight.CategoryDriver("Subscriptions", 70_740, 21_400),
+                    ),
+                    {},
+                )
+                HomeSectionHeader("Today", "All transactions", {})
+                FeedRow(item, {})
             }
         }
     }

@@ -60,6 +60,13 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 Home and Accounts are the two primary dock destinations. Home is deliberately finite: the current-month result comes first, followed by at most three unresolved SMS/pending operations and then up to five confirmed rows from today (or three recent rows when today is empty). Statistics and complete Transaction history are explicit one-tap secondary destinations in the Home header; the history retains search, filtering, sorting, selection and the full ledger. Settings remains discoverable from Accounts. This keeps the app centred on understanding and acting on finances without turning its landing screen into an infinite transaction log.
 
+Home may add at most two explanatory insights between review work and recent activity. They are derived
+from the same full-range calculation as Statistics: a month-end spending pace and the strongest projected
+category driver. Suppress projections during the first four days, absolute changes below 20 GEL, relative
+changes below 10%, and new-category totals below 50 GEL. Each conclusion states that it is a projection,
+shows the previous-month comparison, and opens Statistics so the user can inspect its evidence. Insights
+are quiet when nothing meaningful changed; empty space is preferable to generic encouragement or alarm.
+
 The Feed month block leads with the month's own result: a signed GEL net figure, then income and expenses
 as signed context values below it. Directional arrows were removed because "down" read both as *money
 arrived* and as *value fell*; a sign on a tabular figure carries the same meaning without that ambiguity.

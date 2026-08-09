@@ -127,6 +127,9 @@ This is a single-context repository with root domain documentation and system-wi
   pending/unrouted операций и короткий блок Today/Recent. Полный ledger вынесен в отдельную Transaction
   history с прежними поиском, фильтрами, multi-select и review-flow; статистика и история доступны одним
   тапом из Home. Проверено на disposable Pixel в demo workspace при dark + font scale 1.5.
+  Home также показывает до двух объяснимых insights из того же расчёта, что Statistics: прогноз темпа
+  расходов и главную категорию-драйвер. Первые четыре дня и слабые колебания намеренно молчат; каждый
+  вывод показывает сравнение с прошлым месяцем и открывает подробную статистику.
   тёплый editorial Material 3 (cream + sage + terracotta); первый проход применён: дизайн-система,
   крупный баланс, итоги месяца, новая лента и pending-chip. Есть выбор категории из bottom sheet с
   обучением Merchant→Category. Есть ручное добавление (FAB → FormSheet: расход/доход, сумма,

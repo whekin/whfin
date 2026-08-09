@@ -54,6 +54,12 @@
     <string name="home_today">Сегодня</string>
     <string name="home_recent_activity">Недавнее</string>
     <string name="home_all_transactions">Все операции</string>
+    <string name="home_insights_title">Стоит знать</string>
+    <string name="home_insight_pace">При таком темпе расходы могут составить %1$s</string>
+    <string name="home_insight_previous_month">В прошлом месяце: %1$s</string>
+    <string name="home_insight_category_higher">«%1$s» может вырасти относительно прошлого месяца</string>
+    <string name="home_insight_category_lower">«%1$s» может снизиться относительно прошлого месяца</string>
+    <string name="home_insight_category_comparison">При текущем темпе: %1$s · в прошлом месяце: %2$s</string>
     <string name="transactions_history_title">История операций</string>
     <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
     <string name="feed_unrouted_choose_account">Выбрать счёт</string>
