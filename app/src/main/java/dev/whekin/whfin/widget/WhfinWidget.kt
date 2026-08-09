@@ -323,10 +323,10 @@ private fun WidgetSegment(
             // shift only the source label toward it; currency/source segments remain geometric.
             modifier = when {
                 nudgeTowardAction -> modifier.padding(start = 24.dp, end = 4.dp)
-                // Smart Launcher places the weighted label about 8 dp left of the midpoint between
-                // two fixed 48 dp actions. Keep the normal 16 dp padding budget while moving that
-                // budget to the leading edge, so the label shifts without losing text width.
-                centerBetweenActions -> modifier.padding(start = 16.dp)
+                // Smart Launcher places the weighted label slightly left of the midpoint between
+                // two fixed 48 dp actions. Redistribute the normal 16 dp padding budget instead of
+                // adding padding, so the label moves by 4 dp without losing text width.
+                centerBetweenActions -> modifier.padding(start = 12.dp, end = 4.dp)
                 else -> modifier.padding(horizontal = 8.dp)
             },
             contentAlignment = Alignment.Center,
