@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.preferences.UiPreferences
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -72,6 +73,9 @@ class QuickExpenseRerankTest {
         val db = app.userDb
         val now = System.currentTimeMillis()
         runBlocking {
+            // This scenario types into the amount field; explicitly select the system-keyboard
+            // variant so a persisted quick-keypad preference cannot redirect input to the note.
+            UiPreferences(app).setQuickExpenseKeypadEnabled(false)
             val accountId = db.accountDao().insert(
                 AccountEntity(name = "Cash", type = AccountType.CASH, currency = "GEL"),
             )

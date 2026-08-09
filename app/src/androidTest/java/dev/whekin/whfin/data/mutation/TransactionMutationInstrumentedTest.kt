@@ -22,6 +22,7 @@ import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.debt.DebtRepository
 import dev.whekin.whfin.data.debt.DebtSettlement
 import dev.whekin.whfin.data.debt.NewDebt
+import dev.whekin.whfin.data.integrity.DataIntegrityChecker
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.After
@@ -277,5 +278,19 @@ class TransactionMutationInstrumentedTest {
         assertTrue(events.any { it.correctionOfEventId == closing.id && it.isVoided })
         assertEquals(DebtStatus.OPEN, db.debtDao().caseById(caseId)?.status)
         assertEquals(0L, db.debtDao().eventsForCase(caseId).filterNot { it.isVoided }.sumOf { it.debtValueMinor })
+    }
+
+    @Test
+    fun integrityChecker_reportsAllocationMismatch() = runBlocking {
+        val transactionId = mutations.createManual(
+            ManualMutation(accountId, -1_000, occurredAt = 1_000),
+        )
+        db.transactionAllocationDao().insertAll(
+            listOf(TransactionAllocationEntity(transactionId = transactionId, amountMinor = -500, purpose = AllocationPurpose.PERSONAL)),
+        )
+
+        val report = DataIntegrityChecker(db).run()
+
+        assertTrue(report.issues.any { it.code == "allocation_total_mismatch" && it.entityId == transactionId })
     }
 }

@@ -277,9 +277,13 @@ internal fun QuickExpenseScreen(
                 // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки.
                 // Выбор фиксирует порядок на момент тапа, чтобы кружок не прыгал под пальцем.
                 var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
-                val displayed = lockedOrder ?: remember(categories, suggester, minor) {
-                    if (suggester == null || minor == null) categories
-                    else suggester.rankCategories(categories, -minor, currency)
+                // Keep this derived directly from the current amount.  A remembered calculation
+                // can retain the pre-IME amount when BasicTextField updates in the same frame as
+                // the sheet's first composition, leaving the visible order stale.
+                val displayed = lockedOrder ?: if (suggester == null || minor == null) {
+                    categories
+                } else {
+                    suggester.rankCategories(categories, -minor, currency)
                 }
                 QuickCategoryRow(
                     categories = displayed,

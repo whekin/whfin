@@ -10,10 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.util.Locale
+import android.util.Log
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.demo.RuntimeModeStore
+import dev.whekin.whfin.data.integrity.DataIntegrityChecker
 
 class WhfinApp : Application() {
 
@@ -84,6 +86,10 @@ class WhfinApp : Application() {
             activeAccounts.filter { it.type == AccountType.CASH && it.sortOrder == -100 }
                 .forEach { userDb.accountDao().update(it.copy(sortOrder = 1000)) }
             GeorgiaMerchantPreset.applyToUncategorized(userDb)
+            val integrity = DataIntegrityChecker(userDb).run()
+            if (integrity.issues.isNotEmpty()) {
+                Log.e("WHFIN", "Ledger integrity issues: ${integrity.issues.joinToString { it.code }}")
+            }
         }
     }
 }

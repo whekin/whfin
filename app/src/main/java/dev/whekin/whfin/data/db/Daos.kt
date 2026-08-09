@@ -18,6 +18,9 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE isArchived = 1 ORDER BY sortOrder, id")
     fun observeArchived(): Flow<List<AccountEntity>>
 
+    @Query("SELECT * FROM accounts ORDER BY id")
+    suspend fun allForIntegrity(): List<AccountEntity>
+
     @Query("SELECT * FROM accounts WHERE isArchived = 0")
     suspend fun allActive(): List<AccountEntity>
 
@@ -304,6 +307,9 @@ interface TransactionDao {
     )
     suspend fun correctionsFor(transactionId: Long): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions ORDER BY id")
+    suspend fun allForIntegrity(): List<TransactionEntity>
+
     /**
      * Foreign-currency rows still waiting for the GEL value of their own day.
      * Transfers are skipped: they never reach income, expenses or category totals.
@@ -505,6 +511,9 @@ interface TransactionAllocationDao {
     @Query("SELECT * FROM transaction_allocations ORDER BY id")
     fun observeAll(): Flow<List<TransactionAllocationEntity>>
 
+    @Query("SELECT * FROM transaction_allocations ORDER BY id")
+    suspend fun allForIntegrity(): List<TransactionAllocationEntity>
+
     @Query("SELECT * FROM transaction_allocations WHERE transactionId = :transactionId ORDER BY id")
     fun observeForTransaction(transactionId: Long): Flow<List<TransactionAllocationEntity>>
 
@@ -549,11 +558,17 @@ interface DebtDao {
     @Query("SELECT * FROM debt_cases WHERE id = :id")
     suspend fun caseById(id: Long): DebtCaseEntity?
 
+    @Query("SELECT * FROM debt_cases ORDER BY id")
+    suspend fun allCasesForIntegrity(): List<DebtCaseEntity>
+
     @Query("SELECT * FROM debt_events WHERE debtCaseId = :caseId ORDER BY occurredAt, id")
     suspend fun eventsForCase(caseId: Long): List<DebtEventEntity>
 
     @Query("SELECT * FROM debt_events WHERE id = :eventId")
     suspend fun eventById(eventId: Long): DebtEventEntity?
+
+    @Query("SELECT * FROM debt_events ORDER BY id")
+    suspend fun allEventsForIntegrity(): List<DebtEventEntity>
 
     @Query("SELECT * FROM debt_events WHERE transactionId = :transactionId LIMIT 1")
     suspend fun eventsForTransaction(transactionId: Long): List<DebtEventEntity>
