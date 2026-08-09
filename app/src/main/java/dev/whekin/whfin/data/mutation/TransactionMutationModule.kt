@@ -275,6 +275,65 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         MutationReport(changed = rows.size, skipped = 0)
     }
 
+    /**
+     * Voids statement/SMS truth by adding a balancing adjustment and hiding the source row from all
+     * active projections. The source and the adjustment remain in the database for audit/backup.
+     */
+    suspend fun voidTransaction(transactionId: Long, reason: String? = null): MutationReport = db.withTransaction {
+        val rows = correctionRows(transactionId)
+        if (rows.any { it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
+            reject("Only active statement or SMS transactions can be corrected.")
+        }
+        for (row in rows) {
+            if (hasDebtEvent(row)) reject("A debt-linked transaction must be corrected through its debt case.")
+            if (db.transactionDao().correctionsFor(row.id).isNotEmpty()) {
+                reject("This transaction already has a correction.")
+            }
+        }
+        val now = System.currentTimeMillis()
+        rows.forEachIndexed { index, row ->
+            val correctionId = db.transactionDao().insert(
+                TransactionEntity(
+                    accountId = row.accountId,
+                    amountMinor = -row.amountMinor,
+                    currency = row.currency,
+                    occurredAt = row.occurredAt,
+                    note = reason?.trim()?.takeIf(String::isNotEmpty)?.let { "Correction: $it" }
+                        ?: "Correction for transaction ${row.id}",
+                    status = TxStatus.MANUAL,
+                    source = TxSource.ADJUSTMENT,
+                    isTransfer = true,
+                    // This is an audit record, not a second active ledger movement. Keep it
+                    // excluded from balances and feed projections together with its source row.
+                    isVoided = true,
+                    correctionOfTransactionId = row.id,
+                    externalKey = "correction|${row.id}|$now|$index",
+                    createdAt = now,
+                ),
+            )
+            check(correctionId > 0) { "Could not create correction." }
+            db.transactionDao().update(row.copy(isVoided = true))
+        }
+        MutationReport(changed = rows.size, skipped = 0)
+    }
+
+    /** Restores a voided source by voiding its balancing correction, preserving both audit rows. */
+    suspend fun restoreTransaction(transactionId: Long): MutationReport = db.withTransaction {
+        val rows = correctionRows(transactionId)
+        if (rows.any { !it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
+            reject("Only voided statement or SMS transactions can be restored.")
+        }
+        val corrections = rows.map { row ->
+            db.transactionDao().correctionsFor(row.id).firstOrNull()
+                ?: reject("Voided transaction has no correction.")
+        }
+        corrections.forEach { correction ->
+            db.transactionDao().update(correction.copy(isVoided = true))
+        }
+        rows.forEach { row -> db.transactionDao().update(row.copy(isVoided = false)) }
+        MutationReport(changed = rows.size, skipped = 0)
+    }
+
     suspend fun replaceAllocations(
         transactionId: Long,
         allocations: List<AllocationMutation>,
@@ -349,6 +408,11 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
 
     private suspend fun account(id: Long) = db.accountDao().byId(id)
         ?: reject("Account $id does not exist.")
+
+    private suspend fun correctionRows(transactionId: Long): List<TransactionEntity> {
+        val row = transaction(transactionId)
+        return row.transferGroupId?.let { db.transactionDao().byTransferGroup(it) } ?: listOf(row)
+    }
 
     private suspend fun transaction(id: Long) = db.transactionDao().byId(id)
         ?: reject("Transaction $id does not exist.")

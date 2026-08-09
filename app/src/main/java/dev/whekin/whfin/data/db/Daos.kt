@@ -268,15 +268,15 @@ interface TransactionDao {
 
     @Query("UPDATE transfer_groups SET type = :type, note = :note WHERE id = :id")
     suspend fun updateTransferGroup(id: Long, type: TransferGroupType, note: String?)
-    @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY occurredAt DESC")
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isVoided = 0 ORDER BY occurredAt DESC")
     fun observeByAccount(accountId: Long): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions ORDER BY occurredAt DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM transactions WHERE isVoided = 0 ORDER BY occurredAt DESC LIMIT :limit OFFSET :offset")
     fun observeFeed(limit: Int, offset: Int = 0): Flow<List<TransactionEntity>>
 
     @Query(
         "SELECT * FROM transactions WHERE occurredAt >= :fromMillis AND occurredAt < :toMillis " +
-            "ORDER BY occurredAt DESC"
+            "AND isVoided = 0 ORDER BY occurredAt DESC"
     )
     fun observeRange(fromMillis: Long, toMillis: Long): Flow<List<TransactionEntity>>
 
@@ -286,13 +286,19 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE externalKey = :key LIMIT 1")
     suspend fun byExternalKey(key: String): TransactionEntity?
 
+    @Query(
+        "SELECT * FROM transactions WHERE correctionOfTransactionId = :transactionId " +
+            "ORDER BY createdAt DESC, id DESC",
+    )
+    suspend fun correctionsFor(transactionId: Long): List<TransactionEntity>
+
     /**
      * Foreign-currency rows still waiting for the GEL value of their own day.
      * Transfers are skipped: they never reach income, expenses or category totals.
      */
     @Query(
         "SELECT * FROM transactions WHERE currency != :pivot AND gelValueMinor IS NULL " +
-            "AND isTransfer = 0 AND transferGroupId IS NULL ORDER BY occurredAt DESC"
+            "AND isTransfer = 0 AND transferGroupId IS NULL AND isVoided = 0 ORDER BY occurredAt DESC"
     )
     suspend fun awaitingValuation(pivot: String): List<TransactionEntity>
 
@@ -304,7 +310,7 @@ interface TransactionDao {
 
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId AND source = 'ADJUSTMENT' " +
-            "AND externalKey LIKE 'opening|%' ORDER BY occurredAt, id LIMIT 1",
+            "AND externalKey LIKE 'opening|%' AND isVoided = 0 ORDER BY occurredAt, id LIMIT 1",
     )
     suspend fun openingAnchor(accountId: Long): TransactionEntity?
 
@@ -316,14 +322,14 @@ interface TransactionDao {
         "SELECT * FROM transactions WHERE accountId = :accountId " +
             "AND ((source = 'SMS' AND status IN ('PENDING', 'CONFIRMED')) " +
             "OR (status = 'MANUAL' AND source = 'MANUAL')) " +
-            "AND occurredAt BETWEEN :fromMillis AND :toMillis"
+            "AND isVoided = 0 AND occurredAt BETWEEN :fromMillis AND :toMillis"
     )
     suspend fun reconciliationCandidates(accountId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
 
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId " +
             "AND status = 'CONFIRMED' AND source = 'STATEMENT' " +
-            "AND occurredAt BETWEEN :fromMillis AND :toMillis"
+            "AND isVoided = 0 AND occurredAt BETWEEN :fromMillis AND :toMillis"
     )
     suspend fun statementCandidates(
         accountId: Long,
@@ -332,9 +338,9 @@ interface TransactionDao {
     ): List<TransactionEntity>
 
     @Query(
-        "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
+            "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.transferGroupId IS NULL " +
-            "AND t.occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY t.occurredAt"
+            "AND t.isVoided = 0 AND t.occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY t.occurredAt"
     )
     suspend fun ungroupedTransfers(groupId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
 
@@ -344,7 +350,7 @@ interface TransactionDao {
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 " +
             "AND (LOWER(t.note) LIKE '%exchange%' OR t.note LIKE '%კონვერტ%') " +
             "AND (t.transferGroupId IS NULL OR g.type = 'CONVERSION') " +
-            "AND t.occurredAt BETWEEN :fromMillis AND :toMillis"
+            "AND t.isVoided = 0 AND t.occurredAt BETWEEN :fromMillis AND :toMillis"
     )
     suspend fun conversionTransfers(groupId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
 
@@ -393,22 +399,23 @@ interface TransactionDao {
     @Query("UPDATE transactions SET transferGroupId = :groupId, isTransfer = 1 WHERE id IN (:transactionIds)")
     suspend fun attachToTransferGroup(transactionIds: List<Long>, groupId: Long)
 
-    @Query("UPDATE transactions SET categoryId = :categoryId WHERE merchantId = :merchantId AND categoryId IS NULL")
+    @Query("UPDATE transactions SET categoryId = :categoryId WHERE merchantId = :merchantId AND categoryId IS NULL AND isVoided = 0")
     suspend fun categorizeUnassignedForMerchant(merchantId: Long, categoryId: Long)
 
     @Query(
-        "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId"
+        "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId AND isVoided = 0"
     )
     suspend fun sumByAccount(accountId: Long): Long
 
     @Query(
-        "SELECT accountId, COALESCE(SUM(amountMinor), 0) AS totalMinor FROM transactions GROUP BY accountId"
+        "SELECT accountId, COALESCE(SUM(amountMinor), 0) AS totalMinor FROM transactions " +
+            "WHERE isVoided = 0 GROUP BY accountId"
     )
     fun observeAccountBalances(): Flow<List<AccountBalance>>
 
     /** Частота использования категорий — для сортировки «частые первыми» в формах. */
     @Query(
-        "SELECT categoryId, COUNT(*) AS cnt FROM transactions WHERE categoryId IS NOT NULL " +
+        "SELECT categoryId, COUNT(*) AS cnt FROM transactions WHERE categoryId IS NOT NULL AND isVoided = 0 " +
             "GROUP BY categoryId ORDER BY cnt DESC"
     )
     fun observeCategoryUsage(): Flow<List<CategoryUsage>>
@@ -416,7 +423,7 @@ interface TransactionDao {
     /** Сырьё для умных подсказок категорий: категоризированные расходы за период. */
     @Query(
         "SELECT categoryId, amountMinor, currency, occurredAt FROM transactions " +
-            "WHERE categoryId IS NOT NULL AND amountMinor < 0 AND isTransfer = 0 " +
+            "WHERE categoryId IS NOT NULL AND amountMinor < 0 AND isTransfer = 0 AND isVoided = 0 " +
             "AND occurredAt >= :sinceMillis"
     )
     fun observeCategorySamples(sinceMillis: Long): Flow<List<CategorySample>>
@@ -425,7 +432,7 @@ interface TransactionDao {
     @Query(
         "SELECT categoryId, SUM(amountMinor) AS totalMinor, COUNT(*) AS txCount FROM transactions " +
             "WHERE occurredAt >= :fromMillis AND occurredAt < :toMillis " +
-            "AND transferGroupId IS NULL AND isTransfer = 0 " +
+            "AND transferGroupId IS NULL AND isTransfer = 0 AND isVoided = 0 " +
             "GROUP BY categoryId"
     )
     suspend fun totalsByCategory(fromMillis: Long, toMillis: Long): List<CategoryTotal>
@@ -470,8 +477,10 @@ interface PersonDao {
 
     @Query(
         "SELECT p.id AS personId, p.name, " +
-            "-COALESCE(SUM(CASE WHEN a.purpose IN ('LOAN', 'REPAYMENT') THEN a.amountMinor ELSE 0 END), 0) AS debtMinor " +
+            "-COALESCE(SUM(CASE WHEN t.id IS NOT NULL AND a.purpose IN ('LOAN', 'REPAYMENT') " +
+            "THEN a.amountMinor ELSE 0 END), 0) AS debtMinor " +
             "FROM people p LEFT JOIN transaction_allocations a ON a.personId = p.id " +
+            "LEFT JOIN transactions t ON t.id = a.transactionId AND t.isVoided = 0 " +
             "WHERE p.isArchived = 0 GROUP BY p.id ORDER BY p.name COLLATE NOCASE"
     )
     fun observeDebtBalances(): Flow<List<PersonDebtBalance>>
@@ -505,9 +514,10 @@ interface TransactionAllocationDao {
 
     /** Потрачено на человека (SHARED/GIFT) за период, по валютам; долги считаются отдельно через DebtCase. */
     @Query(
-        "SELECT a.personId AS personId, t.currency AS currency, SUM(-a.amountMinor) AS spentMinor " +
+            "SELECT a.personId AS personId, t.currency AS currency, SUM(-a.amountMinor) AS spentMinor " +
             "FROM transaction_allocations a JOIN transactions t ON t.id = a.transactionId " +
             "WHERE a.personId IS NOT NULL AND a.purpose IN ('SHARED', 'GIFT') " +
+            "AND t.isVoided = 0 " +
             "AND t.occurredAt >= :fromMillis AND t.occurredAt < :toMillis " +
             "GROUP BY a.personId, t.currency"
     )

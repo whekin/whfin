@@ -198,4 +198,31 @@ class TransactionMutationInstrumentedTest {
         assertEquals(1, report.skipped)
         assertTrue(db.transactionDao().byId(transactionId) != null)
     }
+
+    @Test
+    fun statementCorrection_isBalancedAndRestorable() = runBlocking {
+        val transactionId = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -1_250,
+                currency = "GEL",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+            ),
+        )
+
+        mutations.voidTransaction(transactionId, "Wrong bank row")
+
+        val correction = db.transactionDao().correctionsFor(transactionId).single()
+        assertTrue(db.transactionDao().byId(transactionId)?.isVoided == true)
+        assertTrue(correction.isVoided)
+        assertEquals(0L, db.transactionDao().sumByAccount(accountId))
+
+        mutations.restoreTransaction(transactionId)
+
+        assertFalse(db.transactionDao().byId(transactionId)?.isVoided == true)
+        assertTrue(db.transactionDao().byId(correction.id)?.isVoided == true)
+        assertEquals(-1_250L, db.transactionDao().sumByAccount(accountId))
+    }
 }

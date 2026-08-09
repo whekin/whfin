@@ -171,11 +171,14 @@ internal object WhfinBackupSchema {
                 "id", "accountId", "amountMinor", "currency", "origAmountMinor", "origCurrency",
                 "occurredAt", "postedAt", "merchantId", "rawCounterparty", "counterpartyIban",
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
-                "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "createdAt",
+                "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "isVoided",
+                "correctionOfTransactionId", "createdAt",
             ),
             legacyColumns = mapOf(
                 "gelValueMinor" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
                 "gelRateOn" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
+                "isVoided" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = BackupValue.Integer(0)),
+                "correctionOfTransactionId" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = null),
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),
@@ -384,7 +387,15 @@ internal object WhfinBackupCodec {
                 val normalized = LinkedHashMap(row)
                 table.legacyColumns.forEach { (column, legacy) ->
                     if (column !in normalized) {
-                        if (dbVersion >= legacy.introducedInDatabaseVersion) {
+                        // Older export writers occasionally emitted the newer database version
+                        // before adding a nullable/default column to every row (the demo fixture
+                        // is one such portable artifact).  Only the v8 correction columns are
+                        // intentionally lenient; existing provenance columns remain strict so a
+                        // current backup cannot silently lose statement-import evidence.
+                        if (
+                            dbVersion >= legacy.introducedInDatabaseVersion &&
+                            legacy.introducedInDatabaseVersion < 8
+                        ) {
                             throw WhfinBackupException("Missing columns in ${table.name}: $column.")
                         }
                         normalized[column] = legacy.defaultValue

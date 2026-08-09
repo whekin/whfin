@@ -213,6 +213,8 @@ data class MerchantAliasEntity(
         Index("categoryId"),
         Index("merchantId"),
         Index("transferGroupId"),
+        Index("correctionOfTransactionId"),
+        Index("isVoided"),
         Index(value = ["externalKey"], unique = true),
         Index("status"),
     ],
@@ -261,6 +263,11 @@ data class TransactionEntity(
     val gelValueMinor: Long? = null,
     /** День курса (ISO), по которому получен [gelValueMinor]. */
     val gelRateOn: String? = null,
+    /** A user correction hides the original from active balances without deleting its evidence. */
+    @ColumnInfo(defaultValue = "0")
+    val isVoided: Boolean = false,
+    /** Non-null only for an adjustment created by [TransactionMutationModule]. */
+    val correctionOfTransactionId: Long? = null,
     @ColumnInfo(defaultValue = "0")
     val createdAt: Long = 0,
 )
