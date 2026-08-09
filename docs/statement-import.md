@@ -30,6 +30,29 @@ makes a second bank a parser, not a second import workflow.
 
 `StatementImporter` never imports a bank-specific type.
 
+## What a batch import asks before writing
+
+Loading several XLSX files is routine, so the flow stays one gesture. Every picked file is read first
+through `StatementImporter.preview()`, which writes nothing — not even the ledger the file describes —
+and the batch is then decided once by `planStatementBatch`:
+
+- A file that would change nothing (`Preview.changesNothing`) is dropped instead of imported into a
+  `0 inserted` history row. The result names them together: "N files were already imported".
+- A file that would bring a ledger into existence (`Preview.createsAccount`) stops the batch with one
+  question naming every such ledger once. This is the only interruption, because it is the only
+  mistake the result screen cannot undo: a wrong file leaves an account behind.
+- Everything else imports exactly as before, with no extra tap.
+
+`BankLedgerResolver` decides and writes separately for this reason. Adopting an IBAN-less ledger that
+SMS routing created is `LedgerEffect.ADOPTED`, not a new account, and is never asked about. A
+statement with no rows for a missing ledger still creates it and anchors its opening balance, so
+`changesNothing` requires `LedgerEffect.UNCHANGED` and not merely "no rows to add".
+
+MyCredo sync deliberately does not preview. Its files are not picked by hand: the accounts come from
+the bank's own list after an authenticated login, so a wrong-file mistake cannot happen and a ledger
+per remote currency account is the desired outcome. A daily sync also re-downloads twelve months and
+usually inserts nothing, so a "nothing changed" question would fire almost every run.
+
 ## Rules for a new adapter
 
 1. Keep every bank-specific string, date format, column layout and operation vocabulary inside the
@@ -56,5 +79,10 @@ makes a second bank a parser, not a second import workflow.
   a throwing probe, repeated reads of the same bytes, conversion vocabulary.
 - `StatementImporterInstrumentedTest` (emulator, Room) — the shared pipeline: account and bank group
   created from the adapter profile, statement provenance, own-movement flags, ledger balance equal to
-  the closing balance, re-import inserting nothing, and an unknown format touching no ledger.
+  the closing balance, re-import inserting nothing, and an unknown format touching no ledger. Also
+  `preview()`: what it promises matches what the import then does, an already-imported file promises
+  no change, and a statement adopting an SMS ledger does not promise a new account.
+- `StatementBatchTest` (JVM) — the batch rule: unchanged files dropped, a draft-confirming file kept,
+  one question per missing ledger however many files need it, adoption never asked about, and an
+  unreadable file left for the import to report.
 - `CredoStatementParserTest` (JVM, opt-in) — the same structural invariants against private files.

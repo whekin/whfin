@@ -40,15 +40,27 @@ class StatementImporter(private val db: WhfinDatabase) {
     /** What an import would do to the ledger as it stands right now, without writing anything. */
     data class Preview(
         val statement: BankStatement,
-        val accountExists: Boolean,
+        val ledgerEffect: LedgerEffect,
+        /** The ledger this file belongs to — existing, or the one [createsAccount] would add. */
+        val ledgerName: String,
         val totalRows: Int,
         val inserted: Int,
         val duplicates: Int,
         val reconciled: Int,
         val reviewCount: Int,
     ) {
-        /** True when importing this file would leave the ledger exactly as it is. */
-        val changesNothing: Boolean get() = inserted == 0 && reconciled == 0 && reviewCount == 0
+        /** A wrong file picked here leaves an account behind, so this is worth confirming. */
+        val createsAccount: Boolean get() = ledgerEffect == LedgerEffect.CREATED
+
+        /**
+         * True when importing this file would leave everything exactly as it is.
+         *
+         * The ledger counts. A statement with no rows still creates the account it describes and
+         * anchors its opening balance, so "no rows to add" is not the same as "no change".
+         */
+        val changesNothing: Boolean
+            get() = ledgerEffect == LedgerEffect.UNCHANGED &&
+                inserted == 0 && reconciled == 0 && reviewCount == 0
     }
 
     private val zone = ZoneId.of("Asia/Tbilisi")
@@ -66,22 +78,22 @@ class StatementImporter(private val db: WhfinDatabase) {
     suspend fun preview(input: InputStream, fileName: String? = null): Preview {
         val statement = StatementParsers.parse(StatementFile.read(input, fileName))
         StatementValidator.validate(statement)
-        val account = db.accountDao().byIbanAndCurrency(statement.accountIban, statement.currency)
-        if (account == null) {
-            return Preview(
-                statement = statement,
-                accountExists = false,
-                totalRows = statement.rows.size,
-                inserted = statement.rows.size,
-                duplicates = 0,
-                reconciled = 0,
-                reviewCount = 0,
-            )
-        }
+        val ledger = BankLedgerResolver(db).plan(statement)
+        val account = ledger.account ?: return Preview(
+            statement = statement,
+            ledgerEffect = ledger.effect,
+            ledgerName = ledger.ledgerName,
+            totalRows = statement.rows.size,
+            inserted = statement.rows.size,
+            duplicates = 0,
+            reconciled = 0,
+            reviewCount = 0,
+        )
         val plan = ImportPlanner(db, zone).plan(statement, account, accountCreated = false, accountAdopted = false)
         return Preview(
             statement = statement,
-            accountExists = true,
+            ledgerEffect = ledger.effect,
+            ledgerName = ledger.ledgerName,
             totalRows = plan.totalRows,
             inserted = plan.inserted,
             duplicates = plan.duplicates,

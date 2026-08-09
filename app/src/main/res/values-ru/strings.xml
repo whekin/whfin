@@ -618,6 +618,23 @@
     <string name="statements_phase_importing">Добавляем операции банка…</string>
     <string name="statements_phase_reconciling">Сверяем SMS и ручные операции…</string>
     <string name="statements_phase_verifying">Проверяем балансы…</string>
+    <string name="statements_checking">Проверяем файлы</string>
+    <string name="statements_checking_body">Пока ничего не загружено.</string>
+    <plurals name="statements_confirm_new_title">
+        <item quantity="one">Добавить новый счёт?</item>
+        <item quantity="few">Добавить %1$d новых счёта?</item>
+        <item quantity="many">Добавить %1$d новых счетов?</item>
+        <item quantity="other">Добавить %1$d новых счёта?</item>
+    </plurals>
+    <string name="statements_confirm_new_body">Импорт создаст:\n%1$s\n\nОтмените, если файл выбран по ошибке.</string>
+    <string name="statements_confirm_new_action">Загрузить</string>
+    <plurals name="statements_unchanged">
+        <item quantity="one">%1$d файл уже был загружен — ничего не изменилось.</item>
+        <item quantity="few">%1$d файла уже были загружены — ничего не изменилось.</item>
+        <item quantity="many">%1$d файлов уже были загружены — ничего не изменилось.</item>
+        <item quantity="other">%1$d файла уже были загружены — ничего не изменилось.</item>
+    </plurals>
+    <string name="statements_nothing_changed">Нечего загружать</string>
     <string name="statements_done">Выписка загружена</string>
     <string name="statements_new">Новых операций</string>
     <string name="statements_matched">Черновиков найдено</string>

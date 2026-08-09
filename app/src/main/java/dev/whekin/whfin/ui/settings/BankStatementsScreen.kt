@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -87,15 +89,19 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
             WhfinButton(
                 label = stringResource(R.string.statements_upload),
                 onClick = { picker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
-                enabled = state !is StatementImportUiState.Running,
+                enabled = !state.isBusy,
                 leadingIcon = Icons.Default.FileUpload,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
         when (val current = state) {
+            is StatementImportUiState.Checking -> item { ImportCheckingCard(current) }
+            is StatementImportUiState.Confirming -> item {
+                ImportConfirmCard(current, viewModel::confirmImport, viewModel::cancelImport)
+            }
             is StatementImportUiState.Running -> item { ImportProgressCard(current) }
             is StatementImportUiState.Success -> item {
-                ImportResultCard(current.files, onDone = viewModel::dismissResult)
+                ImportResultCard(current.files, current.unchanged, onDone = viewModel::dismissResult)
             }
             is StatementImportUiState.Error -> item {
                 ImportErrorCard(current.message, onDismiss = viewModel::dismissResult)
@@ -149,15 +155,19 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
 fun StatementImportStatusSheet(
     state: StatementImportUiState,
     onDismiss: () -> Unit,
+    onConfirm: () -> Unit = {},
+    onCancel: () -> Unit = onDismiss,
 ) {
     ModalBottomSheet(
-        onDismissRequest = { if (state !is StatementImportUiState.Running) onDismiss() },
+        onDismissRequest = { if (!state.blocksDismissal) onDismiss() },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).padding(bottom = 20.dp)) {
             when (state) {
+                is StatementImportUiState.Checking -> ImportCheckingCard(state)
+                is StatementImportUiState.Confirming -> ImportConfirmCard(state, onConfirm, onCancel)
                 is StatementImportUiState.Running -> ImportProgressCard(state)
-                is StatementImportUiState.Success -> ImportResultCard(state.files, onDismiss)
+                is StatementImportUiState.Success -> ImportResultCard(state.files, state.unchanged, onDismiss)
                 is StatementImportUiState.Error -> ImportErrorCard(state.message, onDismiss)
                 StatementImportUiState.Idle -> Unit
             }
@@ -217,11 +227,82 @@ private fun ImportProgressCard(state: StatementImportUiState.Running) {
 }
 
 @Composable
-private fun ImportResultCard(files: List<StatementImportUiState.FileResult>, onDone: () -> Unit) {
+private fun ImportCheckingCard(state: StatementImportUiState.Checking) {
+    WhfinLedgerGroup(tonal = true) {
+        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator()
+            Column(Modifier.padding(start = 18.dp)) {
+                Text(stringResource(R.string.statements_checking), style = MaterialTheme.typography.titleMedium)
+                if (state.totalFiles > 1) Text(
+                    stringResource(R.string.statements_file_progress, state.fileNumber, state.totalFiles),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                state.fileName?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+                Text(
+                    stringResource(R.string.statements_checking_body),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The one question the batch is allowed to ask.
+ *
+ * Everything else about an import is reported afterwards; a picked file that turns into an account is
+ * not, because the mistake it makes is a ledger the user then has to find and delete.
+ */
+@Composable
+private fun ImportConfirmCard(
+    state: StatementImportUiState.Confirming,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    WhfinLedgerGroup(tonal = true) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.tertiary)
+            Text(
+                pluralStringResource(
+                    R.plurals.statements_confirm_new_title,
+                    state.newLedgers.size,
+                    state.newLedgers.size,
+                ),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                stringResource(
+                    R.string.statements_confirm_new_body,
+                    state.newLedgers.joinToString("\n") { "· $it" },
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                WhfinButton(stringResource(R.string.action_cancel), onCancel, style = WhfinActionStyle.Quiet)
+                WhfinButton(
+                    stringResource(R.string.statements_confirm_new_action), onConfirm,
+                    Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportResultCard(
+    files: List<StatementImportUiState.FileResult>,
+    unchanged: Int,
+    onDone: () -> Unit,
+) {
     WhfinLedgerGroup(tonal = true) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-            Text(stringResource(R.string.statements_done), style = MaterialTheme.typography.titleLarge)
+            Text(
+                stringResource(
+                    if (files.isEmpty()) R.string.statements_nothing_changed else R.string.statements_done,
+                ),
+                style = MaterialTheme.typography.titleLarge,
+            )
             files.forEachIndexed { index, file ->
                 val result = file.result
                 WhfinLedgerRow(
@@ -234,6 +315,11 @@ private fun ImportResultCard(files: List<StatementImportUiState.FileResult>, onD
                     divider = index != files.lastIndex,
                 )
             }
+            // Said once for the whole batch: a re-picked file is a normal mistake, not a failure.
+            if (unchanged > 0) Text(
+                pluralStringResource(R.plurals.statements_unchanged, unchanged, unchanged),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             WhfinButton(
                 stringResource(R.string.action_done), onDone,
                 Modifier.align(Alignment.End), style = WhfinActionStyle.Quiet,
@@ -428,7 +514,33 @@ private fun StatementImportResultPreview() {
     val error = StatementImportUiState.FileResult("broken-statement.xlsx", error = "Unsupported workbook")
     WhfinTheme {
         Surface(Modifier.padding(20.dp), color = MaterialTheme.colorScheme.background) {
-            ImportResultCard(listOf(success, error), {})
+            ImportResultCard(listOf(success, error), unchanged = 2, onDone = {})
+        }
+    }
+}
+
+@Preview(name = "Statements confirm new", widthDp = 400, heightDp = 420, showBackground = true)
+@Preview(name = "Statements confirm new dark", widthDp = 400, heightDp = 420, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Statements confirm new font 1.5", widthDp = 400, heightDp = 560, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun StatementImportConfirmPreview() {
+    WhfinTheme {
+        Surface(Modifier.padding(20.dp), color = MaterialTheme.colorScheme.background) {
+            ImportConfirmCard(
+                StatementImportUiState.Confirming(listOf("Credo GEL •0001", "Credo USD •0001")),
+                {},
+                {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Statements checking", widthDp = 400, heightDp = 260, showBackground = true)
+@Composable
+private fun StatementImportCheckingPreview() {
+    WhfinTheme {
+        Surface(Modifier.padding(20.dp), color = MaterialTheme.colorScheme.background) {
+            ImportCheckingCard(StatementImportUiState.Checking("statement-q1.xlsx", 2, 4))
         }
     }
 }

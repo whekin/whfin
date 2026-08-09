@@ -609,6 +609,19 @@
     <string name="statements_phase_importing">Adding bank operations…</string>
     <string name="statements_phase_reconciling">Matching SMS and manual entries…</string>
     <string name="statements_phase_verifying">Verifying balances…</string>
+    <string name="statements_checking">Checking the files</string>
+    <string name="statements_checking_body">Nothing has been imported yet.</string>
+    <plurals name="statements_confirm_new_title">
+        <item quantity="one">Add a new account?</item>
+        <item quantity="other">Add %1$d new accounts?</item>
+    </plurals>
+    <string name="statements_confirm_new_body">The import will create:\n%1$s\n\nCancel if you picked the wrong file.</string>
+    <string name="statements_confirm_new_action">Import</string>
+    <plurals name="statements_unchanged">
+        <item quantity="one">%1$d file was already imported — nothing changed.</item>
+        <item quantity="other">%1$d files were already imported — nothing changed.</item>
+    </plurals>
+    <string name="statements_nothing_changed">Nothing to import</string>
     <string name="statements_done">Statement imported</string>
     <string name="statements_new">New operations</string>
     <string name="statements_matched">Drafts matched</string>

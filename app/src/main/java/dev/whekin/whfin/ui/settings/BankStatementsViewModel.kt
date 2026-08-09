@@ -12,7 +12,9 @@ import dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
+import dev.whekin.whfin.data.importer.StatementBatchPlan
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.importer.planStatementBatch
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
@@ -40,6 +42,17 @@ data class CardStatementHistory(
 
 sealed interface StatementImportUiState {
     data object Idle : StatementImportUiState
+
+    /** Reading the picked files to find out what they would change. Nothing is written yet. */
+    data class Checking(
+        val fileName: String?,
+        val fileNumber: Int,
+        val totalFiles: Int,
+    ) : StatementImportUiState
+
+    /** The whole batch waits on one question: these ledgers do not exist yet. */
+    data class Confirming(val newLedgers: List<String>) : StatementImportUiState
+
     data class Running(
         val phase: StatementImporter.Phase,
         val fileName: String?,
@@ -51,11 +64,27 @@ sealed interface StatementImportUiState {
         val result: StatementImporter.Result? = null,
         val error: String? = null,
     )
-    data class Success(val files: List<FileResult>) : StatementImportUiState
+    /** [unchanged] files were skipped because importing them would have added nothing. */
+    data class Success(val files: List<FileResult>, val unchanged: Int = 0) : StatementImportUiState
     data class Error(val message: String) : StatementImportUiState
 }
 
-class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
+/** The import owns the screen: picking more files now would race the run in progress. */
+val StatementImportUiState.isBusy: Boolean
+    get() = this is StatementImportUiState.Checking ||
+        this is StatementImportUiState.Confirming ||
+        this is StatementImportUiState.Running
+
+/** Reading and writing may not be interrupted; a pending question may. */
+val StatementImportUiState.blocksDismissal: Boolean
+    get() = this is StatementImportUiState.Checking || this is StatementImportUiState.Running
+
+class BankStatementsViewModel internal constructor(
+    app: Application,
+    private val importDispatcher: kotlinx.coroutines.CoroutineDispatcher,
+) : AndroidViewModel(app) {
+    constructor(app: Application) : this(app, Dispatchers.IO)
+
     private val db = (app as WhfinApp).db
     private val transactionMutations = TransactionMutationModule(db)
 
@@ -88,47 +117,96 @@ class BankStatementsViewModel(app: Application) : AndroidViewModel(app) {
     private val _importState = MutableStateFlow<StatementImportUiState>(StatementImportUiState.Idle)
     val importState: StateFlow<StatementImportUiState> = _importState
 
+    private data class CheckedFile(
+        val fileName: String?,
+        val open: () -> InputStream?,
+        /** Null when the file could not be read: let the import itself report why. */
+        val preview: StatementImporter.Preview?,
+    )
+
+    private var awaitingConfirmation: StatementBatchPlan<CheckedFile>? = null
+
     fun importStatement(fileName: String?, open: () -> InputStream?) {
         importStatements(listOf(fileName to open))
     }
 
+    /**
+     * Reads every picked file before writing any of them.
+     *
+     * Batch import is routine, so it stays one gesture: the run is interrupted only when a file would
+     * create a ledger that does not exist yet, and then once for the whole batch rather than per file.
+     * Files that would change nothing are dropped here instead of being imported into a "0 added"
+     * history row.
+     */
     fun importStatements(files: List<Pair<String?, () -> InputStream?>>) {
         if (files.isEmpty()) return
-        if (_importState.value is StatementImportUiState.Running) return
-        viewModelScope.launch(Dispatchers.IO) {
-            val results = files.mapIndexed { index, (fileName, open) ->
-                _importState.value = StatementImportUiState.Running(
-                    StatementImporter.Phase.READING, fileName, index + 1, files.size,
-                )
-                try {
-                    val result = open()?.use { input ->
-                        StatementImporter(db).import(input, fileName) { phase ->
-                            _importState.value = StatementImportUiState.Running(
-                                phase, fileName, index + 1, files.size,
-                            )
-                        }
-                    } ?: error("Cannot open file")
-                    StatementImportUiState.FileResult(fileName, result = result)
-                } catch (e: UnsupportedStatementException) {
-                    StatementImportUiState.FileResult(
-                        fileName,
-                        error = getApplication<Application>().getString(R.string.statements_unsupported),
-                    )
-                } catch (e: Exception) {
-                    StatementImportUiState.FileResult(fileName, error = e.message ?: "Unknown error")
-                }
+        if (_importState.value.isBusy) return
+        viewModelScope.launch(importDispatcher) {
+            val checked = files.mapIndexed { index, (fileName, open) ->
+                _importState.value = StatementImportUiState.Checking(fileName, index + 1, files.size)
+                val preview = runCatching {
+                    open()?.use { StatementImporter(db).preview(it, fileName) }
+                }.getOrNull()
+                CheckedFile(fileName, open, preview)
             }
-            _importState.value = StatementImportUiState.Success(results)
-            // A statement can add a year of foreign rows at once; value them while the user reads
-            // the result, so statistics are already complete when they open it.
-            runCatching {
-                TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfill()
+            val plan = planStatementBatch(checked) { it.preview }
+            if (plan.confirmLedgers.isEmpty()) {
+                runImport(plan)
+            } else {
+                awaitingConfirmation = plan
+                _importState.value = StatementImportUiState.Confirming(plan.confirmLedgers)
             }
         }
     }
 
+    fun confirmImport() {
+        val plan = awaitingConfirmation ?: return
+        awaitingConfirmation = null
+        viewModelScope.launch(importDispatcher) { runImport(plan) }
+    }
+
+    fun cancelImport() {
+        if (awaitingConfirmation == null) return
+        awaitingConfirmation = null
+        _importState.value = StatementImportUiState.Idle
+    }
+
+    private suspend fun runImport(plan: StatementBatchPlan<CheckedFile>) {
+        val files = plan.toImport
+        val results = files.mapIndexed { index, file ->
+            val fileName = file.fileName
+            _importState.value = StatementImportUiState.Running(
+                StatementImporter.Phase.READING, fileName, index + 1, files.size,
+            )
+            try {
+                val result = file.open()?.use { input ->
+                    StatementImporter(db).import(input, fileName) { phase ->
+                        _importState.value = StatementImportUiState.Running(
+                            phase, fileName, index + 1, files.size,
+                        )
+                    }
+                } ?: error("Cannot open file")
+                StatementImportUiState.FileResult(fileName, result = result)
+            } catch (e: UnsupportedStatementException) {
+                StatementImportUiState.FileResult(
+                    fileName,
+                    error = getApplication<Application>().getString(R.string.statements_unsupported),
+                )
+            } catch (e: Exception) {
+                StatementImportUiState.FileResult(fileName, error = e.message ?: "Unknown error")
+            }
+        }
+        _importState.value = StatementImportUiState.Success(results, plan.unchanged)
+        // A statement can add a year of foreign rows at once; value them while the user reads
+        // the result, so statistics are already complete when they open it.
+        runCatching {
+            TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfill()
+        }
+    }
+
     fun dismissResult() {
-        if (_importState.value !is StatementImportUiState.Running) {
+        cancelImport()
+        if (!_importState.value.blocksDismissal) {
             _importState.value = StatementImportUiState.Idle
         }
     }

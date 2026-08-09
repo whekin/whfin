@@ -374,6 +374,11 @@ fun AccountsScreen(
                 statementsViewModel.dismissResult()
                 showImportStatus = false
             },
+            onConfirm = statementsViewModel::confirmImport,
+            onCancel = {
+                statementsViewModel.cancelImport()
+                showImportStatus = false
+            },
         )
     }
 

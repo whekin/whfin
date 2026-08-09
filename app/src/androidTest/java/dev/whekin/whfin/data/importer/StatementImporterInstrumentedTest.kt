@@ -122,7 +122,8 @@ class StatementImporterInstrumentedTest {
         assertEquals(3, preview.totalRows)
         assertEquals(3, preview.inserted)
         assertEquals(0, preview.duplicates)
-        assertFalse(preview.accountExists)
+        assertEquals(LedgerEffect.CREATED, preview.ledgerEffect)
+        assertTrue(preview.createsAccount)
         // Reading a file must not leave the account it describes behind.
         assertTrue(db.accountDao().allActive().isEmpty())
 
@@ -140,7 +141,8 @@ class StatementImporterInstrumentedTest {
 
         val preview = importer.preview(ByteArrayInputStream(bytes), "statement.xlsx")
 
-        assertTrue(preview.accountExists)
+        assertEquals(LedgerEffect.UNCHANGED, preview.ledgerEffect)
+        assertFalse(preview.createsAccount)
         assertEquals(0, preview.inserted)
         assertEquals(3, preview.duplicates)
         assertTrue(preview.changesNothing)
@@ -148,6 +150,30 @@ class StatementImporterInstrumentedTest {
         val before = db.transactionDao().sumByAccount(db.accountDao().allActive().single().id)
         importer.import(ByteArrayInputStream(bytes), "statement.xlsx")
         assertEquals(before, db.transactionDao().sumByAccount(db.accountDao().allActive().single().id))
+    }
+
+    @Test
+    fun previewingAStatementForAnSmsLedger_doesNotPromiseANewAccount() = runBlocking {
+        // Adopting an IBAN-less ledger is not the mistake worth asking about; creating one is.
+        val groupId = db.financialGroupDao().insert(
+            FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK, provider = "Credo"),
+        )
+        db.accountDao().insert(
+            AccountEntity(name = "Everyday", type = AccountType.BANK, groupId = groupId, currency = "GEL"),
+        )
+
+        val preview = importer.preview(
+            ByteArrayInputStream(workbook(cardPayment, conversion, incoming)),
+            "statement.xlsx",
+        )
+
+        assertEquals(LedgerEffect.ADOPTED, preview.ledgerEffect)
+        assertFalse(preview.createsAccount)
+        assertFalse(preview.changesNothing)
+        assertEquals("Everyday", preview.ledgerName)
+        assertEquals(3, preview.inserted)
+        // Still only a reading: the ledger keeps its missing IBAN until an import is accepted.
+        assertNull(db.accountDao().allActive().single().iban)
     }
 
     @Test
