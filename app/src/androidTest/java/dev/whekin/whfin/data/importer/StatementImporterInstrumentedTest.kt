@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -105,6 +106,99 @@ class StatementImporterInstrumentedTest {
         ),
         fileName = "statement-$currency-$periodFrom.xlsx",
     )
+
+    private fun workbook(vararg rows: Row) = SyntheticCredoWorkbook.build(
+        openingBalance = "100.00",
+        closingBalance = "90.86",
+        rows = rows.toList(),
+    )
+
+    @Test
+    fun aPreview_saysExactlyWhatTheImportWillDo() = runBlocking {
+        val bytes = workbook(cardPayment, conversion, incoming)
+
+        val preview = importer.preview(ByteArrayInputStream(bytes), "statement.xlsx")
+
+        assertEquals(3, preview.totalRows)
+        assertEquals(3, preview.inserted)
+        assertEquals(0, preview.duplicates)
+        assertFalse(preview.accountExists)
+        // Reading a file must not leave the account it describes behind.
+        assertTrue(db.accountDao().allActive().isEmpty())
+
+        val result = importer.import(ByteArrayInputStream(bytes), "statement.xlsx")
+
+        assertEquals(preview.totalRows, result.totalRows)
+        assertEquals(preview.inserted, result.inserted)
+        assertEquals(preview.reconciled, result.reconciled)
+    }
+
+    @Test
+    fun previewingAnAlreadyImportedFile_promisesNoChange() = runBlocking {
+        val bytes = workbook(cardPayment, conversion, incoming)
+        importer.import(ByteArrayInputStream(bytes), "statement.xlsx")
+
+        val preview = importer.preview(ByteArrayInputStream(bytes), "statement.xlsx")
+
+        assertTrue(preview.accountExists)
+        assertEquals(0, preview.inserted)
+        assertEquals(3, preview.duplicates)
+        assertTrue(preview.changesNothing)
+
+        val before = db.transactionDao().sumByAccount(db.accountDao().allActive().single().id)
+        importer.import(ByteArrayInputStream(bytes), "statement.xlsx")
+        assertEquals(before, db.transactionDao().sumByAccount(db.accountDao().allActive().single().id))
+    }
+
+    @Test
+    fun oneDraft_isClaimedByOnlyOneStatementLine() = runBlocking {
+        // Two identical purchases at the same shop on the same day, but only one SMS draft: the
+        // draft may confirm one of them, never both.
+        val accountId = db.accountDao().insert(
+            AccountEntity(
+                name = "Credo GEL",
+                type = AccountType.BANK,
+                groupId = db.financialGroupDao().insert(
+                    FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK, provider = "credo"),
+                ),
+                currency = "GEL",
+                iban = SyntheticCredoWorkbook.IBAN,
+            ),
+        )
+        db.transactionDao().insert(
+            dev.whekin.whfin.data.db.TransactionEntity(
+                accountId = accountId,
+                amountMinor = -714,
+                currency = "GEL",
+                occurredAt = LocalDate.of(2026, 1, 9).atStartOfDay(java.time.ZoneId.of("Asia/Tbilisi"))
+                    .toInstant().toEpochMilli() + 3_600_000,
+                rawCounterparty = "NIKORA",
+                status = TxStatus.PENDING,
+                source = TxSource.SMS,
+                externalKey = "sms|test|1",
+            ),
+        )
+
+        val secondCoffee = cardPayment.copy(date = LocalDate.of(2026, 1, 13), balance = "85.72")
+        val result = importer.import(
+            ByteArrayInputStream(
+                SyntheticCredoWorkbook.build(
+                    openingBalance = "100.00",
+                    closingBalance = "85.72",
+                    rows = listOf(cardPayment, secondCoffee),
+                ),
+            ),
+            fileName = "statement.xlsx",
+        )
+
+        assertEquals(1, result.reconciled)
+        assertEquals(1, result.inserted)
+        assertEquals(
+            2,
+            db.transactionDao().observeByAccount(accountId).first()
+                .count { it.source == TxSource.STATEMENT },
+        )
+    }
 
     @Test
     fun firstImport_createsTheBankFromTheAdapterProfile() = runBlocking {

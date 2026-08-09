@@ -1,41 +1,26 @@
 package dev.whekin.whfin.data.importer
 
 import androidx.room.withTransaction
-import dev.whekin.whfin.data.db.AccountEntity
-import dev.whekin.whfin.data.db.AccountType
-import dev.whekin.whfin.data.db.MerchantEntity
-import dev.whekin.whfin.data.db.TransactionEntity
-import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.db.StatementImportOrigin
-import dev.whekin.whfin.data.db.StatementSourceEntity
-import dev.whekin.whfin.data.db.StatementSourceType
-import dev.whekin.whfin.data.db.TransferGroupEntity
-import dev.whekin.whfin.data.db.TransferGroupType
-import dev.whekin.whfin.data.db.ReconciliationIssueEntity
-import dev.whekin.whfin.data.db.SmsDiagnosticKind
-import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
-import dev.whekin.whfin.data.db.TxSource
-import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.statement.BankStatement
 import dev.whekin.whfin.data.statement.StatementFile
-import dev.whekin.whfin.data.statement.StatementOperation
 import dev.whekin.whfin.data.statement.StatementParsers
 import java.io.InputStream
-import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Bank-neutral пайплайн: выписка -> Room.
+ * Bank-neutral pipeline: statement file -> ledger.
  *
- * Разбор конкретного банковского формата живёт за границей [StatementParsers]; здесь остаётся общее
- * для всех банков:
+ * Parsing one bank's format lives behind [StatementParsers]; what remains here is the order of
+ * events, and only the order. Each step is its own object with one job: [BankLedgerResolver] finds
+ * the currency ledger, [ImportPlanner] decides what would happen, [ImportApplier] writes exactly
+ * that, and [TransferPairing] joins movements whose other half lives in a different file.
  *
- * - счёт находится по IBAN или создаётся
- * - дедупликация через externalKey (повторный импорт того же файла = 0 новых строк)
- * - переводы между своими счетами и конвертации помечаются isTransfer
- * - мерчанты создаются в словаре; категория подставляется, если уже выучена
- * - pending-SMS совпадает по нормализованному мерчанту и дате покупки и заменяется строкой выписки
+ * The decision and the writing are deliberately separate. An import used to accumulate its counts
+ * while rows were already landing, so what a user was told afterwards could not be checked against
+ * anything; now the plan exists first, can be inspected without touching the ledger, and the numbers
+ * reported are the plan's own.
  */
 class StatementImporter(private val db: WhfinDatabase) {
 
@@ -52,51 +37,57 @@ class StatementImporter(private val db: WhfinDatabase) {
         val reviewCount: Int,
     )
 
+    /** What an import would do to the ledger as it stands right now, without writing anything. */
+    data class Preview(
+        val statement: BankStatement,
+        val accountExists: Boolean,
+        val totalRows: Int,
+        val inserted: Int,
+        val duplicates: Int,
+        val reconciled: Int,
+        val reviewCount: Int,
+    ) {
+        /** True when importing this file would leave the ledger exactly as it is. */
+        val changesNothing: Boolean get() = inserted == 0 && reconciled == 0 && reviewCount == 0
+    }
+
     private val zone = ZoneId.of("Asia/Tbilisi")
 
-    /** Re-runs pairing when a new currency ledger makes old conversions matchable. */
-    suspend fun repairTransferGroups() {
-        db.accountDao().allActive()
-            .filter { it.type == AccountType.BANK && it.groupId != null }
-            .groupBy { it.groupId!! }
-            .forEach { (groupId, accounts) ->
-                db.withTransaction {
-                    val fromMillis = LocalDate.now().minusYears(3).atMillis()
-                    val toMillis = LocalDate.now().plusDays(2).atMillis() - 1
-                    val byId = accounts.associateBy { it.id }
-                    val candidates = db.transactionDao().conversionTransfers(groupId, fromMillis, toMillis)
-                        .sortedWith(compareBy<TransactionEntity> { it.occurredAt }
-                            .thenBy { if (it.counterpartyIban != null) 0 else 1 })
-                        .toMutableList()
-                    candidates.forEach { db.transactionDao().clearTransferGroup(it.id) }
-                    while (candidates.isNotEmpty()) {
-                        val first = candidates.removeAt(0)
-                        val firstAccount = byId[first.accountId] ?: continue
-                        val index = candidates.indices.filter { index ->
-                            val other = candidates[index]
-                            val otherAccount = byId[other.accountId]
-                            other.currency != first.currency &&
-                                (first.amountMinor < 0) != (other.amountMinor < 0) &&
-                                kotlin.math.abs(other.occurredAt - first.occurredAt) <= 12L * 60 * 60 * 1000 &&
-                                (first.counterpartyIban == otherAccount?.iban || other.counterpartyIban == firstAccount.iban)
-                        }.minByOrNull { candidateIndex ->
-                            val other = candidates[candidateIndex]
-                            val otherAccount = byId[other.accountId]
-                            val mutualIban = first.counterpartyIban == otherAccount?.iban &&
-                                other.counterpartyIban == firstAccount.iban
-                            (if (mutualIban) 0L else 10L * 24 * 60 * 60 * 1000) +
-                                kotlin.math.abs(other.occurredAt - first.occurredAt)
-                        } ?: -1
-                        if (index < 0) continue
-                        val second = candidates.removeAt(index)
-                        val transferGroupId = db.transactionDao().insertTransferGroup(
-                            TransferGroupEntity(type = TransferGroupType.CONVERSION, createdAt = System.currentTimeMillis()),
-                        )
-                        db.transactionDao().setTransferGroup(first.id, transferGroupId)
-                        db.transactionDao().setTransferGroup(second.id, transferGroupId)
-                    }
-                }
-            }
+    /** Re-runs pairing when a newly imported currency ledger makes old conversions matchable. */
+    suspend fun repairTransferGroups() = TransferPairing(db, zone).repairAll()
+
+    /**
+     * Reads a file and reports what importing it would change.
+     *
+     * Nothing is written, including the ledger the statement belongs to: a file the user has not
+     * accepted yet must not leave an account behind. When that ledger does not exist, the file is
+     * planned against an empty history, which is exactly what importing it would find.
+     */
+    suspend fun preview(input: InputStream, fileName: String? = null): Preview {
+        val statement = StatementParsers.parse(StatementFile.read(input, fileName))
+        StatementValidator.validate(statement)
+        val account = db.accountDao().byIbanAndCurrency(statement.accountIban, statement.currency)
+        if (account == null) {
+            return Preview(
+                statement = statement,
+                accountExists = false,
+                totalRows = statement.rows.size,
+                inserted = statement.rows.size,
+                duplicates = 0,
+                reconciled = 0,
+                reviewCount = 0,
+            )
+        }
+        val plan = ImportPlanner(db, zone).plan(statement, account, accountCreated = false, accountAdopted = false)
+        return Preview(
+            statement = statement,
+            accountExists = true,
+            totalRows = plan.totalRows,
+            inserted = plan.inserted,
+            duplicates = plan.duplicates,
+            reconciled = plan.reconciled,
+            reviewCount = plan.reviewCandidateIds.size,
+        )
     }
 
     suspend fun import(
@@ -110,325 +101,28 @@ class StatementImporter(private val db: WhfinDatabase) {
         onPhase(Phase.VERIFYING)
         StatementValidator.validate(statement)
         onPhase(Phase.IMPORTING)
-        // Одна SQLite-транзакция на весь файл: иначе 1000+ отдельных коммитов = десятки секунд
-        return db.withTransaction { importParsed(statement, fileName, origin, onPhase) }
-    }
-
-    private suspend fun importParsed(
-        statement: BankStatement,
-        fileName: String?,
-        origin: StatementImportOrigin,
-        onPhase: (Phase) -> Unit,
-    ): Result {
-        val resolved = BankLedgerResolver(db).resolve(statement)
-        val account = resolved.account
-        updateOpeningAnchor(account.id, statement)
-
-        var inserted = 0
-        var duplicates = 0
-        var reconciled = 0
-        val keyCounts = mutableMapOf<String, Int>()
-        val existingKeys = db.transactionDao().externalKeysForAccount(account.id).toHashSet()
-
-        for ((rowIndex, row) in statement.rows.withIndex()) {
-            if (rowIndex == statement.rows.size / 2) onPhase(Phase.RECONCILING)
-            val baseKey = listOf(
-                statement.accountIban,
-                statement.currency,
-                row.postedDate,
-                row.amountMinor,
-                row.balanceAfterMinor ?: "",
-            ).joinToString("|")
-            // Одинаковые (дата, сумма, баланс) теоретически возможны — различаем порядковым номером
-            val ordinal = keyCounts.merge(baseKey, 1, Int::plus)!!
-            val externalKey = "stmt|$baseKey|$ordinal"
-
-            if (externalKey in existingKeys) {
-                duplicates++
-                continue
-            }
-
-            val merchant = row.merchantRaw
-                ?.let { resolveMerchant(it) }
-                ?: row.beneficiaryName
-                    ?.takeIf { row.operation != StatementOperation.OWN_TRANSFER }
-                    ?.let { resolveMerchant(it) }
-
-            val isOwnTransfer = row.operation.isOwnMovement
-
-            val occurred = (row.purchaseDate ?: row.postedDate).atMillis()
-            val pending = row.merchantRaw?.let { raw ->
-                val wanted = MerchantNormalizer.normalize(raw)
-                val dayStart = (row.purchaseDate ?: row.postedDate).atMillis()
-                val dayEnd = (row.purchaseDate ?: row.postedDate).plusDays(1).atMillis() - 1
-                val candidates = db.transactionDao().reconciliationCandidates(account.id, dayStart, dayEnd)
-                    .filter { candidate ->
-                        candidate.rawCounterparty?.let(MerchantNormalizer::normalize) == wanted
-                    }
-                candidates.filter { it.amountMinor == row.amountMinor }.singleOrNull()
-                    ?: candidates.singleOrNull()
-            }
-            if (pending != null) {
-                db.transactionDao().update(
-                    pending.copy(
-                        amountMinor = row.amountMinor,
-                        currency = statement.currency,
-                        occurredAt = occurred,
-                        postedAt = row.postedDate.atMillis(),
-                        merchantId = merchant?.id,
-                        rawCounterparty = row.merchantRaw,
-                        counterpartyIban = row.beneficiaryAccount,
-                        categoryId = merchant?.categoryId,
-                        note = row.description.takeIf { it != row.merchantRaw },
-                        status = TxStatus.CONFIRMED,
-                        source = TxSource.STATEMENT,
-                        isTransfer = isOwnTransfer,
-                        balanceAfterMinor = row.balanceAfterMinor,
-                        externalKey = externalKey,
-                        gelValueMinor = null,
-                        gelRateOn = null,
-                    ),
-                )
-                existingKeys += externalKey
-                reconciled++
-                continue
-            }
-            val id = db.transactionDao().insert(
-                TransactionEntity(
-                    accountId = account.id,
-                    amountMinor = row.amountMinor,
-                    currency = statement.currency,
-                    occurredAt = occurred,
-                    postedAt = row.postedDate.atMillis(),
-                    merchantId = merchant?.id,
-                    rawCounterparty = row.merchantRaw ?: row.beneficiaryName,
-                    counterpartyIban = row.beneficiaryAccount,
-                    categoryId = merchant?.categoryId,
-                    note = row.description.takeIf { it != row.merchantRaw },
-                    status = TxStatus.CONFIRMED,
-                    source = TxSource.STATEMENT,
-                    isTransfer = isOwnTransfer,
-                    balanceAfterMinor = row.balanceAfterMinor,
-                    externalKey = externalKey,
-                    createdAt = System.currentTimeMillis(),
-                ),
+        // One SQLite transaction for the whole file: a thousand separate commits take tens of
+        // seconds, and a failure halfway would leave a balance that matches no bank document.
+        return db.withTransaction {
+            val resolved = BankLedgerResolver(db).resolve(statement)
+            val plan = ImportPlanner(db, zone).plan(
+                statement = statement,
+                account = resolved.account,
+                accountCreated = resolved.created,
+                accountAdopted = resolved.adopted,
             )
-            if (id > 0) {
-                inserted++
-                existingKeys += externalKey
-                attachUnroutedCardEvidence(
-                    account = account,
-                    transactionId = id,
-                    amountMinor = row.amountMinor,
-                    currency = statement.currency,
-                    purchaseDate = row.purchaseDate ?: row.postedDate,
-                    merchantRaw = row.merchantRaw,
-                )
-            } else duplicates++
-        }
-
-        pairOwnTransfers(account, statement.periodFrom, statement.periodTo)
-        val reviewCandidates = if (statement.periodFrom != null && statement.periodTo != null) {
-            val safeTo = statement.periodTo.minusDays(3)
-            if (safeTo >= statement.periodFrom) {
-                db.transactionDao().reconciliationCandidates(
-                    account.id,
-                    statement.periodFrom.atMillis(),
-                    safeTo.plusDays(1).atMillis() - 1,
-                )
-            } else emptyList()
-        } else emptyList()
-        val importId = db.statementImportDao().insert(
-            run {
-                val groupId = requireNotNull(account.groupId)
-                val source = db.statementSourceDao().forAccount(account.id)
-                val sourceId = source?.id ?: db.statementSourceDao().insert(
-                    StatementSourceEntity(
-                        groupId = groupId,
-                        type = StatementSourceType.ACCOUNT,
-                        accountId = account.id,
-                        label = account.iban ?: account.name,
-                    ),
-                )
-            StatementImportEntity(
-                accountId = account.id,
-                sourceId = sourceId,
-                fileName = fileName,
-                origin = origin,
-                periodFrom = statement.periodFrom?.toEpochDay(),
-                periodTo = statement.periodTo?.toEpochDay(),
-                openingBalanceMinor = statement.openingBalanceMinor,
-                closingBalanceMinor = statement.closingBalanceMinor,
-                totalRows = statement.rows.size,
-                inserted = inserted,
-                duplicates = duplicates,
-                reconciled = reconciled,
-                reviewCount = reviewCandidates.size,
-                importedAt = System.currentTimeMillis(),
-            )
-            },
-        )
-        reviewCandidates.forEach { candidate ->
-            val issue = ReconciliationIssueEntity(
-                accountId = account.id,
-                transactionId = candidate.id,
+            onPhase(Phase.RECONCILING)
+            val importId = ImportApplier(db, zone).apply(plan, resolved.account, fileName, origin)
+            Result(
+                accountId = plan.accountId,
+                accountCreated = plan.accountCreated,
+                totalRows = plan.totalRows,
+                inserted = plan.inserted,
+                duplicates = plan.duplicates,
+                reconciled = plan.reconciled,
                 importId = importId,
-                createdAt = System.currentTimeMillis(),
+                reviewCount = plan.reviewCandidateIds.size,
             )
-            if (db.reconciliationIssueDao().insert(issue) <= 0) {
-                db.reconciliationIssueDao().moveOpenToImport(candidate.id, importId)
-            }
-        }
-        return Result(
-            accountId = account.id,
-            accountCreated = resolved.created,
-            totalRows = statement.rows.size,
-            inserted = inserted,
-            duplicates = duplicates,
-            reconciled = reconciled,
-            importId = importId,
-            reviewCount = reviewCandidates.size,
-        )
-    }
-
-    private suspend fun attachUnroutedCardEvidence(
-        account: AccountEntity,
-        transactionId: Long,
-        amountMinor: Long,
-        currency: String,
-        purchaseDate: LocalDate,
-        merchantRaw: String?,
-    ) {
-        val merchant = merchantRaw ?: return
-        val wanted = MerchantNormalizer.normalize(merchant)
-        if (wanted.isEmpty()) return
-        val candidates = db.smsDiagnosticDao().unroutedBetween(
-            purchaseDate.atMillis(),
-            purchaseDate.plusDays(1).atMillis() - 1,
-        ).filter { diagnostic ->
-            diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT &&
-                diagnostic.counterparty?.let(MerchantNormalizer::normalize) == wanted
-        }
-        val exact = candidates.filter { diagnostic ->
-            diagnostic.currency == currency &&
-                diagnostic.amountMinor?.let { -kotlin.math.abs(it) } == amountMinor
-        }
-        val match = exact.singleOrNull() ?: candidates.singleOrNull() ?: return
-        db.smsDiagnosticDao().update(
-            match.copy(
-                outcome = SmsDiagnosticOutcome.ATTACHED,
-                reason = null,
-                transactionId = transactionId,
-                accountId = account.id,
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
-    }
-
-    private suspend fun resolveMerchant(raw: String): MerchantEntity? {
-        val key = MerchantNormalizer.normalize(raw)
-        if (key.isEmpty()) return null
-        db.merchantDao().resolve(key)?.let { return it }
-        val id = db.merchantDao().insert(
-            MerchantEntity(normalizedKey = key, displayName = MerchantNormalizer.displayName(raw)),
-        )
-        // id == -1 при гонке (IGNORE) — перечитываем
-        return if (id > 0) db.merchantDao().byKey(key) else db.merchantDao().resolve(key)
-    }
-
-    private fun LocalDate.atMillis(): Long =
-        atStartOfDay(zone).toInstant().toEpochMilli()
-
-    /**
-     * Fiat balance is the sum of ledger rows, so exactly one opening anchor must describe the earliest
-     * imported period. Importing older history moves that anchor instead of stacking another opening
-     * balance on top of the existing ledger.
-     */
-    private suspend fun updateOpeningAnchor(accountId: Long, statement: BankStatement) {
-        val current = statement.periodFrom?.let { from ->
-            statement.openingBalanceMinor?.let { opening -> OpeningSnapshot(from, opening) }
-        }
-        val stored = db.statementImportDao().earliestWithOpeningBalance(accountId)?.let { item ->
-            OpeningSnapshot(
-                date = LocalDate.ofEpochDay(requireNotNull(item.periodFrom)),
-                amountMinor = requireNotNull(item.openingBalanceMinor),
-            )
-        }
-        val earliest = listOfNotNull(current, stored).minByOrNull(OpeningSnapshot::date) ?: return
-        val key = "opening|${statement.accountIban}|${statement.currency}|${earliest.date}"
-        val occurredAt = earliest.date.minusDays(1).atMillis()
-        val existing = db.transactionDao().openingAnchor(accountId)
-        val replacement = TransactionEntity(
-            id = existing?.id ?: 0,
-            accountId = accountId,
-            amountMinor = earliest.amountMinor,
-            currency = statement.currency,
-            occurredAt = occurredAt,
-            status = TxStatus.CONFIRMED,
-            source = TxSource.ADJUSTMENT,
-            isTransfer = true,
-            externalKey = key,
-            createdAt = existing?.createdAt?.takeIf { it != 0L } ?: System.currentTimeMillis(),
-        )
-        if (existing == null) db.transactionDao().insert(replacement)
-        else if (existing != replacement) db.transactionDao().update(replacement)
-    }
-
-    private data class OpeningSnapshot(val date: LocalDate, val amountMinor: Long)
-
-    private suspend fun pairOwnTransfers(account: AccountEntity, from: LocalDate?, to: LocalDate?) {
-        val groupId = account.groupId ?: return
-        val fromMillis = (from ?: return).minusDays(3).atMillis()
-        val toMillis = (to ?: return).plusDays(4).atMillis() - 1
-        // Re-evaluate imported conversions: a later currency statement can reveal a closer,
-        // correct leg than the best candidate available during the first import.
-        db.transactionDao().conversionTransfers(groupId, fromMillis, toMillis)
-            .forEach { db.transactionDao().clearTransferGroup(it.id) }
-        val candidates = db.transactionDao().ungroupedTransfers(groupId, fromMillis, toMillis)
-            .sortedWith(compareBy<TransactionEntity> { it.occurredAt }
-                .thenBy { if (it.counterpartyIban != null) 0 else 1 })
-            .toMutableList()
-        val accountsById = db.accountDao().byGroup(groupId).associateBy { it.id }
-        // Pairing runs over stored rows, so the conversion vocabulary comes from the adapters.
-        fun isExchange(tx: TransactionEntity): Boolean = tx.note?.let { note ->
-            StatementParsers.conversionNoteMarkers.any { note.contains(it, ignoreCase = true) }
-        } == true
-        while (candidates.isNotEmpty()) {
-            val first = candidates.removeAt(0)
-            fun matches(other: TransactionEntity): Boolean {
-                val exactTransfer = other.currency == first.currency && other.amountMinor == -first.amountMinor
-                val firstAccount = accountsById[first.accountId]
-                val otherAccount = accountsById[other.accountId]
-                val linkedConversion = first.currency != other.currency &&
-                    (first.amountMinor < 0) != (other.amountMinor < 0) &&
-                    (isExchange(first) || isExchange(other)) &&
-                    (first.counterpartyIban == otherAccount?.iban || other.counterpartyIban == firstAccount?.iban)
-                val distance = kotlin.math.abs(other.occurredAt - first.occurredAt)
-                return other.accountId != first.accountId &&
-                    ((exactTransfer && distance <= 3L * 24 * 60 * 60 * 1000) ||
-                        (linkedConversion && distance <= 12L * 60 * 60 * 1000))
-            }
-            val matchIndex = candidates.indices.filter { matches(candidates[it]) }
-                .minByOrNull { candidateIndex ->
-                    val other = candidates[candidateIndex]
-                    val firstAccount = accountsById[first.accountId]
-                    val otherAccount = accountsById[other.accountId]
-                    val mutualIban = first.counterpartyIban == otherAccount?.iban &&
-                        other.counterpartyIban == firstAccount?.iban
-                    (if (mutualIban) 0L else 10L * 24 * 60 * 60 * 1000) +
-                        kotlin.math.abs(other.occurredAt - first.occurredAt)
-                }
-                ?: -1
-            if (matchIndex < 0) continue
-            val second = candidates.removeAt(matchIndex)
-            val transferGroupId = db.transactionDao().insertTransferGroup(
-                TransferGroupEntity(
-                    type = if (first.currency == second.currency) TransferGroupType.TRANSFER else TransferGroupType.CONVERSION,
-                    createdAt = System.currentTimeMillis(),
-                ),
-            )
-            db.transactionDao().setTransferGroup(first.id, transferGroupId)
-            db.transactionDao().setTransferGroup(second.id, transferGroupId)
         }
     }
 }

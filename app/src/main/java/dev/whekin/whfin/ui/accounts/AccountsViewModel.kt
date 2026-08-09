@@ -437,26 +437,31 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     fun updateBankMapping(account: AccountEntity, iban: String?, cardMasks: List<String>, virtualCards: List<String>) {
         viewModelScope.launch {
             try {
-                db.accountDao().update(account.copy(iban = iban))
-                db.paymentInstrumentDao().replaceForAccount(
-                    account,
-                    cardMasks.map { it to PaymentInstrumentType.PHYSICAL_CARD } +
-                        virtualCards.map { it to PaymentInstrumentType.VIRTUAL_CARD },
-                )
-                db.paymentInstrumentDao().forAccount(account.id)
-                    .filter { it.type == PaymentInstrumentType.VIRTUAL_CARD }
-                    .forEach { instrument ->
-                        if (db.statementSourceDao().forInstrument(instrument.id) == null) {
-                            db.statementSourceDao().insert(
-                                StatementSourceEntity(
-                                    groupId = requireNotNull(account.groupId),
-                                    type = StatementSourceType.CARD,
-                                    instrumentId = instrument.id,
-                                    label = "Virtual card ••••${instrument.last4}",
-                                ),
-                            )
+                // One IBAN, its cards and their statement sources describe a single account: applied
+                // apart, a failure halfway leaves cards pointing at an account that never got its
+                // IBAN, and SMS routing then lands the money in the wrong ledger.
+                db.withTransaction {
+                    db.accountDao().update(account.copy(iban = iban))
+                    db.paymentInstrumentDao().replaceForAccount(
+                        account,
+                        cardMasks.map { it to PaymentInstrumentType.PHYSICAL_CARD } +
+                            virtualCards.map { it to PaymentInstrumentType.VIRTUAL_CARD },
+                    )
+                    db.paymentInstrumentDao().forAccount(account.id)
+                        .filter { it.type == PaymentInstrumentType.VIRTUAL_CARD }
+                        .forEach { instrument ->
+                            if (db.statementSourceDao().forInstrument(instrument.id) == null) {
+                                db.statementSourceDao().insert(
+                                    StatementSourceEntity(
+                                        groupId = requireNotNull(account.groupId),
+                                        type = StatementSourceType.CARD,
+                                        instrumentId = instrument.id,
+                                        label = "Virtual card ••••${instrument.last4}",
+                                    ),
+                                )
+                            }
                         }
-                    }
+                }
                 _message.value = "Bank details saved"
             } catch (e: Exception) {
                 _message.value = e.message ?: "Could not save bank details"
