@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,8 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -51,7 +51,6 @@ import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dev.whekin.whfin.core.ui.WhfinButton
@@ -167,40 +166,33 @@ internal fun QuickExpenseScreen(
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val hiddenSheetOffset = with(LocalDensity.current) {
-        LocalConfiguration.current.screenHeightDp.dp.toPx()
-    }
-    var expandedSheetOffset by remember(hiddenSheetOffset) {
-        mutableFloatStateOf(hiddenSheetOffset)
-    }
-    var currentSheetOffset by remember(hiddenSheetOffset) {
-        mutableFloatStateOf(hiddenSheetOffset)
-    }
-    LaunchedEffect(sheetState, hiddenSheetOffset) {
-        snapshotFlow { runCatching { sheetState.requireOffset() }.getOrNull() }
-            .filterNotNull()
-            .collect { offset ->
-                currentSheetOffset = offset
-                expandedSheetOffset = minOf(expandedSheetOffset, offset)
-            }
-    }
-    val scrimProgress = sheetScrimProgress(
-        offset = currentSheetOffset,
-        expandedOffset = expandedSheetOffset,
-        hiddenOffset = hiddenSheetOffset,
-    )
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = MaterialTheme.shapes.extraLarge,
-        containerColor = MaterialTheme.colorScheme.background,
-        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f * scrimProgress),
-        dragHandle = {
-            BottomSheetDefaults.DragHandle(
-                modifier = Modifier.testTag("quick-expense-drag-handle"),
+    var sheetHeightPx by remember { mutableFloatStateOf(0f) }
+    val backdropColor = MaterialTheme.colorScheme.scrim
+    Box(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize().testTag("quick-expense-backdrop")) {
+            val hiddenOffset = size.height
+            val expandedOffset = (hiddenOffset - sheetHeightPx).coerceAtLeast(0f)
+            val offset = runCatching { sheetState.requireOffset() }.getOrDefault(hiddenOffset)
+            drawRect(
+                color = backdropColor,
+                alpha = 0.32f * sheetScrimProgress(offset, expandedOffset, hiddenOffset),
             )
-        },
-    ) {
+        }
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            modifier = Modifier.onSizeChanged { sheetHeightPx = it.height.toFloat() },
+            sheetState = sheetState,
+            shape = MaterialTheme.shapes.extraLarge,
+            containerColor = MaterialTheme.colorScheme.background,
+            // Material's own scrim animates from the binary targetValue and therefore changes at
+            // one drag threshold. Keep its tap target, but draw the visual backdrop underneath.
+            scrimColor = Color.Transparent,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(
+                    modifier = Modifier.testTag("quick-expense-drag-handle"),
+                )
+            },
+        ) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -330,6 +322,7 @@ internal fun QuickExpenseScreen(
                 modifier = Modifier.fillMaxWidth().testTag("quick-expense-save"),
             )
         }
+        }
     }
 }
 
@@ -341,12 +334,7 @@ internal fun sheetScrimProgress(
     val travel = hiddenOffset - expandedOffset
     if (!travel.isFinite() || travel <= 0f) return 0f
     val dragFraction = ((offset - expandedOffset) / travel).coerceIn(0f, 1f)
-    // Hold the visual connection to the background through most of the gesture. A linear alpha
-    // already looks nearly clear halfway down because the full scrim is intentionally only 32%.
-    // Squaring the input delays the reveal; smoothstep makes both ends settle without an alpha snap.
-    val delayedFraction = dragFraction * dragFraction
-    val reveal = delayedFraction * delayedFraction * (3f - 2f * delayedFraction)
-    return 1f - reveal
+    return 1f - dragFraction
 }
 
 @Preview(name = "quick_expense_light", widthDp = 360, heightDp = 780)

@@ -324,9 +324,11 @@ This is a single-context repository with root domain documentation and system-wi
   Description и временно заменяет keypad. Quick expense размещён в настоящем Material modal bottom sheet:
   закрывается свайпом вниз, тапом по scrim или явным крестиком. Translucent host не добавляет системный
   window-dim поверх Compose scrim, поэтому фон launcher возвращается вместе с sheet, а не вторым тактом.
-  Scrim alpha теперь следует фактическому drag offset, а не бинарному Expanded/Hidden target.
-  Squared drag fraction перед smoothstep сохраняет около 58% исходного затемнения на 2/3 жеста,
-  полностью проявляет фон только у hidden anchor и даёт нулевую alpha velocity на обоих концах.
+  Material scrim оставлен прозрачным только для outside-tap/semantics: его внутренняя alpha зависит
+  от бинарного targetValue и даёт одну точку перехода. Визуальный scrim рисует host Canvas: он читает
+  `requireOffset()` прямо в draw-phase, а expanded anchor берёт из фактической высоты sheet.
+  Alpha линейно следует drag distance: каждое движение sheet меняет фон, на 2/3 пути остаётся
+  треть исходного затемнения, а полное проявление происходит только у hidden anchor.
   В Settings → Appearance добавлен persistent toggle
   клавиатуры Quick expense (по умолчанию включён); выключение даёт автофокус системному decimal IME.
   Арифметика, category→save callback,
