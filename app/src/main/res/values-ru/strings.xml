@@ -351,6 +351,12 @@
     <string name="corrections_section">ИМПОРТИРОВАННЫЕ ОПЕРАЦИИ</string>
     <string name="corrections_empty_title">Исправлений нет</string>
     <string name="corrections_empty_body">Исправленные импортированные операции появятся здесь — их можно восстановить.</string>
+    <string name="backup_safety_section">ПЕРЕД ПОСЛЕДНИМ ВОССТАНОВЛЕНИЕМ</string>
+    <string name="backup_safety_title">Копия прежних данных</string>
+    <string name="backup_safety_body">Сделана автоматически %1$s, прямо перед тем, как восстановление заменило всё. С устройства не уходит.</string>
+    <string name="backup_safety_action">Вернуться к ней</string>
+    <string name="backup_safety_confirm_title">Вернуться к прежним данным?</string>
+    <string name="backup_safety_confirm_body">Всё, что восстановлено с тех пор, заменит копия, сделанная перед последним восстановлением. Копия текущих данных будет создана до замены.</string>
     <string name="data_health_title">Состояние данных</string>
     <string name="data_health_settings_summary">Проверить книгу на противоречия и перейти к экранам, где их исправляют.</string>
     <string name="data_health_checking">Проверяю</string>

@@ -37,6 +37,7 @@ import dev.whekin.whfin.data.backup.WhfinBackupPassphraseException
 import dev.whekin.whfin.data.drive.DriveAuthResult
 import dev.whekin.whfin.data.drive.DriveBackupAuth
 import dev.whekin.whfin.data.drive.DriveBackupFile
+import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.drive.DriveBackupManager
 import dev.whekin.whfin.data.drive.DriveBackupStore
 import dev.whekin.whfin.data.drive.DriveBackupWorker
@@ -62,7 +63,9 @@ fun DriveBackupSection(appVersion: String) {
     val context = LocalContext.current
     val app = context.applicationContext as WhfinApp
     val store = remember(app) { DriveBackupStore(app) }
-    val manager = remember(app) { DriveBackupManager(app, app.userDb) }
+    val manager = remember(app, appVersion) {
+        DriveBackupManager(app, app.userDb, safetyBackup = RestoreSafetyBackup(app, appVersion))
+    }
     val scope = rememberCoroutineScope()
 
     var enabled by remember { mutableStateOf(store.enabled) }

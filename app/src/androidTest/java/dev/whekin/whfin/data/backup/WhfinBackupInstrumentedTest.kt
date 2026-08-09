@@ -6,6 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.db.WHFIN_DATABASE_VERSION
 import dev.whekin.whfin.data.db.WhfinDatabase
+import dev.whekin.whfin.data.integrity.DataIntegrityChecker
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Instant
@@ -71,7 +73,7 @@ class WhfinBackupInstrumentedTest {
         val summary = WhfinBackupManager(target).restore(ByteArrayInputStream(original))
         val restored = export(target)
 
-        assertEquals(20, summary.rowCount)
+        assertEquals(24, summary.rowCount)
         assertEquals(original.toString(Charsets.UTF_8), restored.toString(Charsets.UTF_8))
     }
 
@@ -220,6 +222,78 @@ class WhfinBackupInstrumentedTest {
         assertEquals(0, sqlite.longForQuery("SELECT COUNT(*) FROM crypto_balances WHERE baseUnits = '0'"))
     }
 
+    /**
+     * The copy a person actually keeps is the encrypted one, and what they need back is not just
+     * rows but which of those rows currently count. A correction hides its source from every active
+     * projection while both stay in the file, so a restore that quietly reactivates either would
+     * bring back money the user already decided was wrong.
+     */
+    @Test
+    fun encryptedRoundTrip_keepsCorrectedRowsCorrectedAndRestoredRowsRestored() = runBlocking {
+        seedEveryTable(source)
+        val mutations = TransactionMutationModule(source)
+        val corrected = statementRow(source, id = 20, amountMinor = -5_000, key = "tx-corrected")
+        val restored = statementRow(source, id = 21, amountMinor = -7_000, key = "tx-restored")
+        mutations.voidTransaction(corrected, reason = "Refunded")
+        mutations.voidTransaction(restored)
+        mutations.restoreTransaction(restored)
+        val balanceBefore = source.transactionDao().sumByAccount(1)
+
+        val encrypted = ByteArrayOutputStream()
+        WhfinBackupManager(source).exportEncrypted(encrypted, METADATA, PASSPHRASE.copyOf())
+        WhfinBackupManager(target).restore(
+            ByteArrayInputStream(encrypted.toByteArray()),
+            PASSPHRASE.copyOf(),
+        )
+
+        // Byte equality of the plain exports proves every column survived, provenance included.
+        assertEquals(
+            export(source).toString(Charsets.UTF_8),
+            export(target).toString(Charsets.UTF_8),
+        )
+        assertEquals(balanceBefore, target.transactionDao().sumByAccount(1))
+        assertEquals(true, target.transactionDao().byId(corrected)?.isVoided)
+        assertEquals(false, target.transactionDao().byId(restored)?.isVoided)
+        assertEquals(1, target.transactionDao().activeCorrectionsFor(corrected).size)
+        // The withdrawn correction is still filed, it just no longer claims anything.
+        assertEquals(0, target.transactionDao().activeCorrectionsFor(restored).size)
+        assertEquals(1, target.transactionDao().correctionsFor(restored).size)
+        // Audit rows never re-enter a balance, whichever side they ended on.
+        val auditRows = target.transactionDao().allForIntegrity()
+            .filter { it.correctionOfTransactionId != null }
+        assertEquals(2, auditRows.size)
+        assertEquals(emptyList<Long>(), auditRows.filterNot { it.isVoided }.map { it.id })
+        val report = DataIntegrityChecker(target).run()
+        assertEquals(report.issues.joinToString { "${it.code}:${it.entity}#${it.entityId}" }, true, report.isHealthy)
+    }
+
+    @Test
+    fun restore_rejectsABackupFromANewerDatabaseWithoutTouchingCurrentData() = runBlocking {
+        seedEveryTable(source)
+        seedEveryTable(target)
+        val newer = export(source).toString(Charsets.UTF_8)
+            .replace(
+                "\"databaseVersion\": $WHFIN_DATABASE_VERSION",
+                "\"databaseVersion\": ${WHFIN_DATABASE_VERSION + 1}",
+            )
+
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking { WhfinBackupManager(target).restore(ByteArrayInputStream(newer.toByteArray())) }
+        }
+        // An unreadable future file must never be treated as "restore what you can".
+        assertEquals(1, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM accounts WHERE id = 1"))
+        Unit
+    }
+
+    private suspend fun statementRow(db: WhfinDatabase, id: Long, amountMinor: Long, key: String): Long {
+        db.openHelper.writableDatabase.execSQL(
+            "INSERT INTO transactions (id, accountId, amountMinor, currency, occurredAt, status, " +
+                "source, isTransfer, externalKey, createdAt) VALUES " +
+                "($id, 1, $amountMinor, 'GEL', 2000, 'CONFIRMED', 'STATEMENT', 0, '$key', 3000)",
+        )
+        return id
+    }
+
     private suspend fun export(db: WhfinDatabase): ByteArray {
         val output = ByteArrayOutputStream()
         WhfinBackupManager(db).export(output, METADATA)
@@ -236,6 +310,7 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO crypto_assets VALUES (1, 'eip155:1', NULL, 'ETH', 'Ether', 18)")
             sqlite.execSQL("INSERT INTO accounts VALUES (1, 'Credo GEL', 'BANK', 1, 'GEL', 'GE01', NULL, NULL, NULL, NULL, 0, 0)")
             sqlite.execSQL("INSERT INTO accounts VALUES (2, 'ETH', 'CRYPTO', 2, 'ETH', NULL, 1, 1, NULL, NULL, 0, 1)")
+            sqlite.execSQL("INSERT INTO accounts VALUES (3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, 'FLEXIBLE_RESERVE', 0, 2)")
             sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0)")
             sqlite.execSQL("INSERT INTO instrument_account_links VALUES (1, 1)")
             sqlite.execSQL("INSERT INTO transfer_groups VALUES (1, 'TRANSFER', 'Test transfer', 1000)")
@@ -254,7 +329,25 @@ class WhfinBackupInstrumentedTest {
                     "1, 1, -1250, 'GEL', 2000, 1, 'NIKORA', 1, 'Lunch', 'CONFIRMED', 'STATEMENT', " +
                     "1, 1, 10000, 'tx-1', -3400, '2026-03-14', 3000)",
             )
-            sqlite.execSQL("INSERT INTO transaction_allocations VALUES (1, 1, -1250, 1, 1, 'SHARED', 'Half')")
+            // Both legs, because a transfer group with one leg is the corruption the integrity
+            // checks look for — a fixture must not ship the shape it is meant to catch.
+            sqlite.execSQL(
+                "INSERT INTO transactions (" +
+                    "id, accountId, amountMinor, currency, occurredAt, status, source, " +
+                    "transferGroupId, isTransfer, externalKey, createdAt" +
+                    ") VALUES (" +
+                    "2, 3, 1250, 'GEL', 2000, 'CONFIRMED', 'STATEMENT', 1, 1, 'tx-2', 3000)",
+            )
+            // A split belongs to a purchase, never to a leg of a transfer between own accounts.
+            sqlite.execSQL(
+                "INSERT INTO transactions (" +
+                    "id, accountId, amountMinor, currency, occurredAt, merchantId, rawCounterparty, " +
+                    "categoryId, status, source, isTransfer, externalKey, createdAt" +
+                    ") VALUES (" +
+                    "3, 1, -2400, 'GEL', 2500, 1, 'NIKORA', 1, 'CONFIRMED', 'STATEMENT', 0, 'tx-3', 3500)",
+            )
+            sqlite.execSQL("INSERT INTO transaction_allocations VALUES (1, 3, -1200, 1, 1, 'SHARED', 'Half')")
+            sqlite.execSQL("INSERT INTO transaction_allocations VALUES (2, 3, -1200, 1, NULL, 'PERSONAL', NULL)")
             sqlite.execSQL("INSERT INTO debt_cases VALUES (1, 1, 'THEY_OWE_ME', 1250, 'GEL', 2000, 'OPEN', NULL, 'Lunch')")
             sqlite.execSQL(
                 "INSERT INTO debt_events (id, debtCaseId, kind, actualAmountMinor, actualCurrency, " +
@@ -281,5 +374,6 @@ class WhfinBackupInstrumentedTest {
             appVersion = "0.1.0 (1)",
             primaryCurrency = "GEL",
         )
+        val PASSPHRASE = "correct horse battery staple".toCharArray()
     }
 }

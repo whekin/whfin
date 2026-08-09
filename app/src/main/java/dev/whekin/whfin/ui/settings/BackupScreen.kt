@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SaveAlt
@@ -37,6 +38,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -44,12 +46,17 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFormSheet
+import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.backup.WhfinBackupManager
 import dev.whekin.whfin.data.backup.WhfinBackupMetadata
 import dev.whekin.whfin.data.backup.WhfinBackupPassphraseException
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,8 +76,11 @@ internal data class PendingRestore(val uri: Uri, val encrypted: Boolean)
 fun BackupRoute(appVersion: String) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val resolver = context.contentResolver
-    val manager = remember(context.applicationContext) {
-        WhfinBackupManager((context.applicationContext as WhfinApp).db)
+    val safetyBackup = remember(context.applicationContext, appVersion) {
+        RestoreSafetyBackup(context.applicationContext, appVersion)
+    }
+    val manager = remember(context.applicationContext, safetyBackup) {
+        WhfinBackupManager((context.applicationContext as WhfinApp).db, safetyBackup)
     }
     val scope = rememberCoroutineScope()
     var uiState by remember { mutableStateOf<BackupUiState>(BackupUiState.Idle) }
@@ -79,6 +89,8 @@ fun BackupRoute(appVersion: String) {
     // Живёт только между вводом passphrase и завершением записи файла.
     var exportPassphrase by remember { mutableStateOf<CharArray?>(null) }
     var restorePassphraseFor by remember { mutableStateOf<Uri?>(null) }
+    var safetyCopy by remember { mutableStateOf(safetyBackup.latest()) }
+    var confirmUndo by remember { mutableStateOf(false) }
     var restorePassphraseError by remember { mutableStateOf(false) }
 
     fun metadata() = WhfinBackupMetadata(
@@ -156,6 +168,7 @@ fun BackupRoute(appVersion: String) {
                 onSuccess = {
                     restorePassphraseFor = null
                     restorePassphraseError = false
+                    safetyCopy = safetyBackup.latest()
                     uiState = BackupUiState.Restored(it.rowCount)
                 },
                 onFailure = { error ->
@@ -190,7 +203,40 @@ fun BackupRoute(appVersion: String) {
             }
         },
         onDismissRestore = { pendingRestore = null },
+        safetyCopyTakenAt = safetyCopy?.takenAt,
+        onUndoRestore = { confirmUndo = true },
     )
+
+    if (confirmUndo) {
+        val snapshot = safetyCopy
+        WhfinConfirmDialog(
+            title = stringResource(R.string.backup_safety_confirm_title),
+            body = stringResource(R.string.backup_safety_confirm_body),
+            confirmLabel = stringResource(R.string.backup_safety_action),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
+                confirmUndo = false
+                if (snapshot != null) {
+                    scope.launch {
+                        uiState = BackupUiState.Restoring
+                        // Going back is itself a restore, so it takes its own snapshot first: a
+                        // mistaken undo must not become the one step without a way back.
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) {
+                                snapshot.file.inputStream().use { manager.restore(it) }
+                            }
+                        }
+                        safetyCopy = safetyBackup.latest()
+                        uiState = result.fold(
+                            onSuccess = { BackupUiState.Restored(it.rowCount) },
+                            onFailure = { BackupUiState.Error },
+                        )
+                    }
+                }
+            },
+            onDismiss = { confirmUndo = false },
+        )
+    }
 
     if (exportPassphraseSheet) {
         BackupPassphraseSheet(
@@ -292,6 +338,8 @@ internal fun BackupScreen(
     onRestore: () -> Unit,
     onConfirmRestore: () -> Unit,
     onDismissRestore: () -> Unit,
+    safetyCopyTakenAt: Instant? = null,
+    onUndoRestore: () -> Unit = {},
 ) {
     val working = uiState == BackupUiState.Exporting || uiState == BackupUiState.Restoring
     Column(
@@ -342,6 +390,33 @@ internal fun BackupScreen(
             leadingIcon = Icons.Default.Restore,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // Only after a restore has happened is there something to go back to, so the row appears
+        // exactly when it is useful instead of advertising a feature with nothing behind it.
+        safetyCopyTakenAt?.let { takenAt ->
+            WhfinSectionLabel(stringResource(R.string.backup_safety_section))
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                WhfinLedgerRow(
+                    title = stringResource(R.string.backup_safety_title),
+                    supportingText = stringResource(
+                        R.string.backup_safety_body,
+                        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                            .withLocale(Locale.getDefault())
+                            .format(takenAt.atZone(ZoneId.systemDefault())),
+                    ),
+                    supportingMaxLines = 6,
+                    icon = Icons.Default.History,
+                )
+            }
+            WhfinButton(
+                label = stringResource(R.string.backup_safety_action),
+                onClick = onUndoRestore,
+                enabled = !working,
+                style = WhfinActionStyle.DestructiveSecondary,
+                leadingIcon = Icons.Default.History,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         driveSection()
 

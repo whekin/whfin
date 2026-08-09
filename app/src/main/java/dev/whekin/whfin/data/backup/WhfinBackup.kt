@@ -35,7 +35,14 @@ data class WhfinBackupSummary(
 
 class WhfinBackupException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-class WhfinBackupManager(private val database: WhfinDatabase) {
+/**
+ * [safetyBackup] makes every restore reversible. It is optional only so tests and the safety
+ * snapshot itself can export without recursing; every user-facing path supplies one.
+ */
+class WhfinBackupManager(
+    private val database: WhfinDatabase,
+    private val safetyBackup: RestoreSafetyBackup? = null,
+) {
     suspend fun export(output: OutputStream, metadata: WhfinBackupMetadata): WhfinBackupSummary =
         withContext(Dispatchers.IO) {
             database.withTransaction {
@@ -72,6 +79,9 @@ class WhfinBackupManager(private val database: WhfinDatabase) {
                 stream
             }
             val snapshot = WhfinBackupCodec.read(plain)
+            // After the file has proven itself readable and before a single row is deleted: an
+            // unreadable file must not cost a snapshot, and a readable one must not cost the ledger.
+            safetyBackup?.capture(database)
             database.withTransaction {
                 WhfinBackupCodec.restore(database.openHelper.writableDatabase, snapshot)
             }

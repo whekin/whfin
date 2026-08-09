@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.drive
 
 import android.content.Context
+import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.backup.WhfinBackupManager
 import dev.whekin.whfin.data.backup.WhfinBackupMetadata
 import dev.whekin.whfin.data.backup.WhfinBackupSummary
@@ -25,9 +26,12 @@ class DriveBackupManager(
     context: Context,
     private val database: WhfinDatabase,
     private val client: DriveBackupClient = DriveBackupClient(),
+    safetyBackup: RestoreSafetyBackup? = null,
 ) {
     private val store = DriveBackupStore(context.applicationContext)
-    private val backups = WhfinBackupManager(database)
+    // A cloud copy replaces the ledger just as completely as a picked file, so it needs the same
+    // way back.
+    private val backups = WhfinBackupManager(database, safetyBackup)
 
     data class UploadResult(val fileName: String, val rowCount: Int, val sizeBytes: Int)
 

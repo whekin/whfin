@@ -350,6 +350,12 @@
     <string name="corrections_section">IMPORTED OPERATIONS</string>
     <string name="corrections_empty_title">No corrections</string>
     <string name="corrections_empty_body">Imported operations you correct will appear here and can be restored.</string>
+    <string name="backup_safety_section">BEFORE THE LAST RESTORE</string>
+    <string name="backup_safety_title">Copy of your previous data</string>
+    <string name="backup_safety_body">Taken automatically on %1$s, just before the last restore replaced everything. It never leaves this device.</string>
+    <string name="backup_safety_action">Go back to it</string>
+    <string name="backup_safety_confirm_title">Return to the previous data?</string>
+    <string name="backup_safety_confirm_body">Everything restored since then is replaced by the copy taken before the last restore. A copy of the current data is taken first.</string>
     <string name="data_health_title">Data health</string>
     <string name="data_health_settings_summary">Check the ledger for contradictions and reach the screens that fix them.</string>
     <string name="data_health_checking">Checking</string>
