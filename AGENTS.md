@@ -317,7 +317,12 @@ This is a single-context repository with root domain documentation and system-wi
   Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех
   1–4-cell вариантах и их picker-preview; отдельный divider перед кругом убран как лишняя колонка,
   а source-подпись 2-cell варианта получила отдельный 10dp оптический сдвиг к визуально тяжёлому кругу;
-  более широкие source/currency сегменты остаются геометрически центрированными.
+  более широкие source/currency сегменты остаются геометрически центрированными. Опциональная кнопка
+  WHFIN слева открывает основной Feed, не забирая tap у source/currency: центральная подпись по-прежнему
+  циклически меняет Cash/Credo, `+` открывает Quick expense. Toggle живёт в Settings → Appearance,
+  включён по умолчанию и сразу обновляет все Glance instances. При включённой кнопке currency-сегмент
+  появляется только в самом широком варианте, чтобы промежуточная ширина не сжимала source до многоточия;
+  при выключенной кнопке прежние breakpoints и 10dp optical nudge сохраняются.
   Quick expense больше не зависит от высоты OEM decimal IME:
   сумма вводится общим in-app calculator keypad: вычисления вынесены в верхний rail
   (`% ÷ × − + =`), ниже строгая трёхколоночная цифровая сетка с `.`, `0` и backspace в последнем ряду;

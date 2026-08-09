@@ -7,6 +7,20 @@
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
+    <FrameLayout
+        android:layout_width="48dp"
+        android:layout_height="48dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/widget_open_app_action"
+            android:src="@drawable/ic_launcher_foreground"
+            android:tint="@color/widget_preview_secondary_text"
+            tools:ignore="UseAppTint" />
+    </FrameLayout>
+
     <TextView
         android:layout_width="0dp"
         android:layout_height="match_parent"
@@ -17,18 +31,6 @@
         android:paddingEnd="8dp"
         android:text="@string/widget_preview_account"
         android:textColor="@color/widget_preview_on_background"
-        android:textSize="13sp" />
-
-    <TextView android:layout_width="1dp" android:layout_height="24dp" android:background="@color/widget_preview_outline" />
-
-    <TextView
-        android:layout_width="64dp"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:text="GEL"
-        android:textColor="@color/widget_preview_secondary_text"
         android:textSize="13sp" />
 
     <FrameLayout

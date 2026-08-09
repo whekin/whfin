@@ -146,6 +146,13 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[QuickExpenseKeypadEnabledKey] ?: true }
 
+    /** Defaults on so the widget exposes a direct route to the full ledger as well as quick entry. */
+    val widgetOpenAppButtonEnabled: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[WidgetOpenAppButtonEnabledKey] ?: true }
+
     suspend fun dismissSmsPermissionPrompt() {
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
     }
@@ -193,6 +200,10 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[QuickExpenseKeypadEnabledKey] = enabled }
     }
 
+    suspend fun setWidgetOpenAppButtonEnabled(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[WidgetOpenAppButtonEnabledKey] = enabled }
+    }
+
     private companion object {
         val SmsPermissionPromptDismissed = booleanPreferencesKey("sms_permission_prompt_dismissed")
         val SmsImportEnabled = booleanPreferencesKey("sms_import_enabled")
@@ -202,6 +213,7 @@ internal class UiPreferences(
         val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
         val QuickExpenseKeypadEnabledKey = booleanPreferencesKey("quick_expense_keypad_enabled")
+        val WidgetOpenAppButtonEnabledKey = booleanPreferencesKey("widget_open_app_button_enabled")
         val DisplayCurrencyKey = stringPreferencesKey("display_currency")
         val EthereumRpcUrlKey = stringPreferencesKey("crypto_ethereum_rpc_url")
         val TronApiUrlKey = stringPreferencesKey("crypto_tron_api_url")

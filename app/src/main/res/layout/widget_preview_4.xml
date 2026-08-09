@@ -7,6 +7,20 @@
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
+    <FrameLayout
+        android:layout_width="48dp"
+        android:layout_height="48dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/widget_open_app_action"
+            android:src="@drawable/ic_launcher_foreground"
+            android:tint="@color/widget_preview_secondary_text"
+            tools:ignore="UseAppTint" />
+    </FrameLayout>
+
     <TextView
         android:layout_width="0dp"
         android:layout_height="match_parent"

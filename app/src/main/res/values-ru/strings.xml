@@ -156,6 +156,10 @@
     <string name="settings_quick_keypad">Клавиатура Quick expense</string>
     <string name="settings_quick_keypad_body">Компактная клавиатура WHFIN с вычислениями вместо системной клавиатуры</string>
     <string name="settings_quick_keypad_toggle">Использовать клавиатуру WHFIN для Quick expense</string>
+    <string name="settings_widget_open_app">Кнопка WHFIN в виджете</string>
+    <string name="settings_widget_open_app_body">Кнопка слева открывает WHFIN. Счёт и валюта по-прежнему переключают источник быстрого ввода.</string>
+    <string name="settings_widget_open_app_toggle">Показывать кнопку открытия приложения в виджете</string>
+    <string name="widget_open_app_action">Открыть WHFIN</string>
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
     <string name="credo_sync_settings_summary">Войти один раз и импортировать выписки всех счетов</string>

@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import dev.whekin.whfin.data.preferences.AppLockTimeout
@@ -50,6 +51,7 @@ import dev.whekin.whfin.ui.setup.PersonalSetupFlow
 import dev.whekin.whfin.ui.setup.PersonalSetupState
 import dev.whekin.whfin.ui.setup.WelcomeChoiceScreen
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.widget.WhfinWidget
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
 
@@ -135,6 +137,7 @@ class MainActivity : FragmentActivity() {
             val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = false)
             val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
             val quickExpenseKeypadEnabled by uiPreferences.quickExpenseKeypadEnabled.collectAsState(initial = true)
+            val widgetOpenAppButtonEnabled by uiPreferences.widgetOpenAppButtonEnabled.collectAsState(initial = true)
             val systemDark = isSystemInDarkTheme()
             val effectiveDark = when (appThemeMode) {
                 AppThemeMode.System -> systemDark
@@ -276,6 +279,7 @@ class MainActivity : FragmentActivity() {
                                 dynamicColorsEnabled = dynamicColorsEnabled,
                                 useSystemFont = useSystemFont,
                                 quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
+                                widgetOpenAppButtonEnabled = widgetOpenAppButtonEnabled,
                                 onAppThemeModeChange = { mode ->
                                     scope.launch { uiPreferences.setAppThemeMode(mode) }
                                 },
@@ -287,6 +291,12 @@ class MainActivity : FragmentActivity() {
                                 },
                                 onQuickExpenseKeypadEnabledChange = { enabled ->
                                     scope.launch { uiPreferences.setQuickExpenseKeypadEnabled(enabled) }
+                                },
+                                onWidgetOpenAppButtonEnabledChange = { enabled ->
+                                    scope.launch {
+                                        uiPreferences.setWidgetOpenAppButtonEnabled(enabled)
+                                        WhfinWidget().updateAll(applicationContext)
+                                    }
                                 },
                                 smsImportEnabled = smsImportEnabled == true,
                                 hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,

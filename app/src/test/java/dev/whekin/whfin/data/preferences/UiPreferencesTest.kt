@@ -127,4 +127,23 @@ class UiPreferencesTest {
             file.delete()
         }
     }
+
+    @Test
+    fun widgetOpenAppButton_defaultsOnAndPersistsBothStates() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
+        val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
+        val preferences = UiPreferences(dataStore)
+
+        try {
+            assertTrue(preferences.widgetOpenAppButtonEnabled.first())
+            preferences.setWidgetOpenAppButtonEnabled(false)
+            assertFalse(preferences.widgetOpenAppButtonEnabled.first())
+            preferences.setWidgetOpenAppButtonEnabled(true)
+            assertTrue(preferences.widgetOpenAppButtonEnabled.first())
+        } finally {
+            scope.cancel()
+            file.delete()
+        }
+    }
 }

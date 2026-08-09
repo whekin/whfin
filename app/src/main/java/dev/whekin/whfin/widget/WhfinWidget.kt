@@ -47,11 +47,13 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.MainActivity
 import dev.whekin.whfin.R
+import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.preferences.UiPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
@@ -93,8 +95,14 @@ class WhfinWidget : GlanceAppWidget() {
         val initial = withWidgetFallback(fallback = ::emptyPreferences) {
             store.data.first()
         }
+        val uiPreferences = UiPreferences(context)
+        val initialOpenAppButton = withWidgetFallback(fallback = { true }) {
+            uiPreferences.widgetOpenAppButtonEnabled.first()
+        }
         provideContent {
             val preferences by store.data.collectAsState(initial)
+            val showOpenAppButton by uiPreferences.widgetOpenAppButtonEnabled
+                .collectAsState(initialOpenAppButton)
             val scope = rememberCoroutineScope()
             val size = LocalSize.current
             val level = when {
@@ -107,7 +115,9 @@ class WhfinWidget : GlanceAppWidget() {
             val selectedSource = if (level == 1) sources.first() else sources[sourceIndex]
             val availableCurrencies = selectedSource.currencies.ifEmpty { listOf("GEL") }
             val storedCurrencyIndex = preferences[CurrencyIndex] ?: 0
-            val preferredCurrency = if (level < 3) "GEL" else availableCurrencies[storedCurrencyIndex.mod(availableCurrencies.size)]
+            val showsCurrency = level >= if (showOpenAppButton) 4 else 3
+            val preferredCurrency = if (!showsCurrency) "GEL"
+            else availableCurrencies[storedCurrencyIndex.mod(availableCurrencies.size)]
             val currency = preferredCurrency.takeIf { it in availableCurrencies } ?: availableCurrencies.first()
             val accountId = selectedSource.accountByCurrency[currency]
 
@@ -116,6 +126,9 @@ class WhfinWidget : GlanceAppWidget() {
                     level = level,
                     source = selectedSource,
                     currency = currency,
+                    showOpenAppButton = showOpenAppButton,
+                    openAppAction = actionStartActivity(openAppIntent(context)),
+                    openAppDescription = context.getString(R.string.widget_open_app_action),
                     addAction = actionStartActivity(quickIntent(context, currency, accountId, selectedSource.fullLabel)),
                     cycleSource = {
                         scope.launch {
@@ -178,6 +191,9 @@ private fun CompactWidget(
     level: Int,
     source: WidgetSource,
     currency: String,
+    showOpenAppButton: Boolean,
+    openAppAction: androidx.glance.action.Action,
+    openAppDescription: String,
     addAction: androidx.glance.action.Action,
     cycleSource: () -> Unit,
     cycleCurrency: () -> Unit,
@@ -201,14 +217,17 @@ private fun CompactWidget(
             verticalAlignment = Alignment.Vertical.CenterVertically,
             horizontalAlignment = Alignment.Horizontal.Start,
         ) {
+            if (showOpenAppButton) {
+                OpenAppButton(openAppAction, openAppDescription)
+            }
             WidgetSegment(
                 text = if (level >= 4) source.fullLabel else source.compactLabel,
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     .clickable(key = "cycle-source", block = cycleSource),
                 textColor = GlanceTheme.colors.onSurface,
-                nudgeTowardAction = level == 2,
+                nudgeTowardAction = level == 2 && !showOpenAppButton,
             )
-            if (level >= 3) {
+            if (level >= if (showOpenAppButton) 4 else 3) {
                 WidgetDivider()
                 WidgetSegment(
                     text = currency,
@@ -219,6 +238,21 @@ private fun CompactWidget(
             }
             InlineAddButton(addAction)
         }
+    }
+}
+
+@Composable
+private fun OpenAppButton(action: androidx.glance.action.Action, contentDescription: String) {
+    Box(
+        modifier = GlanceModifier.size(48.dp).clickable(action),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_launcher_foreground),
+            contentDescription = contentDescription,
+            modifier = GlanceModifier.size(40.dp),
+            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
+        )
     }
 }
 
@@ -379,3 +413,10 @@ private fun quickIntent(context: Context, currency: String, accountId: Long?, so
         data = Uri.parse("whfin://quick-expense/$currency/${accountId ?: "cash"}")
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
+
+internal fun openAppIntent(context: Context) = Intent(context, MainActivity::class.java).apply {
+    action = Intent.ACTION_MAIN
+    addCategory(Intent.CATEGORY_LAUNCHER)
+    data = Uri.parse("whfin://widget/open-app")
+    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+}

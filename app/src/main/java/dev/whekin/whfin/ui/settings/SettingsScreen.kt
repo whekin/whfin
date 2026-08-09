@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
@@ -59,10 +60,12 @@ fun SettingsScreen(
     dynamicColorsEnabled: Boolean = false,
     useSystemFont: Boolean = false,
     quickExpenseKeypadEnabled: Boolean = true,
+    widgetOpenAppButtonEnabled: Boolean = true,
     onAppThemeModeChange: (AppThemeMode) -> Unit = {},
     onDynamicColorsEnabledChange: (Boolean) -> Unit = {},
     onUseSystemFontChange: (Boolean) -> Unit = {},
     onQuickExpenseKeypadEnabledChange: (Boolean) -> Unit = {},
+    onWidgetOpenAppButtonEnabledChange: (Boolean) -> Unit = {},
     smsImportEnabled: Boolean,
     hasSmsCardMapping: Boolean = true,
     hasSmsPermission: Boolean,
@@ -160,6 +163,20 @@ fun SettingsScreen(
                         checked = quickExpenseKeypadEnabled,
                         onCheckedChange = onQuickExpenseKeypadEnabledChange,
                         contentDescription = stringResource(R.string.settings_quick_keypad_toggle),
+                    )
+                },
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.settings_widget_open_app),
+                supportingText = stringResource(R.string.settings_widget_open_app_body),
+                supportingMaxLines = 4,
+                icon = Icons.Default.Home,
+                trailing = {
+                    WhfinSwitch(
+                        checked = widgetOpenAppButtonEnabled,
+                        onCheckedChange = onWidgetOpenAppButtonEnabledChange,
+                        contentDescription = stringResource(R.string.settings_widget_open_app_toggle),
                     )
                 },
             )

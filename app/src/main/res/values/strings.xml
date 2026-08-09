@@ -155,6 +155,10 @@
     <string name="settings_quick_keypad">Quick expense keypad</string>
     <string name="settings_quick_keypad_body">Use WHFIN’s compact calculator keypad instead of the device keyboard</string>
     <string name="settings_quick_keypad_toggle">Use the WHFIN keypad for Quick expense</string>
+    <string name="settings_widget_open_app">WHFIN widget button</string>
+    <string name="settings_widget_open_app_body">The left button opens WHFIN. Account and currency taps still switch the quick-entry source.</string>
+    <string name="settings_widget_open_app_toggle">Show the open app button in the widget</string>
+    <string name="widget_open_app_action">Open WHFIN</string>
     <string name="settings_automation">AUTOMATION</string>
     <string name="credo_sync_title">Credo sync</string>
     <string name="credo_sync_settings_summary">Sign in once and import every account statement</string>
