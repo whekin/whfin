@@ -696,6 +696,9 @@
     <string name="transaction_manual_hint">Сумма, счёт, дата и заметка</string>
     <string name="transaction_delete_body">Ручная операция будет удалена без возможности восстановления.</string>
     <string name="transaction_delete_transfer_body">Обе стороны ручного перевода будут удалены без возможности восстановления.</string>
+    <string name="transaction_correct">Исправить импортированную операцию</string>
+    <string name="transaction_correct_body">Операция исчезнет из балансов, но останется audit-коррекция. Её можно восстановить позже.</string>
+    <string name="transaction_correct_done">Импортированная операция исправлена</string>
     <string name="transactions_selected">Выбрано операций</string>
     <string name="transactions_select_action">Выбрать операцию</string>
     <string name="transactions_change_status">Изменить статус выбранных</string>

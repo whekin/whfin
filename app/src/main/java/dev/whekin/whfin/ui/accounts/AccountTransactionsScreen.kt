@@ -109,6 +109,7 @@ internal fun AccountTransactionsScreen(
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
     var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var editTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
+    var correctTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
@@ -166,6 +167,10 @@ internal fun AccountTransactionsScreen(
             onDelete = if (item.tx.source == TxSource.MANUAL) {{
                 details = null
                 deleteTransactionFor = item
+            }} else null,
+            onCorrect = if (item.tx.source in setOf(TxSource.STATEMENT, TxSource.SMS)) {{
+                details = null
+                correctTransactionFor = item
             }} else null,
             onEdit = if (item.tx.source == TxSource.MANUAL) {{
                 details = null
@@ -231,6 +236,19 @@ internal fun AccountTransactionsScreen(
                     deleteTransactionFor = null
             },
             onDismiss = { deleteTransactionFor = null },
+        )
+    }
+    correctTransactionFor?.let { item ->
+        WhfinConfirmDialog(
+            title = stringResource(R.string.transaction_correct),
+            body = stringResource(R.string.transaction_correct_body),
+            confirmLabel = stringResource(R.string.transaction_correct),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
+                feedViewModel.correctImported(item)
+                correctTransactionFor = null
+            },
+            onDismiss = { correctTransactionFor = null },
         )
     }
     debtFor?.let { item ->

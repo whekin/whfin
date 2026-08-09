@@ -471,6 +471,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun correctImported(item: FeedItem) {
+        if (item.tx.source !in setOf(TxSource.STATEMENT, TxSource.SMS)) return
+        viewModelScope.launch {
+            transactionMutations.voidTransaction(item.tx.id)
+        }
+    }
+
     fun assignDebt(item: FeedItem, personId: Long) {
         if (item.tx.amountMinor >= 0) return
         viewModelScope.launch {

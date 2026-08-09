@@ -206,6 +206,7 @@ fun FeedScreen(
     var routingFor by remember { mutableStateOf<UnroutedOperation?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteFor by remember { mutableStateOf<FeedItem?>(null) }
+    var correctFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var splitFor by remember { mutableStateOf<FeedItem?>(null) }
     var showAdd by remember { mutableStateOf(false) }
@@ -710,6 +711,10 @@ fun FeedScreen(
                 details = null
                 deleteFor = item
             }} else null,
+            onCorrect = if (item.tx.source in setOf(dev.whekin.whfin.data.db.TxSource.STATEMENT, dev.whekin.whfin.data.db.TxSource.SMS)) {{
+                details = null
+                correctFor = item
+            }} else null,
             onEdit = if (item.tx.source == dev.whekin.whfin.data.db.TxSource.MANUAL) {{
                 details = null
                 editFor = item
@@ -769,6 +774,19 @@ fun FeedScreen(
             onDismiss = { deleteFor = null },
         )
     }
+    correctFor?.let { item ->
+        WhfinConfirmDialog(
+            title = stringResource(R.string.transaction_correct),
+            body = stringResource(R.string.transaction_correct_body),
+            confirmLabel = stringResource(R.string.transaction_correct),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
+                viewModel.correctImported(item)
+                correctFor = null
+            },
+            onDismiss = { correctFor = null },
+        )
+    }
     debtFor?.let { item ->
         DebtPersonSheet(
             item = item,
@@ -804,6 +822,7 @@ internal fun TransactionDetailsSheet(
     onDismiss: () -> Unit,
     onChangeCategory: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    onCorrect: (() -> Unit)? = null,
     onEdit: (() -> Unit)?,
     onDebt: (() -> Unit)?,
     onClearDebt: (() -> Unit)?,
@@ -822,6 +841,7 @@ internal fun TransactionDetailsSheet(
             modifier = Modifier.navigationBarsPadding(),
             onChangeCategory = onChangeCategory,
             onDelete = onDelete,
+            onCorrect = onCorrect,
             onEdit = onEdit,
             onDebt = onDebt,
             onClearDebt = onClearDebt,
@@ -839,6 +859,7 @@ private fun TransactionDetailsContent(
     modifier: Modifier = Modifier,
     onChangeCategory: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    onCorrect: (() -> Unit)? = null,
     onEdit: (() -> Unit)?,
     onDebt: (() -> Unit)?,
     onClearDebt: (() -> Unit)?,
@@ -879,7 +900,7 @@ private fun TransactionDetailsContent(
     // Подтверждение pending-черновика — самое частое решение в этой раскладке, поэтому он
     // стоит первым и единственным залитым действием, а не спрятан за отдельным status-листом.
     val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING }
-    val hasQuickActions = confirmPending != null || onEdit != null || onDebt != null ||
+    val hasQuickActions = confirmPending != null || onEdit != null || onCorrect != null || onDebt != null ||
         onClearDebt != null || onSplit != null || onClearSplit != null
 
     LazyColumn(
@@ -931,7 +952,7 @@ private fun TransactionDetailsContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (onDelete != null) {
+                if (onDelete != null || onCorrect != null) {
                     Box {
                         WhfinIconButton(
                             icon = Icons.Default.MoreVert,
@@ -943,7 +964,7 @@ private fun TransactionDetailsContent(
                             expanded = actionMenuExpanded,
                             onDismissRequest = { actionMenuExpanded = false },
                         ) {
-                            DropdownMenuItem(
+                            onDelete?.let { delete -> DropdownMenuItem(
                                 text = {
                                     Text(
                                         stringResource(R.string.transaction_delete),
@@ -959,9 +980,17 @@ private fun TransactionDetailsContent(
                                 },
                                 onClick = {
                                     actionMenuExpanded = false
-                                    onDelete()
+                                    delete()
                                 },
-                            )
+                            ) }
+                            onCorrect?.let { correct -> DropdownMenuItem(
+                                text = { Text(stringResource(R.string.transaction_correct)) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    correct()
+                                },
+                            ) }
                         }
                     }
                 }
@@ -1056,6 +1085,9 @@ private fun TransactionDetailsContent(
                     }
                     if (onEdit != null) item {
                         DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
+                    }
+                    if (onCorrect != null) item {
+                        DetailQuickAction(Icons.Default.Edit, stringResource(R.string.transaction_correct), onCorrect)
                     }
                     if (onClearDebt != null) item {
                         DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)

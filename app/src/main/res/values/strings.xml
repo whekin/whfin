@@ -691,6 +691,9 @@
     <string name="transaction_manual_hint">Amount, account, date and note</string>
     <string name="transaction_delete_body">This manual transaction will be permanently deleted.</string>
     <string name="transaction_delete_transfer_body">Both sides of this manual transfer will be permanently deleted.</string>
+    <string name="transaction_correct">Correct imported transaction</string>
+    <string name="transaction_correct_body">This hides the imported row from balances and keeps an audit correction. You can restore it later.</string>
+    <string name="transaction_correct_done">Imported transaction corrected</string>
     <string name="transactions_selected">Selected transactions</string>
     <string name="transactions_select_action">Select transaction</string>
     <string name="transactions_change_status">Change selected status</string>
