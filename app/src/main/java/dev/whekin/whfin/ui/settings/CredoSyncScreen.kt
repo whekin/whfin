@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,6 +76,7 @@ fun CredoSyncRoute(
         onSubmitOtp = viewModel::submitOtp,
         onResendOtp = viewModel::resendOtp,
         onSync = viewModel::sync,
+        onLoadHistory = viewModel::loadHistory,
         onDisconnect = viewModel::disconnect,
         onDismissError = viewModel::dismissError,
     )
@@ -89,6 +91,7 @@ fun CredoSyncScreen(
     onSubmitOtp: (String) -> Unit,
     onResendOtp: () -> Unit,
     onSync: () -> Unit,
+    onLoadHistory: () -> Unit,
     onDisconnect: () -> Unit,
     onDismissError: () -> Unit,
 ) {
@@ -176,6 +179,7 @@ fun CredoSyncScreen(
             -> ConnectedContent(
                 state = state,
                 onSync = onSync,
+                onLoadHistory = onLoadHistory,
                 onDisconnect = onDisconnect,
             )
         }
@@ -314,6 +318,7 @@ private fun OtpContent(
 private fun ConnectedContent(
     state: CredoSyncUiState,
     onSync: () -> Unit,
+    onLoadHistory: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     val syncing = state.stage == CredoSyncStage.Syncing
@@ -340,7 +345,10 @@ private fun ConnectedContent(
                 state.currentAccount,
                 state.accounts.size,
             ),
-            body = stringResource(state.currentPhase.phaseLabel()),
+            body = if (state.currentChunk > 0) stringResource(
+                R.string.credo_sync_history_progress,
+                state.currentChunk,
+            ) else stringResource(state.currentPhase.phaseLabel()),
             icon = Icons.Default.CloudSync,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -352,6 +360,20 @@ private fun ConnectedContent(
         enabled = !syncing,
         leadingIcon = Icons.Default.CloudSync,
     )
+    // Reaching past the year a sync covers is a deliberate, one-off request, not a faster sync.
+    WhfinButton(
+        label = stringResource(R.string.credo_sync_history_action),
+        onClick = onLoadHistory,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !syncing,
+        style = WhfinActionStyle.Secondary,
+        leadingIcon = Icons.Default.History,
+    )
+    Text(
+        stringResource(R.string.credo_sync_history_body),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
     if (state.results.isNotEmpty() || state.unchanged > 0) {
         WhfinSectionLabel(stringResource(R.string.credo_sync_result_section))
@@ -359,14 +381,12 @@ private fun ConnectedContent(
             state.results.forEachIndexed { index, file ->
                 WhfinLedgerRow(
                     title = file.accountLabel,
-                    supportingText = file.result?.let { result ->
-                        stringResource(
-                            R.string.credo_sync_result_success,
-                            result.inserted,
-                            result.duplicates,
-                            result.reconciled,
-                        )
-                    } ?: credoErrorMessage(file.errorCode ?: "UNKNOWN_ERROR"),
+                    supportingText = if (file.errorCode == null) stringResource(
+                        R.string.credo_sync_result_success,
+                        file.inserted,
+                        file.duplicates,
+                        file.reconciled,
+                    ) else credoErrorMessage(file.errorCode),
                     icon = Icons.Default.AccountBalance,
                     iconTint = if (file.errorCode == null) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.error,
@@ -430,7 +450,7 @@ private fun CredoDisconnectedPreview() {
                 state = CredoSyncUiState(savedUsername = "demo", hasSavedPassword = true),
                 appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
-                onSync = {}, onDisconnect = {}, onDismissError = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
         }
     }
@@ -445,7 +465,7 @@ private fun CredoOtpPreview() {
                 state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp, mobileHint = "+995 *** ** 42"),
                 appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
-                onSync = {}, onDisconnect = {}, onDismissError = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
         }
     }
@@ -460,7 +480,7 @@ private fun CredoConnectedPreview() {
                 state = CredoSyncUiState(stage = CredoSyncStage.Connected, accounts = previewAccounts),
                 appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
-                onSync = {}, onDisconnect = {}, onDismissError = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
         }
     }
@@ -475,7 +495,7 @@ private fun CredoUnavailablePreview() {
                 state = CredoSyncUiState(errorCode = "NETWORK_ERROR"),
                 appLockEnabled = false,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
-                onSync = {}, onDisconnect = {}, onDismissError = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
         }
     }
@@ -490,7 +510,7 @@ private fun CredoProtocolErrorPreview() {
                 state = CredoSyncUiState(errorCode = "INVALID_API_RESPONSE"),
                 appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
-                onSync = {}, onDisconnect = {}, onDismissError = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
         }
     }

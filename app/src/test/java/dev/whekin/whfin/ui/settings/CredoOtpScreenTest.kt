@@ -37,6 +37,7 @@ class CredoOtpScreenTest {
                     onSubmitOtp = { submitted = it },
                     onResendOtp = {},
                     onSync = {},
+                    onLoadHistory = {},
                     onDisconnect = {},
                     onDismissError = {},
                 )
@@ -75,6 +76,7 @@ class CredoOtpScreenTest {
                     onSubmitOtp = {},
                     onResendOtp = {},
                     onSync = {},
+                    onLoadHistory = {},
                     onDisconnect = {},
                     onDismissError = {},
                 )
@@ -102,6 +104,7 @@ class CredoOtpScreenTest {
                     onSubmitOtp = {},
                     onResendOtp = {},
                     onSync = {},
+                    onLoadHistory = {},
                     onDisconnect = {},
                     onDismissError = {},
                 )

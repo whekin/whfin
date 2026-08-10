@@ -48,10 +48,42 @@ SMS routing created is `LedgerEffect.ADOPTED`, not a new account, and is never a
 statement with no rows for a missing ledger still creates it and anchors its opening balance, so
 `changesNothing` requires `LedgerEffect.UNCHANGED` and not merely "no rows to add".
 
-MyCredo sync deliberately does not preview. Its files are not picked by hand: the accounts come from
-the bank's own list after an authenticated login, so a wrong-file mistake cannot happen and a ledger
-per remote currency account is the desired outcome. A daily sync also re-downloads twelve months and
-usually inserts nothing, so a "nothing changed" question would fire almost every run.
+MyCredo sync never asks the account question. Its files are not picked by hand: the accounts come
+from the bank's own list after an authenticated login, so a wrong-file mistake cannot happen and a
+ledger per remote currency account is the point of syncing.
+
+It does use the "changed nothing" half. The bank re-serves the same period on every run, so an
+account with no activity used to file a `0 added` record each time until the history was full of
+them. The downloaded bytes are previewed, a statement that would add nothing is skipped, and the run
+reports the count once at the end.
+
+## How much history a sync asks for
+
+`CredoSyncWindow` decides per account, because coverage is per account:
+
+- nothing known about the account — the full twelve months, as the bank's own web export sends,
+  down to the same instant;
+- otherwise the account's own latest `periodTo`, never less than a month back, never more than
+  twelve;
+- a gap in the coverage pulls the window back to its start, so a sync repairs holes instead of
+  stepping over them.
+
+The month of overlap is deliberate: a card payment reaches the statement days after the purchase, so
+a window starting exactly where coverage ended would keep missing the tail of every run. Repeated
+rows cost nothing — `StatementIdentity` inserts them once.
+
+## Reaching further back
+
+`CredoHistoryScan` walks an account backwards a year at a time, behind a separate, explicit action.
+One huge range would be worse: the workbook is held in memory whole while it is unzipped and parsed,
+the request stops looking like the site's own, and one failure costs the entire history.
+
+Nobody tells us where an account begins — the bank's account list carries no opening date, and
+asking for one would risk the `accounts` query that gates the whole sync. The bottom is recognised
+from the statements instead: the bank narrowing the period we asked for, a chunk with rows that
+opens at zero, or a chunk that is empty and stands at zero throughout. An empty chunk alone is not a
+signal — an account can sit untouched for a year with money on it. `MAX_CHUNKS` is a guard against a
+protocol change turning the walk into a loop, not a stop condition.
 
 ## Rules for a new adapter
 
@@ -85,4 +117,9 @@ usually inserts nothing, so a "nothing changed" question would fire almost every
 - `StatementBatchTest` (JVM) — the batch rule: unchanged files dropped, a draft-confirming file kept,
   one question per missing ledger however many files need it, adoption never asked about, and an
   unreadable file left for the import to report.
+- `CredoSyncWindowTest` / `CredoHistoryScanTest` (JVM) — the two window rules on their own.
+- `CredoSyncWindowWiringTest`, `CredoSyncSkipTest`, `CredoHistoryLoadTest`, `CredoConnectedScreenTest`
+  (Robolectric) — that each account is asked for its own range, that a quiet account files no record,
+  that the history walk abuts its chunks and stops, and what the connected screen says. A scripted
+  gateway stands in for the bank: the real login needs the owner's own device and credentials.
 - `CredoStatementParserTest` (JVM, opt-in) — the same structural invariants against private files.

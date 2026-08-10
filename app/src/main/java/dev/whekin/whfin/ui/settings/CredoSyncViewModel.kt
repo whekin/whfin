@@ -10,12 +10,15 @@ import dev.whekin.whfin.data.credo.CredoGateway
 import dev.whekin.whfin.data.credo.CredoLoginChallenge
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.credo.CredoSecretStore
+import dev.whekin.whfin.data.credo.CredoHistoryScan
 import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.CredoSyncWindow
 import dev.whekin.whfin.data.credo.MyCredoGateway
+import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.data.db.StatementImportOrigin
 import java.io.ByteArrayInputStream
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -28,9 +31,17 @@ import kotlinx.coroutines.withContext
 
 enum class CredoSyncStage { Disconnected, Connecting, AwaitingOtp, Connected, Syncing }
 
+/**
+ * What one account's run came to.
+ *
+ * Counts rather than one [StatementImporter.Result]: loading history walks an account in several
+ * statements, and the user cares about the account, not about how many requests it took.
+ */
 data class CredoSyncFileResult(
     val accountLabel: String,
-    val result: StatementImporter.Result? = null,
+    val inserted: Int = 0,
+    val duplicates: Int = 0,
+    val reconciled: Int = 0,
     val errorCode: String? = null,
 )
 
@@ -41,6 +52,8 @@ data class CredoSyncUiState(
     val mobileHint: String? = null,
     val accounts: List<CredoRemoteAccount> = emptyList(),
     val currentAccount: Int = 0,
+    /** Which year-long statement of a history load is in flight; 0 during a routine sync. */
+    val currentChunk: Int = 0,
     val currentPhase: StatementImporter.Phase? = null,
     val results: List<CredoSyncFileResult> = emptyList(),
     /** Accounts whose statement would have added nothing: said once, not as a row each. */
@@ -63,6 +76,7 @@ class CredoSyncViewModel internal constructor(
     )
 
     private val db = (app as WhfinApp).db
+    private val zone = ZoneId.of("Asia/Tbilisi")
     private val _state = MutableStateFlow(
         CredoSyncUiState(
             hasSavedPassword = secretStore.hasCredentials(),
@@ -186,7 +200,12 @@ class CredoSyncViewModel internal constructor(
                             _state.value = _state.value.copy(currentPhase = phase)
                         }
                     }
-                    CredoSyncFileResult(account.maskedLabel, result = result)
+                    CredoSyncFileResult(
+                        account.maskedLabel,
+                        inserted = result.inserted,
+                        duplicates = result.duplicates,
+                        reconciled = result.reconciled,
+                    )
                 } catch (error: CredoSessionExpiredException) {
                     // Сессия умерла посреди прогона: остальные счета не молотим тем же 401,
                     // молчаливый re-login невозможен (нужен OTP) — просим войти заново.
@@ -216,6 +235,118 @@ class CredoSyncViewModel internal constructor(
                 errorCode = null,
             )
         }
+    }
+
+    /**
+     * Reaches past the year a routine sync covers, one year-long statement at a time.
+     *
+     * Separate from [sync] on purpose: this is a one-off that walks each account backwards until the
+     * statements say there is nothing older, while a sync only asks for what is missing at the near
+     * end. Nothing here is automatic — a bank endpoint is not a place to loop unattended.
+     */
+    fun loadHistory() {
+        val activeSession = session ?: return fail("LOGIN_EXPIRED")
+        val accounts = _state.value.accounts
+        if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
+        if (_state.value.stage == CredoSyncStage.Syncing) return
+        viewModelScope.launch(syncDispatcher) {
+            val results = mutableListOf<CredoSyncFileResult>()
+            var unchanged = 0
+            for ((index, account) in accounts.withIndex()) {
+                var inserted = 0
+                var duplicates = 0
+                var reconciled = 0
+                var errorCode: String? = null
+                var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
+
+                for (chunk in 1..CredoHistoryScan.MAX_CHUNKS) {
+                    val window = CredoHistoryScan.chunkBefore(earliest)
+                    _state.value = _state.value.copy(
+                        stage = CredoSyncStage.Syncing,
+                        currentAccount = index + 1,
+                        currentChunk = chunk,
+                        currentPhase = StatementImporter.Phase.READING,
+                        results = results.toList(),
+                        unchanged = unchanged,
+                        errorCode = null,
+                    )
+                    val statement = try {
+                        val bytes = downloadWithRetry(
+                            activeSession,
+                            account,
+                            DateTimeFormatter.ISO_INSTANT.format(window.from.atStartOfDay(zone).toInstant()),
+                            DateTimeFormatter.ISO_INSTANT.format(window.to.atTime(23, 59, 59).atZone(zone).toInstant()),
+                        )
+                        val preview = ByteArrayInputStream(bytes).use { input ->
+                            StatementImporter(db).preview(input, account.fileName())
+                        }
+                        if (!preview.changesNothing) {
+                            val result = ByteArrayInputStream(bytes).use { input ->
+                                StatementImporter(db).import(
+                                    input = input,
+                                    fileName = account.fileName(),
+                                    origin = StatementImportOrigin.CREDO_SYNC,
+                                ) { phase -> _state.value = _state.value.copy(currentPhase = phase) }
+                            }
+                            inserted += result.inserted
+                            duplicates += result.duplicates
+                            reconciled += result.reconciled
+                        }
+                        preview.statement
+                    } catch (error: CredoSessionExpiredException) {
+                        results += CredoSyncFileResult(account.maskedLabel, errorCode = "SESSION_EXPIRED")
+                        session = null
+                        _state.value = _state.value.copy(
+                            stage = CredoSyncStage.Disconnected,
+                            accounts = emptyList(),
+                            currentAccount = 0,
+                            currentChunk = 0,
+                            currentPhase = null,
+                            results = results.toList(),
+                            unchanged = unchanged,
+                            errorCode = "SESSION_EXPIRED",
+                        )
+                        return@launch
+                    } catch (error: Exception) {
+                        // An empty or unreadable year is as far as this account goes today; whatever
+                        // the earlier chunks already added stays.
+                        errorCode = error.safeCode().takeIf { inserted == 0 && reconciled == 0 }
+                        break
+                    }
+                    if (CredoHistoryScan.reachedBottom(window, statement)) break
+                    earliest = statement.periodFrom ?: window.from
+                }
+
+                when {
+                    errorCode != null -> results += CredoSyncFileResult(account.maskedLabel, errorCode = errorCode)
+                    inserted == 0 && reconciled == 0 -> unchanged += 1
+                    else -> results += CredoSyncFileResult(
+                        account.maskedLabel,
+                        inserted = inserted,
+                        duplicates = duplicates,
+                        reconciled = reconciled,
+                    )
+                }
+            }
+            _state.value = _state.value.copy(
+                stage = CredoSyncStage.Connected,
+                currentAccount = 0,
+                currentChunk = 0,
+                currentPhase = null,
+                results = results,
+                unchanged = unchanged,
+                errorCode = null,
+            )
+        }
+    }
+
+    /** Where this account's history already begins, if any of it is held. */
+    private suspend fun earliestKnownFor(account: CredoRemoteAccount): LocalDate? {
+        val ledger = db.accountDao().byIbanAndCurrency(account.accountNumber, account.currency) ?: return null
+        return db.statementImportDao().forAccount(ledger.id)
+            .mapNotNull(StatementImportEntity::periodFrom)
+            .minOrNull()
+            ?.let(LocalDate::ofEpochDay)
     }
 
     /**
@@ -335,7 +466,7 @@ class CredoSyncViewModel internal constructor(
      * for the whole run would make the first re-read a year to insert nothing.
      */
     private suspend fun statementRangeFor(account: CredoRemoteAccount): Pair<String, String> {
-        val now = ZonedDateTime.now(ZoneId.of("Asia/Tbilisi"))
+        val now = ZonedDateTime.now(zone)
         val ledger = db.accountDao().byIbanAndCurrency(account.accountNumber, account.currency)
         val imports = ledger?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
         return credoStatementRange(now, CredoSyncWindow.startFor(now, imports))

@@ -11,16 +11,17 @@ import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Row
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,34 +29,22 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * A sync that would change nothing must leave nothing behind.
+ * Walking an account back through the years the bank still holds.
  *
- * MyCredo re-downloads the same period every run, so without this an untouched account files a
- * "0 added" record on every sync and the statement history fills with them.
+ * [dev.whekin.whfin.data.credo.CredoHistoryScan] owns when to stop; this covers that the walk
+ * actually moves, that its windows abut, and that it does not keep asking once it has the bottom.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
-class CredoSyncSkipTest {
+class CredoHistoryLoadTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
+    private val zone = ZoneId.of("Asia/Tbilisi")
 
-    private val statement = SyntheticCredoWorkbook.build(
-        openingBalance = "100.00",
-        closingBalance = "92.86",
-        rows = listOf(
-            Row(
-                date = LocalDate.of(2026, 1, 12),
-                operation = "საბარათე ოპერაცია",
-                debit = "7.14",
-                balance = "92.86",
-                description = "გადახდა - SYNTHETIC SHOP 7.14 GEL 09.01.2026",
-            ),
-        ),
-    )
-
-    private inner class FixedGateway : CredoGateway {
-        var downloads = 0
+    /** Serves one year per call and opens the second one at zero: the ledger starts there. */
+    private inner class HistoryGateway : CredoGateway {
+        val windows = mutableListOf<Pair<LocalDate, LocalDate>>()
 
         override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
             operationId = "op",
@@ -82,9 +71,35 @@ class CredoSyncSkipTest {
             fromIso: String,
             toIso: String,
         ): ByteArray {
-            downloads += 1
-            return statement
+            val from = fromIso.toLocalDate()
+            val to = toIso.toLocalDate()
+            windows += from to to
+            val first = windows.size == 1
+            return SyntheticCredoWorkbook.build(
+                periodFrom = from,
+                periodTo = to,
+                openingBalance = if (first) "100.00" else "0.00",
+                closingBalance = if (first) "92.86" else "100.00",
+                rows = listOf(
+                    if (first) Row(
+                        date = from.plusDays(1),
+                        operation = "საბარათე ოპერაცია",
+                        debit = "7.14",
+                        balance = "92.86",
+                        description = "გადახდა - SYNTHETIC SHOP 7.14 GEL",
+                    ) else Row(
+                        date = from.plusDays(1),
+                        operation = "სხვა ბანკიდან ჩარიცხვა",
+                        credit = "100.00",
+                        balance = "100.00",
+                        description = "Opening deposit",
+                    ),
+                ),
+            )
         }
+
+        private fun String.toLocalDate(): LocalDate =
+            Instant.from(DateTimeFormatter.ISO_INSTANT.parse(this)).atZone(zone).toLocalDate()
     }
 
     @Before
@@ -112,8 +127,8 @@ class CredoSyncSkipTest {
     private fun db() = ApplicationProvider.getApplicationContext<WhfinApp>().db
 
     @Test
-    fun anAccountWithNothingNewIsCountedOnceAndFilesNoRecord() {
-        val gateway = FixedGateway()
+    fun theWalkStopsAtTheYearTheLedgerOpensAndLeavesNoHoleBehindIt() {
+        val gateway = HistoryGateway()
         val app = ApplicationProvider.getApplicationContext<Application>()
         val vm = CredoSyncViewModel(
             app = app,
@@ -125,25 +140,20 @@ class CredoSyncSkipTest {
         vm.connect("user", "password", remember = false)
         await { vm.state.value.stage == CredoSyncStage.Connected }
 
-        vm.sync()
-        await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.results.size == 1 }
-        assertEquals(1, vm.state.value.results.single().inserted)
+        vm.loadHistory()
+        await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.results.isNotEmpty() }
+
+        // Two years asked for, then the zero opening ended it — no third request.
+        assertEquals(2, gateway.windows.size)
+        val (firstFrom, _) = gateway.windows[0]
+        val (_, secondTo) = gateway.windows[1]
+        assertEquals(firstFrom.minusDays(1), secondTo)
+
+        // One row per year, reported once for the account rather than once per request.
+        val result = vm.state.value.results.single()
+        assertEquals(2, result.inserted)
         assertEquals(0, vm.state.value.unchanged)
-        assertEquals(1, importRecords())
-
-        // The same statement again: still downloaded, but nothing is written and nothing is filed.
-        vm.sync()
-        await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.unchanged == 1 }
-
-        assertTrue(vm.state.value.results.isEmpty())
-        assertEquals(2, gateway.downloads)
-        assertEquals(1, importRecords())
-    }
-
-    private fun importRecords(): Int = runBlocking {
-        val account = db().accountDao().byIbanAndCurrency(SyntheticCredoWorkbook.IBAN, "GEL")
-            ?: return@runBlocking 0
-        db().statementImportDao().forAccount(account.id).size
+        assertEquals(0, vm.state.value.currentChunk)
     }
 
     private fun await(timeoutMillis: Long = 10_000, condition: () -> Boolean) {
