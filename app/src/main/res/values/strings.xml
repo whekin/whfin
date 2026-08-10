@@ -76,6 +76,7 @@
     <string name="accounts_loading">Loading accounts</string>
     <string name="accounts_loading_body">Reading your local ledger…</string>
     <string name="accounts_net_worth">All accounts</string>
+    <string name="accounts_not_in_gel">Not converted to lari: %1$s</string>
     <string name="accounts_available">Available</string>
     <string name="accounts_reserve">Reserve</string>
     <string name="accounts_no_fx_note">Currencies are shown separately until exchange rates are enabled.</string>

@@ -41,7 +41,7 @@ import dev.whekin.whfin.core.ui.WhfinAmount
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
-import dev.whekin.whfin.core.ui.WhfinSectionHeader
+import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinTotalRule
 import dev.whekin.whfin.data.rates.ConvertedTotal
 import dev.whekin.whfin.ui.convertedTotalLabel
@@ -73,24 +73,29 @@ internal fun CryptoPortfolioSection(
         group.holdings.map { it.address ?: it.walletName }
     }.distinct().size
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        WhfinSectionHeader(
-            title = stringResource(R.string.crypto_section),
-            supportingText = buildList {
-                add(pluralStringResource(R.plurals.crypto_wallet_count, walletCount, walletCount))
-                // Freshness is the whole story of a watch-only number, so it is never implied.
-                portfolio.lastObservedAt?.let { add(relativeTime(it)) }
-                    ?: add(stringResource(R.string.crypto_never_refreshed))
-            }.joinToString(" · "),
-            trailing = {
-                WhfinIconButton(
-                    icon = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.crypto_refresh),
-                    onClick = onRefresh,
-                    outlined = false,
-                    enabled = !refreshing,
-                )
-            },
-        )
+        // Crypto is a peer of the bank sections, not a bigger thing: it carries the same caps label
+        // they do. Set as an editorial heading it read as the more important half of the screen.
+        WhfinSectionLabel(stringResource(R.string.crypto_section))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                buildList {
+                    add(pluralStringResource(R.plurals.crypto_wallet_count, walletCount, walletCount))
+                    // Freshness is the whole story of a watch-only number, so it is never implied.
+                    portfolio.lastObservedAt?.let { add(relativeTime(it)) }
+                        ?: add(stringResource(R.string.crypto_never_refreshed))
+                }.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            WhfinIconButton(
+                icon = Icons.Default.Refresh,
+                contentDescription = stringResource(R.string.crypto_refresh),
+                onClick = onRefresh,
+                outlined = false,
+                enabled = !refreshing,
+            )
+        }
         CryptoTotal(portfolio.total, onRotateCurrency)
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             portfolio.assets.forEachIndexed { index, group ->

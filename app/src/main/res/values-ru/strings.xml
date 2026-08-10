@@ -79,6 +79,7 @@
     <string name="accounts_loading">Загружаем счета</string>
     <string name="accounts_loading_body">Читаем локальную финансовую книгу…</string>
     <string name="accounts_net_worth">Все счета</string>
+    <string name="accounts_not_in_gel">Не переведено в лари: %1$s</string>
     <string name="accounts_available">Доступно</string>
     <string name="accounts_reserve">Резерв</string>
     <string name="accounts_no_fx_note">Валюты показаны отдельно, пока не включены курсы обмена.</string>

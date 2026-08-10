@@ -48,14 +48,14 @@ fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
     val mine = open.filter { it.debt.direction == DebtDirection.THEY_OWE_ME }.groupBy { it.debt.currency }
     val theirs = open.filter { it.debt.direction == DebtDirection.I_OWE_THEM }.groupBy { it.debt.currency }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        WhfinSectionLabel(stringResource(R.string.debts_title))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.debts_title), style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    if (open.isEmpty()) stringResource(R.string.debts_none) else stringResource(R.string.debts_open_count, open.size),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                if (open.isEmpty()) stringResource(R.string.debts_none) else stringResource(R.string.debts_open_count, open.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
             Icon(Icons.Default.ChevronRight, null)
         }
         WhfinLedgerGroup {

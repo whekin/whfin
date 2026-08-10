@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.size
@@ -144,6 +144,9 @@ fun AccountsScreen(
     val savingsAccounts = accountContainers.filter { container ->
         container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
     }.flatten()
+    // A cash ledger has no bank behind it, and the enum name printed as its heading stayed English
+    // on a Russian screen.
+    val cashHeading = stringResource(R.string.account_type_cash)
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
     var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
@@ -251,9 +254,8 @@ fun AccountsScreen(
                                     Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                                 )
                             }
-                            sectionAccounts.groupBy {
-                                it.groupName ?: it.account.type.name.lowercase().replaceFirstChar(Char::titlecase)
-                            }.forEach { (groupName, groupAccounts) ->
+                            sectionAccounts.groupBy { it.groupName ?: cashHeading }
+                                .forEach { (groupName, groupAccounts) ->
                                 item(key = "group-$sectionLabel-$groupName") {
                                     Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                                         AccountGroupCard(
@@ -409,43 +411,36 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
     val reserve = accounts.filter { it.account.savingsMode != null || it.account.type == AccountType.SAVINGS }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val secondary = all.entries.filter { it.key != "GEL" }.sortedBy { it.key }
-                .map { (currency, amount) -> currency to formatMinor(amount, currency) }
-            if (secondary.isNotEmpty()) {
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                secondary.forEach { (currency, amount) ->
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        ) {
-                            WhfinAmount(
-                                "$currency   $amount",
-                                symbol = currencySymbol(currency),
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            )
-                        }
-                    }
-            }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                SummaryColumn(
-                    stringResource(R.string.accounts_available),
-                    formatMinor(available["GEL"] ?: 0L, "GEL"),
-                    currencySymbol("GEL"),
-                    Modifier.weight(1f),
-                )
-                SummaryColumn(
-                    stringResource(R.string.accounts_reserve),
-                    reserve["GEL"]?.let { formatMinor(it, "GEL") } ?: "—",
-                    reserve["GEL"]?.let { currencySymbol("GEL") },
-                    Modifier.weight(1f),
-                )
-            }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            SummaryColumn(
+                stringResource(R.string.accounts_available),
+                formatMinor(available["GEL"] ?: 0L, "GEL"),
+                currencySymbol("GEL"),
+                Modifier.weight(1f),
+            )
+            SummaryColumn(
+                stringResource(R.string.accounts_reserve),
+                reserve["GEL"]?.let { formatMinor(it, "GEL") } ?: "—",
+                reserve["GEL"]?.let { currencySymbol("GEL") },
+                Modifier.weight(1f),
+            )
+        }
+        // Available and reserve are lari only, so on a multi-currency ledger they cannot add up to
+        // the total above. Naming what is missing turns three numbers that seem to disagree into
+        // three numbers that explain each other; chips repeating the rows below did not.
+        val unconverted = all.entries.filter { it.key != "GEL" }.sortedBy { it.key }
+        if (unconverted.isNotEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(
+                stringResource(
+                    R.string.accounts_not_in_gel,
+                    unconverted.joinToString(" · ") { (currency, amount) -> formatMinor(amount, currency) },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -469,23 +464,32 @@ private fun AccountGroupCard(
         .groupBy { it.account.iban ?: "account-${it.account.id}" }
         .toList()
         .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
-    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            WhfinSectionHeader(
-                title = name,
-                // Счётчик показываем только когда у банка правда несколько счетов: «1 счёт ·
-                // 2 валюты» ничего не добавляет к строкам, которые тут же перечислены ниже.
-                supportingText = containers.size.takeIf { it > 1 }?.let { count ->
-                    pluralStringResource(R.plurals.accounts_container_count, count, count)
-                },
-                trailing = {
-                    WhfinIconButton(
-                        icon = Icons.Default.Info,
-                        contentDescription = stringResource(R.string.account_source_details),
-                        onClick = onOpenGroupDetails,
-                        outlined = false,
-                    )
-                },
-            )
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // A bank is not a screen title. Set in the editorial serif it outweighed the balance it
+            // belongs to, and repeated once per section it made one bank read as two — the serif is
+            // reserved for screen titles, key totals and rare landmarks.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.titleMedium)
+                    // Счётчик показываем только когда у банка правда несколько счетов: «1 счёт ·
+                    // 2 валюты» ничего не добавляет к строкам, которые тут же перечислены ниже.
+                    containers.size.takeIf { it > 1 }?.let { count ->
+                        Text(
+                            pluralStringResource(R.plurals.accounts_container_count, count, count),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                WhfinIconButton(
+                    // Filled, the glyph is a solid disc: the heaviest mark in the row, outweighing
+                    // the bank it belongs to. Outlined matches the rest of WHFIN's iconography.
+                    icon = Icons.Outlined.Info,
+                    contentDescription = stringResource(R.string.account_source_details),
+                    onClick = onOpenGroupDetails,
+                    outlined = false,
+                )
+            }
             containers.forEach { (_, ibanAccounts) ->
                 IbanCard(
                     accounts = ibanAccounts,
@@ -639,10 +643,18 @@ private fun IbanCard(
                 }
                 HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
-            accounts.sortedWith(compareBy<AccountWithBalance> { if (it.account.currency == "GEL") 0 else 1 }
-                .thenBy { it.account.currency }).forEachIndexed { index, item ->
+            val sorted = accounts.sortedWith(
+                compareBy<AccountWithBalance> { if (it.account.currency == "GEL") 0 else 1 }
+                    .thenBy { it.account.currency },
+            )
+            // A bank routinely names every currency ledger of one account the same. When it does,
+            // the code moves up into the title: two rows reading "Everyday" differ only by a line
+            // the eye skips.
+            val titles = sorted.map { accountRowTitle(it) }
+            sorted.forEachIndexed { index, item ->
                 CurrencyAccountRow(
                     item = item,
+                    currencyInTitle = titles.count { it == accountRowTitle(item) } > 1,
                     onClick = { onOpenTransactions(item) },
                 )
                 if (index != accounts.lastIndex) HorizontalDivider(
@@ -654,35 +666,43 @@ private fun IbanCard(
     }
 }
 
+/** What the money in this ledger is for: its own name, else its purpose, else the bare currency. */
+@Composable
+private fun accountRowTitle(item: AccountWithBalance): String =
+    item.account.name.takeIf { it.isNotBlank() && it != item.account.currency }
+        ?: accountPurposeLabel(item)
+        ?: item.account.currency
+
+@Composable
+private fun accountPurposeLabel(item: AccountWithBalance): String? = when (item.account.savingsMode) {
+    SavingsMode.FLEXIBLE_RESERVE -> stringResource(R.string.account_purpose_reserve)
+    SavingsMode.TERM_DEPOSIT -> stringResource(R.string.account_purpose_deposit)
+    SavingsMode.GOAL -> stringResource(R.string.account_purpose_goal)
+    null -> null
+}
+
 @Composable
 private fun CurrencyAccountRow(
     item: AccountWithBalance,
+    currencyInTitle: Boolean,
     onClick: () -> Unit,
 ) {
+    // What names this row is what the money is for — "Everyday", "Travel", "Депозит". The currency
+    // used to lead it, set in bold, while the amount beside it already carried the same currency in
+    // its symbol: the loudest word on the row was the one word it did not need.
+    val name = accountRowTitle(item)
+    val title = if (currencyInTitle) "$name · ${item.account.currency}" else name
+    // The purpose is not repeated beside a named account: the section heading above already says
+    // whether this is everyday money or savings, and an account called "Term deposit" does not need
+    // "Deposit" under it. It only surfaces as the title of a ledger with no name of its own.
+    val detail = item.account.currency.takeUnless { currencyInTitle }.orEmpty()
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(3.dp).height(36.dp).background(
-            if (item.account.savingsMode != null) MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.outlineVariant,
-            CircleShape,
-        ))
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(item.account.currency, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            // Маски карт относятся ко всему счёту, поэтому в каждой валютной строке они повторялись
-            // одинаково. Здесь остаётся только то, что действительно отличает эту строку:
-            // назначение (резерв/депозит/цель) или собственное имя счёта.
-            val detail = when {
-                item.account.savingsMode == SavingsMode.FLEXIBLE_RESERVE ->
-                    stringResource(R.string.account_purpose_reserve)
-                item.account.savingsMode == SavingsMode.TERM_DEPOSIT ->
-                    stringResource(R.string.account_purpose_deposit)
-                item.account.savingsMode == SavingsMode.GOAL ->
-                    stringResource(R.string.account_purpose_goal)
-                else -> item.account.name.takeIf { it != item.account.currency }
-            }
-            if (detail != null) Text(
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            if (detail.isNotEmpty()) Text(
                 detail,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -692,6 +712,7 @@ private fun CurrencyAccountRow(
             formatMinor(item.balanceMinor, item.account.currency),
             symbol = currencySymbol(item.account.currency),
             style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(start = 12.dp),
         )
     }
 }
@@ -755,14 +776,23 @@ private fun AccountCard(item: AccountWithBalance, title: String = item.account.n
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AccountsContentPreview() {
+    // A bank names every currency ledger of one account the same, which is what makes the currency
+    // move into the title; the savings row has no name of its own and falls back to its purpose.
     val accounts = listOf(
         AccountWithBalance(
-            AccountEntity(id = 1, name = "Credo GEL •0001", type = AccountType.BANK, groupId = 1, currency = "GEL", iban = "GE00CD0000000000000001"),
+            AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "GEL", iban = "GE00CD0000000000000001"),
             500_000, listOf("0001"), groupName = "Credo",
         ),
         AccountWithBalance(
-            AccountEntity(id = 2, name = "Credo USD •0001", type = AccountType.BANK, groupId = 1, currency = "USD", iban = "GE00CD0000000000000001"),
+            AccountEntity(id = 2, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "USD", iban = "GE00CD0000000000000001"),
             2_360, emptyList(), groupName = "Credo",
+        ),
+        AccountWithBalance(
+            AccountEntity(
+                id = 3, name = "EUR", type = AccountType.SAVINGS, groupId = 1, currency = "EUR",
+                iban = "GE00CD0000000000000002", savingsMode = SavingsMode.FLEXIBLE_RESERVE,
+            ),
+            81_500, emptyList(), groupName = "Credo",
         ),
     )
     WhfinTheme {
