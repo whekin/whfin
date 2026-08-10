@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -352,7 +353,7 @@ private fun ConnectedContent(
         leadingIcon = Icons.Default.CloudSync,
     )
 
-    if (state.results.isNotEmpty()) {
+    if (state.results.isNotEmpty() || state.unchanged > 0) {
         WhfinSectionLabel(stringResource(R.string.credo_sync_result_section))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             state.results.forEachIndexed { index, file ->
@@ -374,6 +375,12 @@ private fun ConnectedContent(
                 )
             }
         }
+        // A quiet account is not a result of its own — the run says it once.
+        if (state.unchanged > 0) Text(
+            pluralStringResource(R.plurals.credo_sync_unchanged, state.unchanged, state.unchanged),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 
     WhfinButton(

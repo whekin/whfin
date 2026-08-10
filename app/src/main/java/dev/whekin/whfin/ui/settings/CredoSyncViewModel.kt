@@ -43,6 +43,8 @@ data class CredoSyncUiState(
     val currentAccount: Int = 0,
     val currentPhase: StatementImporter.Phase? = null,
     val results: List<CredoSyncFileResult> = emptyList(),
+    /** Accounts whose statement would have added nothing: said once, not as a row each. */
+    val unchanged: Int = 0,
     val errorCode: String? = null,
     val isBusy: Boolean = false,
 )
@@ -148,6 +150,7 @@ class CredoSyncViewModel internal constructor(
         if (_state.value.stage == CredoSyncStage.Syncing) return
         viewModelScope.launch(syncDispatcher) {
             val results = mutableListOf<CredoSyncFileResult>()
+            var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
                 val (fromIso, toIso) = statementRangeFor(account)
                 _state.value = _state.value.copy(
@@ -155,10 +158,25 @@ class CredoSyncViewModel internal constructor(
                     currentAccount = index + 1,
                     currentPhase = StatementImporter.Phase.READING,
                     results = results.toList(),
+                    unchanged = unchanged,
                     errorCode = null,
                 )
                 val fileResult = try {
                     val bytes = downloadWithRetry(activeSession, account, fromIso, toIso)
+                    // A quiet account returns a statement that would add nothing. Importing it
+                    // anyway leaves a "0 added" record behind on every run, so read first and let
+                    // the run say it once at the end instead. An unreadable file falls through to
+                    // the import, which reports why in the words it always has.
+                    val preview = runCatching {
+                        ByteArrayInputStream(bytes).use { input ->
+                            StatementImporter(db).preview(input, account.fileName())
+                        }
+                    }.getOrNull()
+                    if (preview?.changesNothing == true) {
+                        unchanged += 1
+                        _state.value = _state.value.copy(unchanged = unchanged)
+                        continue
+                    }
                     val result = ByteArrayInputStream(bytes).use { input ->
                         StatementImporter(db).import(
                             input = input,
@@ -180,6 +198,7 @@ class CredoSyncViewModel internal constructor(
                         currentAccount = 0,
                         currentPhase = null,
                         results = results.toList(),
+                        unchanged = unchanged,
                         errorCode = "SESSION_EXPIRED",
                     )
                     return@launch
@@ -193,6 +212,7 @@ class CredoSyncViewModel internal constructor(
                 currentAccount = 0,
                 currentPhase = null,
                 results = results,
+                unchanged = unchanged,
                 errorCode = null,
             )
         }

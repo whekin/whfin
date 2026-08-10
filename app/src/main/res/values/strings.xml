@@ -216,6 +216,10 @@
     <string name="credo_sync_syncing">Importing…</string>
     <string name="credo_sync_now">Import all statements</string>
     <string name="credo_sync_result_section">IMPORT RESULT</string>
+    <plurals name="credo_sync_unchanged">
+        <item quantity="one">%1$d account was already up to date.</item>
+        <item quantity="other">%1$d accounts were already up to date.</item>
+    </plurals>
     <string name="credo_sync_result_success">%1$d added · %2$d already present · %3$d drafts matched</string>
     <string name="credo_sync_disconnect">Forget MyCredo login</string>
     <string name="credo_sync_error_credentials">Check the username and password, then try again.</string>
