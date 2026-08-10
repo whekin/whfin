@@ -426,6 +426,8 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
     "EMPTY_STATEMENT", "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_statement)
+    "UNSUPPORTED_STATEMENT" -> stringResource(R.string.statements_unsupported)
+    "AMBIGUOUS_LEDGER" -> stringResource(R.string.credo_sync_error_ambiguous)
     else -> stringResource(R.string.credo_sync_error_generic, code)
 }
 

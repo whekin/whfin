@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.settings
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.credo.CredoApiException
 import dev.whekin.whfin.data.credo.CredoCredentials
 import dev.whekin.whfin.data.credo.CredoGateway
 import dev.whekin.whfin.data.credo.CredoLoginChallenge
@@ -22,6 +23,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -154,6 +156,98 @@ class CredoHistoryLoadTest {
         assertEquals(2, result.inserted)
         assertEquals(0, vm.state.value.unchanged)
         assertEquals(0, vm.state.value.currentChunk)
+    }
+
+    /** Serves one usable year and then reports the period as empty, the way a real account starts. */
+    private inner class ShortHistoryGateway(private val failure: String) : CredoGateway {
+        var downloads = 0
+
+        override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
+            operationId = "op",
+            requiresOtp = false,
+            mobileHint = null,
+            directConfirmationSalt = "salt",
+        )
+
+        override suspend fun sendOtp(operationId: String) = Unit
+
+        override suspend fun confirmLogin(
+            challenge: CredoLoginChallenge,
+            username: String,
+            otp: String?,
+        ) = CredoSession(accessToken = "token", refreshToken = null)
+
+        override suspend fun accounts(session: CredoSession) = listOf(
+            CredoRemoteAccount(SyntheticCredoWorkbook.IBAN, "GEL", 1, null, null),
+        )
+
+        override suspend fun downloadStatement(
+            session: CredoSession,
+            account: CredoRemoteAccount,
+            fromIso: String,
+            toIso: String,
+        ): ByteArray {
+            downloads += 1
+            if (downloads > 1) throw CredoApiException(failure)
+            val from = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(fromIso)).atZone(zone).toLocalDate()
+            val to = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(toIso)).atZone(zone).toLocalDate()
+            return SyntheticCredoWorkbook.build(
+                periodFrom = from,
+                periodTo = to,
+                openingBalance = "100.00",
+                closingBalance = "92.86",
+                rows = listOf(
+                    Row(
+                        date = from.plusDays(1),
+                        operation = "საბარათე ოპერაცია",
+                        debit = "7.14",
+                        balance = "92.86",
+                        description = "გადახდა - SYNTHETIC SHOP 7.14 GEL",
+                    ),
+                ),
+            )
+        }
+    }
+
+    private fun runHistory(gateway: CredoGateway): CredoSyncViewModel {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(
+            app = app,
+            gateway = gateway,
+            secretStore = CredoSecretStore(app),
+            syncDispatcher = dispatcher,
+            retryDelayMillis = listOf(0L, 0L),
+        )
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+        vm.loadHistory()
+        // The stage is Connected before and after, so wait for the run's own output instead.
+        await { vm.state.value.results.isNotEmpty() || vm.state.value.unchanged > 0 }
+        return vm
+    }
+
+    @Test
+    fun runningOutOfHistoryIsHowTheWalkEnds_notAFailureToReport() {
+        // Before an account existed there is nothing to export, and the bank says so.
+        val gateway = ShortHistoryGateway("EMPTY_STATEMENT")
+
+        val vm = runHistory(gateway)
+
+        assertEquals(2, gateway.downloads)
+        val result = vm.state.value.results.single()
+        assertNull(result.errorCode)
+        assertEquals(1, result.inserted)
+    }
+
+    @Test
+    fun aRealFailureAfterHistoryWasFoundDoesNotEraseWhatWasImported() {
+        val gateway = ShortHistoryGateway("NETWORK_ERROR")
+
+        val vm = runHistory(gateway)
+
+        val result = vm.state.value.results.single()
+        assertNull(result.errorCode)
+        assertEquals(1, result.inserted)
     }
 
     private fun await(timeoutMillis: Long = 10_000, condition: () -> Boolean) {

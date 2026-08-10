@@ -17,8 +17,12 @@ import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
+import dev.whekin.whfin.data.importer.AmbiguousBankLedgerException
+import dev.whekin.whfin.data.importer.InvalidStatementException
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.data.db.StatementImportOrigin
+import dev.whekin.whfin.data.statement.MalformedStatementException
+import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
 import java.time.ZoneId
@@ -312,9 +316,14 @@ class CredoSyncViewModel internal constructor(
                         )
                         return@launch
                     } catch (error: Exception) {
-                        // An empty or unreadable year is as far as this account goes today; whatever
-                        // the earlier chunks already added stays.
-                        errorCode = error.safeCode().takeIf { inserted == 0 && reconciled == 0 }
+                        // Walking off the start of an account's life is the normal way this ends,
+                        // not a failure: before it existed there is no statement to export, and the
+                        // bank says so with an empty one. Anything else stops the walk too, but is
+                        // worth reporting — unless this account already got history out of it.
+                        val code = error.safeCode()
+                        if (code !in NO_MORE_HISTORY) {
+                            errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
+                        }
                         break
                     }
                     if (CredoHistoryScan.reachedBottom(window, statement)) break
@@ -468,8 +477,19 @@ class CredoSyncViewModel internal constructor(
         )
     }
 
+    /**
+     * A code the screen can explain, never a raw message.
+     *
+     * A statement the bank sent but WHFIN could not read used to land here as `UNKNOWN_ERROR`,
+     * which told the user nothing and left no way to tell a parser problem from a broken balance
+     * chain. The file import has always named these; sync now does too.
+     */
     private fun Throwable.safeCode(): String = when (this) {
         is CredoApiException -> code
+        is UnsupportedStatementException -> "UNSUPPORTED_STATEMENT"
+        is MalformedStatementException -> "INVALID_STATEMENT"
+        is InvalidStatementException -> "INVALID_STATEMENT"
+        is AmbiguousBankLedgerException -> "AMBIGUOUS_LEDGER"
         else -> "UNKNOWN_ERROR"
     }
 
@@ -492,6 +512,9 @@ class CredoSyncViewModel internal constructor(
     private companion object {
         const val OTP_LENGTH = 4
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")
+
+        /** How the far end of an account's history announces itself: there is nothing to export. */
+        val NO_MORE_HISTORY = setOf("EMPTY_STATEMENT")
         val DEFAULT_RETRY_DELAYS = listOf(2_000L, 5_000L)
     }
 }

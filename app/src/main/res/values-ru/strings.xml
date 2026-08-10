@@ -239,6 +239,7 @@
     <string name="credo_sync_error_protection">Защита сайта MyCredo заблокировала прямое подключение. Не повторяйте попытки подряд; используйте импорт XLSX, пока WHFIN обновляет коннектор.</string>
     <string name="credo_sync_error_no_accounts">MyCredo не вернул доступных выписок для этого профиля.</string>
     <string name="credo_sync_error_statement">Credo вернул нечитаемую выписку. Остальные счета всё равно можно импортировать.</string>
+    <string name="credo_sync_error_ambiguous">Два счёта этой валюты ждут IBAN, поэтому выписку нельзя отнести к одному из них. Сначала задайте им IBAN в разделе «Выписки банка».</string>
     <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>
     <string name="settings_sms_title">Мониторинг SMS Credo</string>
     <string name="settings_sms_body">Будущие SMS Credo об операциях отслеживаются на этом устройстве. После маршрутизации операция становится ожидающей транзакцией.</string>
