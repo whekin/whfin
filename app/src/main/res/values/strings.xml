@@ -170,21 +170,21 @@
     <string name="settings_theme_dark">Dark theme</string>
     <string name="settings_theme_dark_body">Keep WHFIN dark</string>
     <string name="settings_dynamic_colors">System colors</string>
-    <string name="settings_dynamic_colors_body">Use the wallpaper palette for the app. The widget always uses system colors.</string>
+    <string name="settings_dynamic_colors_body">Wallpaper palette; the widget always uses it</string>
     <string name="settings_dynamic_colors_toggle">Use system colors in the app</string>
     <string name="settings_system_font">Device font</string>
-    <string name="settings_system_font_body">Use your device font for titles and large totals</string>
+    <string name="settings_system_font_body">Titles and totals in your device font</string>
     <string name="settings_system_font_toggle">Use device font</string>
     <string name="settings_quick_keypad">Quick expense keypad</string>
-    <string name="settings_quick_keypad_body">Use WHFIN’s compact calculator keypad instead of the device keyboard</string>
+    <string name="settings_quick_keypad_body">Built-in keypad that does the arithmetic</string>
     <string name="settings_quick_keypad_toggle">Use the WHFIN keypad for Quick expense</string>
-    <string name="settings_widget_open_app">WHFIN widget button</string>
-    <string name="settings_widget_open_app_body">The left button opens WHFIN. Account and currency taps still switch the quick-entry source.</string>
+    <string name="settings_widget_open_app">Widget button</string>
+    <string name="settings_widget_open_app_body">A left button that opens WHFIN</string>
     <string name="settings_widget_open_app_toggle">Show the open app button in the widget</string>
     <string name="widget_open_app_action">Open WHFIN</string>
     <string name="settings_automation">AUTOMATION</string>
     <string name="credo_sync_title">Credo sync</string>
-    <string name="credo_sync_settings_summary">Sign in once and import every account statement</string>
+    <string name="credo_sync_settings_summary">Statements arrive on their own</string>
     <string name="credo_sync_experimental_title">Direct, protected connection</string>
     <string name="credo_sync_experimental_body">WHFIN connects straight from this phone to Credo—there is no intermediary server. The connector can read account lists and statements but cannot make payments; your bank login itself is not read-only. This unofficial connection may break after Credo changes.</string>
     <string name="credo_sync_error_title">Couldn’t continue</string>
@@ -234,7 +234,7 @@
     <string name="settings_sms_disabled_body">Off. WHFIN ignores future incoming SMS until monitoring is turned on again.</string>
     <string name="settings_sms_toggle">Credo SMS monitoring</string>
     <string name="sms_diagnostics_title">Bank SMS</string>
-    <string name="sms_diagnostics_settings_summary">Monitoring, account routing, recent activity and cards</string>
+    <string name="sms_diagnostics_settings_summary">Drafts from bank messages</string>
     <string name="sms_monitoring_on">Monitoring is on</string>
     <string name="sms_monitoring_on_body">Credo messages are captured here. Routed operations become pending transactions; the rest wait for your choice in the Feed.</string>
     <string name="sms_monitoring_off">Monitoring is off</string>
@@ -596,7 +596,7 @@
     </plurals>
     <string name="action_done">Done</string>
     <string name="statements_title">Bank statements</string>
-    <string name="statements_settings_summary">Coverage, imports and items to review</string>
+    <string name="statements_settings_summary">Load a file, see what is still uncovered</string>
     <string name="statements_intro">Statements are the source of truth. Each file is matched to its account by IBAN.</string>
     <string name="statements_upload">Upload statement</string>
     <string name="statements_files">Files</string>

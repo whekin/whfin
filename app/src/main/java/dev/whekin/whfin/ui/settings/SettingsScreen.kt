@@ -41,6 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.items
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -105,34 +109,34 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         WhfinSectionLabel(stringResource(R.string.settings_appearance))
-        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-            listOf(
-                Triple(AppThemeMode.System, Icons.Default.BrightnessAuto, R.string.settings_theme_system),
-                Triple(AppThemeMode.Light, Icons.Default.LightMode, R.string.settings_theme_light),
-                Triple(AppThemeMode.Dark, Icons.Default.DarkMode, R.string.settings_theme_dark),
-            ).forEachIndexed { index, (mode, icon, label) ->
-                WhfinLedgerRow(
-                    title = stringResource(label),
-                    supportingText = stringResource(
-                        when (mode) {
-                            AppThemeMode.System -> R.string.settings_theme_system_body
-                            AppThemeMode.Light -> R.string.settings_theme_light_body
-                            AppThemeMode.Dark -> R.string.settings_theme_dark_body
-                        },
-                    ),
-                    icon = icon,
-                    trailing = if (appThemeMode == mode) {
-                        { androidx.compose.material3.Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
-                    } else null,
+        // One choice, not three announcements. As three full rows with icons and a sentence each,
+        // picking a theme filled a screen and a half at large font sizes to say what three words say.
+        WhfinChoiceRail(Modifier.padding(bottom = 12.dp), contentPadding = PaddingValues(end = 20.dp)) {
+            items(
+                listOf(
+                    AppThemeMode.System to R.string.settings_theme_system,
+                    AppThemeMode.Light to R.string.settings_theme_light,
+                    AppThemeMode.Dark to R.string.settings_theme_dark,
+                ),
+            ) { (mode, label) ->
+                WhfinFilterPill(
+                    label = stringResource(label),
+                    selected = appThemeMode == mode,
                     onClick = { onAppThemeModeChange(mode) },
-                    divider = true,
+                    leadingIcon = when (mode) {
+                        AppThemeMode.System -> Icons.Default.BrightnessAuto
+                        AppThemeMode.Light -> Icons.Default.LightMode
+                        AppThemeMode.Dark -> Icons.Default.DarkMode
+                    },
                 )
             }
+        }
+        // No icons on switches: an icon marks somewhere to go, and these go nowhere. Dropping the
+        // column gives the wording the width it needs to stay on one line at large font sizes.
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
                 title = stringResource(R.string.settings_dynamic_colors),
                 supportingText = stringResource(R.string.settings_dynamic_colors_body),
-                supportingMaxLines = 3,
-                icon = Icons.Default.Palette,
                 trailing = {
                     WhfinSwitch(
                         checked = dynamicColorsEnabled,
@@ -145,8 +149,6 @@ fun SettingsScreen(
             WhfinLedgerRow(
                 title = stringResource(R.string.settings_system_font),
                 supportingText = stringResource(R.string.settings_system_font_body),
-                supportingMaxLines = 3,
-                icon = Icons.Default.TextFields,
                 trailing = {
                     WhfinSwitch(
                         checked = useSystemFont,
@@ -159,8 +161,6 @@ fun SettingsScreen(
             WhfinLedgerRow(
                 title = stringResource(R.string.settings_quick_keypad),
                 supportingText = stringResource(R.string.settings_quick_keypad_body),
-                supportingMaxLines = 4,
-                icon = Icons.Default.Calculate,
                 trailing = {
                     WhfinSwitch(
                         checked = quickExpenseKeypadEnabled,
@@ -173,8 +173,6 @@ fun SettingsScreen(
             WhfinLedgerRow(
                 title = stringResource(R.string.settings_widget_open_app),
                 supportingText = stringResource(R.string.settings_widget_open_app_body),
-                supportingMaxLines = 4,
-                icon = Icons.Default.Home,
                 trailing = {
                     WhfinSwitch(
                         checked = widgetOpenAppButtonEnabled,
@@ -189,7 +187,6 @@ fun SettingsScreen(
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
                 title = stringResource(R.string.categories_title),
-                supportingText = stringResource(R.string.categories_settings_summary),
                 icon = Icons.Default.Category,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenCategories,
@@ -197,7 +194,6 @@ fun SettingsScreen(
             )
             WhfinLedgerRow(
                 title = stringResource(R.string.people_title),
-                supportingText = stringResource(R.string.people_settings_summary),
                 icon = Icons.Default.Group,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenPeople,
@@ -354,7 +350,6 @@ fun SettingsScreen(
                 WhfinLedgerRow(
                     title = stringResource(R.string.demo_mode_reset),
                     supportingText = stringResource(R.string.demo_mode_reset_summary),
-                    supportingMaxLines = 3,
                     icon = Icons.Default.Restore,
                     iconTint = MaterialTheme.colorScheme.error,
                     titleColor = MaterialTheme.colorScheme.error,
@@ -377,7 +372,6 @@ fun SettingsScreen(
                 WhfinLedgerRow(
                     title = stringResource(R.string.demo_entry_title),
                     supportingText = stringResource(R.string.demo_entry_settings_summary),
-                    supportingMaxLines = 3,
                     icon = Icons.Default.Science,
                     trailing = {
                         androidx.compose.material3.Icon(

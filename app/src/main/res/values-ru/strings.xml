@@ -173,21 +173,21 @@
     <string name="settings_theme_dark">Тёмная тема</string>
     <string name="settings_theme_dark_body">Всегда использовать тёмную тему WHFIN</string>
     <string name="settings_dynamic_colors">Системные цвета</string>
-    <string name="settings_dynamic_colors_body">Использовать палитру обоев в приложении. Виджет всегда использует системные цвета.</string>
+    <string name="settings_dynamic_colors_body">Палитра обоев; виджет использует её всегда</string>
     <string name="settings_dynamic_colors_toggle">Использовать системные цвета в приложении</string>
     <string name="settings_system_font">Шрифт устройства</string>
-    <string name="settings_system_font_body">Для заголовков и крупных итогов — шрифт устройства вместо фирменного WHFIN</string>
+    <string name="settings_system_font_body">Заголовки и итоги шрифтом устройства</string>
     <string name="settings_system_font_toggle">Использовать шрифт устройства</string>
-    <string name="settings_quick_keypad">Клавиатура Quick expense</string>
-    <string name="settings_quick_keypad_body">Компактная клавиатура WHFIN с вычислениями вместо системной клавиатуры</string>
+    <string name="settings_quick_keypad">Клавиатура быстрого ввода</string>
+    <string name="settings_quick_keypad_body">Своя клавиатура, которая считает</string>
     <string name="settings_quick_keypad_toggle">Использовать клавиатуру WHFIN для Quick expense</string>
-    <string name="settings_widget_open_app">Кнопка WHFIN в виджете</string>
-    <string name="settings_widget_open_app_body">Кнопка слева открывает WHFIN. Счёт и валюта по-прежнему переключают источник быстрого ввода.</string>
+    <string name="settings_widget_open_app">Кнопка в виджете</string>
+    <string name="settings_widget_open_app_body">Слева — кнопка, открывающая WHFIN</string>
     <string name="settings_widget_open_app_toggle">Показывать кнопку открытия приложения в виджете</string>
     <string name="widget_open_app_action">Открыть WHFIN</string>
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
-    <string name="credo_sync_settings_summary">Войти один раз и импортировать выписки всех счетов</string>
+    <string name="credo_sync_settings_summary">Выписки приходят сами</string>
     <string name="credo_sync_experimental_title">Прямое защищённое подключение</string>
     <string name="credo_sync_experimental_body">WHFIN подключается к Credo напрямую с этого телефона — сервера-посредника нет. Коннектор читает список счетов и выписки, но не умеет совершать платежи; сам банковский логин не ограничен режимом «только чтение». Неофициальное подключение может сломаться после изменений Credo.</string>
     <string name="credo_sync_error_title">Не удалось продолжить</string>
@@ -237,7 +237,7 @@
     <string name="settings_sms_disabled_body">Выключено. WHFIN игнорирует будущие входящие SMS, пока вы снова не включите мониторинг.</string>
     <string name="settings_sms_toggle">Мониторинг SMS Credo</string>
     <string name="sms_diagnostics_title">SMS банка</string>
-    <string name="sms_diagnostics_settings_summary">Мониторинг, счета операций, недавняя активность и карты</string>
+    <string name="sms_diagnostics_settings_summary">Черновики из сообщений банка</string>
     <string name="sms_monitoring_on">Мониторинг включён</string>
     <string name="sms_monitoring_on_body">Сообщения Credo попадают сюда. Операции с известным счётом становятся ожидающими, остальные ждут выбора в ленте.</string>
     <string name="sms_monitoring_off">Мониторинг выключен</string>
@@ -605,7 +605,7 @@
     </plurals>
     <string name="action_done">Готово</string>
     <string name="statements_title">Выписки банка</string>
-    <string name="statements_settings_summary">Покрытие, загрузки и операции на проверку</string>
+    <string name="statements_settings_summary">Загрузить файл и увидеть пробелы</string>
     <string name="statements_intro">Выписка — источник истины. Счёт определяется автоматически по IBAN.</string>
     <string name="statements_upload">Загрузить выписку</string>
     <string name="statements_files">Файлов</string>
