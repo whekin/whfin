@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -42,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -144,6 +147,11 @@ fun AccountsScreen(
     val savingsAccounts = accountContainers.filter { container ->
         container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
     }.flatten()
+    // A ledger row puts its name at one edge and its amount at the other. Left to fill a tablet, the
+    // two end up an arm's length apart and stop reading as one line, so the content keeps a width a
+    // person can actually scan and sits centred in whatever is left.
+    val readableWidth = Modifier.widthIn(max = 640.dp)
+
     // A cash ledger has no bank behind it, and the enum name printed as its heading stayed English
     // on a Russian screen.
     val cashHeading = stringResource(R.string.account_type_cash)
@@ -176,7 +184,9 @@ fun AccountsScreen(
         topBar = {
             val total = netWorth
             val totalAmount = total?.amount
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             WhfinContextHeader(
+                modifier = readableWidth,
                 label = convertedTotalLabel(
                     base = stringResource(R.string.accounts_net_worth),
                     total = total.takeIf { readyState != null },
@@ -207,16 +217,24 @@ fun AccountsScreen(
                     outlined = false,
                 )
             }
+            }
         },
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
             if (readyState == null) {
-                Column(Modifier.fillMaxSize().padding(padding)) {
-                    WhfinStatePane(
-                        state = WhfinPaneState.Loading,
-                        title = stringResource(R.string.accounts_loading),
-                        body = stringResource(R.string.accounts_loading_body),
-                        modifier = Modifier.fillMaxWidth().weight(1f),
+                // Reading a local database takes milliseconds. A full-height pane announcing it left
+                // most of the screen empty for a moment that is normally invisible; a quiet line is
+                // enough to keep the state honest without pretending something is happening.
+                Row(
+                    Modifier.fillMaxWidth().padding(padding).padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        stringResource(R.string.accounts_loading),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             } else if (accounts.isEmpty() && debts.isEmpty() && archivedAccounts.isEmpty()) {
@@ -233,7 +251,9 @@ fun AccountsScreen(
             } else {
                 LazyColumn(
                     Modifier
-                        .fillMaxSize()
+                        .fillMaxHeight()
+                        .align(Alignment.TopCenter)
+                        .then(readableWidth)
                         .padding(padding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp),
@@ -293,9 +313,14 @@ fun AccountsScreen(
                             }
                         }
                     }
-                    item(key = "debts") {
-                        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            DebtsSummary(debts, onClick = { showDebts = true })
+                    // Nothing owed in either direction is not a state worth a section: on a fresh
+                    // install it filled as much of the screen as the only real account, with two
+                    // dashes in it. Debts are created from the composer, not from here.
+                    if (debts.isNotEmpty()) {
+                        item(key = "debts") {
+                            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                                DebtsSummary(debts, onClick = { showDebts = true })
+                            }
                         }
                     }
                     if (archivedAccounts.isNotEmpty()) {
@@ -499,6 +524,7 @@ private fun AccountGroupCard(
             }
             containers.forEach { (_, ibanAccounts) ->
                 IbanCard(
+                    sourceName = name,
                     accounts = ibanAccounts,
                     // Один счёт в банке — заголовок группы уже назвал его; вторая строка с тем же
                     // именем и полным IBAN была чистым повтором.
@@ -598,6 +624,7 @@ private fun AccountGroupDetailsDialog(
 
 @Composable
 private fun IbanCard(
+    sourceName: String,
     accounts: List<AccountWithBalance>,
     showContainerHeader: Boolean,
     onOpenTransactions: (AccountWithBalance) -> Unit,
@@ -664,6 +691,7 @@ private fun IbanCard(
                 CurrencyAccountRow(
                     item = item,
                     currencyInTitle = currencyInTitle,
+                    sourceName = sourceName,
                     onClick = { onOpenTransactions(item) },
                 )
                 if (index != accounts.lastIndex) HorizontalDivider(
@@ -674,6 +702,14 @@ private fun IbanCard(
         }
     }
 }
+
+/**
+ * The names WHFIN writes for a cash ledger nobody has renamed.
+ *
+ * They are placeholders, not descriptions: the source heading already says the same thing, in the
+ * language the screen is actually being read in.
+ */
+private val SEEDED_CASH_NAMES = setOf("Cash", "Наличные")
 
 /** What the money in this ledger is for: its own name, else its purpose, else the bare currency. */
 @Composable
@@ -694,17 +730,26 @@ private fun accountPurposeLabel(item: AccountWithBalance): String? = when (item.
 private fun CurrencyAccountRow(
     item: AccountWithBalance,
     currencyInTitle: Boolean,
+    sourceName: String,
     onClick: () -> Unit,
 ) {
     // What names this row is what the money is for — "Everyday", "Travel", "Депозит". The currency
     // used to lead it, set in bold, while the amount beside it already carried the same currency in
     // its symbol: the loudest word on the row was the one word it did not need.
-    val name = accountRowTitle(item)
-    val title = if (currencyInTitle) "$name · ${item.account.currency}" else name
+    // WHFIN names the cash ledger it seeds itself, in whatever language was current at the time, so
+    // that name can end up in one language under a heading written in another — "Наличные / Cash",
+    // the same word twice. Those names are our own output, not something the user typed, so a row
+    // carrying one has nothing of its own to say and leads with its currency instead.
+    val ownName = accountRowTitle(item)
+        .takeUnless { it.equals(sourceName, ignoreCase = true) || it in SEEDED_CASH_NAMES }
+    val name = ownName ?: item.account.currency
+    val title = if (currencyInTitle && ownName != null) "$name · ${item.account.currency}" else name
     // The purpose is not repeated beside a named account: the section heading above already says
     // whether this is everyday money or savings, and an account called "Term deposit" does not need
     // "Deposit" under it. It only surfaces as the title of a ledger with no name of its own.
-    val detail = item.account.currency.takeUnless { currencyInTitle }.orEmpty()
+    val detail = item.account.currency
+        .takeUnless { currencyInTitle || ownName == null }
+        .orEmpty()
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

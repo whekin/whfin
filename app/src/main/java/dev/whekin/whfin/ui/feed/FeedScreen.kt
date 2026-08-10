@@ -49,7 +49,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import dev.whekin.whfin.data.db.AllocationPurpose
@@ -59,7 +59,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
@@ -412,7 +412,7 @@ fun FeedScreen(
                 ) {
                     if (mode == FeedMode.HOME) {
                         WhfinIconButton(
-                            icon = Icons.Default.TrendingUp,
+                            icon = Icons.AutoMirrored.Filled.TrendingUp,
                             contentDescription = stringResource(R.string.analytics_open),
                             onClick = onOpenAnalytics,
                             outlined = false,
@@ -1147,9 +1147,9 @@ private fun TransactionDetailsContent(
                         DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
                     }
                     if (onClearSplit != null) item {
-                        DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_clear), onClearSplit)
+                        DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_clear), onClearSplit)
                     } else if (onSplit != null) item {
-                        DetailQuickAction(Icons.Default.CallSplit, stringResource(R.string.split_action_short), onSplit)
+                        DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_action_short), onSplit)
                     }
                 }
             }
@@ -1810,7 +1810,7 @@ private fun FeedFilterSheet(
                             leadingIcon = when (value) {
                                 FeedSort.NEWEST -> Icons.Default.ArrowDownward
                                 FeedSort.OLDEST -> Icons.Default.ArrowUpward
-                                FeedSort.AMOUNT -> Icons.Default.TrendingUp
+                                FeedSort.AMOUNT -> Icons.AutoMirrored.Filled.TrendingUp
                             },
                             onClick = { draftSort = value },
                         )
@@ -2115,7 +2115,7 @@ private fun HomeInsightRow(
         )
     }
     val icon = when (insight) {
-        is HomeInsight.SpendingPace -> Icons.Default.TrendingUp
+        is HomeInsight.SpendingPace -> Icons.AutoMirrored.Filled.TrendingUp
         is HomeInsight.CategoryDriver -> Icons.Default.Category
     }
 
@@ -2657,7 +2657,7 @@ private fun FeedContentPreview() {
                     formatMinor(559_417, "GEL"),
                     valueSymbol = currencySymbol("GEL"),
                 ) {
-                    WhfinIconButton(Icons.Default.TrendingUp, "Statistics", {}, outlined = false)
+                    WhfinIconButton(Icons.AutoMirrored.Filled.TrendingUp, "Statistics", {}, outlined = false)
                     WhfinIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "History", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
