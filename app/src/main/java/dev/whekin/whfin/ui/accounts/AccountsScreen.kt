@@ -649,12 +649,14 @@ private fun IbanCard(
             )
             // A bank routinely names every currency ledger of one account the same. When it does,
             // the code moves up into the title: two rows reading "Everyday" differ only by a line
-            // the eye skips.
+            // the eye skips. The choice is made once for the whole card, so its rows keep one
+            // height instead of alternating between one and two lines.
             val titles = sorted.map { accountRowTitle(it) }
+            val currencyInTitle = titles.distinct().size < titles.size
             sorted.forEachIndexed { index, item ->
                 CurrencyAccountRow(
                     item = item,
-                    currencyInTitle = titles.count { it == accountRowTitle(item) } > 1,
+                    currencyInTitle = currencyInTitle,
                     onClick = { onOpenTransactions(item) },
                 )
                 if (index != accounts.lastIndex) HorizontalDivider(

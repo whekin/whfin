@@ -58,20 +58,32 @@ fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
             )
             Icon(Icons.Default.ChevronRight, null)
         }
+        // Two directions of one relationship read as two ledger rows like every other balance on
+        // this screen; a two-column card was the only shape of its kind here.
         WhfinLedgerGroup {
-            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                DebtTotal(stringResource(R.string.debts_owed_to_you), mine, Modifier.weight(1f))
-                DebtTotal(stringResource(R.string.debts_you_owe), theirs, Modifier.weight(1f))
-            }
+            DebtTotalRow(stringResource(R.string.debts_owed_to_you), mine)
+            HorizontalDivider(
+                Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f),
+            )
+            DebtTotalRow(stringResource(R.string.debts_you_owe), theirs)
         }
     }
 }
 
-@Composable private fun DebtTotal(label: String, groups: Map<String, List<DebtCaseUi>>, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(groups.entries.joinToString(" · ") { (currency, list) -> formatMinor(list.sumOf { it.remainingMinor }, currency) }.ifBlank { "—" },
-            style = MaterialTheme.typography.titleMedium)
+@Composable private fun DebtTotalRow(label: String, groups: Map<String, List<DebtCaseUi>>) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        Text(
+            groups.entries
+                .joinToString(" · ") { (currency, list) -> formatMinor(list.sumOf { it.remainingMinor }, currency) }
+                .ifBlank { "—" },
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }
 

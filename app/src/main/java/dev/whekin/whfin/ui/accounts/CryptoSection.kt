@@ -76,6 +76,9 @@ internal fun CryptoPortfolioSection(
         // Crypto is a peer of the bank sections, not a bigger thing: it carries the same caps label
         // they do. Set as an editorial heading it read as the more important half of the screen.
         WhfinSectionLabel(stringResource(R.string.crypto_section))
+        // The subtotal is already inside the balance at the top of the screen, so it is a reading of
+        // this section, not a second headline: it sits on the section's own line, at the section's
+        // own weight, where it can still be tapped to change display currency.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 buildList {
@@ -88,6 +91,7 @@ internal fun CryptoPortfolioSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
+            CryptoSubtotal(portfolio.total, onRotateCurrency)
             WhfinIconButton(
                 icon = Icons.Default.Refresh,
                 contentDescription = stringResource(R.string.crypto_refresh),
@@ -96,7 +100,6 @@ internal fun CryptoPortfolioSection(
                 enabled = !refreshing,
             )
         }
-        CryptoTotal(portfolio.total, onRotateCurrency)
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             portfolio.assets.forEachIndexed { index, group ->
                 CryptoAssetRow(
@@ -127,24 +130,16 @@ internal fun CryptoPortfolioSection(
 private val CryptoAssetGroup.key: String get() = "$symbol-$decimals"
 
 @Composable
-private fun CryptoTotal(total: ConvertedTotal?, onRotateCurrency: () -> Unit) {
+private fun CryptoSubtotal(total: ConvertedTotal?, onRotateCurrency: () -> Unit) {
     // Nothing priced means nothing to total: a zero here would read as an empty wallet rather than
-    // as a missing quote, and the label alone is too quiet to carry that difference.
+    // as a missing quote.
     val amount = total?.amount?.takeUnless { it.signum() == 0 && total.missing.isNotEmpty() }
-    Column(
-        Modifier.fillMaxWidth().clickable(onClick = onRotateCurrency).padding(vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        WhfinFieldLabel(
-            convertedTotalLabel(base = stringResource(R.string.crypto_total), total = total),
-        )
-        WhfinAmount(
-            if (amount == null) "—" else formatDecimal(amount, total.currency),
-            symbol = total?.currency?.let(::currencySymbol),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        WhfinTotalRule()
-    }
+    WhfinAmount(
+        if (amount == null) "—" else formatDecimal(amount, total.currency),
+        symbol = total?.currency?.let(::currencySymbol),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.clickable(onClick = onRotateCurrency).padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 @Composable
@@ -159,12 +154,8 @@ private fun CryptoAssetRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Ticker-in-a-circle broke at font scale 1.5 and repeated the title anyway; the quiet
-        // ledger marker is the same mark the currency rows above use.
-        Box(
-            Modifier.width(3.dp).height(36.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = .55f), CircleShape),
-        )
+        // No marker: the currency rows above dropped theirs, and a bar that says nothing about the
+        // asset was decoration standing where a meaning should be.
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 group.symbol,
