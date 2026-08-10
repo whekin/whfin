@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.size
@@ -42,7 +43,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -305,30 +305,37 @@ fun AccountsScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 WhfinSectionLabel(stringResource(R.string.accounts_archived_section))
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-                                    shape = MaterialTheme.shapes.large,
-                                ) {
-                                    Column(Modifier.fillMaxWidth()) {
-                                        archivedAccounts.forEachIndexed { index, account ->
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
+                                // An archived account is still an account: it belongs in the same
+                                // outlined group as the rest, not on a tonal slab of its own, and it
+                                // named its type with an untranslated enum constant.
+                                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                                    archivedAccounts.forEachIndexed { index, account ->
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(
+                                                Modifier.weight(1f),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp),
                                             ) {
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(account.name, style = MaterialTheme.typography.bodyLarge)
-                                                    Text(
-                                                        "${account.type.name.lowercase().replaceFirstChar(Char::titlecase)} · ${account.currency}",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                }
-                                                TextButton(onClick = { viewModel.restoreAccount(account) }) {
-                                                    Text(stringResource(R.string.account_restore))
-                                                }
+                                                Text(account.name, style = MaterialTheme.typography.titleSmall)
+                                                Text(
+                                                    "${accountTypeLabel(account.type)} · ${account.currency}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
                                             }
-                                            if (index < archivedAccounts.lastIndex) HorizontalDivider()
+                                            WhfinIconButton(
+                                                icon = Icons.Outlined.Unarchive,
+                                                contentDescription = stringResource(R.string.account_restore),
+                                                onClick = { viewModel.restoreAccount(account) },
+                                                outlined = false,
+                                            )
                                         }
+                                        if (index < archivedAccounts.lastIndex) HorizontalDivider(
+                                            Modifier.padding(horizontal = 16.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f),
+                                        )
                                     }
                                 }
                             }
