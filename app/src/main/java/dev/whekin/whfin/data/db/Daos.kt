@@ -594,6 +594,10 @@ interface StatementImportDao {
     @Query("SELECT * FROM statement_imports WHERE accountId = :accountId ORDER BY importedAt DESC")
     fun observeForAccount(accountId: Long): Flow<List<StatementImportEntity>>
 
+    /** What this account is already known to cover: how far the next sync has to reach back. */
+    @Query("SELECT * FROM statement_imports WHERE accountId = :accountId")
+    suspend fun forAccount(accountId: Long): List<StatementImportEntity>
+
     @Insert
     suspend fun insert(item: StatementImportEntity): Long
 

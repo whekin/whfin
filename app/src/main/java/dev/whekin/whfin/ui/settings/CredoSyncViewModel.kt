@@ -11,6 +11,7 @@ import dev.whekin.whfin.data.credo.CredoLoginChallenge
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoSession
+import dev.whekin.whfin.data.credo.CredoSyncWindow
 import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.data.db.StatementImportOrigin
@@ -146,9 +147,9 @@ class CredoSyncViewModel internal constructor(
         if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
         viewModelScope.launch(syncDispatcher) {
-            val (fromIso, toIso) = statementRange()
             val results = mutableListOf<CredoSyncFileResult>()
             for ((index, account) in accounts.withIndex()) {
+                val (fromIso, toIso) = statementRangeFor(account)
                 _state.value = _state.value.copy(
                     stage = CredoSyncStage.Syncing,
                     currentAccount = index + 1,
@@ -307,9 +308,17 @@ class CredoSyncViewModel internal constructor(
         else -> "UNKNOWN_ERROR"
     }
 
-    private fun statementRange(): Pair<String, String> {
-        val zone = ZoneId.of("Asia/Tbilisi")
-        return credoStatementRange(ZonedDateTime.now(zone))
+    /**
+     * The window is decided per account, because coverage is.
+     *
+     * One account synced yesterday and another added today have nothing in common; a single range
+     * for the whole run would make the first re-read a year to insert nothing.
+     */
+    private suspend fun statementRangeFor(account: CredoRemoteAccount): Pair<String, String> {
+        val now = ZonedDateTime.now(ZoneId.of("Asia/Tbilisi"))
+        val ledger = db.accountDao().byIbanAndCurrency(account.accountNumber, account.currency)
+        val imports = ledger?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
+        return credoStatementRange(now, CredoSyncWindow.startFor(now, imports))
     }
 
     private fun CredoRemoteAccount.fileName(): String =
@@ -331,6 +340,6 @@ internal fun String.isCredoAuthError(): Boolean =
 internal fun String.isCredoTransientError(): Boolean =
     this == "NETWORK_ERROR" || this == "HTTP_500" || this == "HTTP_502" || this == "HTTP_503" || this == "HTTP_504"
 
-internal fun credoStatementRange(now: ZonedDateTime): Pair<String, String> =
-    DateTimeFormatter.ISO_INSTANT.format(now.minusMonths(12).toInstant()) to
+internal fun credoStatementRange(now: ZonedDateTime, from: ZonedDateTime): Pair<String, String> =
+    DateTimeFormatter.ISO_INSTANT.format(from.toInstant()) to
         DateTimeFormatter.ISO_INSTANT.format(now.toInstant())
