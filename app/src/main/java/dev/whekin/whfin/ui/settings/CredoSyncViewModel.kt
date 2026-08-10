@@ -15,6 +15,8 @@ import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.CredoSyncWindow
 import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
+import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.data.db.StatementImportOrigin
 import java.io.ByteArrayInputStream
@@ -54,6 +56,8 @@ data class CredoSyncUiState(
     val currentAccount: Int = 0,
     /** Which year-long statement of a history load is in flight; 0 during a routine sync. */
     val currentChunk: Int = 0,
+    /** Days of historical rates fetched so far, while a history load prices what it brought in. */
+    val valuedDays: Int = 0,
     val currentPhase: StatementImporter.Phase? = null,
     val results: List<CredoSyncFileResult> = emptyList(),
     /** Accounts whose statement would have added nothing: said once, not as a row each. */
@@ -328,11 +332,21 @@ class CredoSyncViewModel internal constructor(
                     )
                 }
             }
+            // Years of foreign rows arrive at once, and each day of them needs its own historical
+            // rate. The routine cap would spread that over as many visits to statistics as it takes,
+            // so this path sees it through while the user is still here to watch.
+            runCatching {
+                TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfillAll { pass ->
+                    _state.value = _state.value.copy(valuedDays = pass.daysFetched)
+                }
+            }
+
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
                 currentAccount = 0,
                 currentChunk = 0,
                 currentPhase = null,
+                valuedDays = 0,
                 results = results,
                 unchanged = unchanged,
                 errorCode = null,

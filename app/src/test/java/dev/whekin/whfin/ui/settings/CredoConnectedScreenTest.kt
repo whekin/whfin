@@ -127,4 +127,26 @@ class CredoConnectedScreenTest {
         compose.onNodeWithText(context.getString(R.string.credo_sync_syncing))
             .performScrollTo().assertIsNotEnabled()
     }
+
+    @Test
+    fun pricingWhatTheWalkBroughtInIsShownRatherThanLookingStuck() {
+        show(
+            CredoSyncUiState(
+                stage = CredoSyncStage.Syncing,
+                accounts = accounts,
+                currentAccount = 2,
+                currentChunk = 4,
+                valuedDays = 120,
+            ),
+        )
+
+        // Rates come after the last statement, so this replaces the year counter rather than
+        // leaving it frozen on the chunk that already finished.
+        compose.onNodeWithText(context.getString(R.string.credo_sync_valuing, 120))
+            .performScrollTo().assertExists()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_history_action))
+            .performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_syncing))
+            .performScrollTo().assertIsNotEnabled()
+    }
 }

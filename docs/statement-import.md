@@ -85,6 +85,12 @@ opens at zero, or a chunk that is empty and stands at zero throughout. An empty 
 signal — an account can sit untouched for a year with money on it. `MAX_CHUNKS` is a guard against a
 protocol change turning the walk into a loop, not a stop condition.
 
+Years of foreign rows arrive at once, and each *day* of them needs its own historical rate — one
+request per day, not per row, and GEL rows need none. `backfill` caps a pass at forty days so
+ordinary paths never burst into hundreds of requests, which would leave a deep load trickling its
+numbers in over as many visits to statistics as it takes. The history walk therefore ends with
+`backfillAll`, which repeats passes until one values nothing, and reports the days as it goes.
+
 ## Rules for a new adapter
 
 1. Keep every bank-specific string, date format, column layout and operation vocabulary inside the

@@ -37,6 +37,35 @@ class TransactionValuationRepository(
     }
 
     /**
+     * Runs passes until nothing more can be valued.
+     *
+     * [backfill] deliberately stops after [DEFAULT_MAX_DAYS] so ordinary paths never burst into
+     * hundreds of requests; the leftovers ride along with the next import or the next look at
+     * statistics. After a one-off load of several years of history there is no next time worth
+     * waiting for — the numbers would trickle in over as many visits as it takes — so that path
+     * finishes the job instead.
+     *
+     * A pass that values nothing ends it, which covers both "all done" and "the remaining days
+     * cannot be priced at all". [maxPasses] is a guard against a provider that somehow always
+     * reports progress, not a stop condition.
+     */
+    suspend fun backfillAll(maxPasses: Int = DEFAULT_MAX_PASSES, onPass: (Result) -> Unit = {}): Result {
+        var valued = 0
+        var daysFetched = 0
+        val unresolved = sortedSetOf<String>()
+        repeat(maxPasses) {
+            val pass = backfill()
+            valued += pass.valued
+            daysFetched += pass.daysFetched
+            unresolved.clear()
+            unresolved += pass.unresolved
+            onPass(Result(valued, unresolved, daysFetched))
+            if (!pass.didWork) return Result(valued, unresolved, daysFetched)
+        }
+        return Result(valued, unresolved, daysFetched)
+    }
+
+    /**
      * @param maxDays bounds one pass so a first import of several years cannot turn into a burst of
      * hundreds of requests. Whatever is left is picked up by the next pass.
      */
@@ -113,6 +142,9 @@ class TransactionValuationRepository(
 
     private companion object {
         const val DEFAULT_MAX_DAYS = 40
+
+        /** Ten passes of forty days each: more history than the bank will hand over anyway. */
+        const val DEFAULT_MAX_PASSES = 10
         val PRECISION = MathContext(24, RoundingMode.HALF_UP)
     }
 }

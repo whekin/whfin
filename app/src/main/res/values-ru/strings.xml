@@ -221,6 +221,7 @@
     <string name="credo_sync_history_action">Загрузить всю историю</string>
     <string name="credo_sync_history_body">Обычная синхронизация берёт только недостающее. Здесь каждый счёт проходится назад по году, пока у банка не кончится история, — достаточно одного раза.</string>
     <string name="credo_sync_history_progress">Уходим назад · год %1$d</string>
+    <string name="credo_sync_valuing">Считаем валютные дни в лари · уже %1$d</string>
     <string name="credo_sync_result_section">РЕЗУЛЬТАТ ИМПОРТА</string>
     <plurals name="credo_sync_unchanged">
         <item quantity="one">%1$d счёт уже актуален.</item>

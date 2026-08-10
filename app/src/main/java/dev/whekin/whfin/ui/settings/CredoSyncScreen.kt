@@ -345,10 +345,14 @@ private fun ConnectedContent(
                 state.currentAccount,
                 state.accounts.size,
             ),
-            body = if (state.currentChunk > 0) stringResource(
-                R.string.credo_sync_history_progress,
-                state.currentChunk,
-            ) else stringResource(state.currentPhase.phaseLabel()),
+            body = when {
+                state.valuedDays > 0 -> stringResource(R.string.credo_sync_valuing, state.valuedDays)
+                state.currentChunk > 0 -> stringResource(
+                    R.string.credo_sync_history_progress,
+                    state.currentChunk,
+                )
+                else -> stringResource(state.currentPhase.phaseLabel())
+            },
             icon = Icons.Default.CloudSync,
             modifier = Modifier.fillMaxWidth(),
         )
