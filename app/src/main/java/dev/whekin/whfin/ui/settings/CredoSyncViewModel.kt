@@ -226,6 +226,7 @@ class CredoSyncViewModel internal constructor(
         val allAccounts = _state.value.accounts
         if (allAccounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
+        val isTargetedRetry = retryAccountKeys.isNotEmpty()
         val accounts = retryAccountKeys
             .takeIf(Set<String>::isNotEmpty)
             ?.let { failed -> allAccounts.filter { it.stableKey in failed } }
@@ -249,7 +250,13 @@ class CredoSyncViewModel internal constructor(
                 )
                 var downloadedBytes: ByteArray? = null
                 val fileResult = try {
-                    val bytes = downloadWithRetry(activeSession, account, fromIso, toIso)
+                    val bytes = downloadWithRetry(
+                        session = activeSession,
+                        account = account,
+                        fromIso = fromIso,
+                        toIso = toIso,
+                        retryDelays = if (isTargetedRetry) emptyList() else retryDelayMillis,
+                    )
                     downloadedBytes = bytes
                     // A quiet account returns a statement that would add nothing. Importing it
                     // anyway leaves a "0 added" record behind on every run, so read first and let
@@ -526,6 +533,7 @@ class CredoSyncViewModel internal constructor(
         account: CredoRemoteAccount,
         fromIso: String,
         toIso: String,
+        retryDelays: List<Long> = retryDelayMillis,
     ): ByteArray {
         var attempt = 0
         while (true) {
@@ -534,8 +542,8 @@ class CredoSyncViewModel internal constructor(
             } catch (error: CredoApiException) {
                 when {
                     error.code.isCredoAuthError() -> throw CredoSessionExpiredException(error)
-                    error.code.isCredoTransientError() && attempt < retryDelayMillis.size -> {
-                        kotlinx.coroutines.delay(retryDelayMillis[attempt])
+                    error.code.isCredoTransientError() && attempt < retryDelays.size -> {
+                        kotlinx.coroutines.delay(retryDelays[attempt])
                         attempt += 1
                     }
                     else -> throw error

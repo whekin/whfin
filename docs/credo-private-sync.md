@@ -59,7 +59,9 @@ ledgers; successful ledgers are not requested again. The continuation set is dev
 backup) and survives process death or an in-place update. For an incomplete first sync created by an
 older build, WHFIN reconstructs the missing set from account-level `CREDO_SYNC` imports, but only while
 there is no completed-sync marker. A completed retry clears the continuation and restores normal
-all-account routine sync behavior.
+all-account routine sync behavior. Because the owner already chose this retry after an exhausted
+transient failure, the targeted pass makes one download request per failed ledger and does not run the
+automatic two-attempt backoff again.
 
 `OTP_NOT_SENT` is recoverable within the current challenge: WHFIN keeps the OTP screen open and offers
 one explicit resend instead of initiating a second login or retrying automatically. Both a GraphQL
