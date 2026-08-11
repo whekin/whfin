@@ -392,6 +392,9 @@ private fun ConnectedContent(
                         file.reconciled,
                     ) else buildString {
                         append(credoErrorMessage(file.errorCode))
+                        // The rule that refused it, in WHFIN's own words: a rule name and a row
+                        // number, never a value out of the statement.
+                        file.detail?.let { append('\n').append(it) }
                         // Which window was asked for: without it a real fault is indistinguishable
                         // from one asked for the wrong period.
                         if (file.askedFrom != null && file.askedTo != null) {
@@ -440,7 +443,8 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
     "EMPTY_STATEMENT" -> stringResource(R.string.credo_sync_error_empty)
-    "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_statement)
+    "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_download)
+    "STATEMENT_UNREADABLE", "STATEMENT_REJECTED" -> stringResource(R.string.credo_sync_error_statement)
     "UNSUPPORTED_STATEMENT" -> stringResource(R.string.statements_unsupported)
     "AMBIGUOUS_LEDGER" -> stringResource(R.string.credo_sync_error_ambiguous)
     else -> stringResource(R.string.credo_sync_error_generic, code)

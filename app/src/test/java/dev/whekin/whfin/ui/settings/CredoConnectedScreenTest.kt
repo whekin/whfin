@@ -93,6 +93,33 @@ class CredoConnectedScreenTest {
     }
 
     @Test
+    fun aRefusedStatementNamesTheRuleAndThePeriodItWasAskedFor() {
+        show(
+            CredoSyncUiState(
+                stage = CredoSyncStage.Connected,
+                accounts = accounts,
+                results = listOf(
+                    CredoSyncFileResult(
+                        "Card •0000 · GEL",
+                        errorCode = "STATEMENT_REJECTED",
+                        detail = "Statement balance chain breaks at row 12.",
+                        askedFrom = "2025-08-11",
+                        askedTo = "2026-08-11",
+                    ),
+                ),
+            ),
+        )
+
+        // Without these two a genuine fault reads the same as one asked for the wrong window.
+        compose.onNodeWithText("Statement balance chain breaks at row 12.", substring = true)
+            .performScrollTo().assertExists()
+        compose.onNodeWithText(
+            context.getString(R.string.credo_sync_error_window, "2025-08-11", "2026-08-11"),
+            substring = true,
+        ).performScrollTo().assertExists()
+    }
+
+    @Test
     fun loadingHistoryIsItsOwnAction() {
         var requested = 0
         show(

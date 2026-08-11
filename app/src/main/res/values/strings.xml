@@ -235,6 +235,7 @@
     <string name="credo_sync_error_no_accounts">MyCredo returned no account statements for this profile.</string>
     <string name="credo_sync_error_empty">Credo exported nothing for this period — no movements on this account.</string>
     <string name="credo_sync_error_window">Asked for %1$s — %2$s</string>
+    <string name="credo_sync_error_download">Credo sent a statement that could not be decoded — the download itself failed, not the reading of it.</string>
     <string name="credo_sync_error_statement">Credo returned an unreadable statement. Other account statements can still be imported.</string>
     <string name="credo_sync_error_ambiguous">Two accounts of this currency are waiting for an IBAN, so this statement cannot be attributed to one of them. Open Bank statements and give them their IBANs first.</string>
     <string name="credo_sync_error_generic">MyCredo returned an unexpected response (reference: %1$s). Nothing unsafe was retried automatically.</string>

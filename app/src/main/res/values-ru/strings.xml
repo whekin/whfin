@@ -240,6 +240,7 @@
     <string name="credo_sync_error_no_accounts">MyCredo не вернул доступных выписок для этого профиля.</string>
     <string name="credo_sync_error_empty">Credo не отдал ничего за этот период — по счёту не было движений.</string>
     <string name="credo_sync_error_window">Запрошено %1$s — %2$s</string>
+    <string name="credo_sync_error_download">Credo прислал выписку, которую не удалось раскодировать: сломалась сама загрузка, а не чтение файла.</string>
     <string name="credo_sync_error_statement">Credo вернул нечитаемую выписку. Остальные счета всё равно можно импортировать.</string>
     <string name="credo_sync_error_ambiguous">Два счёта этой валюты ждут IBAN, поэтому выписку нельзя отнести к одному из них. Сначала задайте им IBAN в разделе «Выписки банка».</string>
     <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>

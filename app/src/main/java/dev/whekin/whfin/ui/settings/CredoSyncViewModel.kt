@@ -52,6 +52,8 @@ data class CredoSyncFileResult(
     /** The period this account was asked for, shown only when it failed. Dates carry no amounts. */
     val askedFrom: String? = null,
     val askedTo: String? = null,
+    /** Which of our own rules refused the statement, when one did. Never a server message. */
+    val detail: String? = null,
 )
 
 data class CredoSyncUiState(
@@ -248,6 +250,7 @@ class CredoSyncViewModel internal constructor(
                         // from one asked for the wrong period.
                         askedFrom = fromIso.asDate(),
                         askedTo = toIso.asDate(),
+                        detail = error.safeDetail(),
                     )
                 }
                 results += fileResult
@@ -284,6 +287,7 @@ class CredoSyncViewModel internal constructor(
                 var reconciled = 0
                 var errorCode: String? = null
                 var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
+                var failedDetail: String? = null
                 var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
 
                 for (chunk in 1..CredoHistoryScan.MAX_CHUNKS) {
@@ -343,6 +347,7 @@ class CredoSyncViewModel internal constructor(
                         if (code !in NO_MORE_HISTORY) {
                             errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
                             failedWindow = window
+                            failedDetail = error.safeDetail()
                         }
                         break
                     }
@@ -356,6 +361,7 @@ class CredoSyncViewModel internal constructor(
                         errorCode = errorCode,
                         askedFrom = failedWindow?.from?.toString(),
                         askedTo = failedWindow?.to?.toString(),
+                        detail = failedDetail,
                     )
                     inserted == 0 && reconciled == 0 -> unchanged += 1
                     else -> results += CredoSyncFileResult(
@@ -517,10 +523,24 @@ class CredoSyncViewModel internal constructor(
     private fun Throwable.safeCode(): String = when (this) {
         is CredoApiException -> code
         is UnsupportedStatementException -> "UNSUPPORTED_STATEMENT"
-        is MalformedStatementException -> "INVALID_STATEMENT"
-        is InvalidStatementException -> "INVALID_STATEMENT"
+        // Distinct from the gateway's INVALID_STATEMENT, which means the download itself would not
+        // decode. These two mean the bytes arrived and our own reading of them refused.
+        is MalformedStatementException -> "STATEMENT_UNREADABLE"
+        is InvalidStatementException -> "STATEMENT_REJECTED"
         is AmbiguousBankLedgerException -> "AMBIGUOUS_LEDGER"
         else -> "UNKNOWN_ERROR"
+    }
+
+    /**
+     * The rule that refused a statement, when the refusal was ours.
+     *
+     * These messages are written by WHFIN and name a rule and a row number — "balance chain breaks
+     * at row 12" — never a value out of the file. A server message is never repeated: it is not ours
+     * to trust or to show.
+     */
+    private fun Throwable.safeDetail(): String? = when (this) {
+        is MalformedStatementException, is InvalidStatementException -> message
+        else -> null
     }
 
     /**
