@@ -687,7 +687,11 @@ This is a single-context repository with root domain documentation and system-wi
   ожидаемый Credo HTTPS host, не следует redirect, а manifest запрещает cleartext globally. Экран честно
   объясняет прямое соединение, memory-only OTP/tokens и что отсутствие payment API в WHFIN не превращает
   банковский credential в scoped read-only доступ. Key size, round-trip, deletion и corrupt-payload
-  failure проверены Android instrumentation.
+  failure проверены Android instrumentation. Memory-only login draft теперь живёт в ViewModel и переживает
+  переход Credo → App Lock → Credo без попадания пароля в Bundle/диск; process death по-прежнему его
+  очищает. OTP вынесен из общего scroll-контейнера: точки, встроенная клавиатура, Confirm и Resend имеют
+  фиксированную геометрию и не требуют прокрутки. Регрессии закреплены Compose-тестами и проверены на
+  disposable Pixel реальным вводом login/password → включение Immediate lock → возврат в заполненную форму.
   Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`

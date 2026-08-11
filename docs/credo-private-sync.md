@@ -64,7 +64,12 @@ Credential hardening (2026-08-04):
   the generated key and verifies round-trip, deletion and corrupted-ciphertext failure on the platform
   Keystore. The unused legacy migration was removed before production; only one credential format exists.
 - The password field uses composition-only state and is cleared after the login challenge advances; it
-  is never placed in Compose saved-instance state. Remembering is no longer preselected for new logins.
+  is never placed in Compose saved-instance state. The route keeps that memory-only draft in its
+  ViewModel so opening App Lock and returning does not erase an already entered username/password;
+  process death still clears it. Remembering is no longer preselected for new logins.
+- The four-digit OTP surface is fixed-height rather than part of the connector's scrolling content:
+  its dots, numeric keypad, Confirm and Resend actions never require a scroll. OTP still exists only in
+  the current composition and is cleared when the challenge ends or is resent.
 - The sign-in screen explains the direct connection, local encryption, non-persistence of OTP/session
   tokens, payment-free adapter surface and the important distinction between that surface and the
   privileges of the bank login itself.

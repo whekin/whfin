@@ -2,11 +2,18 @@ package dev.whekin.whfin.ui.settings
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -45,21 +52,84 @@ class CredoOtpScreenTest {
         }
 
         listOf("1", "2", "3", "4").forEach { digit ->
-            compose.onNodeWithText(digit).performScrollTo().performClick()
+            compose.onNodeWithText(digit).performClick()
         }
         compose.onNodeWithContentDescription(
             context.getString(R.string.credo_sync_otp_progress, 4, 4),
         ).assertExists()
         compose.onNodeWithText(context.getString(R.string.credo_sync_confirm))
-            .performScrollTo()
             .assertIsEnabled()
             .performClick()
         assertEquals("1234", submitted)
 
-        compose.onNodeWithText(context.getString(R.string.credo_sync_resend_otp)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_resend_otp)).performClick()
         compose.onNodeWithContentDescription(
             context.getString(R.string.credo_sync_otp_progress, 0, 4),
         ).assertExists()
+    }
+
+    @Test
+    fun otpKeypadAndConfirmationNeverLiveInAScrollContainer() {
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
+                    appLockEnabled = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onAllNodes(hasScrollAction()).assertCountEquals(0)
+    }
+
+    @Test
+    fun appLockDetourKeepsTheLoginDraftInMemory() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val draft = CredoLoginDraft()
+        var showCredo by mutableStateOf(true)
+        var connectedWith: Triple<String, String, Boolean>? = null
+
+        compose.setContent {
+            WhfinTheme {
+                if (showCredo) {
+                    CredoSyncScreen(
+                        state = CredoSyncUiState(),
+                        appLockEnabled = false,
+                        loginDraft = draft,
+                        onOpenAppLock = { showCredo = false },
+                        onConnect = { username, credential, remember ->
+                            connectedWith = Triple(username, credential, remember)
+                        },
+                        onSubmitOtp = {},
+                        onResendOtp = {},
+                        onSync = {},
+                        onLoadHistory = {},
+                        onDisconnect = {},
+                        onDismissError = {},
+                    )
+                } else {
+                    androidx.compose.material3.Text("App Lock")
+                }
+            }
+        }
+
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("owner")
+        compose.onAllNodes(hasSetTextAction())[1].performTextInput("secret")
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_protect_action))
+            .performScrollTo().performClick()
+        compose.runOnIdle { showCredo = true }
+        compose.onNodeWithText(context.getString(R.string.credo_sync_connect))
+            .performScrollTo().assertIsEnabled().performClick()
+
+        assertEquals(Triple("owner", "secret", false), connectedWith)
     }
 
     @Test

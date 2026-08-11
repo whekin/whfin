@@ -56,6 +56,18 @@ import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
+/**
+ * Memory-only sign-in draft. The route owner keeps it across the App Lock detour, while the bank
+ * credential still never enters saved-instance state or any persistent store.
+ */
+class CredoLoginDraft(
+    username: String = "",
+    credential: String = "",
+) {
+    var username by mutableStateOf(username)
+    var credential by mutableStateOf(credential)
+}
+
 @Composable
 fun CredoSyncRoute(
     appLockEnabled: Boolean,
@@ -69,6 +81,7 @@ fun CredoSyncRoute(
     CredoSyncScreen(
         state = state,
         appLockEnabled = appLockEnabled,
+        loginDraft = viewModel.loginDraft,
         onOpenAppLock = onOpenAppLock,
         onConnect = { username, credential, rememberPassword ->
             viewModel.connect(username, credential, rememberPassword && appLockEnabled)
@@ -86,6 +99,7 @@ fun CredoSyncRoute(
 fun CredoSyncScreen(
     state: CredoSyncUiState,
     appLockEnabled: Boolean,
+    loginDraft: CredoLoginDraft? = null,
     onOpenAppLock: () -> Unit,
     onConnect: (String, String, Boolean) -> Unit,
     onSubmitOtp: (String) -> Unit,
@@ -96,16 +110,18 @@ fun CredoSyncScreen(
     onDismissError: () -> Unit,
 ) {
     val usableSavedPassword = appLockEnabled && state.hasSavedPassword
-    var username by rememberSaveable { mutableStateOf(if (appLockEnabled) state.savedUsername.orEmpty() else "") }
-    // Bank credentials must not enter Compose's saved-instance-state Bundle.
-    var credential by remember { mutableStateOf("") }
+    // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
+    // draft so App Lock navigation cannot erase the form, without ever saving the password.
+    val draft = loginDraft ?: remember {
+        CredoLoginDraft(username = if (appLockEnabled) state.savedUsername.orEmpty() else "")
+    }
     var otp by remember { mutableStateOf("") }
     var rememberPassword by rememberSaveable(state.hasSavedPassword, appLockEnabled) {
         mutableStateOf(usableSavedPassword)
     }
 
     LaunchedEffect(state.savedUsername, appLockEnabled) {
-        if (appLockEnabled && username.isBlank()) username = state.savedUsername.orEmpty()
+        if (appLockEnabled && draft.username.isBlank()) draft.username = state.savedUsername.orEmpty()
     }
     LaunchedEffect(appLockEnabled) {
         if (!appLockEnabled) rememberPassword = false
@@ -113,8 +129,24 @@ fun CredoSyncScreen(
     LaunchedEffect(state.stage) {
         if (state.stage != CredoSyncStage.AwaitingOtp) otp = ""
         if (state.stage == CredoSyncStage.AwaitingOtp || state.stage == CredoSyncStage.Connected) {
-            credential = ""
+            draft.credential = ""
         }
+    }
+
+    if (state.stage == CredoSyncStage.AwaitingOtp) {
+        OtpContent(
+            mobileHint = state.mobileHint,
+            error = state.errorCode?.let { credoErrorMessage(it) },
+            otp = otp,
+            onOtpChange = { value -> otp = value.filter(Char::isDigit).take(4) },
+            onSubmit = { onSubmitOtp(otp) },
+            onResend = {
+                otp = ""
+                onResendOtp()
+            },
+            loading = state.isBusy,
+        )
+        return
     }
 
     Column(
@@ -149,30 +181,20 @@ fun CredoSyncScreen(
             CredoSyncStage.Disconnected,
             CredoSyncStage.Connecting,
             -> LoginContent(
-                username = username,
-                onUsernameChange = { username = it },
-                credential = credential,
-                onCredentialChange = { credential = it },
+                username = draft.username,
+                onUsernameChange = { draft.username = it },
+                credential = draft.credential,
+                onCredentialChange = { draft.credential = it },
                 hasSavedPassword = usableSavedPassword,
                 rememberPassword = rememberPassword,
                 onRememberPasswordChange = { rememberPassword = it },
                 canRememberPassword = appLockEnabled,
                 onOpenAppLock = onOpenAppLock,
                 loading = state.stage == CredoSyncStage.Connecting,
-                onConnect = { onConnect(username, credential, rememberPassword) },
+                onConnect = { onConnect(draft.username, draft.credential, rememberPassword) },
             )
 
-            CredoSyncStage.AwaitingOtp -> OtpContent(
-                mobileHint = state.mobileHint,
-                otp = otp,
-                onOtpChange = { value -> otp = value.filter(Char::isDigit).take(4) },
-                onSubmit = { onSubmitOtp(otp) },
-                onResend = {
-                    otp = ""
-                    onResendOtp()
-                },
-                loading = state.isBusy,
-            )
+            CredoSyncStage.AwaitingOtp -> Unit // handled by the fixed keypad surface above
 
             CredoSyncStage.Connected,
             CredoSyncStage.Syncing,
@@ -269,49 +291,69 @@ private fun LoginContent(
 @Composable
 private fun OtpContent(
     mobileHint: String?,
+    error: String?,
     otp: String,
     onOtpChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     loading: Boolean,
 ) {
-    WhfinSectionLabel(stringResource(R.string.credo_sync_otp_section))
-    Text(
-        text = if (mobileHint.isNullOrBlank()) stringResource(R.string.credo_sync_otp_body)
-        else stringResource(R.string.credo_sync_otp_body_with_phone, mobileHint),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
     Column(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        WhfinCodeDots(
-            length = 4,
-            filled = otp.length,
-            contentDescription = stringResource(R.string.credo_sync_otp_progress, otp.length, 4),
-        )
+        Column(
+            Modifier.weight(1f).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            WhfinSectionLabel(stringResource(R.string.credo_sync_otp_section))
+            Text(
+                text = if (mobileHint.isNullOrBlank()) stringResource(R.string.credo_sync_otp_body)
+                else stringResource(R.string.credo_sync_otp_body_with_phone, mobileHint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            if (error != null) Text(
+                error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            WhfinCodeDots(
+                length = 4,
+                filled = otp.length,
+                contentDescription = stringResource(R.string.credo_sync_otp_progress, otp.length, 4),
+                modifier = Modifier.padding(top = 20.dp),
+            )
+        }
         WhfinNumericKeypad(
             deleteContentDescription = stringResource(R.string.credo_sync_delete_digit),
             onDigit = { digit -> if (otp.length < 4) onOtpChange(otp + digit) },
             onBackspace = { if (otp.isNotEmpty()) onOtpChange(otp.dropLast(1)) },
             enabled = !loading,
         )
+        WhfinButton(
+            label = stringResource(if (loading) R.string.credo_sync_confirming else R.string.credo_sync_confirm),
+            onClick = onSubmit,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = otp.length == 4 && !loading,
+        )
+        WhfinButton(
+            label = stringResource(R.string.credo_sync_resend_otp),
+            onClick = onResend,
+            modifier = Modifier.fillMaxWidth(),
+            style = WhfinActionStyle.Quiet,
+            enabled = !loading,
+        )
     }
-    WhfinButton(
-        label = stringResource(if (loading) R.string.credo_sync_confirming else R.string.credo_sync_confirm),
-        onClick = onSubmit,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = otp.length == 4 && !loading,
-    )
-    WhfinButton(
-        label = stringResource(R.string.credo_sync_resend_otp),
-        onClick = onResend,
-        modifier = Modifier.fillMaxWidth(),
-        style = WhfinActionStyle.Quiet,
-        enabled = !loading,
-    )
 }
 
 @Composable

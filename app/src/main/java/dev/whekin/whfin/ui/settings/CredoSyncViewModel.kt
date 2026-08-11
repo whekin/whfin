@@ -89,6 +89,8 @@ class CredoSyncViewModel internal constructor(
     )
 
     private val db = (app as WhfinApp).db
+    /** Cleared with this process; deliberately never saved to a Bundle, preferences, or Room. */
+    val loginDraft = CredoLoginDraft()
     private val zone = ZoneId.of("Asia/Tbilisi")
     private val _state = MutableStateFlow(
         CredoSyncUiState(
@@ -441,6 +443,8 @@ class CredoSyncViewModel internal constructor(
         challenge = null
         pendingCredentials = null
         session = null
+        loginDraft.username = ""
+        loginDraft.credential = ""
         _state.value = CredoSyncUiState()
     }
 
@@ -471,6 +475,8 @@ class CredoSyncViewModel internal constructor(
             if (rememberPassword) secretStore.save(credentials) else secretStore.clear()
             challenge = null
             pendingCredentials = null
+            loginDraft.username = credentials.username
+            loginDraft.credential = ""
             _state.value = CredoSyncUiState(
                 stage = CredoSyncStage.Connected,
                 savedUsername = credentials.username,
