@@ -37,6 +37,21 @@ class CredoSyncReminderTest {
         )
     }
 
+    @Test
+    fun recentCredoStatementImportIsTheBaselineAfterFeatureUpgrade() {
+        val now = 50L * DAY
+
+        assertNull(
+            credoSyncReminder(
+                lastCompletedAt = null,
+                awaitingStatementCount = 100,
+                hasCredoAccounts = true,
+                nowMillis = now,
+                latestCredoImportAt = now - 1L * DAY,
+            ),
+        )
+    }
+
     private companion object {
         const val DAY = 86_400_000L
     }

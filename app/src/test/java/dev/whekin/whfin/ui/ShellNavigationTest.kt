@@ -116,4 +116,13 @@ class ShellNavigationTest {
 
         assertEquals(listOf("sms", "credo"), events)
     }
+
+    @Test
+    fun `Credo Back returns to the screen that opened it`() {
+        assertEquals(null, credoBackDestination(null))
+        assertEquals(
+            SecondaryDestination.Settings,
+            credoBackDestination(SecondaryDestination.Settings),
+        )
+    }
 }

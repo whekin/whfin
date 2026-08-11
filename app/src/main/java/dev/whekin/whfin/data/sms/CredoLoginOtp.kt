@@ -1,6 +1,5 @@
 package dev.whekin.whfin.data.sms
 
-import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -56,8 +55,6 @@ internal fun registerCredoOtpReceiver(context: Context, inbox: CredoOtpInbox): C
         appContext,
         receiver,
         IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION),
-        Manifest.permission.BROADCAST_SMS,
-        null,
         ContextCompat.RECEIVER_EXPORTED,
     )
     return Closeable { runCatching { appContext.unregisterReceiver(receiver) } }

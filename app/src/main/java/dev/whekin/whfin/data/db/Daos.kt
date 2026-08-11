@@ -634,6 +634,10 @@ interface StatementImportDao {
     @Query("SELECT * FROM statement_imports ORDER BY importedAt DESC")
     fun observeAll(): Flow<List<StatementImportEntity>>
 
+    /** Upgrade-safe freshness baseline for runs completed before the dedicated preference existed. */
+    @Query("SELECT MAX(importedAt) FROM statement_imports WHERE origin = 'CREDO_SYNC'")
+    fun observeLatestCredoImportAt(): Flow<Long?>
+
     @Query("SELECT * FROM statement_imports WHERE accountId = :accountId ORDER BY importedAt DESC")
     fun observeForAccount(accountId: Long): Flow<List<StatementImportEntity>>
 

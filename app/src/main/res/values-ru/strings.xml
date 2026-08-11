@@ -215,8 +215,8 @@
     <string name="credo_sync_remember_password_body">Логин/пароль: AES-256-GCM в Android Keystore, только на устройстве и вне резервных копий. OTP/сессия не сохраняются.</string>
     <string name="credo_sync_remember_password_unavailable">Нужна блокировка WHFIN · разовый вход ничего не сохраняет.</string>
     <string name="credo_sync_protect_action">Защитить</string>
-    <string name="credo_sync_connecting">Подключаемся…</string>
-    <string name="credo_sync_connect">Подключить MyCredo</string>
+    <string name="credo_sync_connecting">Входим…</string>
+    <string name="credo_sync_connect">Войти в MyCredo</string>
     <string name="credo_sync_otp_section">ПОДТВЕРЖДЕНИЕ ВХОДА</string>
     <string name="credo_sync_otp_body">Введите 4-значный код от Credo. WHFIN никогда не сохраняет этот код.</string>
     <string name="credo_sync_otp_body_with_phone">Введите 4-значный код, отправленный на %1$s. WHFIN никогда не сохраняет этот код.</string>

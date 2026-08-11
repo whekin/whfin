@@ -208,8 +208,8 @@
     <string name="credo_sync_remember_password_body">Login and password use AES-256-GCM in Android Keystore; device-only and outside backups. OTP/session are never saved.</string>
     <string name="credo_sync_remember_password_unavailable">App Lock required · one-time sign-in saves nothing.</string>
     <string name="credo_sync_protect_action">Protect</string>
-    <string name="credo_sync_connecting">Connecting…</string>
-    <string name="credo_sync_connect">Connect MyCredo</string>
+    <string name="credo_sync_connecting">Signing in…</string>
+    <string name="credo_sync_connect">Sign in to MyCredo</string>
     <string name="credo_sync_otp_section">CONFIRM SIGN IN</string>
     <string name="credo_sync_otp_body">Enter the 4-digit code sent by Credo. WHFIN never stores this code.</string>
     <string name="credo_sync_otp_body_with_phone">Enter the 4-digit code sent to %1$s. WHFIN never stores this code.</string>

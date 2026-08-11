@@ -66,14 +66,16 @@ internal fun credoSyncReminder(
     awaitingStatementCount: Int,
     hasCredoAccounts: Boolean,
     nowMillis: Long,
+    latestCredoImportAt: Long? = null,
 ): CredoSyncReminder? {
     if (!hasCredoAccounts) return null
-    if (lastCompletedAt == null) {
+    val effectiveLastSync = listOfNotNull(lastCompletedAt, latestCredoImportAt).maxOrNull()
+    if (effectiveLastSync == null) {
         return if (awaitingStatementCount > 0) {
             CredoSyncReminder(daysSinceSync = null, awaitingStatementCount = awaitingStatementCount)
         } else null
     }
-    val days = ((nowMillis - lastCompletedAt).coerceAtLeast(0L) / MILLIS_PER_DAY).toInt()
+    val days = ((nowMillis - effectiveLastSync).coerceAtLeast(0L) / MILLIS_PER_DAY).toInt()
     return if (days >= CREDO_SYNC_REMINDER_DAYS) {
         CredoSyncReminder(daysSinceSync = days, awaitingStatementCount = awaitingStatementCount)
     } else null
@@ -390,11 +392,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     internal val credoSyncReminder: StateFlow<CredoSyncReminder?> = combine(
         preferences.lastCredoSyncAt,
+        db.statementImportDao().observeLatestCredoImportAt(),
         db.transactionDao().observeAwaitingStatementSmsCount(),
         db.financialGroupDao().observeActive(),
-    ) { lastCompletedAt, awaitingStatementCount, groups ->
+    ) { lastCompletedAt, latestCredoImportAt, awaitingStatementCount, groups ->
         credoSyncReminder(
             lastCompletedAt = lastCompletedAt,
+            latestCredoImportAt = latestCredoImportAt,
             awaitingStatementCount = awaitingStatementCount,
             hasCredoAccounts = groups.any { it.provider == CREDO_PROVIDER },
             nowMillis = System.currentTimeMillis(),

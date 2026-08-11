@@ -90,6 +90,8 @@ class CredoLoginDraft(
 fun CredoSyncRoute(
     appLockEnabled: Boolean,
     onOpenAppLock: () -> Unit,
+    routineSyncRequestKey: Int = 0,
+    onRoutineSyncRequestConsumed: () -> Unit = {},
     viewModel: CredoSyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -121,6 +123,12 @@ fun CredoSyncRoute(
     }
     LaunchedEffect(appLockEnabled) {
         if (appLockEnabled) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
+    }
+    LaunchedEffect(routineSyncRequestKey, appLockEnabled) {
+        if (routineSyncRequestKey > 0) {
+            onRoutineSyncRequestConsumed()
+            if (appLockEnabled) viewModel.syncLatest()
+        }
     }
     LaunchedEffect(otpInbox) {
         otpInbox.codes.collect { code -> incomingOtp = code }

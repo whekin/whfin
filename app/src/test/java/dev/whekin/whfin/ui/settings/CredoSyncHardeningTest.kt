@@ -35,11 +35,17 @@ class CredoSyncHardeningTest {
     private class ScriptedGateway(
         /** Скрипт download-исходов по ключу счёта: очередь бросаемых кодов, null = успех недостижим. */
         private val downloadScript: MutableMap<String, ArrayDeque<String>>,
+        private val requiresOtp: Boolean = false,
     ) : CredoGateway {
         val downloadCalls = mutableListOf<String>()
 
         override suspend fun initiateLogin(credentials: CredoCredentials) =
-            CredoLoginChallenge(operationId = "op", requiresOtp = false, mobileHint = null, directConfirmationSalt = "salt")
+            CredoLoginChallenge(
+                operationId = "op",
+                requiresOtp = requiresOtp,
+                mobileHint = null,
+                directConfirmationSalt = "salt",
+            )
 
         override suspend fun sendOtp(operationId: String) = Unit
 
@@ -82,15 +88,37 @@ class CredoSyncHardeningTest {
             .edit().clear().commit()
     }
 
-    private fun viewModel(gateway: CredoGateway): CredoSyncViewModel {
+    private fun viewModel(
+        gateway: CredoGateway,
+        secretStore: CredoSecretStore? = null,
+    ): CredoSyncViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         return CredoSyncViewModel(
             app = app,
             gateway = gateway,
-            secretStore = CredoSecretStore(app),
+            secretStore = secretStore ?: CredoSecretStore(app),
             syncDispatcher = dispatcher,
             retryDelayMillis = listOf(0L, 0L),
         )
+    }
+
+    @Test
+    fun homeSyncUsesSavedLoginAndContinuesAfterOtpWithoutAnotherTap() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val secretStore = CredoSecretStore(app)
+        secretStore.save(CredoCredentials("saved-user", "saved-password"))
+        val gateway = ScriptedGateway(mutableMapOf(), requiresOtp = true)
+        val vm = viewModel(gateway, secretStore)
+
+        vm.syncLatest()
+        await { vm.state.value.stage == CredoSyncStage.AwaitingOtp }
+        assertTrue(gateway.downloadCalls.isEmpty())
+
+        vm.submitOtp("0519")
+        await { vm.state.value.results.size == 3 && vm.state.value.stage == CredoSyncStage.Connected }
+
+        assertEquals(3, gateway.downloadCalls.size)
+        assertEquals("saved-user", vm.state.value.savedUsername)
     }
 
     /** connect/sync прыгают через реальный IO-пул — ждём состояние с таймаутом. */

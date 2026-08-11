@@ -173,6 +173,10 @@ internal fun appLockReturnDestination(
     caller: SecondaryDestination?,
 ): SecondaryDestination = caller ?: SecondaryDestination.Settings
 
+/** Preserves the actual caller instead of treating every Credo visit as Settings-owned. */
+internal fun credoBackDestination(caller: SecondaryDestination?): SecondaryDestination? =
+    caller
+
 internal fun openCredoSetup(
     enableSmsMonitoring: () -> Unit,
     openCredo: () -> Unit,
@@ -232,6 +236,8 @@ fun MainScreen(
     var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var credoReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var credoRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
     }
@@ -275,6 +281,15 @@ fun MainScreen(
         }
     }
 
+    fun openCredo(caller: SecondaryDestination?, syncLatest: Boolean) {
+        credoReturnTo = caller
+        if (syncLatest) credoRoutineSyncRequestKey += 1
+        openCredoSetup(
+            enableSmsMonitoring = ::enableSmsMonitoring,
+            openCredo = { open(SecondaryDestination.CredoSync) },
+        )
+    }
+
     fun goBack(withHaptic: Boolean) {
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
@@ -290,8 +305,12 @@ fun MainScreen(
                 secondaryDestination = appLockReturnDestination(appLockReturnTo)
                 appLockReturnTo = null
             }
-            secondaryDestination == SecondaryDestination.CredoSync ||
-                secondaryDestination == SecondaryDestination.Statements ||
+            secondaryDestination == SecondaryDestination.CredoSync -> {
+                secondaryDestination = credoBackDestination(credoReturnTo)
+                credoReturnTo = null
+                credoRoutineSyncRequestKey = 0
+            }
+            secondaryDestination == SecondaryDestination.Statements ||
                 secondaryDestination == SecondaryDestination.SmsDiagnostics ||
                 secondaryDestination == SecondaryDestination.Backup ||
                 secondaryDestination == SecondaryDestination.Corrections ||
@@ -366,12 +385,7 @@ fun MainScreen(
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
                                 onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
                                 onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
-                                onOpenCredoSync = {
-                                    openCredoSetup(
-                                        enableSmsMonitoring = ::enableSmsMonitoring,
-                                        openCredo = { open(SecondaryDestination.CredoSync) },
-                                    )
-                                },
+                                onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
                                 addRequestKey = addRequestKey,
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,
@@ -430,9 +444,9 @@ fun MainScreen(
                             onOpenStatements = { open(SecondaryDestination.Statements) },
                             onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
                             onOpenCredoSync = {
-                                openCredoSetup(
-                                    enableSmsMonitoring = ::enableSmsMonitoring,
-                                    openCredo = { open(SecondaryDestination.CredoSync) },
+                                openCredo(
+                                    caller = SecondaryDestination.Settings,
+                                    syncLatest = false,
                                 )
                             },
                             appLockTimeout = appLockTimeout,
@@ -460,6 +474,8 @@ fun MainScreen(
                         CredoSyncRoute(
                             appLockEnabled = appLockHasPin && appLockTimeout.enabled,
                             onOpenAppLock = { openAppLock(SecondaryDestination.CredoSync) },
+                            routineSyncRequestKey = credoRoutineSyncRequestKey,
+                            onRoutineSyncRequestConsumed = { credoRoutineSyncRequestKey = 0 },
                         )
                     }
                     ShellScene.Statements -> SecondaryPage(

@@ -112,6 +112,7 @@ class CredoSyncViewModel internal constructor(
     private var pendingCredentials: CredoCredentials? = null
     private var rememberPassword = false
     private var session: CredoSession? = null
+    private var syncAfterLogin = false
     private val downloadedStatements = mutableMapOf<String, ByteArray>()
 
     fun revealSavedUsername() {
@@ -132,33 +133,60 @@ class CredoSyncViewModel internal constructor(
                 fail("CREDENTIALS_REQUIRED")
                 return@launch
             }
-            _state.value = _state.value.copy(
-                stage = CredoSyncStage.Connecting,
-                errorCode = null,
-                results = emptyList(),
-            )
-            runCatching {
-                gateway.initiateLogin(credentials)
-            }.onSuccess { loginChallenge ->
-                challenge = loginChallenge
-                pendingCredentials = credentials
-                rememberPassword = remember
-                if (loginChallenge.requiresOtp) {
-                    runCatching { gateway.sendOtp(loginChallenge.operationId) }
-                        .onSuccess {
-                            _state.value = _state.value.copy(
-                                stage = CredoSyncStage.AwaitingOtp,
-                                mobileHint = loginChallenge.mobileHint,
-                                errorCode = null,
-                                isBusy = false,
-                            )
-                        }
-                        .onFailure(::fail)
-                } else {
-                    finishLogin(loginChallenge, credentials, otp = null)
-                }
-            }.onFailure(::fail)
+            beginLogin(credentials, remember)
         }
+    }
+
+    /** One Home action means "bring the ledger up to date", even when Credo requires a fresh OTP. */
+    fun syncLatest() {
+        if (_state.value.stage in setOf(
+                CredoSyncStage.Connecting,
+                CredoSyncStage.AwaitingOtp,
+                CredoSyncStage.Syncing,
+            )
+        ) return
+        if (session != null && _state.value.accounts.isNotEmpty()) {
+            sync()
+            return
+        }
+        viewModelScope.launch {
+            val credentials = withContext(Dispatchers.IO) { secretStore.load() }
+            if (credentials == null) {
+                revealSavedUsername()
+                return@launch
+            }
+            syncAfterLogin = true
+            beginLogin(credentials, remember = true)
+        }
+    }
+
+    private suspend fun beginLogin(credentials: CredoCredentials, remember: Boolean) {
+        _state.value = _state.value.copy(
+            stage = CredoSyncStage.Connecting,
+            errorCode = null,
+            results = emptyList(),
+        )
+        runCatching {
+            gateway.initiateLogin(credentials)
+        }.onSuccess { loginChallenge ->
+            challenge = loginChallenge
+            pendingCredentials = credentials
+            rememberPassword = remember
+            if (loginChallenge.requiresOtp) {
+                runCatching { gateway.sendOtp(loginChallenge.operationId) }
+                    .onSuccess {
+                        _state.value = _state.value.copy(
+                            stage = CredoSyncStage.AwaitingOtp,
+                            mobileHint = loginChallenge.mobileHint,
+                            errorCode = null,
+                            isBusy = false,
+                        )
+                    }
+                    .onFailure(::fail)
+            } else {
+                finishLogin(loginChallenge, credentials, otp = null)
+            }
+        }.onFailure(::fail)
     }
 
     fun submitOtp(otp: String) {
@@ -494,6 +522,7 @@ class CredoSyncViewModel internal constructor(
         challenge = null
         pendingCredentials = null
         session = null
+        syncAfterLogin = false
         clearDownloadedStatements()
         loginDraft.username = ""
         loginDraft.credential = ""
@@ -557,6 +586,10 @@ class CredoSyncViewModel internal constructor(
                 hasSavedPassword = rememberPassword,
                 accounts = remoteAccounts,
             )
+            if (syncAfterLogin) {
+                syncAfterLogin = false
+                sync()
+            }
         }.onFailure(::fail)
     }
 
@@ -588,6 +621,7 @@ class CredoSyncViewModel internal constructor(
         if (!connected && code in TERMINAL_LOGIN_ERRORS) {
             challenge = null
             pendingCredentials = null
+            syncAfterLogin = false
         }
         val awaitingOtp = !connected && challenge != null && pendingCredentials != null
         _state.value = _state.value.copy(
