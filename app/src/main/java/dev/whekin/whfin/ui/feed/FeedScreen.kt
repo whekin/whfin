@@ -466,7 +466,7 @@ fun FeedScreen(
                         integrityIssues,
                     ),
                     icon = Icons.Default.ReportProblem,
-                    kind = WhfinNoticeKind.Error,
+                    kind = WhfinNoticeKind.Info,
                     actionLabel = stringResource(R.string.data_health_title),
                     onAction = onOpenDataHealth,
                     modifier = Modifier.fillMaxWidth(),

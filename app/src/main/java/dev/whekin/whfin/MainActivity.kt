@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -162,14 +163,17 @@ class MainActivity : FragmentActivity() {
                 val smsImportEnabled: Boolean? by uiPreferences.smsImportEnabled.collectAsState(initial = null)
                 val configuredSmsCards: Int? by (application as WhfinApp).userDb.paymentInstrumentDao()
                     .observeConfiguredCount().collectAsState(initial = null)
-                val personalAccounts: List<AccountEntity>? by (application as WhfinApp).userDb.accountDao()
-                    .observeActive()
-                    .map<List<AccountEntity>, List<AccountEntity>?> { it }
+                val personalAccountsFlow = remember {
+                    (application as WhfinApp).userDb.accountDao().observeActive()
+                        .map<List<AccountEntity>, List<AccountEntity>?> { it }
+                }
+                val personalAccounts: List<AccountEntity>? by personalAccountsFlow
                     .collectAsState(initial = null)
-                val statementImports: List<StatementImportEntity>? by (application as WhfinApp).userDb
-                    .statementImportDao()
-                    .observeAll()
-                    .map<List<StatementImportEntity>, List<StatementImportEntity>?> { it }
+                val statementImportsFlow = remember {
+                    (application as WhfinApp).userDb.statementImportDao().observeAll()
+                        .map<List<StatementImportEntity>, List<StatementImportEntity>?> { it }
+                }
+                val statementImports: List<StatementImportEntity>? by statementImportsFlow
                     .collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)

@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
@@ -39,24 +41,49 @@ class DataHealthScreenTest {
     }
 
     @Test
-    fun issues_areNamedInPlainLanguageWithTheirRule() {
-        val issues = listOf(
+    fun repeatedTransferIssues_areOneActionInsteadOfAWallOfInternalIds() {
+        val issues = (1L..9L).map { id ->
             IntegrityIssue(
-                code = "allocation_total_mismatch",
+                code = "incomplete_transfer_group",
                 severity = IntegritySeverity.ERROR,
-                entity = "transactions",
-                entityId = 42,
-                message = "Allocation total does not equal the parent amount.",
-            ),
-        )
+                entity = "transfer_groups",
+                entityId = id,
+                message = "Transfer group has a single active leg instead of a pair.",
+            )
+        }
+        var repaired = 0
         compose.setContent {
-            WhfinTheme { DataHealthScreen(state = DataHealthViewModel.State.Checked(issues)) }
+            WhfinTheme {
+                DataHealthScreen(
+                    state = DataHealthViewModel.State.Checked(issues),
+                    onRepairTransfers = { repaired++ },
+                )
+            }
         }
 
-        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.data_health_issues_title, 1, 1)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.data_health_family_allocations)).assertIsDisplayed()
-        // The rule name stays visible: it is what makes a report actionable in a bug thread.
-        compose.onNodeWithText("transactions · #42 · allocation_total_mismatch").assertIsDisplayed()
+        compose.onAllNodesWithText(context.getString(R.string.data_health_transfers_title)).assertCountEquals(1)
+        compose.onNodeWithText("transfer_groups · #1 · incomplete_transfer_group").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.data_health_repair_action)).performClick()
+        assertTrue(repaired == 1)
+    }
+
+    @Test
+    fun technicalIds_areAvailableOnlyWhenAskedFor() {
+        val issue = IntegrityIssue(
+            code = "allocation_total_mismatch",
+            severity = IntegritySeverity.ERROR,
+            entity = "transactions",
+            entityId = 42,
+            message = "Allocation total does not equal the parent amount.",
+        )
+        compose.setContent {
+            WhfinTheme { DataHealthScreen(state = DataHealthViewModel.State.Checked(listOf(issue))) }
+        }
+
+        val detail = "transactions · #42 · allocation_total_mismatch"
+        compose.onNodeWithText(detail).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.data_health_show_details)).performClick()
+        compose.onNodeWithText(detail).assertIsDisplayed()
     }
 
     @Test

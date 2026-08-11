@@ -403,6 +403,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET transferGroupId = NULL WHERE id = :id")
     suspend fun clearTransferGroup(id: Long)
 
+    @Query("UPDATE transactions SET transferGroupId = NULL WHERE transferGroupId IN (:groupIds)")
+    suspend fun clearTransferGroups(groupIds: List<Long>)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(tx: TransactionEntity): Long
 

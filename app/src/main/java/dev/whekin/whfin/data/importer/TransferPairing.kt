@@ -43,7 +43,10 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
                 db.withTransaction {
                     pair(
                         groupId = groupId,
-                        fromMillis = LocalDate.now().minusYears(3).atMillis(),
+                        // Full-history imports can hold conversions well beyond the former
+                        // three-year startup window. Rebuilding only the recent side left old
+                        // boundary pairs permanently single-legged.
+                        fromMillis = 0L,
                         toMillis = LocalDate.now().plusDays(2).atMillis() - 1,
                         conversionsOnly = true,
                     )
@@ -59,8 +62,15 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
     ) {
         // Existing conversions are dissolved first: a later statement may hold a closer, correct leg
         // than the best candidate available when they were first matched.
-        db.transactionDao().conversionTransfers(groupId, fromMillis, toMillis)
-            .forEach { db.transactionDao().clearTransferGroup(it.id) }
+        val existingGroupIds = db.transactionDao().conversionTransfers(groupId, fromMillis, toMillis)
+            .mapNotNull { it.transferGroupId }
+            .distinct()
+        if (existingGroupIds.isNotEmpty()) {
+            // A period boundary may cut through a pair. Clear by group, not by the rows returned for
+            // this window, or the other side stays attached to an old group on its own.
+            db.transactionDao().clearTransferGroups(existingGroupIds)
+            db.transactionDao().deleteTransferGroups(existingGroupIds)
+        }
 
         val accountsById = db.accountDao().byGroup(groupId).associateBy { it.id }
         val candidates = (

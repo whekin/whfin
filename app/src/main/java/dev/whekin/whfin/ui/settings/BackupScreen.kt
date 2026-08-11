@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -56,7 +57,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -393,6 +393,7 @@ internal fun BackupScreen(
 
         // Only after a restore has happened is there something to go back to, so the row appears
         // exactly when it is useful instead of advertising a feature with nothing behind it.
+        val currentLocale = LocalConfiguration.current.locales[0]
         safetyCopyTakenAt?.let { takenAt ->
             WhfinSectionLabel(stringResource(R.string.backup_safety_section))
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -401,7 +402,7 @@ internal fun BackupScreen(
                     supportingText = stringResource(
                         R.string.backup_safety_body,
                         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-                            .withLocale(Locale.getDefault())
+                            .withLocale(currentLocale)
                             .format(takenAt.atZone(ZoneId.systemDefault())),
                     ),
                     supportingMaxLines = 6,

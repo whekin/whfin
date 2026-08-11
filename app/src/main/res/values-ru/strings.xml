@@ -49,12 +49,12 @@
     <string name="dock_add">Новая</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
-    <string name="home_integrity_title">Данные требуют проверки</string>
+    <string name="home_integrity_title">Фоновая проверка нашла, что стоит перепроверить</string>
     <plurals name="home_integrity_body">
-        <item quantity="one">Одна запись противоречит другой. Автоматически ничего не изменено.</item>
-        <item quantity="few">%1$d записи противоречат друг другу. Автоматически ничего не изменено.</item>
-        <item quantity="many">%1$d записей противоречат друг другу. Автоматически ничего не изменено.</item>
-        <item quantity="other">%1$d записи противоречат друг другу. Автоматически ничего не изменено.</item>
+        <item quantity="one">%1$d бухгалтерская связь может быть неверной. Счета доступны — можно посмотреть позже.</item>
+        <item quantity="few">%1$d бухгалтерские связи могут быть неверными. Счета доступны — можно посмотреть позже.</item>
+        <item quantity="many">%1$d бухгалтерских связей могут быть неверными. Счета доступны — можно посмотреть позже.</item>
+        <item quantity="other">%1$d бухгалтерской связи могут быть неверными. Счета доступны — можно посмотреть позже.</item>
     </plurals>
     <string name="home_needs_attention">Требует внимания</string>
     <string name="home_review_all">Разобрать всё</string>
@@ -412,7 +412,7 @@
         <item quantity="many">Найдено %1$d противоречий</item>
         <item quantity="other">Найдено %1$d противоречия</item>
     </plurals>
-    <string name="data_health_issues_body">Ничего не изменено. Каждая строка называет, что именно расходится, — исправить можно вручную.</string>
+    <string name="data_health_issues_body">Проверка не меняла балансы и операции. Ниже WHFIN может безопасно пересобрать связи переводов.</string>
     <string name="data_health_check_action">Проверить снова</string>
     <string name="data_health_section">ЧТО РАСХОДИТСЯ</string>
     <string name="data_health_status_section">ГДЕ СЕЙЧАС КНИГА</string>
@@ -429,6 +429,26 @@
     <string name="data_health_family_transfers">У перевода потеряна одна нога</string>
     <string name="data_health_family_debts">Долг не сходится со своими событиями</string>
     <string name="data_health_family_links">Запись ссылается на отсутствующее</string>
+    <string name="data_health_transfers_title">Некоторые переводы нужно связать заново</string>
+    <plurals name="data_health_transfers_body">
+        <item quantity="one">%1$d перевод или обмен валют разделился при пересборке истории выписок. Повторная связь изменит только учёт, но не баланс счетов.</item>
+        <item quantity="few">%1$d перевода или обмена валют разделились при пересборке истории выписок. Повторная связь изменит только учёт, но не балансы счетов.</item>
+        <item quantity="many">%1$d переводов или обменов валют разделились при пересборке истории выписок. Повторная связь изменит только учёт, но не балансы счетов.</item>
+        <item quantity="other">%1$d перевода или обмена валют разделились при пересборке истории выписок. Повторная связь изменит только учёт, но не балансы счетов.</item>
+    </plurals>
+    <string name="data_health_repair_action">Связать переводы заново</string>
+    <string name="data_health_repairing">Связываю…</string>
+    <string name="data_health_repair_done">Связи переводов восстановлены</string>
+    <string name="data_health_repair_partial">Некоторые связи ещё нужно проверить</string>
+    <string name="data_health_repair_result">Исправлено: %1$d · осталось: %2$d.</string>
+    <plurals name="data_health_family_count">
+        <item quantity="one">%1$d связанная запись</item>
+        <item quantity="few">%1$d связанные записи</item>
+        <item quantity="many">%1$d связанных записей</item>
+        <item quantity="other">%1$d связанной записи</item>
+    </plurals>
+    <string name="data_health_show_details">Показать технические детали</string>
+    <string name="data_health_hide_details">Скрыть технические детали</string>
     <string name="app_lock_title">Блокировка WHFIN</string>
     <string name="app_lock_settings_summary">Код WHFIN и биометрия · %1$s</string>
     <string name="app_lock_intro_title">Собственный код WHFIN</string>
@@ -650,7 +670,7 @@
     <string name="statements_checking">Проверяем файлы</string>
     <string name="statements_checking_body">Пока ничего не загружено.</string>
     <plurals name="statements_confirm_new_title">
-        <item quantity="one">Добавить новый счёт?</item>
+        <item quantity="one">Добавить %1$d новый счёт?</item>
         <item quantity="few">Добавить %1$d новых счёта?</item>
         <item quantity="many">Добавить %1$d новых счетов?</item>
         <item quantity="other">Добавить %1$d новых счёта?</item>
@@ -707,6 +727,7 @@
     <string name="account_edit">Изменить счёт</string>
     <string name="account_actions">Действия со счётом</string>
     <string name="account_settings">Настройки счёта</string>
+    <string name="account_total_balance">Общий баланс</string>
     <string name="account_source_details">Детали источника</string>
     <string name="account_adjust_currency">Скорректировать баланс %1$s</string>
     <string name="account_group_accounts">Счета и валюты</string>

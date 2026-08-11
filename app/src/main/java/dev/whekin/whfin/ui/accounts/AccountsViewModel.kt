@@ -15,6 +15,8 @@ import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.preferences.nextDisplayCurrency
 import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
 import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.data.rates.ExchangeRate
+import dev.whekin.whfin.data.rates.MoneyConverter
 import dev.whekin.whfin.data.rates.NbgFiatRateProvider
 import dev.whekin.whfin.data.rates.NetWorthSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
@@ -45,6 +47,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.BigDecimal
 import dev.whekin.whfin.data.db.*
 import dev.whekin.whfin.data.debt.*
 import dev.whekin.whfin.data.mutation.TransactionMutationModule
@@ -68,6 +71,24 @@ data class AccountWithBalance(
     /** Watch-only chains report a balance instead of deriving it from transactions. */
     val onChain: OnChainBalance? = null,
 )
+
+internal fun accountContainerKey(account: AccountEntity): String =
+    "${account.groupId ?: "source"}:${account.iban ?: "account-${account.id}"}"
+
+internal fun buildAccountContainerTotals(
+    accounts: List<AccountWithBalance>,
+    rates: Map<String, ExchangeRate>,
+    displayCurrency: String,
+): Map<String, ConvertedTotal> = accounts
+    .filterNot { it.account.type == AccountType.CRYPTO }
+    .groupBy { accountContainerKey(it.account) }
+    .mapValues { (_, container) ->
+        val amounts = container.groupBy { it.account.currency.uppercase() }
+            .mapValues { (_, rows) ->
+                BigDecimal(rows.sumOf { it.balanceMinor }).movePointLeft(2)
+            }
+        MoneyConverter.convert(amounts, displayCurrency, rates)
+    }
 
 /** Last observation of a chain balance; absent means "never refreshed", not zero. */
 data class OnChainBalance(
@@ -192,6 +213,14 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     val displayCurrency: StateFlow<String> = preferences.displayCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)
+
+    val accountContainerTotals: StateFlow<Map<String, ConvertedTotal>> = combine(
+        accountRows,
+        db.exchangeRateDao().observeAll(),
+        preferences.displayCurrency,
+    ) { rows, rateRows, display ->
+        buildAccountContainerTotals(rows, rateRows.map(::toRate).associateBy { it.code }, display)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val ratesRepository = RatesRepository(
         db = db,

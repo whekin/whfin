@@ -48,10 +48,10 @@
     <string name="dock_add">New</string>
     <string name="feed_empty">No transactions yet.\nImport a bank statement to get started.</string>
     <string name="home_empty_title">Your financial picture will appear here</string>
-    <string name="home_integrity_title">Your data needs a look</string>
+    <string name="home_integrity_title">A background check found something to recheck</string>
     <plurals name="home_integrity_body">
-        <item quantity="one">One record contradicts another. Nothing was changed automatically.</item>
-        <item quantity="other">%1$d records contradict each other. Nothing was changed automatically.</item>
+        <item quantity="one">One bookkeeping link may be wrong. Your accounts stay available; review it when convenient.</item>
+        <item quantity="other">%1$d bookkeeping links may be wrong. Your accounts stay available; review them when convenient.</item>
     </plurals>
     <string name="home_needs_attention">Needs attention</string>
     <string name="home_review_all">Review all</string>
@@ -403,7 +403,7 @@
         <item quantity="one">%1$d contradiction found</item>
         <item quantity="other">%1$d contradictions found</item>
     </plurals>
-    <string name="data_health_issues_body">Nothing was changed. Each line names what disagrees so it can be corrected by hand.</string>
+    <string name="data_health_issues_body">The check did not change balances or operations. WHFIN can safely rebuild transfer links below.</string>
     <string name="data_health_check_action">Check again</string>
     <string name="data_health_section">WHAT DISAGREES</string>
     <string name="data_health_status_section">WHERE THE LEDGER STANDS</string>
@@ -420,6 +420,22 @@
     <string name="data_health_family_transfers">A transfer lost one of its legs</string>
     <string name="data_health_family_debts">A debt does not match its events</string>
     <string name="data_health_family_links">A record points at something missing</string>
+    <string name="data_health_transfers_title">Some transfers need to be linked again</string>
+    <plurals name="data_health_transfers_body">
+        <item quantity="one">One transfer or currency exchange was split while statement history was rebuilt. Relinking changes its bookkeeping classification, not either account balance.</item>
+        <item quantity="other">%1$d transfers or currency exchanges were split while statement history was rebuilt. Relinking changes their bookkeeping classification, not account balances.</item>
+    </plurals>
+    <string name="data_health_repair_action">Relink transfers</string>
+    <string name="data_health_repairing">Relinking…</string>
+    <string name="data_health_repair_done">Transfer links repaired</string>
+    <string name="data_health_repair_partial">Some links still need review</string>
+    <string name="data_health_repair_result">Repaired: %1$d · remaining: %2$d.</string>
+    <plurals name="data_health_family_count">
+        <item quantity="one">One related record</item>
+        <item quantity="other">%1$d related records</item>
+    </plurals>
+    <string name="data_health_show_details">Show technical details</string>
+    <string name="data_health_hide_details">Hide technical details</string>
     <string name="app_lock_title">App Lock</string>
     <string name="app_lock_settings_summary">WHFIN code and biometrics · %1$s</string>
     <string name="app_lock_intro_title">A code made for WHFIN</string>
@@ -690,6 +706,7 @@
     <string name="account_edit">Edit account</string>
     <string name="account_actions">Account actions</string>
     <string name="account_settings">Account settings</string>
+    <string name="account_total_balance">Total balance</string>
     <string name="account_source_details">Source details</string>
     <string name="account_adjust_currency">Adjust %1$s balance</string>
     <string name="account_group_accounts">Accounts and currencies</string>

@@ -62,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -134,6 +135,7 @@ fun AccountsScreen(
     val cryptoRefreshing by viewModel.cryptoRefreshing.collectAsState()
     val netWorth by viewModel.netWorth.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
+    val accountContainerTotals by viewModel.accountContainerTotals.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
     val cryptoPortfolio by viewModel.cryptoPortfolio.collectAsState()
     // A watch-only wallet is not an everyday account: it has its own reading below, grouped by asset
@@ -282,6 +284,7 @@ fun AccountsScreen(
                                         AccountGroupCard(
                                             name = groupName,
                                             accounts = groupAccounts,
+                                            containerTotals = accountContainerTotals,
                                             onOpenTransactions = { onOpenAccountTransactions(it.account.id) },
                                             onAccountSettings = { items ->
                                                 items.firstOrNull()?.let { onOpenAccountTransactions(it.account.id) }
@@ -489,14 +492,12 @@ private fun SummaryColumn(label: String, value: String, symbol: String?, modifie
 private fun AccountGroupCard(
     name: String,
     accounts: List<AccountWithBalance>,
+    containerTotals: Map<String, ConvertedTotal> = emptyMap(),
     onOpenTransactions: (AccountWithBalance) -> Unit,
     onAccountSettings: (List<AccountWithBalance>) -> Unit,
     onOpenGroupDetails: () -> Unit,
 ) {
-    val containers = accounts
-        .groupBy { it.account.iban ?: "account-${it.account.id}" }
-        .toList()
-        .sortedBy { (_, values) -> values.first().account.iban?.takeLast(4) }
+    val containers = orderedAccountContainers(accounts)
     Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // A bank is not a screen title. Set in the editorial serif it outweighed the balance it
             // belongs to, and repeated once per section it made one bank read as two — the serif is
@@ -523,19 +524,33 @@ private fun AccountGroupCard(
                     outlined = false,
                 )
             }
-            containers.forEach { (_, ibanAccounts) ->
+            containers.forEach { ibanAccounts ->
                 IbanCard(
                     sourceName = name,
                     accounts = ibanAccounts,
-                    // Один счёт в банке — заголовок группы уже назвал его; вторая строка с тем же
-                    // именем и полным IBAN была чистым повтором.
-                    showContainerHeader = containers.size > 1,
+                    total = containerTotals[accountContainerKey(ibanAccounts.first().account)],
                     onOpenTransactions = onOpenTransactions,
                     onAccountSettings = onAccountSettings,
                 )
             }
     }
 }
+
+/** Card-backed/current money leads; imported IBAN order is not a statement of daily importance. */
+internal fun orderedAccountContainers(accounts: List<AccountWithBalance>): List<List<AccountWithBalance>> =
+    accounts.groupBy { accountContainerKey(it.account) }
+        .values
+        .sortedWith(
+            compareBy<List<AccountWithBalance>> { container ->
+                if (container.any { it.cardMasks.isNotEmpty() }) 0 else 1
+            }.thenBy { container ->
+                if (container.any { it.account.bankProduct == BankProduct.CURRENT_ACCOUNT }) 0 else 1
+            }.thenBy { container ->
+                container.minOf { it.account.sortOrder }
+            }.thenBy { container ->
+                container.first().account.iban?.takeLast(4).orEmpty()
+            },
+        )
 
 @Composable
 private fun AccountGroupDetailsDialog(
@@ -627,57 +642,87 @@ private fun AccountGroupDetailsDialog(
 private fun IbanCard(
     sourceName: String,
     accounts: List<AccountWithBalance>,
-    showContainerHeader: Boolean,
+    total: ConvertedTotal?,
     onOpenTransactions: (AccountWithBalance) -> Unit,
     onAccountSettings: (List<AccountWithBalance>) -> Unit,
 ) {
     val iban = accounts.first().account.iban
     WhfinLedgerGroup {
         Column(Modifier.fillMaxWidth()) {
-            if (showContainerHeader) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 13.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(38.dp),
                 ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(38.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                accountTypeIcon(accounts.first().account.type),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(19.dp),
-                            )
-                        }
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            accounts.first().account.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        // Полный IBAN — метаданные банка: он остаётся в реквизитах и обзоре
-                        // источника, а рабочая поверхность различает счета по хвосту.
-                        if (iban != null) Text(
-                            stringResource(R.string.account_iban_short, iban.takeLast(4)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            accountTypeIcon(accounts.first().account.type),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(19.dp),
                         )
                     }
-                    WhfinIconButton(
-                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.account_transactions_title),
-                        onClick = { onAccountSettings(accounts) },
-                        outlined = false,
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        accounts.first().account.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    val cards = (
+                        accounts.flatMap { it.cardMasks }.map { "••$it" } +
+                            accounts.flatMap { it.virtualCardMasks }
+                                .map { "${stringResource(R.string.account_card_virtual)} ••$it" }
+                        ).distinct()
+                    val metadata = buildList {
+                        if (cards.isNotEmpty()) add(cards.joinToString(" · "))
+                        iban?.let { add(stringResource(R.string.account_iban_short, it.takeLast(4))) }
+                    }
+                    if (metadata.isNotEmpty()) Text(
+                        metadata.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
                     )
                 }
-                HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                WhfinIconButton(
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.account_transactions_title),
+                    onClick = { onAccountSettings(accounts) },
+                    outlined = false,
+                )
             }
+            Column(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                WhfinFieldLabel(stringResource(R.string.account_total_balance))
+                if (total?.isComplete == true && total.amount != null) {
+                    WhfinAmount(
+                        formatDecimal(total.amount, total.currency),
+                        symbol = currencySymbol(total.currency),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                } else {
+                    Text(
+                        accounts.sortedBy { it.account.currency }.joinToString(" · ") { item ->
+                            "${formatMinor(item.balanceMinor, item.account.currency)} ${item.account.currency}"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+            HorizontalDivider(
+                Modifier.padding(horizontal = 18.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
             val sorted = accounts.sortedWith(
                 compareBy<AccountWithBalance> { if (it.account.currency == "GEL") 0 else 1 }
                     .thenBy { it.account.currency },
@@ -868,7 +913,13 @@ private fun AccountsContentPreview() {
                 Column(Modifier.padding(20.dp)) {
                     AccountsSummary(accounts)
                     WhfinSectionLabel(stringResource(R.string.accounts_everyday_section))
-                    AccountGroupCard("Credo", accounts, {}, {}, {})
+                    AccountGroupCard(
+                        name = "Credo",
+                        accounts = accounts,
+                        onOpenTransactions = {},
+                        onAccountSettings = {},
+                        onOpenGroupDetails = {},
+                    )
                     DebtsSummary(emptyList(), {})
                 }
             }

@@ -248,7 +248,10 @@ class CredoSyncSkipTest {
 
         gateway.statement = rejected.copyOf()
         vm.sync()
-        await { vm.state.value.results.single().originalStatementToken != token }
+        await {
+            vm.state.value.results.singleOrNull()?.originalStatementToken
+                ?.let { it != token } == true
+        }
         assertFalse(vm.writeDownloadedStatement(token, ByteArrayOutputStream()))
 
         vm.disconnect()
