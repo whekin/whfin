@@ -38,7 +38,7 @@ adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb -s emulator-5554 shell am instrument -w -r \
   -e class dev.whekin.whfin.data.db.WhfinDatabaseMigrationTest \
-  dev.whekin.whfin.test/androidx.test.runner.AndroidJUnitRunner
+  dev.whekin.whfin.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 Private Credo integration checks read only explicitly configured files from `WHFIN_REAL_STATEMENT`
@@ -47,7 +47,19 @@ outside the repository; assertions intentionally avoid committing account metada
 
 ## Physical-device data safety
 
-The user's phone contains real WHFIN data. It is valid for `adb install -r`/`android run` upgrades, launching the app, layout inspection, screenshots, and manual flow checks. Do not run Gradle connected/instrumentation tests against it: the Android test deployment flow may uninstall or clear the target package even when the tests themselves use an in-memory database.
+The user's phone contains real WHFIN data. It is valid for signed-release `adb install -r` upgrades,
+launching the app, layout inspection, screenshots, and manual flow checks. Do not run Gradle
+connected/instrumentation tests against it: the Android test deployment flow may uninstall or clear
+the target package even when the tests themselves use an in-memory database.
+
+Debug builds use `dev.whekin.whfin.debug`, never the production `dev.whekin.whfin` package. In addition,
+every Gradle `connected…AndroidTest` task depends on `verifyAndroidTestDevices` before deployment and
+refuses to proceed when ADB lists any physical device, including offline/unauthorized entries. The
+fail-closed rule removes the authorization race. The guard itself is covered by:
+
+```bash
+bash scripts/test-android-test-device-guard.sh
+```
 
 Run `connectedDebugAndroidTest` only when a disposable emulator is the sole online device. When a
 personal phone is connected too, build the test APK and invoke the selected suite with `adb -s` as
@@ -99,7 +111,7 @@ Then run the real Room/backup validation on a disposable emulator:
 adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb -s emulator-5554 shell am instrument -w -r \
   -e class dev.whekin.whfin.data.backup.WhfinBackupInstrumentedTest#demoFixture_restoresRichPublicScenario \
-  dev.whekin.whfin.test/androidx.test.runner.AndroidJUnitRunner
+  dev.whekin.whfin.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 For visual QA use Settings → About → Explore demo. Every explicit entry restores only `whfin-demo.db`,

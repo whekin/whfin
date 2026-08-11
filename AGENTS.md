@@ -347,7 +347,10 @@ This is a single-context repository with root domain documentation and system-wi
   три header actions, переключение dock и RU при dark + font scale 1.5. APK установлен на OnePlus
   через `install -r` без очистки данных.
   Физический телефон пользователя считать data-bearing production-like устройством: только
-  `install -r`/`android run` и ручной visual QA. `connectedAndroidTest`, instrumentation, uninstall,
+  signed release `install -r` и ручной visual QA. Debug имеет отдельный package
+  `dev.whekin.whfin.debug`, а все Gradle `connected…AndroidTest` задачи зависят от fail-closed guard:
+  ADB не должен видеть ни одного physical serial даже в offline/unauthorized состоянии, online — только
+  disposable emulator. `connectedAndroidTest`, instrumentation, uninstall,
   `pm clear` и destructive migration checks запускать исключительно на disposable-эмуляторе;
   исключение возможно только с явным согласием и заранее проверенным backup/restore.
   Widget/quick-entry pass (2026-08-09): Glance `+` теперь остаётся настоящим кругом во всех

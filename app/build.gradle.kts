@@ -24,6 +24,12 @@ val verifyReleaseSigning by tasks.registering(Exec::class) {
     commandLine(rootProject.file("scripts/verify-release-signing.sh"), releaseSigningPropertiesPath)
 }
 
+val verifyAndroidTestDevices by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Refuses connected Android tests when a physical device is online."
+    commandLine(rootProject.file("scripts/assert-android-test-devices.sh"))
+}
+
 android {
     namespace = "dev.whekin.whfin"
     compileSdk = 36
@@ -53,6 +59,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug/test installs must coexist with the data-bearing signed app. Even if a tool
+            // accidentally targets a physical phone, a different package id prevents Gradle from
+            // uninstalling the production sandbox to resolve a certificate mismatch.
+            applicationIdSuffix = ".debug"
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
@@ -86,6 +98,13 @@ android {
 
 tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     dependsOn(verifyReleaseSigning)
+}
+
+tasks.matching {
+    it.name.startsWith("connected") &&
+        (it.name.endsWith("AndroidTest") || it.name == "connectedCheck")
+}.configureEach {
+    dependsOn(verifyAndroidTestDevices)
 }
 
 ksp {
