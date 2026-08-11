@@ -234,6 +234,40 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate10To11_preservesReserveTotalsAndSeparatesTermProduct() {
+        helper.createDatabase(TEST_DB_10_11, 10).apply {
+            execSQL(
+                "INSERT INTO `accounts` (`id`, `name`, `type`, `currency`, `savingsMode`, `isArchived`, `sortOrder`) " +
+                    "VALUES (1, 'Everyday', 'BANK', 'GEL', NULL, 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO `accounts` (`id`, `name`, `type`, `currency`, `savingsMode`, `isArchived`, `sortOrder`) " +
+                    "VALUES (2, 'Flexible', 'SAVINGS', 'GEL', 'FLEXIBLE_RESERVE', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO `accounts` (`id`, `name`, `type`, `currency`, `savingsMode`, `isArchived`, `sortOrder`) " +
+                    "VALUES (3, 'Term', 'BANK', 'GEL', 'TERM_DEPOSIT', 0, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_10_11, 11, true, MIGRATION_10_11).apply {
+            query("SELECT `fundRole`, `bankProduct` FROM `accounts` ORDER BY `id`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("AVAILABLE", cursor.getString(0))
+                check(cursor.isNull(1))
+                check(cursor.moveToNext())
+                assertEquals("RESERVE", cursor.getString(0))
+                check(cursor.isNull(1))
+                check(cursor.moveToNext())
+                assertEquals("RESERVE", cursor.getString(0))
+                assertEquals("TERM_DEPOSIT", cursor.getString(1))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
@@ -243,5 +277,6 @@ class WhfinDatabaseMigrationTest {
         const val TEST_DB_5_6 = "whfin-migration-5-6"
         const val TEST_DB_6_7 = "whfin-migration-6-7"
         const val TEST_DB_9_10 = "whfin-migration-9-10"
+        const val TEST_DB_10_11 = "whfin-migration-10-11"
     }
 }

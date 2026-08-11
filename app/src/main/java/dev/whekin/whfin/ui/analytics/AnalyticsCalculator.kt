@@ -66,6 +66,7 @@ internal data class AnalyticsCategoryChange(
     val color: Int?,
     val expenseMinor: Long,
     val previousExpenseMinor: Long,
+    val projectedExpenseMinor: Long? = null,
 ) {
     val deltaMinor: Long get() = expenseMinor - previousExpenseMinor
 }
@@ -201,7 +202,11 @@ internal fun calculateAnalytics(
         AnalyticsPace(
             daysElapsed = today.dayOfMonth,
             daysInMonth = selectedMonth.lengthOfMonth(),
-            projectedExpenseMinor = expenses * selectedMonth.lengthOfMonth() / today.dayOfMonth,
+            projectedExpenseMinor = projectCurrentExpenses(
+                selectedBase.filter { it.gelMinor!! < 0L },
+                today.dayOfMonth,
+                selectedMonth.lengthOfMonth(),
+            ),
             previousMonthExpenseMinor = previousExpenses,
         )
     } else {
@@ -242,6 +247,15 @@ internal fun calculateAnalytics(
                 color = category?.color,
                 expenseMinor = expenseMinor,
                 previousExpenseMinor = previousCategoryExpenses[categoryId] ?: 0L,
+                projectedExpenseMinor = pace?.let {
+                    projectCurrentExpenses(
+                        selectedBase.filter { slice ->
+                            slice.gelMinor!! < 0L && slice.categoryId == categoryId
+                        },
+                        it.daysElapsed,
+                        it.daysInMonth,
+                    )
+                },
             )
         }
         .filter { it.deltaMinor != 0L }
@@ -320,6 +334,42 @@ internal fun calculateAnalytics(
         categoryChanges = categoryChanges,
     )
 }
+
+/**
+ * Projects ordinary spending while counting an already-booked large purchase only once.
+ *
+ * A straight month/day multiplier effectively buys a phone, pays annual insurance, or books a trip
+ * again on every remaining day. With enough observations to establish a median transaction, amounts
+ * far above it are treated as already-realised one-offs; only the ordinary part continues at the
+ * elapsed-month rate. Small samples keep the transparent linear projection instead of inventing an
+ * outlier threshold from too little evidence.
+ */
+private fun projectCurrentExpenses(
+    expenseSlices: List<AnalyticsSlice>,
+    daysElapsed: Int,
+    daysInMonth: Int,
+): Long {
+    val byTransaction = expenseSlices
+        .groupBy(AnalyticsSlice::transactionId)
+        .values
+        .map { slices -> -slices.sumOf { it.gelMinor!! } }
+        .filter { it > 0L }
+    val actual = byTransaction.sum()
+    if (byTransaction.size < MIN_EXPENSES_FOR_ROBUST_PROJECTION) {
+        return actual * daysInMonth / daysElapsed.coerceAtLeast(1)
+    }
+
+    val sorted = byTransaction.sorted()
+    val median = sorted[sorted.lastIndex / 2]
+    val oneOffThreshold = maxOf(median * ONE_OFF_MEDIAN_MULTIPLIER, MIN_ONE_OFF_MINOR)
+    val ordinary = byTransaction.filter { it <= oneOffThreshold }.sum()
+    val oneOffs = actual - ordinary
+    return oneOffs + ordinary * daysInMonth / daysElapsed.coerceAtLeast(1)
+}
+
+private const val MIN_EXPENSES_FOR_ROBUST_PROJECTION = 5
+private const val ONE_OFF_MEDIAN_MULTIPLIER = 5L
+private const val MIN_ONE_OFF_MINOR = 50_000L
 
 private fun scaleExpenseParts(parts: List<Pair<Long, Long?>>, fundedAmountMinor: Long): List<Pair<Long, Long?>> {
     val weights = parts.map { abs(it.first) }

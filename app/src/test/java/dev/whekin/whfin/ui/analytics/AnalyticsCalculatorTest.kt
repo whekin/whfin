@@ -165,6 +165,7 @@ class AnalyticsCalculatorTest {
                     color = transport.color,
                     expenseMinor = 30_000,
                     previousExpenseMinor = 10_000,
+                    projectedExpenseMinor = 93_000,
                 ),
                 AnalyticsCategoryChange(
                     categoryId = food.id,
@@ -173,10 +174,36 @@ class AnalyticsCalculatorTest {
                     color = food.color,
                     expenseMinor = 10_000,
                     previousExpenseMinor = 20_000,
+                    projectedExpenseMinor = 31_000,
                 ),
             ),
             data.categoryChanges,
         )
+    }
+
+    @Test
+    fun oneLargePurchaseIsCountedOnceInsteadOfRepeatedForEveryRemainingDay() {
+        val transactions = buildList {
+            (1L..10L).forEach { day ->
+                add(tx(day, -10_000, "GEL", LocalDate.of(2026, 7, day.toInt()), categoryId = food.id))
+            }
+            add(tx(11, -300_000, "GEL", LocalDate.of(2026, 7, 10), categoryId = food.id))
+        }
+
+        val data = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food),
+            allocations = emptyList(),
+            selectedMonth = YearMonth.of(2026, 7),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2026, 7, 10),
+        )
+
+        // 4,000 GEL already spent + the ordinary 100 GEL/day for the 21 remaining days.
+        assertEquals(610_000L, data.pace?.projectedExpenseMinor)
+        assertEquals(610_000L, data.categoryChanges.single().projectedExpenseMinor)
     }
 
     @Test

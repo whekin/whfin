@@ -700,6 +700,13 @@
     <string name="account_purpose_reserve">Reserve</string>
     <string name="account_purpose_deposit">Deposit</string>
     <string name="account_purpose_goal">Savings goal</string>
+    <string name="account_fund_role">Count this money as</string>
+    <string name="account_fund_available">Available</string>
+    <string name="account_bank_product">Bank product</string>
+    <string name="account_product_unspecified">Not specified</string>
+    <string name="account_product_current">Current account</string>
+    <string name="account_product_demand_deposit">Demand deposit</string>
+    <string name="account_product_term_deposit">Term deposit</string>
     <string name="accounts_everyday_section">Everyday accounts</string>
     <string name="accounts_savings_section">Savings &amp; deposits</string>
     <string name="account_transactions_title">Account activity</string>

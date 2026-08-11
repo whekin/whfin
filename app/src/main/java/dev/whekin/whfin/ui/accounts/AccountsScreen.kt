@@ -91,7 +91,8 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
-import dev.whekin.whfin.data.db.SavingsMode
+import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 import androidx.compose.foundation.rememberScrollState
@@ -142,10 +143,10 @@ fun AccountsScreen(
         item.account.groupId to (item.account.iban ?: "account-${item.account.id}")
     }.values
     val everydayAccounts = accountContainers.filterNot { container ->
-        container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
+        container.any { it.account.fundRole == FundRole.RESERVE }
     }.flatten()
     val savingsAccounts = accountContainers.filter { container ->
-        container.any { it.account.type == AccountType.SAVINGS || it.account.savingsMode != null }
+        container.any { it.account.fundRole == FundRole.RESERVE }
     }.flatten()
     // A ledger row puts its name at one edge and its amount at the other. Left to fill a tablet, the
     // two end up an arm's length apart and stop reading as one line, so the content keeps a width a
@@ -439,9 +440,9 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
     // and never mix into these currency chips.
     val all = accounts.groupBy { it.account.currency }
         .mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    val available = accounts.filter { it.account.savingsMode == null && it.account.type != AccountType.SAVINGS }
+    val available = accounts.filter { it.account.fundRole == FundRole.AVAILABLE }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    val reserve = accounts.filter { it.account.savingsMode != null || it.account.type == AccountType.SAVINGS }
+    val reserve = accounts.filter { it.account.fundRole == FundRole.RESERVE }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -711,18 +712,18 @@ private fun IbanCard(
  */
 private val SEEDED_CASH_NAMES = setOf("Cash", "Наличные")
 
-/** What the money in this ledger is for: its own name, else its purpose, else the bare currency. */
+/** What identifies this ledger: its own name, else the bank product, else the bare currency. */
 @Composable
 private fun accountRowTitle(item: AccountWithBalance): String =
     item.account.name.takeIf { it.isNotBlank() && it != item.account.currency }
-        ?: accountPurposeLabel(item)
+        ?: accountProductLabel(item.account.bankProduct)
         ?: item.account.currency
 
 @Composable
-private fun accountPurposeLabel(item: AccountWithBalance): String? = when (item.account.savingsMode) {
-    SavingsMode.FLEXIBLE_RESERVE -> stringResource(R.string.account_purpose_reserve)
-    SavingsMode.TERM_DEPOSIT -> stringResource(R.string.account_purpose_deposit)
-    SavingsMode.GOAL -> stringResource(R.string.account_purpose_goal)
+private fun accountProductLabel(product: BankProduct?): String? = when (product) {
+    BankProduct.CURRENT_ACCOUNT -> stringResource(R.string.account_product_current)
+    BankProduct.DEMAND_DEPOSIT -> stringResource(R.string.account_product_demand_deposit)
+    BankProduct.TERM_DEPOSIT -> stringResource(R.string.account_product_term_deposit)
     null -> null
 }
 
@@ -808,7 +809,9 @@ private fun AccountCard(item: AccountWithBalance, title: String = item.account.n
                     else -> accountTypeLabel(item.account.type)
                 }
                 Text(
-                    detail + if (item.account.savingsMode != null) " · ${stringResource(R.string.accounts_reserve)}" else "",
+                    detail + if (item.account.fundRole == FundRole.RESERVE) {
+                        " · ${stringResource(R.string.accounts_reserve)}"
+                    } else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -844,7 +847,8 @@ private fun AccountsContentPreview() {
         AccountWithBalance(
             AccountEntity(
                 id = 3, name = "EUR", type = AccountType.SAVINGS, groupId = 1, currency = "EUR",
-                iban = "GE00CD0000000000000002", savingsMode = SavingsMode.FLEXIBLE_RESERVE,
+                iban = "GE00CD0000000000000002", fundRole = FundRole.RESERVE,
+                bankProduct = BankProduct.DEMAND_DEPOSIT,
             ),
             81_500, emptyList(), groupName = "Credo",
         ),

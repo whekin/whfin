@@ -7,7 +7,8 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
-import dev.whekin.whfin.data.db.SavingsMode
+import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -25,7 +26,8 @@ class EditAccountSheetTest {
     @Test
     fun bankAccountEditsPurposeWithoutPretendingCurrencyIsContainerMetadata() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        var savedMode: SavingsMode? = null
+        var savedRole: FundRole? = null
+        var savedProduct: BankProduct? = null
         compose.setContent {
             WhfinTheme {
                 EditAccountSheet(
@@ -36,18 +38,25 @@ class EditAccountSheetTest {
                         groupId = 1,
                         currency = "GEL",
                         iban = "GE00CD1",
-                        savingsMode = SavingsMode.FLEXIBLE_RESERVE,
+                        fundRole = FundRole.RESERVE,
+                        bankProduct = BankProduct.DEMAND_DEPOSIT,
                     ),
                     onDismiss = {},
-                    onConfirm = { _, _, _, mode -> savedMode = mode },
+                    onConfirm = { _, _, _, role, product ->
+                        savedRole = role
+                        savedProduct = product
+                    },
                 )
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.account_purpose)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_fund_role)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertExists()
         compose.onNodeWithText(context.getString(R.string.account_currency)).assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.account_purpose_deposit)).performClick()
+        compose.onNodeWithText(context.getString(R.string.account_fund_available)).performClick()
+        compose.onNodeWithText(context.getString(R.string.account_product_term_deposit)).performClick()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
-        assertEquals(SavingsMode.TERM_DEPOSIT, savedMode)
+        assertEquals(FundRole.AVAILABLE, savedRole)
+        assertEquals(BankProduct.TERM_DEPOSIT, savedProduct)
     }
 }

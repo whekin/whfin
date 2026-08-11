@@ -216,6 +216,24 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+/** Product contract and the owner's treatment of its money are independent decisions. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `accounts` ADD COLUMN `fundRole` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+        db.execSQL("ALTER TABLE `accounts` ADD COLUMN `bankProduct` TEXT")
+        // Preserve every existing Available/Reserve total exactly. The user can now reclassify a
+        // liquid deposit as AVAILABLE without changing what the bank product is.
+        db.execSQL(
+            "UPDATE `accounts` SET `fundRole` = 'RESERVE' " +
+                "WHERE `type` = 'SAVINGS' OR `savingsMode` IS NOT NULL",
+        )
+        db.execSQL(
+            "UPDATE `accounts` SET `bankProduct` = 'TERM_DEPOSIT' " +
+                "WHERE `savingsMode` = 'TERM_DEPOSIT'",
+        )
+    }
+}
+
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -226,4 +244,5 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_7_8,
     MIGRATION_8_9,
     MIGRATION_9_10,
+    MIGRATION_10_11,
 )

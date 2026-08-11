@@ -94,11 +94,17 @@ class Fixture:
 
     def account(self, aid: int, name: str, atype: str, group: int | None, currency: str,
                 iban: str | None = None, address: int | None = None, asset: int | None = None,
-                goal: int | None = None, mode: str | None = None, order: int = 0) -> int:
+                goal: int | None = None, mode: str | None = None,
+                fund_role: str | None = None, bank_product: str | None = None,
+                order: int = 0) -> int:
+        fund_role = fund_role or ("RESERVE" if atype == "SAVINGS" or mode is not None else "AVAILABLE")
+        bank_product = bank_product or ("TERM_DEPOSIT" if mode == "TERM_DEPOSIT" else None)
         self.accounts.append({
             "id": aid, "name": name, "type": atype, "groupId": group, "currency": currency,
             "iban": iban, "walletAddressId": address, "cryptoAssetId": asset,
-            "savingsGoalMinor": goal, "savingsMode": mode, "isArchived": 0, "sortOrder": order,
+            "savingsGoalMinor": goal, "savingsMode": mode,
+            "fundRole": fund_role, "bankProduct": bank_product,
+            "isArchived": 0, "sortOrder": order,
         })
         return aid
 
@@ -493,6 +499,8 @@ ENUMS = {
     ("financial_groups", "type"): {"BANK", "WALLET"},
     ("accounts", "type"): {"BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON"},
     ("accounts", "savingsMode"): {"FLEXIBLE_RESERVE", "GOAL", "TERM_DEPOSIT"},
+    ("accounts", "fundRole"): {"AVAILABLE", "RESERVE"},
+    ("accounts", "bankProduct"): {"CURRENT_ACCOUNT", "DEMAND_DEPOSIT", "TERM_DEPOSIT"},
     ("payment_instruments", "type"): {"PHYSICAL_CARD", "VIRTUAL_CARD"},
     ("statement_sources", "type"): {"ACCOUNT", "CARD"},
     ("statement_imports", "origin"): {"FILE", "CREDO_SYNC"},

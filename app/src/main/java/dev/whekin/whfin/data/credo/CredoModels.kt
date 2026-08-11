@@ -1,5 +1,7 @@
 package dev.whekin.whfin.data.credo
 
+import dev.whekin.whfin.data.db.BankProduct
+
 data class CredoCredentials(
     val username: String,
     val credential: String,
@@ -30,6 +32,17 @@ data class CredoRemoteAccount(
         "•${accountNumber.takeLast(4)}",
         currency,
     ).joinToString(" · ")
+
+    /** Best-effort product metadata; it never decides whether the owner's money is Available. */
+    val bankProduct: BankProduct? get() {
+        val label = listOfNotNull(category, type).joinToString(" ").lowercase()
+        return when {
+            "მოთხოვნამდე" in label || "demand" in label -> BankProduct.DEMAND_DEPOSIT
+            "ვადიანი" in label || "term deposit" in label -> BankProduct.TERM_DEPOSIT
+            "მიმდინარე" in label || type.equals("ACCOUNT", ignoreCase = true) -> BankProduct.CURRENT_ACCOUNT
+            else -> null
+        }
+    }
 }
 
 class CredoApiException(

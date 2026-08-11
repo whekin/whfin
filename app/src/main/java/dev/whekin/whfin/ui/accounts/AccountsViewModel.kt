@@ -33,7 +33,8 @@ import dev.whekin.whfin.data.db.WalletAddressEntity
 import dev.whekin.whfin.data.db.CryptoAssetEntity
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.StatementSourceType
-import dev.whekin.whfin.data.db.SavingsMode
+import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.db.FundRole
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -371,7 +372,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 db.accountDao().insert(
                     AccountEntity(
                         name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
-                        savingsMode = SavingsMode.FLEXIBLE_RESERVE.takeIf { type == AccountType.SAVINGS },
+                        fundRole = if (type == AccountType.SAVINGS) FundRole.RESERVE else FundRole.AVAILABLE,
                     ),
                 )
             }
@@ -383,7 +384,8 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         name: String,
         currency: String,
         address: String?,
-        savingsMode: SavingsMode?,
+        fundRole: FundRole,
+        bankProduct: BankProduct?,
     ) {
         viewModelScope.launch {
             val normalizedName = name.trim().ifBlank { if (account.type == AccountType.CASH) "Cash" else account.name }
@@ -409,13 +411,14 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             if (groupId != null && iban != null &&
                 (account.type == AccountType.BANK || account.type == AccountType.SAVINGS)
             ) {
-                db.accountDao().updateIbanContainer(groupId, iban, normalizedName, savingsMode)
+                db.accountDao().updateIbanContainer(groupId, iban, normalizedName, fundRole, bankProduct)
             } else {
                 db.accountDao().update(
                     account.copy(
                         name = normalizedName,
                         currency = currency.trim().uppercase(),
-                        savingsMode = savingsMode,
+                        fundRole = fundRole,
+                        bankProduct = bankProduct,
                     ),
                 )
             }

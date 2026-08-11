@@ -116,12 +116,20 @@ class WhfinBackupInstrumentedTest {
         val version2 = export(source).toString(Charsets.UTF_8)
             .replace("\"databaseVersion\": $WHFIN_DATABASE_VERSION", "\"databaseVersion\": 2")
             .replace("        \"origin\": \"FILE\",\n", "")
+            .replace(Regex("""        "fundRole": "[A-Z_]+",\n"""), "")
+            .replace(Regex("""        "bankProduct": (?:"[A-Z_]+"|null),\n"""), "")
 
         WhfinBackupManager(target).restore(ByteArrayInputStream(version2.toByteArray()))
 
         target.openHelper.writableDatabase.query("SELECT COUNT(*) FROM sms_diagnostics").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals(0, cursor.getInt(0))
+        }
+        target.openHelper.writableDatabase.query(
+            "SELECT fundRole FROM accounts WHERE id = 3",
+        ).use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("RESERVE", cursor.getString(0))
         }
     }
 
@@ -308,9 +316,21 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO financial_groups VALUES (2, 'Wallet', 'WALLET', 'TrustWallet', 0, 1)")
             sqlite.execSQL("INSERT INTO wallet_addresses VALUES (1, 2, 'eip155:1', '0xabc', 'Main')")
             sqlite.execSQL("INSERT INTO crypto_assets VALUES (1, 'eip155:1', NULL, 'ETH', 'Ether', 18)")
-            sqlite.execSQL("INSERT INTO accounts VALUES (1, 'Credo GEL', 'BANK', 1, 'GEL', 'GE01', NULL, NULL, NULL, NULL, 0, 0)")
-            sqlite.execSQL("INSERT INTO accounts VALUES (2, 'ETH', 'CRYPTO', 2, 'ETH', NULL, 1, 1, NULL, NULL, 0, 1)")
-            sqlite.execSQL("INSERT INTO accounts VALUES (3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, 'FLEXIBLE_RESERVE', 0, 2)")
+            sqlite.execSQL(
+                "INSERT INTO accounts VALUES " +
+                    "(1, 'Credo GEL', 'BANK', 1, 'GEL', 'GE01', NULL, NULL, NULL, NULL, " +
+                    "'AVAILABLE', 'CURRENT_ACCOUNT', 0, 0)",
+            )
+            sqlite.execSQL(
+                "INSERT INTO accounts VALUES " +
+                    "(2, 'ETH', 'CRYPTO', 2, 'ETH', NULL, 1, 1, NULL, NULL, " +
+                    "'AVAILABLE', NULL, 0, 1)",
+            )
+            sqlite.execSQL(
+                "INSERT INTO accounts VALUES " +
+                    "(3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, " +
+                    "'FLEXIBLE_RESERVE', 'RESERVE', NULL, 0, 2)",
+            )
             sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0)")
             sqlite.execSQL("INSERT INTO instrument_account_links VALUES (1, 1)")
             sqlite.execSQL("INSERT INTO transfer_groups VALUES (1, 'TRANSFER', 'Test transfer', 1000)")

@@ -80,3 +80,15 @@ A bank-centred, guided but skippable surface that groups the data channels WHFIN
 one bank, such as a connection, SMS monitoring, or a statement file. Completed channels become statuses;
 unsupported banks and unavailable channels are absent.
 _Avoid_: Import-method picker, source setup, coming-soon bank
+
+### Accounts
+
+**Fund role**:
+The owner’s decision about whether a ledger’s money is Available for ordinary spending or held as Reserve.
+It affects the Available/Reserve reading but never changes the bank product or total net worth.
+_Avoid_: Account type, deposit type, savings mode
+
+**Bank product**:
+The contract represented by a bank ledger, such as a Current account, Demand deposit, or Term deposit.
+It describes the bank’s product and never decides whether the owner treats its balance as Available or Reserve.
+_Avoid_: Reserve account, savings purpose, available deposit

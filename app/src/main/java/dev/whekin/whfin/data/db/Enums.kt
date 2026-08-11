@@ -2,7 +2,13 @@ package dev.whekin.whfin.data.db
 
 enum class AccountType { BANK, CASH, SAVINGS, CRYPTO, PERSON }
 
-/** FLEXIBLE_RESERVE = liquid money, separated from day-to-day available balance but part of net worth. */
+/** Whether this ledger contributes to money available for ordinary spending. */
+enum class FundRole { AVAILABLE, RESERVE }
+
+/** The bank's product contract, independent from how the owner intends to use its money. */
+enum class BankProduct { CURRENT_ACCOUNT, DEMAND_DEPOSIT, TERM_DEPOSIT }
+
+/** Legacy combined purpose/product field. New behavior uses [FundRole] and [BankProduct]. */
 enum class SavingsMode { FLEXIBLE_RESERVE, GOAL, TERM_DEPOSIT }
 
 enum class FinancialGroupType { BANK, WALLET }

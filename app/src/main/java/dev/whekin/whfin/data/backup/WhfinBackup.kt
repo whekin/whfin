@@ -113,6 +113,8 @@ internal data class BackupLegacyColumn(
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
 private val SAVINGS_MODES = setOf("FLEXIBLE_RESERVE", "GOAL", "TERM_DEPOSIT")
+private val FUND_ROLES = setOf("AVAILABLE", "RESERVE")
+private val BANK_PRODUCTS = setOf("CURRENT_ACCOUNT", "DEMAND_DEPOSIT", "TERM_DEPOSIT")
 private val TRANSFER_GROUP_TYPES =
     setOf("TRANSFER", "CONVERSION", "CARD_TOPUP", "SAVINGS", "CRYPTO_SWAP", "CRYPTO_BRIDGE")
 
@@ -139,9 +141,19 @@ internal object WhfinBackupSchema {
             "accounts",
             listOf(
                 "id", "name", "type", "groupId", "currency", "iban", "walletAddressId",
-                "cryptoAssetId", "savingsGoalMinor", "savingsMode", "isArchived", "sortOrder",
+                "cryptoAssetId", "savingsGoalMinor", "savingsMode", "fundRole", "bankProduct",
+                "isArchived", "sortOrder",
             ),
-            enumColumns = mapOf("type" to ACCOUNT_TYPES, "savingsMode" to SAVINGS_MODES),
+            legacyColumns = mapOf(
+                "fundRole" to BackupLegacyColumn(11, BackupValue.Text("AVAILABLE")),
+                "bankProduct" to BackupLegacyColumn(11, null),
+            ),
+            enumColumns = mapOf(
+                "type" to ACCOUNT_TYPES,
+                "savingsMode" to SAVINGS_MODES,
+                "fundRole" to FUND_ROLES,
+                "bankProduct" to BANK_PRODUCTS,
+            ),
         ),
         BackupTable(
             "payment_instruments",
@@ -349,6 +361,19 @@ internal object WhfinBackupCodec {
                     throw WhfinBackupException("Could not restore table ${table.name}.")
                 }
             }
+        }
+
+        if (snapshot.summary.databaseVersion < 11) {
+            // Old portable backups carry the combined savingsMode. Reconstruct the same totals the
+            // source installation showed rather than defaulting every restored ledger to Available.
+            db.execSQL(
+                "UPDATE `accounts` SET `fundRole` = 'RESERVE' " +
+                    "WHERE `type` = 'SAVINGS' OR `savingsMode` IS NOT NULL",
+            )
+            db.execSQL(
+                "UPDATE `accounts` SET `bankProduct` = 'TERM_DEPOSIT' " +
+                    "WHERE `savingsMode` = 'TERM_DEPOSIT'",
+            )
         }
 
         db.query("PRAGMA foreign_key_check").use { cursor ->

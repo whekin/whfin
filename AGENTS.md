@@ -54,6 +54,8 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] GeorgiaMerchantPreset: локальные правила для супермаркетов, транспорта, аптек, заведений,
   коммуналки, техники и подписок; backfill только пустых категорий. Проверено на приватной базе:
   известные мерчанты категоризируются автоматически, неизвестные не затрагиваются
+  Разделители в ключах preset теперь канонизируются, поэтому Yandex Go/Go, YANDEX*GO и Yandex.Go
+  стабильно попадают в Transport при изменениях пунктуации процессинга.
 - [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
@@ -144,6 +146,9 @@ This is a single-context repository with root domain documentation and system-wi
   Home также показывает до двух объяснимых insights из того же расчёта, что Statistics: прогноз темпа
   расходов и главную категорию-драйвер. Первые четыре дня и слабые колебания намеренно молчат; каждый
   вывод показывает сравнение с прошлым месяцем и открывает подробную статистику.
+  Прогноз больше не линейно повторяет уже случившуюся крупную покупку до конца месяца: при достаточном
+  числе операций устойчивый median-threshold отделяет разовые суммы, учитывает их один раз и продолжает
+  на оставшиеся дни только обычный темп.
   тёплый editorial Material 3 (cream + sage + terracotta); первый проход применён: дизайн-система,
   крупный баланс, итоги месяца, новая лента и pending-chip. Есть выбор категории из bottom sheet с
   обучением Merchant→Category. Есть ручное добавление (FAB → FormSheet: расход/доход, сумма,
@@ -198,6 +203,9 @@ This is a single-context repository with root domain documentation and system-wi
   В ленте доступны поиск, тип и
   сортировка; в счетах — добавление, Account overview и настройки. Account overview объясняет текущий
   баланс через assets/liabilities, available/reserve и распределение положительных GEL по источникам.
+  Available/Reserve теперь является самостоятельной ролью средств, а Current account/Demand deposit/
+  Term deposit — отдельным банковским продуктом. Любой депозит можно считать доступным, любой liquid
+  ledger — резервом; миграция и старые JSON-backup сохраняют прежние итоги до явной переклассификации.
   Accounts и Account overview не принимают стартовый `emptyList()` Room-flow за подтверждённую пустую
   базу: до первого полного snapshot показывается нейтральный loading и прочерк баланса, затем accounts+debts
   публикуются одним состоянием. На font scale 1.5 покадрово проверено отсутствие вспышки `No accounts yet`.

@@ -57,7 +57,8 @@ private fun projectCategory(
     change: AnalyticsCategoryChange,
     daysElapsed: Int,
     daysInMonth: Int,
-): Long = change.expenseMinor * daysInMonth / daysElapsed.coerceAtLeast(1)
+): Long = change.projectedExpenseMinor
+    ?: (change.expenseMinor * daysInMonth / daysElapsed.coerceAtLeast(1))
 
 private fun isMeaningfulChange(current: Long, previous: Long): Boolean {
     val difference = abs(current - previous)

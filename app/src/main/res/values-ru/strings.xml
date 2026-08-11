@@ -717,6 +717,13 @@
     <string name="account_purpose_reserve">Резерв</string>
     <string name="account_purpose_deposit">Депозит</string>
     <string name="account_purpose_goal">Цель накопления</string>
+    <string name="account_fund_role">Как учитывать деньги</string>
+    <string name="account_fund_available">Доступные</string>
+    <string name="account_bank_product">Банковский продукт</string>
+    <string name="account_product_unspecified">Не указан</string>
+    <string name="account_product_current">Текущий счёт</string>
+    <string name="account_product_demand_deposit">Депозит до востребования</string>
+    <string name="account_product_term_deposit">Срочный депозит</string>
     <string name="accounts_everyday_section">Основные счета</string>
     <string name="accounts_savings_section">Накопления и депозиты</string>
     <string name="account_transactions_title">Операции счёта</string>

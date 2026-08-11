@@ -3,6 +3,7 @@ package dev.whekin.whfin.data.sms
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
@@ -497,7 +498,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         val pairedAccount = pairedAccountHint(sms)
         val narrowed = when (sms) {
             is CredoSmsParser.DepositTopUp -> candidates.filter { candidate ->
-                (candidate.type == AccountType.SAVINGS || candidate.savingsMode != null) &&
+                (
+                    candidate.type == AccountType.SAVINGS ||
+                        candidate.bankProduct == BankProduct.DEMAND_DEPOSIT ||
+                        candidate.bankProduct == BankProduct.TERM_DEPOSIT
+                ) &&
                     candidate.id != pairedAccount?.id &&
                     (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
             }

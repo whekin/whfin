@@ -44,6 +44,7 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -77,10 +78,10 @@ internal fun accountOverviewData(rows: List<AccountWithBalance>): AccountOvervie
     val assets = gel.sumOf { it.balanceMinor.coerceAtLeast(0L) }
     val liabilities = -gel.sumOf { it.balanceMinor.coerceAtMost(0L) }
     val available = gel
-        .filter { it.account.savingsMode == null && it.account.type != AccountType.SAVINGS }
+        .filter { it.account.fundRole == FundRole.AVAILABLE }
         .sumOf { it.balanceMinor }
     val reserve = gel
-        .filter { it.account.savingsMode != null || it.account.type == AccountType.SAVINGS }
+        .filter { it.account.fundRole == FundRole.RESERVE }
         .sumOf { it.balanceMinor }
     val sources = gel
         .filter { it.balanceMinor > 0L }
@@ -297,7 +298,10 @@ private val previewAccounts = listOf(
         emptyList(),
     ),
     AccountWithBalance(
-        AccountEntity(id = 3, name = "Reserve", type = AccountType.SAVINGS, currency = "GEL"),
+        AccountEntity(
+            id = 3, name = "Reserve", type = AccountType.SAVINGS, currency = "GEL",
+            fundRole = FundRole.RESERVE,
+        ),
         120_000,
         emptyList(),
     ),

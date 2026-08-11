@@ -233,6 +233,7 @@ class CredoSyncViewModel internal constructor(
                             _state.value = _state.value.copy(currentPhase = phase)
                         }
                     }
+                    rememberBankProduct(account)
                     CredoSyncFileResult(
                         account.maskedLabel,
                         inserted = result.inserted,
@@ -351,6 +352,7 @@ class CredoSyncViewModel internal constructor(
                                     origin = StatementImportOrigin.CREDO_SYNC,
                                 ) { phase -> _state.value = _state.value.copy(currentPhase = phase) }
                             }
+                            rememberBankProduct(account)
                             inserted += result.inserted
                             duplicates += result.duplicates
                             reconciled += result.reconciled
@@ -534,6 +536,7 @@ class CredoSyncViewModel internal constructor(
             if (remoteAccounts.isEmpty()) throw CredoApiException("NO_ACCOUNTS")
             activeSession to remoteAccounts
         }.onSuccess { (activeSession, remoteAccounts) ->
+            remoteAccounts.forEach { rememberBankProduct(it) }
             session = activeSession
             if (rememberPassword) secretStore.save(credentials) else secretStore.clear()
             challenge = null
@@ -547,6 +550,14 @@ class CredoSyncViewModel internal constructor(
                 accounts = remoteAccounts,
             )
         }.onFailure(::fail)
+    }
+
+    private suspend fun rememberBankProduct(remote: CredoRemoteAccount) {
+        val product = remote.bankProduct ?: return
+        val ledger = db.accountDao().byIbanAndCurrency(remote.accountNumber, remote.currency) ?: return
+        val groupId = ledger.groupId ?: return
+        val iban = ledger.iban ?: return
+        db.accountDao().updateIbanBankProduct(groupId, iban, product)
     }
 
     private suspend fun resolveCredentials(username: String, credential: String): CredoCredentials? =

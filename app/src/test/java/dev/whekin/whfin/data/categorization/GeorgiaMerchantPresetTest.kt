@@ -20,6 +20,8 @@ class GeorgiaMerchantPresetTest {
 
     @Test fun `Tbilisi transit and salary are recognized`() {
         assertEquals(transport, GeorgiaMerchantPreset.categoryFor("bus_tbilisi", categories))
+        assertEquals(transport, GeorgiaMerchantPreset.categoryFor("yandex go", categories))
+        assertEquals(transport, GeorgiaMerchantPreset.categoryFor("yandex*go taxi", categories))
         assertEquals(salary, GeorgiaMerchantPreset.categoryFor("შპს უნოტრონ", categories))
     }
 

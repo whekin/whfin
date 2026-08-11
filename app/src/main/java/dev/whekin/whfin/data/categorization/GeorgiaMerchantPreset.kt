@@ -53,9 +53,20 @@ object GeorgiaMerchantPreset {
     )
 
     fun categoryFor(normalizedKey: String, categories: List<CategoryEntity>): CategoryEntity? {
-        val target = rules.firstOrNull { rule -> rule.tokens.any(normalizedKey::contains) }?.target ?: return null
+        // Statement processors change punctuation more often than merchant names. Treat dots,
+        // underscores, asterisks and repeated whitespace as the same separator, so Yandex.Go,
+        // YANDEX*GO and Yandex Go remain one offline rule without broad fuzzy matching.
+        val comparableKey = comparable(normalizedKey)
+        val target = rules.firstOrNull { rule ->
+            rule.tokens.any { token -> comparableKey.contains(comparable(token)) }
+        }?.target ?: return null
         return categories.firstOrNull { it.icon == target.icon && it.kind == target.kind }
     }
+
+    private fun comparable(value: String): String = value
+        .lowercase()
+        .replace(Regex("""[^\p{L}\p{N}]+"""), " ")
+        .trim()
 
     suspend fun applyToUncategorized(db: WhfinDatabase): Int {
         val categories = db.categoryDao().all()

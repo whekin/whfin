@@ -44,7 +44,11 @@ data class AccountEntity(
     val cryptoAssetId: Long? = null,
     /** Цель накопления для SAVINGS, в minor units. */
     val savingsGoalMinor: Long? = null,
+    /** Kept for portable backups created before fund role and bank product were separated. */
     val savingsMode: SavingsMode? = null,
+    @ColumnInfo(defaultValue = "'AVAILABLE'")
+    val fundRole: FundRole = FundRole.AVAILABLE,
+    val bankProduct: BankProduct? = null,
     val isArchived: Boolean = false,
     val sortOrder: Int = 0,
 )

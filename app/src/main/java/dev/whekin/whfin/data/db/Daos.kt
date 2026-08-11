@@ -42,8 +42,20 @@ interface AccountDao {
     @Update
     suspend fun update(account: AccountEntity)
 
-    @Query("UPDATE accounts SET name = :name, savingsMode = :savingsMode WHERE groupId = :groupId AND iban = :iban")
-    suspend fun updateIbanContainer(groupId: Long, iban: String, name: String, savingsMode: SavingsMode?)
+    @Query(
+        "UPDATE accounts SET name = :name, fundRole = :fundRole, bankProduct = :bankProduct " +
+            "WHERE groupId = :groupId AND iban = :iban",
+    )
+    suspend fun updateIbanContainer(
+        groupId: Long,
+        iban: String,
+        name: String,
+        fundRole: FundRole,
+        bankProduct: BankProduct?,
+    )
+
+    @Query("UPDATE accounts SET bankProduct = :bankProduct WHERE groupId = :groupId AND iban = :iban")
+    suspend fun updateIbanBankProduct(groupId: Long, iban: String, bankProduct: BankProduct)
 
     @Query("SELECT COUNT(*) FROM accounts WHERE groupId = :groupId")
     suspend fun countInGroup(groupId: Long): Int

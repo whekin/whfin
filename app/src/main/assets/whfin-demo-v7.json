@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "exportedAt": "2026-07-31T18:00:00Z",
   "appVersion": "0.1.0-demo (1)",
-  "databaseVersion": 10,
+  "databaseVersion": 11,
   "primaryCurrency": "GEL",
   "tables": {
     "financial_groups": [
@@ -94,6 +94,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 0
       },
@@ -108,6 +110,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 1
       },
@@ -122,6 +126,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": "TERM_DEPOSIT",
+        "fundRole": "RESERVE",
+        "bankProduct": "TERM_DEPOSIT",
         "isArchived": 0,
         "sortOrder": 2
       },
@@ -136,6 +142,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": "TERM_DEPOSIT",
+        "fundRole": "RESERVE",
+        "bankProduct": "TERM_DEPOSIT",
         "isArchived": 0,
         "sortOrder": 3
       },
@@ -150,6 +158,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 4
       },
@@ -164,6 +174,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 5
       },
@@ -178,6 +190,8 @@
         "cryptoAssetId": null,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 6
       },
@@ -192,6 +206,8 @@
         "cryptoAssetId": 1,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 7
       },
@@ -206,6 +222,8 @@
         "cryptoAssetId": 2,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 8
       },
@@ -220,6 +238,8 @@
         "cryptoAssetId": 3,
         "savingsGoalMinor": null,
         "savingsMode": null,
+        "fundRole": "AVAILABLE",
+        "bankProduct": null,
         "isArchived": 0,
         "sortOrder": 9
       }

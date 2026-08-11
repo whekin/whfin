@@ -39,7 +39,8 @@ import dev.whekin.whfin.data.crypto.CryptoAddressValidator
 import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
-import dev.whekin.whfin.data.db.SavingsMode
+import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -197,12 +198,19 @@ fun EditAccountSheet(
     account: AccountEntity,
     initialAddress: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, currency: String, address: String?, savingsMode: SavingsMode?) -> Unit,
+    onConfirm: (
+        name: String,
+        currency: String,
+        address: String?,
+        fundRole: FundRole,
+        bankProduct: BankProduct?,
+    ) -> Unit,
 ) {
     var name by remember { mutableStateOf(account.name) }
     var currency by remember { mutableStateOf(account.currency) }
     var address by remember { mutableStateOf(initialAddress.orEmpty()) }
-    var savingsMode by remember { mutableStateOf(account.savingsMode) }
+    var fundRole by remember { mutableStateOf(account.fundRole) }
+    var bankProduct by remember { mutableStateOf(account.bankProduct) }
 
     FormSheet(
         title = stringResource(R.string.account_edit),
@@ -210,7 +218,13 @@ fun EditAccountSheet(
         primaryLabel = stringResource(R.string.action_save),
         primaryEnabled = (account.type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank(),
         onPrimary = {
-            onConfirm(name, currency, address.trim().takeIf(String::isNotEmpty), savingsMode)
+            onConfirm(
+                name,
+                currency,
+                address.trim().takeIf(String::isNotEmpty),
+                fundRole,
+                bankProduct,
+            )
         },
     ) {
         WhfinField(
@@ -222,13 +236,18 @@ fun EditAccountSheet(
         )
         when (account.type) {
             AccountType.BANK, AccountType.SAVINGS, AccountType.CASH -> {
-                Text(stringResource(R.string.account_purpose), style = MaterialTheme.typography.labelLarge)
-                AccountPurposeSelector(
-                    selected = savingsMode,
-                    allowEveryday = account.type != AccountType.SAVINGS,
-                    allowDeposit = account.type != AccountType.CASH,
-                    onSelect = { savingsMode = it },
+                Text(stringResource(R.string.account_fund_role), style = MaterialTheme.typography.labelLarge)
+                FundRoleSelector(
+                    selected = fundRole,
+                    onSelect = { fundRole = it },
                 )
+                if (account.type != AccountType.CASH) {
+                    Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
+                    BankProductSelector(
+                        selected = bankProduct,
+                        onSelect = { bankProduct = it },
+                    )
+                }
             }
             // A wallet is its address and the chain decides its assets: only the name is the
             // person's to change, so the rest is shown as what it is rather than as a field.
@@ -255,17 +274,14 @@ fun EditAccountSheet(
 }
 
 @Composable
-private fun AccountPurposeSelector(
-    selected: SavingsMode?,
-    allowEveryday: Boolean,
-    allowDeposit: Boolean = true,
-    onSelect: (SavingsMode?) -> Unit,
+private fun FundRoleSelector(
+    selected: FundRole,
+    onSelect: (FundRole) -> Unit,
 ) {
-    val options = buildList {
-        if (allowEveryday) add(null to R.string.account_purpose_everyday)
-        add(SavingsMode.FLEXIBLE_RESERVE to R.string.account_purpose_reserve)
-        if (allowDeposit) add(SavingsMode.TERM_DEPOSIT to R.string.account_purpose_deposit)
-    }
+    val options = listOf(
+        FundRole.AVAILABLE to R.string.account_fund_available,
+        FundRole.RESERVE to R.string.account_purpose_reserve,
+    )
     WhfinChoiceRail {
         items(options, key = { it.second }) { (mode, label) ->
             WhfinFilterPill(
@@ -274,6 +290,62 @@ private fun AccountPurposeSelector(
                 onClick = { onSelect(mode) },
             )
         }
+    }
+}
+
+@Composable
+private fun BankProductSelector(
+    selected: BankProduct?,
+    onSelect: (BankProduct?) -> Unit,
+) {
+    val options = listOf(
+        null to R.string.account_product_unspecified,
+        BankProduct.CURRENT_ACCOUNT to R.string.account_product_current,
+        BankProduct.DEMAND_DEPOSIT to R.string.account_product_demand_deposit,
+        BankProduct.TERM_DEPOSIT to R.string.account_product_term_deposit,
+    )
+    WhfinChoiceRail {
+        items(options, key = { it.second }) { (product, label) ->
+            WhfinFilterPill(
+                label = stringResource(label),
+                selected = selected == product,
+                onClick = { onSelect(product) },
+            )
+        }
+    }
+}
+
+@Preview(name = "Edit demand deposit", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(
+    name = "Edit demand deposit dark",
+    widthDp = 400,
+    heightDp = 700,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(
+    name = "Edit demand deposit font 1.5",
+    widthDp = 400,
+    heightDp = 900,
+    fontScale = 1.5f,
+    showBackground = true,
+)
+@Preview(name = "Edit demand deposit compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Composable
+private fun EditDemandDepositPreview() {
+    WhfinTheme {
+        EditAccountSheet(
+            account = AccountEntity(
+                name = "Daily deposit",
+                type = AccountType.BANK,
+                groupId = 1,
+                currency = "GEL",
+                iban = "GE00CD0000000000000156",
+                fundRole = FundRole.AVAILABLE,
+                bankProduct = BankProduct.DEMAND_DEPOSIT,
+            ),
+            onDismiss = {},
+            onConfirm = { _, _, _, _, _ -> },
+        )
     }
 }
 
@@ -369,7 +441,6 @@ private data class TypeOption(val type: AccountType, val icon: ImageVector)
 private val typeOptions = listOf(
     TypeOption(AccountType.BANK, Icons.Default.AccountBalance),
     TypeOption(AccountType.CASH, Icons.Default.Payments),
-    TypeOption(AccountType.SAVINGS, Icons.Default.Savings),
     TypeOption(AccountType.CRYPTO, Icons.Default.CurrencyBitcoin),
 )
 
