@@ -17,6 +17,7 @@ import java.io.OutputStreamWriter
 import java.time.Instant
 import java.util.LinkedHashMap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 data class WhfinBackupMetadata(
@@ -56,8 +57,13 @@ class WhfinBackupManager(
         passphrase: CharArray,
     ): WhfinBackupSummary = withContext(Dispatchers.IO) {
         WhfinEncryptedBackupEnvelope.encryptingStream(output, passphrase).use { encrypted ->
-            database.withTransaction {
-                WhfinBackupCodec.write(database.openHelper.writableDatabase, encrypted, metadata)
+            // Once the envelope header reaches a user-selected destination, cancellation must not
+            // close AES-GCM over zero plaintext: that creates a valid-looking 60-byte empty backup.
+            // Finish the already-started file; I/O failures still propagate normally.
+            withContext(NonCancellable) {
+                database.withTransaction {
+                    WhfinBackupCodec.write(database.openHelper.writableDatabase, encrypted, metadata)
+                }
             }
         }
     }

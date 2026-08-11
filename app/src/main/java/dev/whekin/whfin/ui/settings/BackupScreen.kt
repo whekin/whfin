@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -28,13 +29,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.core.ui.WhfinActionStyle
@@ -82,7 +83,9 @@ fun BackupRoute(appVersion: String) {
     val manager = remember(context.applicationContext, safetyBackup) {
         WhfinBackupManager((context.applicationContext as WhfinApp).db, safetyBackup)
     }
-    val scope = rememberCoroutineScope()
+    // SAF backgrounds the Activity. With immediate App Lock the Backup composable is then removed;
+    // an Activity-owned scope lets the selected export finish while the lock gate is visible.
+    val scope = (context as ComponentActivity).lifecycleScope
     var uiState by remember { mutableStateOf<BackupUiState>(BackupUiState.Idle) }
     var pendingRestore by remember { mutableStateOf<PendingRestore?>(null) }
     var exportPassphraseSheet by remember { mutableStateOf(false) }
@@ -123,18 +126,21 @@ fun BackupRoute(appVersion: String) {
         val passphrase = exportPassphrase
         if (uri != null && passphrase != null) scope.launch {
             uiState = BackupUiState.Exporting
-            uiState = runCatching {
-                withContext(Dispatchers.IO) {
-                    resolver.openOutputStream(uri, "wt")?.use { output ->
-                        manager.exportEncrypted(output, metadata(), passphrase)
-                    } ?: error("Could not open the selected backup destination.")
-                }
-            }.fold(
-                onSuccess = { BackupUiState.Exported(it.rowCount) },
-                onFailure = { BackupUiState.Error },
-            )
-            passphrase.fill('\u0000')
-            exportPassphrase = null
+            try {
+                uiState = runCatching {
+                    withContext(Dispatchers.IO) {
+                        resolver.openOutputStream(uri, "wt")?.use { output ->
+                            manager.exportEncrypted(output, metadata(), passphrase)
+                        } ?: error("Could not open the selected backup destination.")
+                    }
+                }.fold(
+                    onSuccess = { BackupUiState.Exported(it.rowCount) },
+                    onFailure = { BackupUiState.Error },
+                )
+            } finally {
+                passphrase.fill('\u0000')
+                exportPassphrase = null
+            }
         } else {
             passphrase?.fill('\u0000')
             exportPassphrase = null

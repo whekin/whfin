@@ -13,7 +13,13 @@ import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.OutputStream
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -113,5 +119,62 @@ class WhfinEncryptedBackupManagerTest {
         assertEquals(false, manager.isEncrypted(ByteArrayInputStream(json)))
         val restored = manager.restore(ByteArrayInputStream(json))
         assertEquals(exported.rowCount, restored.rowCount)
+    }
+
+    @Test
+    fun cancellationAfterEncryptedHeader_doesNotLeaveAValidEmptyEnvelope() = runBlocking {
+        val output = HeaderGateOutputStream()
+        val export = launch(Dispatchers.IO) {
+            manager.exportEncrypted(output, metadata, "battery staple".toCharArray())
+        }
+
+        assertTrue("Encrypted header was not written", output.headerWritten.await(10, TimeUnit.SECONDS))
+        export.cancel()
+        output.continueWriting.countDown()
+        export.cancelAndJoin()
+
+        val envelope = output.toByteArray()
+        assertTrue(
+            "A cancelled export must finish, not look like a valid encrypted empty file (${envelope.size} bytes)",
+            envelope.size > EMPTY_ENCRYPTED_ENVELOPE_BYTES,
+        )
+        val restored = manager.restore(ByteArrayInputStream(envelope), "battery staple".toCharArray())
+        assertTrue(restored.rowCount > 0)
+    }
+
+    /** Holds the producer exactly after magic/KDF parameters and IV reach the destination. */
+    private class HeaderGateOutputStream : OutputStream() {
+        private val bytes = ByteArrayOutputStream()
+        val headerWritten = CountDownLatch(1)
+        val continueWriting = CountDownLatch(1)
+        private var gated = false
+
+        @Synchronized
+        override fun write(value: Int) {
+            bytes.write(value)
+            gateAfterHeader()
+        }
+
+        @Synchronized
+        override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            bytes.write(buffer, offset, length)
+            gateAfterHeader()
+        }
+
+        @Synchronized
+        fun toByteArray(): ByteArray = bytes.toByteArray()
+
+        private fun gateAfterHeader() {
+            if (!gated && bytes.size() >= ENCRYPTED_HEADER_BYTES) {
+                gated = true
+                headerWritten.countDown()
+                check(continueWriting.await(10, TimeUnit.SECONDS)) { "Test did not release encrypted output" }
+            }
+        }
+    }
+
+    private companion object {
+        const val ENCRYPTED_HEADER_BYTES = 44
+        const val EMPTY_ENCRYPTED_ENVELOPE_BYTES = ENCRYPTED_HEADER_BYTES + 16
     }
 }

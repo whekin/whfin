@@ -616,7 +616,14 @@ This is a single-context repository with root domain documentation and system-wi
   `whfin_drive_backup` вне Android allowlist и вне JSON. Unit+Robolectric: конверт, manager glue,
   Drive REST на локальном HTTP, UI-стейты. Android OAuth client создан владельцем в Google Cloud
   (Google Auth Platform, Testing + test user; debug SHA-1), первый реальный аплоад на OnePlus
-  ПОДТВЕРЖДЁН (2026-07-16). Release-подпись потребует второй Android client с release SHA-1
+  ПОДТВЕРЖДЁН (2026-07-16). Release-подпись потребует второй Android client с release SHA-1.
+  Реальный 60-байтовый encrypted export оказался lifecycle-race с Immediate App Lock: возврат из SAF
+  убирал Backup composable, отменял его scope после 44-байтового header, а закрытие AES-GCM добавляло
+  16-байтовый tag над пустым plaintext. Backup operations теперь живут в Activity lifecycleScope, а
+  начатый encrypted envelope дописывает Room snapshot в NonCancellable-секции; passphrase очищается в
+  `finally`. Детерминированный header-gate regression дважды был red и стал green; точный приватный
+  4 MB JSON до исправления отдельно доказал, что данные/codec полностью проходят encrypted round-trip.
+  Приватный fixture не хранится в репозитории.
 - [x] App Lock: собственный 4-значный код WHFIN с точками и цифровой клавиатурой, optional strong
   biometric через системный `BiometricPrompt`, timeout выключено/сразу/30 сек/1 мин/5 мин и защищённый
   recent-apps snapshot. Код не хранится: проверяется HMAC-ключом Android Keystore; после пяти ошибок
