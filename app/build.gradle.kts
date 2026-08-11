@@ -93,8 +93,8 @@ ksp {
 }
 
 configurations.matching { it.name.contains("androidTest", ignoreCase = true) }.configureEach {
-    // Room 2.8.4 migration bundles are generated against serialization 1.8.1, while the
-    // current Compose BOM constrains the app runtime to 1.7.3. Keep the override test-only.
+    // Keep the serialization override test-only: Room migration fixtures exercise the
+    // serialization runtime, while the Compose BOM may bring a different transitive version.
     resolutionStrategy.force(
         "org.jetbrains.kotlinx:kotlinx-serialization-core:${libs.versions.serialization.get()}",
         "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:${libs.versions.serialization.get()}",
