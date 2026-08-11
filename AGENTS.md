@@ -87,7 +87,9 @@ This is a single-context repository with root domain documentation and system-wi
   label импортируется как обычная `OTHER` только при целой balance chain и явно показывается в результате.
   Пять приватных current-format файлов проходят эту границу. Реальная OTP SMS на Samsung доказала OEM-gap:
   One UI не включил manifest receiver WHFIN в доставленный broadcast при выданном `RECEIVE_SMS`, поэтому
-  `Connecting/AwaitingOtp` дополнительно держит узкий context receiver с `BROADCAST_SMS`; экран объясняет
+  `Connecting/AwaitingOtp` дополнительно держит узкий context receiver без sender-permission filter:
+  exact Samsung SMS показало, что One UI может broker-ить защищённый системный broadcast через sender,
+  который не проходит лишний `BROADCAST_SMS` filter. Экран объясняет
   автоподстановку и ручное подтверждение. Filled OTP визуально проверен dark/font 1.5 без скролла.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
   Первые два шага согласованного SMS-slice отделили monitoring от routing/import и вывели parsed
@@ -753,7 +755,9 @@ This is a single-context repository with root domain documentation and system-wi
   сохраняется, экран кратко объясняет сбой и даёт только явный resend без автоматического нового login.
   Успешный routine/full-history foreground-прогон сохраняет timestamp даже при no-op; через 30 дней Home
   показывает компактную строку `Сверить Credo` с возрастом сверки и числом активных SMS-операций, которые
-  ждут выписку. Тап ведёт в существующий login/OTP → свежая синхронизация, а не в review queue.
+  ждут выписку. После feature-upgrade baseline берётся из последнего `CREDO_SYNC` import, поэтому карточка
+  не возникает сразу. Тап является одним явным `sync latest`: сохранённый login → OTP → routine sync без
+  второй кнопки; Back возвращает на фактический caller (Home или Settings), а не всегда в Settings.
   Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`

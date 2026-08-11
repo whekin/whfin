@@ -90,25 +90,31 @@ class CredoSyncHardeningTest {
 
     private fun viewModel(
         gateway: CredoGateway,
-        secretStore: CredoSecretStore? = null,
+        loadSavedCredentials: () -> CredoCredentials? = { null },
+        saveCredentials: (CredoCredentials) -> Unit = {},
     ): CredoSyncViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         return CredoSyncViewModel(
             app = app,
             gateway = gateway,
-            secretStore = secretStore ?: CredoSecretStore(app),
+            secretStore = CredoSecretStore(app),
             syncDispatcher = dispatcher,
             retryDelayMillis = listOf(0L, 0L),
+            loadSavedCredentials = loadSavedCredentials,
+            saveCredentials = saveCredentials,
         )
     }
 
     @Test
     fun homeSyncUsesSavedLoginAndContinuesAfterOtpWithoutAnotherTap() {
-        val app = ApplicationProvider.getApplicationContext<Application>()
-        val secretStore = CredoSecretStore(app)
-        secretStore.save(CredoCredentials("saved-user", "saved-password"))
+        val credentials = CredoCredentials("saved-user", "saved-password")
         val gateway = ScriptedGateway(mutableMapOf(), requiresOtp = true)
-        val vm = viewModel(gateway, secretStore)
+        var remembered: CredoCredentials? = null
+        val vm = viewModel(
+            gateway = gateway,
+            loadSavedCredentials = { credentials },
+            saveCredentials = { remembered = it },
+        )
 
         vm.syncLatest()
         await { vm.state.value.stage == CredoSyncStage.AwaitingOtp }
@@ -118,6 +124,7 @@ class CredoSyncHardeningTest {
         await { vm.state.value.results.size == 3 && vm.state.value.stage == CredoSyncStage.Connected }
 
         assertEquals(3, gateway.downloadCalls.size)
+        assertEquals(credentials, remembered)
         assertEquals("saved-user", vm.state.value.savedUsername)
     }
 

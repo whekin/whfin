@@ -90,6 +90,8 @@ class CredoSyncViewModel internal constructor(
     private val syncDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
     private val retryDelayMillis: List<Long> = DEFAULT_RETRY_DELAYS,
     private val preferences: UiPreferences = UiPreferences(app),
+    private val loadSavedCredentials: () -> CredoCredentials? = secretStore::load,
+    private val saveCredentials: (CredoCredentials) -> Unit = secretStore::save,
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(
         app = app,
@@ -150,7 +152,7 @@ class CredoSyncViewModel internal constructor(
             return
         }
         viewModelScope.launch {
-            val credentials = withContext(Dispatchers.IO) { secretStore.load() }
+            val credentials = withContext(Dispatchers.IO) { loadSavedCredentials() }
             if (credentials == null) {
                 revealSavedUsername()
                 return@launch
@@ -575,7 +577,7 @@ class CredoSyncViewModel internal constructor(
         }.onSuccess { (activeSession, remoteAccounts) ->
             remoteAccounts.forEach { rememberBankProduct(it) }
             session = activeSession
-            if (rememberPassword) secretStore.save(credentials) else secretStore.clear()
+            if (rememberPassword) saveCredentials(credentials) else secretStore.clear()
             challenge = null
             pendingCredentials = null
             loginDraft.username = credentials.username

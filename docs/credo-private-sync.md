@@ -11,13 +11,16 @@ fed unchanged to the existing `StatementImporter`; statement history, external-k
 pending reconciliation and balance verification therefore remain the source-of-truth path.
 
 The batch continues when one ledger fails and shows a result per ledger. It never creates a payment or
-retries authentication silently. The in-memory session ends with the process; reconnecting can require
-a new OTP.
+authenticates in the background. The user's Home reminder tap is one explicit `sync latest` action: when
+an encrypted login is already saved it proceeds through sign-in, an explicit OTP confirmation, and the
+routine statement download without asking for a second tap. The in-memory session ends with the process.
 
 A fully successful foreground run records its completion time even when every ledger was already up
-to date. After 30 days, Home shows one compact `Reconcile Credo` row with the age of that run and the
+to date. On feature upgrade, the latest persisted `CREDO_SYNC` statement import is the initial freshness
+baseline. After 30 days, Home shows one compact `Reconcile Credo` row with the age of that run and the
 number of active SMS operations still awaiting statement evidence. It is a freshness reminder, not a
-review queue: tapping it opens the same explicit sign-in/OTP flow. Fetching older history remains a
+review queue: tapping it starts the explicit saved-sign-in/OTP/routine-sync flow. Back returns to the
+screen that opened Credo. Fetching older history remains a
 separate one-off action and does not redefine the routine monthly flow.
 
 ## Security boundary
@@ -93,8 +96,10 @@ Credential hardening (2026-08-04):
   MyCredo login-code broadcast can fill the dots through a non-replaying process-only handoff; Inbox is
   not queried, payment OTP templates do not match, and Confirm remains explicit. Because Samsung One UI
   may omit a sideloaded manifest receiver from an otherwise delivered `SMS_RECEIVED` broadcast, the live
-  `Connecting` / `AwaitingOtp` route also owns a context-registered receiver protected by
-  `BROADCAST_SMS`; it is closed as soon as the login leaves those stages.
+  `Connecting` / `AwaitingOtp` route also owns a context-registered receiver; it is closed as soon as the
+  login leaves those stages. Neither receiver adds a sender-permission filter: One UI can broker the
+  protected system broadcast through a sender that fails that extra filter. Android itself restricts
+  `SMS_RECEIVED`, while WHFIN still requires the user-granted `RECEIVE_SMS` permission.
 - App Lock remembers Credo as its caller. Completing PIN setup or backing out returns directly to the
   in-progress Credo form in both Personal setup and Settings instead of falling through to Settings.
 - The sign-in screen explains the direct connection, local encryption, non-persistence of OTP/session
