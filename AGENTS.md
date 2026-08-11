@@ -692,6 +692,11 @@ This is a single-context repository with root domain documentation and system-wi
   очищает. OTP вынесен из общего scroll-контейнера: точки, встроенная клавиатура, Confirm и Resend имеют
   фиксированную геометрию и не требуют прокрутки. Регрессии закреплены Compose-тестами и проверены на
   disposable Pixel реальным вводом login/password → включение Immediate lock → возврат в заполненную форму.
+  Если XLSX успешно получен, но отвергнут parser/balance validation, строка результата теперь позволяет
+  явно сохранить через Android document picker ровно исходные байты для диагностики. Transport/API
+  failure не показывает ложное действие; временная копия живёт только в памяти процесса, сбрасывается
+  новым sync/history scan или disconnect и не попадает в Room/backup/logs. Имя маскирует счёт до last4,
+  а UI предупреждает, что явно сохранённая выписка не зашифрована.
   Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`

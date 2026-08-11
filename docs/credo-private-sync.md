@@ -44,6 +44,15 @@ loop. Authentication failures are not automatically retried. A failed statement 
 successful imports from other ledgers, and the existing transaction deduplication makes a deliberate
 later retry safe.
 
+When the XLSX download itself succeeds but WHFIN rejects the workbook during parsing or balance
+validation, the affected result offers `Save original XLSX`. This copies the exact downloaded bytes
+through Android's document picker so the owner can inspect or attach the statement for parser
+diagnosis. A transport/API failure has no file and therefore never shows that action. The downloaded
+copy exists only in process memory and is discarded when a new sync/history scan starts, MyCredo is
+disconnected, or the process dies; it is never added to Room, logs or backup. The suggested filename
+contains only currency and the last four account digits. The explicitly saved document is an
+unencrypted bank statement and must be handled accordingly.
+
 Hardening (2026-07-16):
 
 - Transient failures (`NETWORK_ERROR`, HTTP 5xx) during a statement download are retried up to two

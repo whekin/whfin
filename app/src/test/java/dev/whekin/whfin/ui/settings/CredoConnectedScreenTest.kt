@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -38,7 +39,11 @@ class CredoConnectedScreenTest {
         CredoRemoteAccount("GE00WH0000000000000000", "USD", 2, null, null),
     )
 
-    private fun show(state: CredoSyncUiState, onLoadHistory: () -> Unit = {}) {
+    private fun show(
+        state: CredoSyncUiState,
+        onLoadHistory: () -> Unit = {},
+        onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
+    ) {
         compose.setContent {
             WhfinTheme {
                 CredoSyncScreen(
@@ -52,6 +57,7 @@ class CredoConnectedScreenTest {
                     onLoadHistory = onLoadHistory,
                     onDisconnect = {},
                     onDismissError = {},
+                    onSaveOriginalStatement = onSaveOriginalStatement,
                 )
             }
         }
@@ -115,6 +121,66 @@ class CredoConnectedScreenTest {
             .performScrollTo().assertExists()
         compose.onNodeWithText(
             context.getString(R.string.credo_sync_error_window, "2025-08-11", "2026-08-11"),
+            substring = true,
+        ).performScrollTo().assertExists()
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_original_save))
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun aRejectedDownloadedStatementOffersItsExactOriginalForSaving() {
+        var requested: Pair<String, String>? = null
+        show(
+            state = CredoSyncUiState(
+                stage = CredoSyncStage.Connected,
+                accounts = accounts,
+                results = listOf(
+                    CredoSyncFileResult(
+                        accountLabel = "Card •0000 · GEL",
+                        errorCode = "STATEMENT_REJECTED",
+                        originalStatementToken = "memory-token",
+                        originalStatementFileName = "mycredo_gel_0000.xlsx",
+                    ),
+                ),
+            ),
+            onSaveOriginalStatement = { token, fileName -> requested = token to fileName },
+        )
+
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_original_save))
+            .performScrollTo()
+            .performClick()
+
+        assertEquals("memory-token" to "mycredo_gel_0000.xlsx", requested)
+    }
+
+    @Test
+    fun aHistoryWalkShowsImportedRowsAndTheLaterRejectedWindow() {
+        show(
+            CredoSyncUiState(
+                stage = CredoSyncStage.Connected,
+                accounts = accounts,
+                results = listOf(
+                    CredoSyncFileResult(
+                        accountLabel = "Card •0000 · GEL",
+                        inserted = 42,
+                        detail = "Statement balance summary is incomplete.",
+                        askedFrom = "2022-08-11",
+                        askedTo = "2023-08-10",
+                        originalStatementToken = "memory-token",
+                        originalStatementFileName = "mycredo_gel_0000.xlsx",
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText(
+            context.getString(R.string.credo_sync_result_success, 42, 0, 0),
+            substring = true,
+        ).performScrollTo().assertExists()
+        compose.onNodeWithText("Statement balance summary is incomplete.", substring = true)
+            .performScrollTo().assertExists()
+        compose.onNodeWithText(
+            context.getString(R.string.credo_sync_error_window, "2022-08-11", "2023-08-10"),
             substring = true,
         ).performScrollTo().assertExists()
     }

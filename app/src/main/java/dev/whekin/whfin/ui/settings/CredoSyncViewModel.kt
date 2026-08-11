@@ -24,10 +24,12 @@ import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.statement.MalformedStatementException
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import java.io.ByteArrayInputStream
+import java.io.OutputStream
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +56,10 @@ data class CredoSyncFileResult(
     val askedTo: String? = null,
     /** Which of our own rules refused the statement, when one did. Never a server message. */
     val detail: String? = null,
+    /** Opaque handle into a process-memory copy of the exact XLSX that failed after download. */
+    val originalStatementToken: String? = null,
+    /** Masked, user-facing SAF suggestion; never contains the full account number. */
+    val originalStatementFileName: String? = null,
 )
 
 data class CredoSyncUiState(
@@ -103,6 +109,7 @@ class CredoSyncViewModel internal constructor(
     private var pendingCredentials: CredoCredentials? = null
     private var rememberPassword = false
     private var session: CredoSession? = null
+    private val downloadedStatements = mutableMapOf<String, ByteArray>()
 
     fun revealSavedUsername() {
         if (!_state.value.hasSavedPassword || _state.value.savedUsername != null) return
@@ -178,6 +185,7 @@ class CredoSyncViewModel internal constructor(
         if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
         viewModelScope.launch(syncDispatcher) {
+            clearDownloadedStatements()
             val results = mutableListOf<CredoSyncFileResult>()
             var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
@@ -190,8 +198,10 @@ class CredoSyncViewModel internal constructor(
                     unchanged = unchanged,
                     errorCode = null,
                 )
+                var downloadedBytes: ByteArray? = null
                 val fileResult = try {
                     val bytes = downloadWithRetry(activeSession, account, fromIso, toIso)
+                    downloadedBytes = bytes
                     // A quiet account returns a statement that would add nothing. Importing it
                     // anyway leaves a "0 added" record behind on every run, so read first and let
                     // the run say it once at the end instead. An unreadable file falls through to
@@ -245,6 +255,9 @@ class CredoSyncViewModel internal constructor(
                         _state.value = _state.value.copy(unchanged = unchanged)
                         continue
                     }
+                    val original = downloadedBytes?.let { bytes ->
+                        retainDownloadedStatement(account, bytes)
+                    }
                     CredoSyncFileResult(
                         account.maskedLabel,
                         errorCode = code,
@@ -253,6 +266,8 @@ class CredoSyncViewModel internal constructor(
                         askedFrom = fromIso.asDate(),
                         askedTo = toIso.asDate(),
                         detail = error.safeDetail(),
+                        originalStatementToken = original?.first,
+                        originalStatementFileName = original?.second,
                     )
                 }
                 results += fileResult
@@ -281,6 +296,7 @@ class CredoSyncViewModel internal constructor(
         if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
         viewModelScope.launch(syncDispatcher) {
+            clearDownloadedStatements()
             val results = mutableListOf<CredoSyncFileResult>()
             var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
@@ -290,6 +306,7 @@ class CredoSyncViewModel internal constructor(
                 var errorCode: String? = null
                 var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
                 var failedDetail: String? = null
+                var failedOriginal: Pair<String, String>? = null
                 var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
 
                 for (chunk in 1..CredoHistoryScan.MAX_CHUNKS) {
@@ -303,6 +320,7 @@ class CredoSyncViewModel internal constructor(
                         unchanged = unchanged,
                         errorCode = null,
                     )
+                    var downloadedBytes: ByteArray? = null
                     val statement = try {
                         val bytes = downloadWithRetry(
                             activeSession,
@@ -310,6 +328,7 @@ class CredoSyncViewModel internal constructor(
                             DateTimeFormatter.ISO_INSTANT.format(window.from.atStartOfDay(zone).toInstant()),
                             DateTimeFormatter.ISO_INSTANT.format(window.to.atTime(23, 59, 59).atZone(zone).toInstant()),
                         )
+                        downloadedBytes = bytes
                         val preview = ByteArrayInputStream(bytes).use { input ->
                             StatementImporter(db).preview(input, account.fileName())
                         }
@@ -350,6 +369,9 @@ class CredoSyncViewModel internal constructor(
                             errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
                             failedWindow = window
                             failedDetail = error.safeDetail()
+                            failedOriginal = downloadedBytes?.let { bytes ->
+                                retainDownloadedStatement(account, bytes)
+                            }
                         }
                         break
                     }
@@ -364,6 +386,8 @@ class CredoSyncViewModel internal constructor(
                         askedFrom = failedWindow?.from?.toString(),
                         askedTo = failedWindow?.to?.toString(),
                         detail = failedDetail,
+                        originalStatementToken = failedOriginal?.first,
+                        originalStatementFileName = failedOriginal?.second,
                     )
                     inserted == 0 && reconciled == 0 -> unchanged += 1
                     else -> results += CredoSyncFileResult(
@@ -371,6 +395,11 @@ class CredoSyncViewModel internal constructor(
                         inserted = inserted,
                         duplicates = duplicates,
                         reconciled = reconciled,
+                        askedFrom = failedWindow?.from?.toString(),
+                        askedTo = failedWindow?.to?.toString(),
+                        detail = failedDetail,
+                        originalStatementToken = failedOriginal?.first,
+                        originalStatementFileName = failedOriginal?.second,
                     )
                 }
             }
@@ -443,6 +472,7 @@ class CredoSyncViewModel internal constructor(
         challenge = null
         pendingCredentials = null
         session = null
+        clearDownloadedStatements()
         loginDraft.username = ""
         loginDraft.credential = ""
         _state.value = CredoSyncUiState()
@@ -458,6 +488,27 @@ class CredoSyncViewModel internal constructor(
 
     fun dismissError() {
         _state.value = _state.value.copy(errorCode = null)
+    }
+
+    /** Copies an explicitly selected failed download; the bytes never leave process memory otherwise. */
+    internal fun writeDownloadedStatement(token: String, output: OutputStream): Boolean {
+        val bytes = synchronized(downloadedStatements) { downloadedStatements[token] } ?: return false
+        output.write(bytes)
+        return true
+    }
+
+    private fun clearDownloadedStatements() = synchronized(downloadedStatements) {
+        downloadedStatements.clear()
+    }
+
+    private fun retainDownloadedStatement(
+        account: CredoRemoteAccount,
+        bytes: ByteArray,
+    ): Pair<String, String> {
+        val token = UUID.randomUUID().toString()
+        val fileName = account.fileName()
+        synchronized(downloadedStatements) { downloadedStatements[token] = bytes }
+        return token to fileName
     }
 
     private suspend fun finishLogin(

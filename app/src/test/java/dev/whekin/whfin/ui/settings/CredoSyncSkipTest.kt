@@ -12,6 +12,7 @@ import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Row
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +22,10 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -196,9 +201,58 @@ class CredoSyncSkipTest {
 
         val result = vm.state.value.results.single()
         assertEquals("INVALID_STATEMENT", result.errorCode)
+        assertNull(result.originalStatementToken)
         // Dates, so a wrong window can be told apart from a genuinely broken export.
         assertEquals(LocalDate.now(java.time.ZoneId.of("Asia/Tbilisi")).toString(), result.askedTo)
         assertTrue(result.askedFrom!!.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
+    }
+
+    @Test
+    fun aDownloadedButRejectedStatementCanBeCopiedOutByteForByte() {
+        val rejected = SyntheticCredoWorkbook.build(
+            openingBalance = "100.00",
+            closingBalance = "",
+        )
+        val gateway = object : CredoGateway by FixedGateway() {
+            var statement = rejected
+
+            override suspend fun downloadStatement(
+                session: CredoSession,
+                account: CredoRemoteAccount,
+                fromIso: String,
+                toIso: String,
+            ): ByteArray = statement
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(
+            app = app,
+            gateway = gateway,
+            secretStore = CredoSecretStore(app),
+            syncDispatcher = dispatcher,
+            retryDelayMillis = listOf(0L, 0L),
+        )
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+
+        vm.sync()
+        await { vm.state.value.results.size == 1 }
+
+        val result = vm.state.value.results.single()
+        assertEquals("STATEMENT_REJECTED", result.errorCode)
+        val token = result.originalStatementToken
+        assertNotNull("Rejected downloaded XLSX has no export token", token)
+        assertEquals("mycredo_gel_0000.xlsx", result.originalStatementFileName)
+        val output = ByteArrayOutputStream()
+        assertEquals(true, vm.writeDownloadedStatement(token!!, output))
+        assertArrayEquals(rejected, output.toByteArray())
+
+        gateway.statement = rejected.copyOf()
+        vm.sync()
+        await { vm.state.value.results.single().originalStatementToken != token }
+        assertFalse(vm.writeDownloadedStatement(token, ByteArrayOutputStream()))
+
+        vm.disconnect()
+        assertFalse(vm.writeDownloadedStatement(token, ByteArrayOutputStream()))
     }
 
     private fun importRecords(): Int = runBlocking {

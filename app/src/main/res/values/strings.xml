@@ -225,6 +225,12 @@
         <item quantity="other">%1$d accounts were already up to date.</item>
     </plurals>
     <string name="credo_sync_result_success">%1$d added · %2$d already present · %3$d drafts matched</string>
+    <string name="credo_sync_original_save">Save original XLSX</string>
+    <string name="credo_sync_original_available">Original XLSX available for troubleshooting.</string>
+    <string name="credo_sync_original_saved_title">Original statement saved</string>
+    <string name="credo_sync_original_saved_body">The unchanged XLSX was written to the selected location. It contains bank activity and is not encrypted.</string>
+    <string name="credo_sync_original_error_title">Couldn’t save the statement</string>
+    <string name="credo_sync_original_error_body">The downloaded XLSX is no longer available or the selected location could not be written. Run the sync again and retry before leaving this screen.</string>
     <string name="credo_sync_disconnect">Forget MyCredo login</string>
     <string name="credo_sync_error_credentials">Check the username and password, then try again.</string>
     <string name="credo_sync_error_otp">The confirmation code must contain four digits. Request a new code if it expired.</string>

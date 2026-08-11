@@ -1,6 +1,8 @@
 package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -28,10 +31,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +60,15 @@ import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+enum class CredoOriginalExportOutcome { Saved, Error }
+
+private data class PendingOriginalExport(val token: String, val fileName: String)
 
 /**
  * Memory-only sign-in draft. The route owner keeps it across the App Lock detour, while the bank
@@ -75,6 +89,30 @@ fun CredoSyncRoute(
     viewModel: CredoSyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var pendingOriginalExport by remember { mutableStateOf<PendingOriginalExport?>(null) }
+    var originalExportOutcome by remember { mutableStateOf<CredoOriginalExportOutcome?>(null) }
+    val createOriginalStatement = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(XLSX_MIME),
+    ) { uri ->
+        val pending = pendingOriginalExport
+        pendingOriginalExport = null
+        if (uri != null && pending != null) scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri, "w")?.use { output ->
+                        viewModel.writeDownloadedStatement(pending.token, output)
+                    } ?: false
+                }.getOrDefault(false)
+            }
+            originalExportOutcome = if (saved) {
+                CredoOriginalExportOutcome.Saved
+            } else {
+                CredoOriginalExportOutcome.Error
+            }
+        }
+    }
     LaunchedEffect(appLockEnabled) {
         if (appLockEnabled) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
     }
@@ -92,6 +130,13 @@ fun CredoSyncRoute(
         onLoadHistory = viewModel::loadHistory,
         onDisconnect = viewModel::disconnect,
         onDismissError = viewModel::dismissError,
+        originalExportOutcome = originalExportOutcome,
+        onDismissOriginalExportOutcome = { originalExportOutcome = null },
+        onSaveOriginalStatement = { token, fileName ->
+            originalExportOutcome = null
+            pendingOriginalExport = PendingOriginalExport(token, fileName)
+            createOriginalStatement.launch(fileName)
+        },
     )
 }
 
@@ -108,6 +153,9 @@ fun CredoSyncScreen(
     onLoadHistory: () -> Unit,
     onDisconnect: () -> Unit,
     onDismissError: () -> Unit,
+    originalExportOutcome: CredoOriginalExportOutcome? = null,
+    onDismissOriginalExportOutcome: () -> Unit = {},
+    onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
 ) {
     val usableSavedPassword = appLockEnabled && state.hasSavedPassword
     // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
@@ -203,6 +251,9 @@ fun CredoSyncScreen(
                 onSync = onSync,
                 onLoadHistory = onLoadHistory,
                 onDisconnect = onDisconnect,
+                originalExportOutcome = originalExportOutcome,
+                onDismissOriginalExportOutcome = onDismissOriginalExportOutcome,
+                onSaveOriginalStatement = onSaveOriginalStatement,
             )
         }
     }
@@ -362,6 +413,9 @@ private fun ConnectedContent(
     onSync: () -> Unit,
     onLoadHistory: () -> Unit,
     onDisconnect: () -> Unit,
+    originalExportOutcome: CredoOriginalExportOutcome?,
+    onDismissOriginalExportOutcome: () -> Unit,
+    onSaveOriginalStatement: (String, String) -> Unit,
 ) {
     val syncing = state.stage == CredoSyncStage.Syncing
     WhfinSectionLabel(stringResource(R.string.credo_sync_accounts_section))
@@ -425,21 +479,26 @@ private fun ConnectedContent(
         WhfinSectionLabel(stringResource(R.string.credo_sync_result_section))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             state.results.forEachIndexed { index, file ->
+                val hasFailure = file.errorCode != null || file.detail != null
                 WhfinLedgerRow(
                     title = file.accountLabel,
-                    supportingText = if (file.errorCode == null) stringResource(
-                        R.string.credo_sync_result_success,
-                        file.inserted,
-                        file.duplicates,
-                        file.reconciled,
-                    ) else buildString {
-                        append(credoErrorMessage(file.errorCode))
-                        // The rule that refused it, in WHFIN's own words: a rule name and a row
-                        // number, never a value out of the statement.
+                    supportingText = buildString {
+                        if (file.errorCode == null) {
+                            append(
+                                stringResource(
+                                    R.string.credo_sync_result_success,
+                                    file.inserted,
+                                    file.duplicates,
+                                    file.reconciled,
+                                ),
+                            )
+                        } else {
+                            append(credoErrorMessage(file.errorCode))
+                        }
+                        // A history walk may report both imported rows and the later rule/window
+                        // that stopped it. The detail is always WHFIN's wording, never bank data.
                         file.detail?.let { append('\n').append(it) }
-                        // Which window was asked for: without it a real fault is indistinguishable
-                        // from one asked for the wrong period.
-                        if (file.askedFrom != null && file.askedTo != null) {
+                        if (hasFailure && file.askedFrom != null && file.askedTo != null) {
                             append('\n')
                             append(
                                 stringResource(
@@ -449,11 +508,30 @@ private fun ConnectedContent(
                                 ),
                             )
                         }
+                        if (file.originalStatementToken != null) {
+                            append('\n').append(stringResource(R.string.credo_sync_original_available))
+                        }
                     },
                     icon = Icons.Default.AccountBalance,
-                    iconTint = if (file.errorCode == null) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error,
-                    supportingMaxLines = 5,
+                    iconTint = if (hasFailure) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    trailing = if (
+                        file.originalStatementToken != null && file.originalStatementFileName != null
+                    ) {
+                        {
+                            WhfinIconButton(
+                                icon = Icons.Default.SaveAlt,
+                                contentDescription = stringResource(R.string.credo_sync_original_save),
+                                onClick = {
+                                    onSaveOriginalStatement(
+                                        file.originalStatementToken,
+                                        file.originalStatementFileName,
+                                    )
+                                },
+                            )
+                        }
+                    } else null,
+                    supportingMaxLines = if (file.originalStatementToken != null) 6 else 5,
                     divider = index != state.results.lastIndex,
                 )
             }
@@ -463,6 +541,33 @@ private fun ConnectedContent(
             pluralStringResource(R.plurals.credo_sync_unchanged, state.unchanged, state.unchanged),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    originalExportOutcome?.let { outcome ->
+        WhfinNotice(
+            title = stringResource(
+                if (outcome == CredoOriginalExportOutcome.Saved) {
+                    R.string.credo_sync_original_saved_title
+                } else {
+                    R.string.credo_sync_original_error_title
+                },
+            ),
+            body = stringResource(
+                if (outcome == CredoOriginalExportOutcome.Saved) {
+                    R.string.credo_sync_original_saved_body
+                } else {
+                    R.string.credo_sync_original_error_body
+                },
+            ),
+            kind = if (outcome == CredoOriginalExportOutcome.Saved) {
+                WhfinNoticeKind.Info
+            } else {
+                WhfinNoticeKind.Error
+            },
+            actionLabel = stringResource(R.string.action_dismiss),
+            onAction = onDismissOriginalExportOutcome,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 
@@ -545,6 +650,43 @@ private fun CredoConnectedPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.Connected, accounts = previewAccounts),
+                appLockEnabled = true,
+                onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Credo rejected XLSX light", widthDp = 400, heightDp = 900, showBackground = true)
+@Preview(
+    name = "Credo rejected XLSX dark",
+    widthDp = 400,
+    heightDp = 900,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Credo rejected XLSX font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f)
+@Preview(name = "Credo rejected XLSX compact", widthDp = 400, heightDp = 640)
+@Composable
+private fun CredoRejectedStatementPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            CredoSyncScreen(
+                state = CredoSyncUiState(
+                    stage = CredoSyncStage.Connected,
+                    accounts = previewAccounts.take(1),
+                    results = listOf(
+                        CredoSyncFileResult(
+                            accountLabel = "Current account · •0001 · GEL",
+                            errorCode = "STATEMENT_REJECTED",
+                            detail = "Statement balance summary is incomplete.",
+                            askedFrom = "2025-08-11",
+                            askedTo = "2026-08-11",
+                            originalStatementToken = "memory-only-preview",
+                            originalStatementFileName = "mycredo_gel_0001.xlsx",
+                        ),
+                    ),
+                ),
                 appLockEnabled = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
