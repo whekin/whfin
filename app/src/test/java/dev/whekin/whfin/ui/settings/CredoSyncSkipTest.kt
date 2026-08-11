@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.settings
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.credo.CredoApiException
 import dev.whekin.whfin.data.credo.CredoCredentials
 import dev.whekin.whfin.data.credo.CredoGateway
 import dev.whekin.whfin.data.credo.CredoLoginChallenge
@@ -138,6 +139,66 @@ class CredoSyncSkipTest {
         assertTrue(vm.state.value.results.isEmpty())
         assertEquals(2, gateway.downloads)
         assertEquals(1, importRecords())
+    }
+
+    @Test
+    fun anEmptyExportIsAQuietAccount_notAnUnreadableStatement() {
+        // The window can now be as short as a month, so a bank that exports nothing for it is
+        // reporting stillness, not a fault. It used to surface as a failed account.
+        val gateway = object : CredoGateway by FixedGateway() {
+            override suspend fun downloadStatement(
+                session: CredoSession,
+                account: CredoRemoteAccount,
+                fromIso: String,
+                toIso: String,
+            ): ByteArray = throw CredoApiException("EMPTY_STATEMENT")
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(
+            app = app,
+            gateway = gateway,
+            secretStore = CredoSecretStore(app),
+            syncDispatcher = dispatcher,
+            retryDelayMillis = listOf(0L, 0L),
+        )
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+
+        vm.sync()
+        await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.unchanged == 1 }
+
+        assertTrue(vm.state.value.results.isEmpty())
+    }
+
+    @Test
+    fun aFailedAccountSaysWhichWindowItWasAskedFor() {
+        val gateway = object : CredoGateway by FixedGateway() {
+            override suspend fun downloadStatement(
+                session: CredoSession,
+                account: CredoRemoteAccount,
+                fromIso: String,
+                toIso: String,
+            ): ByteArray = throw CredoApiException("INVALID_STATEMENT")
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(
+            app = app,
+            gateway = gateway,
+            secretStore = CredoSecretStore(app),
+            syncDispatcher = dispatcher,
+            retryDelayMillis = listOf(0L, 0L),
+        )
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+
+        vm.sync()
+        await { vm.state.value.results.size == 1 }
+
+        val result = vm.state.value.results.single()
+        assertEquals("INVALID_STATEMENT", result.errorCode)
+        // Dates, so a wrong window can be told apart from a genuinely broken export.
+        assertEquals(LocalDate.now(java.time.ZoneId.of("Asia/Tbilisi")).toString(), result.askedTo)
+        assertTrue(result.askedFrom!!.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
     }
 
     private fun importRecords(): Int = runBlocking {

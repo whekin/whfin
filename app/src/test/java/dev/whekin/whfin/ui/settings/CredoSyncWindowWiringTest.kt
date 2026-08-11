@@ -79,8 +79,9 @@ class CredoSyncWindowWiringTest {
             toIso: String,
         ): ByteArray {
             requestedFrom[account.accountNumber] = fromIso
-            // Nothing is imported: this test is only about what was asked for.
-            throw CredoApiException("EMPTY_STATEMENT")
+            // Nothing is imported: this test is only about what was asked for. An empty export
+            // now counts as a quiet account, so a real fault is used to end each account's turn.
+            throw CredoApiException("INVALID_STATEMENT")
         }
     }
 

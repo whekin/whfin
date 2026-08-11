@@ -63,8 +63,8 @@ class CredoSyncHardeningTest {
         ): ByteArray {
             val key = "${account.accountNumber}:${account.currency}"
             downloadCalls += key
-            val queue = downloadScript[key] ?: throw CredoApiException("EMPTY_STATEMENT")
-            val code = queue.removeFirstOrNull() ?: throw CredoApiException("EMPTY_STATEMENT")
+            val queue = downloadScript[key] ?: throw CredoApiException("INVALID_STATEMENT")
+            val code = queue.removeFirstOrNull() ?: throw CredoApiException("INVALID_STATEMENT")
             throw CredoApiException(code)
         }
     }
@@ -109,7 +109,7 @@ class CredoSyncHardeningTest {
                 // Первый счёт: NETWORK_ERROR трижды (исчерпывает 2 ретрая) → ошибка.
                 "GE00XX0000000000000001:GEL" to ArrayDeque(listOf("NETWORK_ERROR", "NETWORK_ERROR", "NETWORK_ERROR")),
                 // Второй счёт: permanent ошибка — ровно один вызов, без ретраев.
-                "GE00XX0000000000000001:USD" to ArrayDeque(listOf("EMPTY_STATEMENT")),
+                "GE00XX0000000000000001:USD" to ArrayDeque(listOf("INVALID_STATEMENT")),
                 // Третий: HTTP_429 — защита сайта, тоже без ретраев.
                 "GE00XX0000000000000002:GEL" to ArrayDeque(listOf("HTTP_429")),
             ),
@@ -124,7 +124,7 @@ class CredoSyncHardeningTest {
         val state = vm.state.value
         assertEquals(3, state.results.size)
         assertEquals("NETWORK_ERROR", state.results[0].errorCode)
-        assertEquals("EMPTY_STATEMENT", state.results[1].errorCode)
+        assertEquals("INVALID_STATEMENT", state.results[1].errorCode)
         assertEquals("HTTP_429", state.results[2].errorCode)
         // 3 попытки по первому счёту, по одной на остальные.
         assertEquals(5, gateway.downloadCalls.size)
@@ -178,9 +178,9 @@ class CredoSyncHardeningTest {
     fun partialFailureKeepsConnectedStateForImmediateRetry() {
         val gateway = ScriptedGateway(
             mutableMapOf(
-                "GE00XX0000000000000001:GEL" to ArrayDeque(listOf("EMPTY_STATEMENT")),
-                "GE00XX0000000000000001:USD" to ArrayDeque(listOf("EMPTY_STATEMENT")),
-                "GE00XX0000000000000002:GEL" to ArrayDeque(listOf("EMPTY_STATEMENT")),
+                "GE00XX0000000000000001:GEL" to ArrayDeque(listOf("INVALID_STATEMENT")),
+                "GE00XX0000000000000001:USD" to ArrayDeque(listOf("INVALID_STATEMENT")),
+                "GE00XX0000000000000002:GEL" to ArrayDeque(listOf("INVALID_STATEMENT")),
             ),
         )
         val vm = viewModel(gateway)

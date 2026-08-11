@@ -390,11 +390,25 @@ private fun ConnectedContent(
                         file.inserted,
                         file.duplicates,
                         file.reconciled,
-                    ) else credoErrorMessage(file.errorCode),
+                    ) else buildString {
+                        append(credoErrorMessage(file.errorCode))
+                        // Which window was asked for: without it a real fault is indistinguishable
+                        // from one asked for the wrong period.
+                        if (file.askedFrom != null && file.askedTo != null) {
+                            append('\n')
+                            append(
+                                stringResource(
+                                    R.string.credo_sync_error_window,
+                                    file.askedFrom,
+                                    file.askedTo,
+                                ),
+                            )
+                        }
+                    },
                     icon = Icons.Default.AccountBalance,
                     iconTint = if (file.errorCode == null) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.error,
-                    supportingMaxLines = 3,
+                    supportingMaxLines = 5,
                     divider = index != state.results.lastIndex,
                 )
             }
@@ -425,7 +439,8 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "NETWORK_ERROR" -> stringResource(R.string.credo_sync_error_network)
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
-    "EMPTY_STATEMENT", "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_statement)
+    "EMPTY_STATEMENT" -> stringResource(R.string.credo_sync_error_empty)
+    "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_statement)
     "UNSUPPORTED_STATEMENT" -> stringResource(R.string.statements_unsupported)
     "AMBIGUOUS_LEDGER" -> stringResource(R.string.credo_sync_error_ambiguous)
     else -> stringResource(R.string.credo_sync_error_generic, code)

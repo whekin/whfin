@@ -49,6 +49,9 @@ data class CredoSyncFileResult(
     val duplicates: Int = 0,
     val reconciled: Int = 0,
     val errorCode: String? = null,
+    /** The period this account was asked for, shown only when it failed. Dates carry no amounts. */
+    val askedFrom: String? = null,
+    val askedTo: String? = null,
 )
 
 data class CredoSyncUiState(
@@ -230,7 +233,22 @@ class CredoSyncViewModel internal constructor(
                     )
                     return@launch
                 } catch (error: Exception) {
-                    CredoSyncFileResult(account.maskedLabel, errorCode = error.safeCode())
+                    val code = error.safeCode()
+                    if (code in NO_MORE_HISTORY) {
+                        // The bank exports nothing for a period an account sat still through. With
+                        // a window that can be as short as a month that is ordinary, not a fault.
+                        unchanged += 1
+                        _state.value = _state.value.copy(unchanged = unchanged)
+                        continue
+                    }
+                    CredoSyncFileResult(
+                        account.maskedLabel,
+                        errorCode = code,
+                        // Dates only, no amounts: without the window a failure cannot be told apart
+                        // from one asked for the wrong period.
+                        askedFrom = fromIso.asDate(),
+                        askedTo = toIso.asDate(),
+                    )
                 }
                 results += fileResult
             }
@@ -265,6 +283,7 @@ class CredoSyncViewModel internal constructor(
                 var duplicates = 0
                 var reconciled = 0
                 var errorCode: String? = null
+                var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
                 var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
 
                 for (chunk in 1..CredoHistoryScan.MAX_CHUNKS) {
@@ -323,6 +342,7 @@ class CredoSyncViewModel internal constructor(
                         val code = error.safeCode()
                         if (code !in NO_MORE_HISTORY) {
                             errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
+                            failedWindow = window
                         }
                         break
                     }
@@ -331,7 +351,12 @@ class CredoSyncViewModel internal constructor(
                 }
 
                 when {
-                    errorCode != null -> results += CredoSyncFileResult(account.maskedLabel, errorCode = errorCode)
+                    errorCode != null -> results += CredoSyncFileResult(
+                        account.maskedLabel,
+                        errorCode = errorCode,
+                        askedFrom = failedWindow?.from?.toString(),
+                        askedTo = failedWindow?.to?.toString(),
+                    )
                     inserted == 0 && reconciled == 0 -> unchanged += 1
                     else -> results += CredoSyncFileResult(
                         account.maskedLabel,
@@ -362,6 +387,11 @@ class CredoSyncViewModel internal constructor(
             )
         }
     }
+
+    /** The date part of a request instant, for showing which window a failure was asked for. */
+    private fun String.asDate(): String =
+        runCatching { java.time.Instant.parse(this).atZone(zone).toLocalDate().toString() }
+            .getOrDefault(this)
 
     /** Where this account's history already begins, if any of it is held. */
     private suspend fun earliestKnownFor(account: CredoRemoteAccount): LocalDate? {
