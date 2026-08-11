@@ -207,6 +207,48 @@ class TransferPairingBoundaryTest {
         assertTrue(DataIntegrityChecker(db).run().isHealthy)
     }
 
+    @Test
+    fun repairAllPreservesACompleteSmsConversionHypothesis() = runBlocking {
+        val bankId = insertBank()
+        val gel = insertAccount(bankId, "Everyday", "GEL", "GE00EVERYDAY")
+        val usd = insertAccount(bankId, "Everyday", "USD", "GE00EVERYDAY")
+        val smsGroup = insertGroup(TransferGroupType.CONVERSION)
+        val outgoing = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = gel,
+                amountMinor = -5_000,
+                currency = "GEL",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                transferGroupId = smsGroup,
+                isTransfer = true,
+                externalKey = "sms|exchange",
+                createdAt = 1,
+            ),
+        )
+        val incoming = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = usd,
+                amountMinor = 1_800,
+                currency = "USD",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                transferGroupId = smsGroup,
+                isTransfer = true,
+                externalKey = "sms|exchange|to",
+                createdAt = 1,
+            ),
+        )
+
+        TransferPairing(db, zone).repairAll()
+
+        assertEquals(smsGroup, db.transactionDao().byId(outgoing)?.transferGroupId)
+        assertEquals(smsGroup, db.transactionDao().byId(incoming)?.transferGroupId)
+        assertTrue(DataIntegrityChecker(db).run().isHealthy)
+    }
+
     private suspend fun insertBank(): Long = db.financialGroupDao().insert(
         FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK),
     )

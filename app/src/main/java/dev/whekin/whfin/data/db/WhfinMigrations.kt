@@ -234,6 +234,16 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+/** SMS provenance remains reconcilable, but routed messages are no longer user review tasks. */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "UPDATE `transactions` SET `status` = 'CONFIRMED' " +
+                "WHERE `source` = 'SMS' AND `status` = 'PENDING'",
+        )
+    }
+}
+
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -245,4 +255,5 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_8_9,
     MIGRATION_9_10,
     MIGRATION_10_11,
+    MIGRATION_11_12,
 )

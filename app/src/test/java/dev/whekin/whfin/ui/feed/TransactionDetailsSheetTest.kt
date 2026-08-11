@@ -6,8 +6,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.CategoryEntity
@@ -17,7 +15,6 @@ import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,10 +28,9 @@ class TransactionDetailsSheetTest {
     val compose = createComposeRule()
 
     @Test
-    fun pendingTransaction_canOpenStatusPicker() {
-        var statusRequested = false
+    fun smsTransactionShowsProvenanceWithoutAStatusTask() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val pending = context.getString(R.string.status_pending)
+        val sms = context.getString(R.string.status_sms)
         compose.setContent {
             WhfinTheme {
                 TransactionDetailsSheet(
@@ -46,7 +42,7 @@ class TransactionDetailsSheetTest {
                             currency = "GEL",
                             occurredAt = 1_000,
                             rawCounterparty = "Example",
-                            status = TxStatus.PENDING,
+                            status = TxStatus.CONFIRMED,
                             source = TxSource.SMS,
                         ),
                         merchant = null,
@@ -61,19 +57,17 @@ class TransactionDetailsSheetTest {
                     onEdit = null,
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = { statusRequested = true },
+                    onChangeStatus = { error("SMS provenance must not open a status task") },
                 )
             }
         }
 
-        compose.onNode(hasText(pending) and hasClickAction())
-            .performSemanticsAction(SemanticsActions.OnClick)
-        compose.runOnIdle { assertTrue(statusRequested) }
+        compose.onNode(hasText(sms)).assertIsDisplayed()
+        compose.onNode(hasText(sms) and hasClickAction()).assertDoesNotExist()
     }
 
     @Test
-    fun pendingTransaction_confirmsInOneTap() {
-        var confirmed = false
+    fun smsTransactionDoesNotOfferAConfirmAction() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val confirm = context.getString(R.string.transaction_confirm)
         compose.setContent {
@@ -87,7 +81,7 @@ class TransactionDetailsSheetTest {
                             currency = "GEL",
                             occurredAt = 1_000,
                             rawCounterparty = "Example",
-                            status = TxStatus.PENDING,
+                            status = TxStatus.CONFIRMED,
                             source = TxSource.SMS,
                         ),
                         merchant = null,
@@ -103,14 +97,12 @@ class TransactionDetailsSheetTest {
                     onDebt = null,
                     onClearDebt = null,
                     onChangeStatus = {},
-                    onConfirm = { confirmed = true },
+                    onConfirm = { error("SMS provenance must not offer confirmation") },
                 )
             }
         }
 
-        compose.onNode(hasText(confirm) and hasClickAction())
-            .performSemanticsAction(SemanticsActions.OnClick)
-        compose.runOnIdle { assertTrue(confirmed) }
+        compose.onNode(hasText(confirm)).assertDoesNotExist()
     }
 
     @Test

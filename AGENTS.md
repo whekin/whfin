@@ -94,13 +94,13 @@ This is a single-context repository with root domain documentation and system-wi
   Unrouted operation в Feed на её реальной дате. Она физически остаётся в `sms_diagnostics`, поэтому
   не участвует в balance/day/month/category/statistics. Тап открывает contextual resolver: одиночную
   операцию можно направить в существующий ledger или прямо там создать Credo-счёт, после чего строка
-  становится обычной pending-транзакцией; card mapping запоминается. Проверено synthetic receiver →
-  muted Feed row → create account → pending transaction на disposable Pixel при RU + dark + font 1.5.
+  становится активной транзакцией с provenance `SMS`; card mapping запоминается. Проверено synthetic
+  receiver → muted Feed row → create account → transaction на disposable Pixel при RU + dark + font 1.5.
   Grouped resolver завершён: own transfer и currency exchange остаются одной приглушённой Feed-строкой,
-  требуют разные from/to ledgers одного bank group и создают обе PENDING-ноги с обычным
+  требуют разные from/to ledgers одного bank group и создают обе активные SMS-ноги с обычным
   `TransferGroup` атомарно; недостающий Credo currency-ledger добавляется прямо в resolver. Старый
   single-account path физически не может создать частичный grouped transfer. Если подтверждённая строка
-  выписки уже существует, карточное SMS получает outcome `ATTACHED` и ссылается на неё без pending-дубля;
+  выписки уже существует, карточное SMS получает outcome `ATTACHED` и ссылается на неё без дубля;
   импорт выписки также автоматически забирает сильное совпадение из Unrouted. Проверено 11 importer
   instrumentation tests и synthetic currency exchange → Feed → grouped resolver на disposable Pixel
   при RU + dark + font 1.5.
@@ -109,10 +109,11 @@ This is a single-context repository with root domain documentation and system-wi
   Grouped unresolved возвращает в contextual Feed resolver, а карты добавляются компактной строкой,
   не блокируя весь экран. Compose tests и реальный RU + dark + font 1.5 render проверены на disposable
   Pixel.
-  Card resolver теперь одним действием сохраняет mapping, подтверждает выбранную пользователем операцию
-  и backfill-ит все совместимые Unrouted payments той же карты; автоматически привязанные соседи остаются
-  PENDING. Подтверждённая вручную SMS всё ещё реконсилируется выпиской по provenance `source=SMS`, поэтому
-  второй жест и будущие дубли не нужны.
+  Card resolver теперь одним действием сохраняет mapping и backfill-ит все совместимые Unrouted payments
+  той же карты; все они сразу активны. Routed SMS не является пользовательским pending/review: в деталях
+  показывается provenance `SMS`, а выписка позже тихо сверяет и обогащает ту же строку. v11→v12 переводит
+  существующие SMS pending в CONFIRMED. Для неоднозначной конвертации resolver показывает вычисленные пары
+  текущих счетов одним тапом, не сохраняет сценарии и исключает demand/term deposits и legacy SAVINGS.
   Оба листа Bank SMS больше не заканчиваются тупиком `Нет банковского счёта`: привязка карты при пустой базе
   сразу показывает поля первого счёта Credo (имя + валюта) и одной кнопкой создаёт ledger и связь, а
   resolver операции предлагает `Добавить счёт` и создаёт ledger нужной валюты вместе с подтверждением —

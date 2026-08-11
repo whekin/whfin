@@ -259,15 +259,15 @@
     <string name="credo_sync_error_ambiguous">Два счёта этой валюты ждут IBAN, поэтому выписку нельзя отнести к одному из них. Сначала задайте им IBAN в разделе «Выписки банка».</string>
     <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>
     <string name="settings_sms_title">Мониторинг SMS Credo</string>
-    <string name="settings_sms_body">Будущие SMS Credo об операциях отслеживаются на этом устройстве. После маршрутизации операция становится ожидающей транзакцией.</string>
+    <string name="settings_sms_body">Будущие SMS Credo об операциях отслеживаются на этом устройстве. Операции с известным счётом сразу попадают в книгу.</string>
     <string name="settings_sms_permission_body">Мониторинг включён, но Android ещё не разрешил доступ к SMS.</string>
     <string name="settings_sms_unrouted_body">Новые операции без известного счёта будут ждать вашего выбора в ленте.</string>
     <string name="settings_sms_disabled_body">Выключено. WHFIN игнорирует будущие входящие SMS, пока вы снова не включите мониторинг.</string>
     <string name="settings_sms_toggle">Мониторинг SMS Credo</string>
     <string name="sms_diagnostics_title">SMS банка</string>
-    <string name="sms_diagnostics_settings_summary">Черновики из сообщений банка</string>
+    <string name="sms_diagnostics_settings_summary">Автоматические операции из сообщений банка</string>
     <string name="sms_monitoring_on">Мониторинг включён</string>
-    <string name="sms_monitoring_on_body">Сообщения Credo попадают сюда. Операции с известным счётом становятся ожидающими, остальные ждут выбора в ленте.</string>
+    <string name="sms_monitoring_on_body">Сообщения Credo попадают сюда. Операции с известным счётом сразу попадают в книгу; выбора ждёт только неизвестный счёт.</string>
     <string name="sms_monitoring_off">Мониторинг выключен</string>
     <string name="sms_monitoring_off_body">Включите его, чтобы получать будущие операции Credo. Счёт можно выбрать позже.</string>
     <string name="sms_monitoring_enable_action">Включить</string>
@@ -297,7 +297,7 @@
     <string name="sms_diagnostics_empty_body">Новые операции Credo появятся здесь, когда мониторинг включён.</string>
     <string name="sms_diagnostics_error_title">SMS банка недоступны</string>
     <string name="sms_diagnostics_error_body">WHFIN не смог прочитать локальную активность сообщений.</string>
-    <string name="sms_outcome_imported">Импортировано как черновик</string>
+    <string name="sms_outcome_imported">Добавлено из SMS</string>
     <string name="sms_outcome_attached">Сверено с выпиской</string>
     <string name="sms_outcome_duplicate">Уже есть в книге</string>
     <string name="sms_outcome_ignored">Безопасно пропущено</string>
@@ -361,8 +361,9 @@
     <string name="sms_routing_accounts_title">Счета перевода</string>
     <string name="sms_routing_new_account_title">Счёт Credo</string>
     <string name="sms_routing_resolver_body">Выберите счёт, чтобы одним действием добавить и подтвердить операцию.</string>
-    <string name="sms_card_routing_resolver_body">Эта оплата подтвердится, а привязка карты сохранится. Остальные оплаты привяжутся автоматически и останутся на проверку.</string>
-    <string name="sms_grouped_routing_pending_body">Выберите оба счёта, чтобы одним действием добавить и подтвердить весь перевод.</string>
+    <string name="sms_card_routing_resolver_body">Один раз выберите счёт карты. Эта и остальные ожидающие оплаты сразу попадут в книгу.</string>
+    <string name="sms_choose_pair_title">Где прошла операция?</string>
+    <string name="sms_grouped_routing_pair_body">Нажмите на подходящую пару счетов. Выписка позже тихо сверит и дополнит операцию.</string>
     <string name="sms_from_account">Откуда · %1$s</string>
     <string name="sms_to_account">Куда · %1$s</string>
     <string name="sms_add_currency_account">Добавить счёт в %1$s</string>
@@ -371,6 +372,7 @@
     <string name="sms_new_account_support">Credo · %1$s. IBAN и другие валюты можно добавить позже.</string>
     <string name="sms_create_and_link_action">Создать и подтвердить</string>
     <string name="sms_link_and_confirm_action">Привязать и подтвердить</string>
+    <string name="sms_close_action">Закрыть</string>
     <string name="sms_choose_account_body">Выберите счёт %1$s для этого сообщения. Будущие оплаты с той же карты будут использовать эту привязку.</string>
     <string name="sms_no_matching_accounts">Нет активных банковских счетов в %1$s. Сначала добавьте или импортируйте счёт.</string>
     <string name="sms_card_type">ТИП КАРТЫ</string>
@@ -560,7 +562,7 @@
     <string name="privacy_app_lock_title">Блокировка WHFIN</string>
     <string name="privacy_app_lock_body">Опциональный код WHFIN и надёжная биометрия скрывают финансовые данные и snapshot в недавних приложениях. Код проверяется неэкспортируемым ключом Android Keystore; Room-базу эта защита не шифрует.</string>
     <string name="privacy_sms_title">Сообщения Credo</string>
-    <string name="privacy_sms_body">Опционально. Новые сообщения об операциях могут становиться черновиками. Отдельное действие локально проверяет последние 90 дней. WHFIN не хранит, не экспортирует и не отправляет сырые SMS и OTP-коды.</string>
+    <string name="privacy_sms_body">Опционально. Сообщения об операциях с известным счётом сразу попадают в книгу. Отдельное действие локально проверяет последние 90 дней. WHFIN не хранит, не экспортирует и не отправляет сырые SMS и OTP-коды.</string>
     <string name="privacy_files_title">Выбранные вами файлы</string>
     <string name="privacy_files_body">WHFIN читает выписку только после выбора через системный файловый диалог Android.</string>
     <string name="privacy_control_section">ВАШ КОНТРОЛЬ</string>
@@ -598,6 +600,7 @@
     <string name="date_today">Сегодня</string>
     <string name="date_yesterday">Вчера</string>
     <string name="status_pending">Ожидает</string>
+    <string name="status_sms">SMS</string>
     <string name="status_confirmed">Подтверждена</string>
     <string name="status_manual">Ручная</string>
     <string name="transaction_status_title">Статус операции</string>

@@ -88,6 +88,42 @@ class StatementReconcilerTest {
     }
 
     @Test
+    fun ownMovementMatchesOneExactSmsLegWithoutMerchant() {
+        val smsLeg = draft(12, counterparty = null, amountMinor = -5_000).copy(
+            status = TxStatus.CONFIRMED,
+            isTransfer = true,
+            transferGroupId = 4,
+        )
+
+        val match = StatementReconciler.match(
+            row(merchant = null, amountMinor = -5_000).copy(
+                operation = StatementOperation.OWN_TRANSFER,
+            ),
+            listOf(smsLeg),
+        )
+
+        assertEquals(12L, match?.id)
+    }
+
+    @Test
+    fun ambiguousExactOwnMovementLegsAreNotGuessed() {
+        val first = draft(12, counterparty = null, amountMinor = -5_000).copy(
+            status = TxStatus.CONFIRMED,
+            isTransfer = true,
+        )
+        val second = first.copy(id = 13)
+
+        assertNull(
+            StatementReconciler.match(
+                row(merchant = null, amountMinor = -5_000).copy(
+                    operation = StatementOperation.OWN_TRANSFER,
+                ),
+                listOf(first, second),
+            ),
+        )
+    }
+
+    @Test
     fun anotherMerchantIsAnotherPurchase() {
         assertNull(StatementReconciler.match(row(), listOf(draft(1, "SPAR", -1_250))))
     }

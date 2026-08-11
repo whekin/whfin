@@ -50,8 +50,8 @@ _Avoid_: Card setup gate, account guess
 
 **SMS import**:
 The creation of a financial transaction from a monitored message after SMS routing is resolved. Automatic
-routing creates a pending row; explicitly resolving that message also marks that chosen operation reviewed.
-Its SMS provenance remains eligible for later statement reconciliation.
+routing and an explicit one-tap route both create an ordinary active ledger row with SMS provenance.
+It is not a review task: a later statement silently reconciles, enriches, and if necessary corrects it.
 _Avoid_: SMS monitoring, message capture
 
 **Unrouted operation**:
@@ -63,8 +63,9 @@ _Avoid_: Pending transaction, diagnostic row, uncategorized transaction
 **Routing resolver**:
 The contextual decision flow opened from an Unrouted operation to choose every missing ledger side.
 Creating a missing ledger may temporarily open Bank setup or account creation, then returns to the same
-resolution. Resolving a card remembers the route, backfills all compatible queued messages, and confirms
-only the operation the user explicitly reviewed.
+resolution. Resolving a card remembers the route and backfills all compatible queued messages. For a
+grouped movement, the resolver derives eligible ledger pairs from the operation itself; a candidate pair
+is applied in one tap and is never saved as a separate scenario.
 _Avoid_: Go to Accounts, card mapping form, generic account settings
 
 **Bank SMS**:

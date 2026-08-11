@@ -30,7 +30,12 @@ data class SmsImportResult(
     val reason: SmsDiagnosticReason? = null,
 )
 
-/** Converts a Credo SMS classification into a visible diagnostic and, when possible, a pending transaction. */
+internal fun isCurrencyExchangeLedger(account: AccountEntity): Boolean =
+    account.type == AccountType.BANK &&
+        account.bankProduct != BankProduct.DEMAND_DEPOSIT &&
+        account.bankProduct != BankProduct.TERM_DEPOSIT
+
+/** Converts a Credo SMS classification into a visible diagnostic and, when possible, an active transaction. */
 class SmsTransactionImporter(private val db: WhfinDatabase) {
     private val zone = ZoneId.of("Asia/Tbilisi")
 
@@ -120,7 +125,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             val result = resolveIntoAccount(
                 diagnostic = queued,
                 account = target,
-                status = if (queued.id == diagnostic.id) TxStatus.CONFIRMED else TxStatus.PENDING,
+                status = TxStatus.CONFIRMED,
             )
             if (queued.id == diagnostic.id) selectedResult = result
         }
@@ -302,10 +307,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     /**
-     * A cancellation withdraws the draft its payment created.
+     * A cancellation withdraws the SMS operation its payment created.
      *
-     * The payment message already produced a pending row; leaving it would keep money the bank gave
-     * back, and the statement would never confirm it, so it would sit in the review queue forever.
+     * The payment message already produced an active row; leaving it would keep money the bank gave
+     * back even though the bank explicitly retracted the operation.
      */
     private suspend fun evaluateCanceled(
         payment: CredoSmsParser.CardPayment,
@@ -326,10 +331,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
 
         original?.transactionId?.let { transactionId ->
             val transaction = db.transactionDao().byId(transactionId)
-            // Reconciliation may have turned the original SMS draft into statement truth while the
+            // Reconciliation may have turned the original SMS operation into statement truth while the
             // diagnostic kept pointing at the same row. A later SMS cancellation is evidence, not
-            // authority to erase a confirmed bank-statement row; its eventual reversal belongs to
-            // the next statement. Only a still-provisional SMS row may be withdrawn here.
+            // authority to erase bank-statement truth; its eventual reversal belongs to the next
+            // statement. An SMS-sourced row can still be withdrawn here regardless of UI status.
             if (transaction?.source == TxSource.SMS) {
                 db.transactionDao().delete(transactionId)
                 db.smsDiagnosticDao().update(
@@ -440,8 +445,13 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             val sourceCurrency = sms.currency
             val destinationCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency
                 ?: sms.currency
-            val hasSource = db.accountDao().bankAccountsByCurrency(sourceCurrency).isNotEmpty()
-            val hasDestination = db.accountDao().bankAccountsByCurrency(destinationCurrency).isNotEmpty()
+            val eligible: (AccountEntity) -> Boolean = if (sms is CredoSmsParser.CurrencyExchange) {
+                ::isCurrencyExchangeLedger
+            } else {
+                { it.type in setOf(AccountType.BANK, AccountType.SAVINGS) }
+            }
+            val hasSource = db.accountDao().bankAccountsByCurrency(sourceCurrency).any(eligible)
+            val hasDestination = db.accountDao().bankAccountsByCurrency(destinationCurrency).any(eligible)
             val reason = if (!hasSource || !hasDestination) {
                 SmsDiagnosticReason.NO_ACCOUNT
             } else {
@@ -542,7 +552,9 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             }
             is CredoSmsParser.CurrencyExchange -> {
                 val sources = db.accountDao().bankAccountsByCurrency(sms.currency)
+                    .filter(::isCurrencyExchangeLedger)
                 val destinations = db.accountDao().bankAccountsByCurrency(sms.receivedCurrency)
+                    .filter(::isCurrencyExchangeLedger)
                 sources.flatMap { from ->
                     destinations.mapNotNull { to ->
                         GroupedAccountResolution(from, to)
@@ -561,13 +573,18 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     ): Boolean {
         val destinationCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency
             ?: sms.currency
+        val eligibleTypes = if (sms is CredoSmsParser.CurrencyExchange) {
+            isCurrencyExchangeLedger(from) && isCurrencyExchangeLedger(to)
+        } else {
+            from.type in setOf(AccountType.BANK, AccountType.SAVINGS) &&
+                to.type in setOf(AccountType.BANK, AccountType.SAVINGS)
+        }
         return from.id != to.id &&
             from.groupId != null &&
             from.groupId == to.groupId &&
             from.currency == sms.currency &&
             to.currency == destinationCurrency &&
-            from.type in setOf(AccountType.BANK, AccountType.SAVINGS) &&
-            to.type in setOf(AccountType.BANK, AccountType.SAVINGS)
+            eligibleTypes
     }
 
     private suspend fun insertGroupedTransactions(
@@ -576,7 +593,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         to: AccountEntity,
         key: String,
         receivedAt: Long,
-        status: TxStatus = TxStatus.PENDING,
+        status: TxStatus = TxStatus.CONFIRMED,
     ): Long {
         require(validGroupedAccounts(sms, from, to))
         val groupType = if (sms is CredoSmsParser.CurrencyExchange) {
@@ -646,7 +663,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         account: AccountEntity,
         key: String,
         receivedAt: Long,
-        status: TxStatus = TxStatus.PENDING,
+        status: TxStatus = TxStatus.CONFIRMED,
     ): Long {
         val rawCounterparty = when (sms) {
             is CredoSmsParser.CardPayment -> sms.merchantRaw

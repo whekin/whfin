@@ -360,10 +360,7 @@ interface TransactionDao {
     )
     suspend fun openingAnchor(accountId: Long): TransactionEntity?
 
-    /**
-     * SMS rows remain reconcilable after an explicit user confirmation: source records provenance,
-     * while status records whether the user has reviewed the provisional operation.
-     */
+    /** SMS rows remain reconcilable because source records evidence independently of active status. */
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId " +
             "AND ((source = 'SMS' AND status IN ('PENDING', 'CONFIRMED')) " +
@@ -395,6 +392,10 @@ interface TransactionDao {
         "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "LEFT JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.source IN ('STATEMENT', 'SMS') " +
+            "AND (t.transferGroupId IS NULL OR NOT EXISTS (" +
+            "SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
+            "AND sms.source = 'SMS' AND sms.isVoided = 0)) " +
+            "AND (t.transferGroupId IS NULL OR g.note IS NULL OR g.note NOT LIKE 'Credo SMS %') " +
             "AND ((t.transferGroupId IS NOT NULL AND g.type = 'CONVERSION') " +
             "OR (t.transferGroupId IS NULL AND " +
             "(LOWER(t.note) LIKE '%exchange%' OR t.note LIKE '%კონვერტ%'))) " +
@@ -409,10 +410,14 @@ interface TransactionDao {
      */
     @Query(
         "SELECT DISTINCT t.transferGroupId FROM transactions t " +
-            "JOIN accounts a ON a.id = t.accountId " +
+        "JOIN accounts a ON a.id = t.accountId " +
+            "JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
             "AND (t.source IN ('STATEMENT', 'SMS') " +
-            "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%'))",
+            "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%')) " +
+            "AND NOT EXISTS (SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
+            "AND sms.source = 'SMS' AND sms.isVoided = 0) " +
+            "AND (g.note IS NULL OR g.note NOT LIKE 'Credo SMS %')",
     )
     suspend fun rebuildableTransferGroupIds(groupId: Long): List<Long>
 

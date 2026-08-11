@@ -268,6 +268,33 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate11To12MakesSmsRowsActiveWithoutChangingOtherStatuses() {
+        helper.createDatabase(TEST_DB_11_12, 11).apply {
+            execSQL(
+                "INSERT INTO `accounts` (`id`, `name`, `type`, `currency`, `isArchived`, `sortOrder`) " +
+                    "VALUES (1, 'Everyday', 'BANK', 'GEL', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `createdAt`) VALUES " +
+                    "(1, 1, -1000, 'GEL', 1000, 'PENDING', 'SMS', 0, 1000), " +
+                    "(2, 1, -2000, 'GEL', 2000, 'PENDING', 'MANUAL', 0, 2000)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_11_12, 12, true, MIGRATION_11_12).apply {
+            query("SELECT `status` FROM `transactions` ORDER BY `id`").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("CONFIRMED", cursor.getString(0))
+                check(cursor.moveToNext())
+                assertEquals("PENDING", cursor.getString(0))
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
@@ -278,5 +305,6 @@ class WhfinDatabaseMigrationTest {
         const val TEST_DB_6_7 = "whfin-migration-6-7"
         const val TEST_DB_9_10 = "whfin-migration-9-10"
         const val TEST_DB_10_11 = "whfin-migration-10-11"
+        const val TEST_DB_11_12 = "whfin-migration-11-12"
     }
 }

@@ -39,7 +39,7 @@ sealed interface PlannedRow {
     data class Insert(override val row: StatementRow, override val externalKey: String) : PlannedRow
 
     /**
-     * A draft WHFIN already recorded — an SMS, or something typed by hand — that this statement
+     * An operation WHFIN already recorded — from SMS or manual input — that this statement
      * line confirms. The draft is upgraded in place so the same payment is never counted twice.
      */
     data class Reconcile(

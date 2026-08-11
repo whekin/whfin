@@ -1053,8 +1053,12 @@ private fun TransactionDetailsContent(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 DetailEditableRow(
                     label = stringResource(R.string.tx_detail_status),
-                    value = tx.status.label(),
-                    onClick = onChangeStatus,
+                    value = if (tx.source == TxSource.SMS) {
+                        stringResource(R.string.status_sms)
+                    } else {
+                        tx.status.label()
+                    },
+                    onClick = onChangeStatus.takeUnless { tx.source == TxSource.SMS },
                 )
                 if (!isTransfer) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

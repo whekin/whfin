@@ -25,8 +25,8 @@ enum class TransferGroupType { TRANSFER, CONVERSION, CARD_TOPUP, SAVINGS, CRYPTO
 enum class CategoryKind { EXPENSE, INCOME }
 
 /**
- * PENDING = an unreviewed SMS draft; CONFIRMED = verified by statement/API or explicitly reviewed;
- * MANUAL = manually maintained. TxSource retains the evidence provenance independently.
+ * PENDING = a legacy/explicit review draft; CONFIRMED = an active bank-evidenced operation;
+ * MANUAL = manually maintained. TxSource retains SMS/statement provenance independently.
  */
 enum class TxStatus { PENDING, CONFIRMED, MANUAL }
 

@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
@@ -114,7 +115,7 @@ class SmsTransactionImporterInstrumentedTest {
             requireNotNull(db.smsDiagnosticDao().byId(requireNotNull(second.diagnosticId))?.transactionId),
         )!!
         assertEquals(TxStatus.CONFIRMED, selectedTransaction.status)
-        assertEquals(TxStatus.PENDING, automaticallyRoutedTransaction.status)
+        assertEquals(TxStatus.CONFIRMED, automaticallyRoutedTransaction.status)
     }
 
     @Test
@@ -250,7 +251,7 @@ class SmsTransactionImporterInstrumentedTest {
     }
 
     @Test
-    fun ownTransfer_createsBothPendingLegsInOneAtomicGroup() = runBlocking {
+    fun ownTransfer_createsBothActiveLegsInOneAtomicGroup() = runBlocking {
         val fromId = db.accountDao().insert(
             AccountEntity(
                 name = "Main GEL",
@@ -279,7 +280,7 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(2, legs.size)
         assertEquals(setOf(fromId, toId), legs.map { it.accountId }.toSet())
         assertEquals(setOf(-20_000L, 20_000L), legs.map { it.amountMinor }.toSet())
-        assertTrue(legs.all { it.status == TxStatus.PENDING && it.source == TxSource.SMS && it.isTransfer })
+        assertTrue(legs.all { it.status == TxStatus.CONFIRMED && it.source == TxSource.SMS && it.isTransfer })
         assertEquals(133_456L, legs.single { it.accountId == fromId }.balanceAfterMinor)
         assertEquals(null, legs.single { it.accountId == toId }.balanceAfterMinor)
         assertEquals(
@@ -324,6 +325,62 @@ class SmsTransactionImporterInstrumentedTest {
             TransferGroupType.CONVERSION.name,
             transferGroupType(requireNotNull(source.transferGroupId)),
         )
+    }
+
+    @Test
+    fun currencyExchange_ignoresDepositProductsAndLegacySavings() = runBlocking {
+        val gelId = db.accountDao().insert(
+            AccountEntity(
+                name = "Everyday GEL",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "GEL",
+                bankProduct = BankProduct.CURRENT_ACCOUNT,
+            ),
+        )
+        val usdId = db.accountDao().insert(
+            AccountEntity(
+                name = "Everyday USD",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "USD",
+                bankProduct = BankProduct.CURRENT_ACCOUNT,
+            ),
+        )
+        db.accountDao().insert(
+            AccountEntity(
+                name = "Demand GEL",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "GEL",
+                bankProduct = BankProduct.DEMAND_DEPOSIT,
+            ),
+        )
+        db.accountDao().insert(
+            AccountEntity(
+                name = "Term USD",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "USD",
+                bankProduct = BankProduct.TERM_DEPOSIT,
+            ),
+        )
+        db.accountDao().insert(
+            AccountEntity(
+                name = "Legacy savings GEL",
+                type = AccountType.SAVINGS,
+                groupId = groupId,
+                currency = "GEL",
+            ),
+        )
+
+        val result = importer.import(CURRENCY_EXCHANGE, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, result.outcome)
+        val source = db.transactionDao().byId(requireNotNull(result.transactionId))!!
+        val legs = db.transactionDao().byTransferGroup(requireNotNull(source.transferGroupId))
+        assertEquals(setOf(gelId, usdId), legs.map { it.accountId }.toSet())
+        assertTrue(legs.all { it.status == TxStatus.CONFIRMED })
     }
 
     @Test

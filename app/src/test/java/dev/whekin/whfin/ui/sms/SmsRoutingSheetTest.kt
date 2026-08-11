@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
@@ -81,7 +82,7 @@ class SmsRoutingSheetTest {
     }
 
     @Test
-    fun groupedExchangeRequiresAndSubmitsBothLedgerSides() {
+    fun groupedExchangeAppliesAComputedPairInOneTap() {
         var resolved: Pair<Long, Long>? = null
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
@@ -115,6 +116,17 @@ class SmsRoutingSheetTest {
                         ),
                         SmsRoutingAccount(
                             AccountEntity(
+                                id = 13,
+                                name = "Deposit",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                                bankProduct = BankProduct.DEMAND_DEPOSIT,
+                            ),
+                            groupName = "Credo",
+                        ),
+                        SmsRoutingAccount(
+                            AccountEntity(
                                 id = 12,
                                 name = "Dollar",
                                 type = AccountType.BANK,
@@ -133,15 +145,43 @@ class SmsRoutingSheetTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.sms_from_account, "GEL"))
+        compose.onNodeWithText("Everyday → Dollar")
             .performScrollTo()
             .assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.sms_to_account, "USD"))
-            .performScrollTo()
-            .assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
-            .assertIsEnabled()
             .performClick()
+        compose.onNodeWithText("Deposit → Dollar").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
+            .assertDoesNotExist()
         compose.runOnIdle { assertEquals(11L to 12L, resolved) }
     }
+
+    @Test
+    fun exchangePairsOnlyCurrentAccountsWithinOneBank() {
+        val diagnostic = SmsDiagnosticEntity(
+            id = 90,
+            externalKey = "sms|exchange|pairs",
+            kind = SmsDiagnosticKind.CURRENCY_EXCHANGE,
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            receivedAt = 1_000,
+            occurredAt = 1_000,
+            amountMinor = 5_000,
+            currency = "GEL",
+            secondaryAmountMinor = 1_800,
+            secondaryCurrency = "USD",
+            updatedAt = 1_000,
+        )
+        val accounts = listOf(
+            SmsRoutingAccount(AccountEntity(id = 1, name = "Main", type = AccountType.BANK, groupId = 7, currency = "GEL"), "Credo"),
+            SmsRoutingAccount(AccountEntity(id = 2, name = "Dollar", type = AccountType.BANK, groupId = 7, currency = "USD"), "Credo"),
+            SmsRoutingAccount(AccountEntity(id = 3, name = "Other bank", type = AccountType.BANK, groupId = 8, currency = "USD"), "Other"),
+            SmsRoutingAccount(AccountEntity(id = 4, name = "Demand", type = AccountType.BANK, groupId = 7, currency = "GEL", bankProduct = BankProduct.DEMAND_DEPOSIT), "Credo"),
+            SmsRoutingAccount(AccountEntity(id = 5, name = "Legacy savings", type = AccountType.SAVINGS, groupId = 7, currency = "GEL"), "Credo"),
+        )
+
+        assertEquals(
+            listOf(1L to 2L),
+            groupedRoutingPairs(diagnostic, accounts).map { it.from.account.id to it.to.account.id },
+        )
+    }
+
 }

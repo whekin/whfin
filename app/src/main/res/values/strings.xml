@@ -252,15 +252,15 @@
     <string name="credo_sync_error_ambiguous">Two accounts of this currency are waiting for an IBAN, so this statement cannot be attributed to one of them. Open Bank statements and give them their IBANs first.</string>
     <string name="credo_sync_error_generic">MyCredo returned an unexpected response (reference: %1$s). Nothing unsafe was retried automatically.</string>
     <string name="settings_sms_title">Credo SMS monitoring</string>
-    <string name="settings_sms_body">Monitoring future Credo transaction messages on this device. Routed operations become pending transactions.</string>
+    <string name="settings_sms_body">Monitoring future Credo transaction messages on this device. Routed operations enter the ledger automatically.</string>
     <string name="settings_sms_permission_body">Monitoring is on, but Android SMS access still needs to be allowed.</string>
     <string name="settings_sms_unrouted_body">New operations without a known account will wait for your choice in the Feed.</string>
     <string name="settings_sms_disabled_body">Off. WHFIN ignores future incoming SMS until monitoring is turned on again.</string>
     <string name="settings_sms_toggle">Credo SMS monitoring</string>
     <string name="sms_diagnostics_title">Bank SMS</string>
-    <string name="sms_diagnostics_settings_summary">Drafts from bank messages</string>
+    <string name="sms_diagnostics_settings_summary">Automatic operations from bank messages</string>
     <string name="sms_monitoring_on">Monitoring is on</string>
-    <string name="sms_monitoring_on_body">Credo messages are captured here. Routed operations become pending transactions; the rest wait for your choice in the Feed.</string>
+    <string name="sms_monitoring_on_body">Credo messages are captured here. Routed operations enter the ledger automatically; only an unknown account waits for your choice.</string>
     <string name="sms_monitoring_off">Monitoring is off</string>
     <string name="sms_monitoring_off_body">Turn it on to capture future Credo operations. Account routing can be completed later.</string>
     <string name="sms_monitoring_enable_action">Turn on</string>
@@ -290,7 +290,7 @@
     <string name="sms_diagnostics_empty_body">New Credo operations will appear here when monitoring is on.</string>
     <string name="sms_diagnostics_error_title">Bank SMS unavailable</string>
     <string name="sms_diagnostics_error_body">WHFIN couldn’t read the local message activity.</string>
-    <string name="sms_outcome_imported">Imported as a draft</string>
+    <string name="sms_outcome_imported">Added from SMS</string>
     <string name="sms_outcome_attached">Matched to bank statement</string>
     <string name="sms_outcome_duplicate">Already in the ledger</string>
     <string name="sms_outcome_ignored">Ignored safely</string>
@@ -354,8 +354,9 @@
     <string name="sms_routing_accounts_title">Transfer accounts</string>
     <string name="sms_routing_new_account_title">Credo account</string>
     <string name="sms_routing_resolver_body">Choose its account to add and confirm this operation in one step.</string>
-    <string name="sms_card_routing_resolver_body">This confirms this payment and saves its card route. Other queued payments link automatically and stay pending.</string>
-    <string name="sms_grouped_routing_pending_body">Choose both accounts to add and confirm the complete transfer in one step.</string>
+    <string name="sms_card_routing_resolver_body">Choose the card account once. This and other queued payments enter the ledger automatically.</string>
+    <string name="sms_choose_pair_title">Where did it happen?</string>
+    <string name="sms_grouped_routing_pair_body">Tap the matching account pair. The bank statement will verify and enrich it later.</string>
     <string name="sms_from_account">From · %1$s</string>
     <string name="sms_to_account">To · %1$s</string>
     <string name="sms_add_currency_account">Add %1$s account</string>
@@ -364,6 +365,7 @@
     <string name="sms_new_account_support">Credo · %1$s. You can add IBAN and other currencies later.</string>
     <string name="sms_create_and_link_action">Create &amp; confirm</string>
     <string name="sms_link_and_confirm_action">Link &amp; confirm</string>
+    <string name="sms_close_action">Close</string>
     <string name="sms_choose_account_body">Choose the %1$s account this message belongs to. Future payments from the same card will use this mapping.</string>
     <string name="sms_no_matching_accounts">No active %1$s bank accounts are available. Add or import the account first.</string>
     <string name="sms_card_type">CARD TYPE</string>
@@ -547,7 +549,7 @@
     <string name="privacy_app_lock_title">App Lock</string>
     <string name="privacy_app_lock_body">An optional WHFIN code and strong biometrics hide financial content and recent-app snapshots. The code is verified with a non-exportable Android Keystore key; it does not encrypt the Room database.</string>
     <string name="privacy_sms_title">Credo messages</string>
-    <string name="privacy_sms_body">Optional. New transaction messages can become drafts. A separate action can check the last 90 days locally. Raw SMS and OTP codes are never stored by WHFIN, exported, or uploaded.</string>
+    <string name="privacy_sms_body">Optional. Routed transaction messages enter the ledger automatically. A separate action can check the last 90 days locally. Raw SMS and OTP codes are never stored by WHFIN, exported, or uploaded.</string>
     <string name="privacy_files_title">Files you choose</string>
     <string name="privacy_files_body">WHFIN reads a statement only after you select it with Android’s system file picker.</string>
     <string name="privacy_control_section">YOUR CONTROL</string>
@@ -585,6 +587,7 @@
     <string name="date_today">Today</string>
     <string name="date_yesterday">Yesterday</string>
     <string name="status_pending">Pending</string>
+    <string name="status_sms">SMS</string>
     <string name="status_confirmed">Confirmed</string>
     <string name="status_manual">Manual</string>
     <string name="transaction_status_title">Transaction status</string>
