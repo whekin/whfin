@@ -332,6 +332,13 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING' AND isVoided = 0")
     suspend fun pendingCount(): Int
 
+    /** User-facing SMS operations not yet replaced by statement evidence; grouped legs count once. */
+    @Query(
+        "SELECT COUNT(DISTINCT CASE WHEN transferGroupId IS NULL THEN -id ELSE transferGroupId END) " +
+            "FROM transactions WHERE source = 'SMS' AND isVoided = 0",
+    )
+    fun observeAwaitingStatementSmsCount(): Flow<Int>
+
     @Query(
         "SELECT * FROM transactions WHERE isVoided = 1 AND source IN ('STATEMENT', 'SMS') " +
             "ORDER BY occurredAt DESC, id DESC",

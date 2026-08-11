@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.CredoSyncWindow
 import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.importer.AmbiguousBankLedgerException
@@ -88,6 +89,7 @@ class CredoSyncViewModel internal constructor(
     private val secretStore: CredoSecretStore,
     private val syncDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
     private val retryDelayMillis: List<Long> = DEFAULT_RETRY_DELAYS,
+    private val preferences: UiPreferences = UiPreferences(app),
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(
         app = app,
@@ -290,6 +292,9 @@ class CredoSyncViewModel internal constructor(
                 unchanged = unchanged,
                 errorCode = null,
             )
+            if (results.none { it.errorCode != null || it.detail != null }) {
+                preferences.setLastCredoSyncAt(System.currentTimeMillis())
+            }
         }
     }
 
@@ -436,6 +441,9 @@ class CredoSyncViewModel internal constructor(
                 unchanged = unchanged,
                 errorCode = null,
             )
+            if (results.none { it.errorCode != null || it.detail != null }) {
+                preferences.setLastCredoSyncAt(System.currentTimeMillis())
+            }
         }
     }
 

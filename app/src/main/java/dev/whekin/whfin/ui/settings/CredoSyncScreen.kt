@@ -635,6 +635,7 @@ private fun ConnectedContent(
 private fun credoErrorMessage(code: String): String = when (code) {
     "CREDENTIALS_REQUIRED", "INVALID_INPUT_DATA" -> stringResource(R.string.credo_sync_error_credentials)
     "INVALID_OTP" -> stringResource(R.string.credo_sync_error_otp)
+    "OTP_NOT_SENT" -> stringResource(R.string.credo_sync_error_otp_not_sent)
     "USER_IS_BLOCKED", "USER_OTP_BLOCKED" -> stringResource(R.string.credo_sync_error_blocked)
     "UNAUTHORIZED", "LOGIN_EXPIRED", "SESSION_EXPIRED" -> stringResource(R.string.credo_sync_error_expired)
     "NETWORK_ERROR" -> stringResource(R.string.credo_sync_error_network)

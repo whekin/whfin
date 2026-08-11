@@ -14,6 +14,12 @@ The batch continues when one ledger fails and shows a result per ledger. It neve
 retries authentication silently. The in-memory session ends with the process; reconnecting can require
 a new OTP.
 
+A fully successful foreground run records its completion time even when every ledger was already up
+to date. After 30 days, Home shows one compact `Reconcile Credo` row with the age of that run and the
+number of active SMS operations still awaiting statement evidence. It is a freshness reminder, not a
+review queue: tapping it opens the same explicit sign-in/OTP flow. Fetching older history remains a
+separate one-off action and does not redefine the routine monthly flow.
+
 ## Security boundary
 
 - Credentials and OTP go directly from the Android device to Credo's HTTPS MyCredo service. WHFIN has
@@ -43,6 +49,10 @@ unknown response; HTTP 403/429 is called out as website protection and tells the
 loop. Authentication failures are not automatically retried. A failed statement does not roll back
 successful imports from other ledgers, and the existing transaction deduplication makes a deliberate
 later retry safe.
+
+`OTP_NOT_SENT` is recoverable within the current challenge: WHFIN keeps the OTP screen open and offers
+one explicit resend instead of initiating a second login or retrying automatically. Both a GraphQL
+error with that code and a false `operationSendChallenge` result reduce to the same safe local state.
 
 When the XLSX download itself succeeds but WHFIN rejects the workbook during parsing or balance
 validation, the affected result offers `Save original XLSX`. This copies the exact downloaded bytes

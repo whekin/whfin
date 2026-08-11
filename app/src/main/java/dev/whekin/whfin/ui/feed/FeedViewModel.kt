@@ -56,6 +56,32 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+internal data class CredoSyncReminder(
+    val daysSinceSync: Int?,
+    val awaitingStatementCount: Int,
+)
+
+internal fun credoSyncReminder(
+    lastCompletedAt: Long?,
+    awaitingStatementCount: Int,
+    hasCredoAccounts: Boolean,
+    nowMillis: Long,
+): CredoSyncReminder? {
+    if (!hasCredoAccounts) return null
+    if (lastCompletedAt == null) {
+        return if (awaitingStatementCount > 0) {
+            CredoSyncReminder(daysSinceSync = null, awaitingStatementCount = awaitingStatementCount)
+        } else null
+    }
+    val days = ((nowMillis - lastCompletedAt).coerceAtLeast(0L) / MILLIS_PER_DAY).toInt()
+    return if (days >= CREDO_SYNC_REMINDER_DAYS) {
+        CredoSyncReminder(daysSinceSync = days, awaitingStatementCount = awaitingStatementCount)
+    } else null
+}
+
+private const val MILLIS_PER_DAY = 86_400_000L
+private const val CREDO_SYNC_REMINDER_DAYS = 30
+
 data class FeedItem(
     val tx: TransactionEntity,
     val merchant: MerchantEntity?,
@@ -361,6 +387,19 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val preferences = UiPreferences(getApplication<Application>())
+
+    internal val credoSyncReminder: StateFlow<CredoSyncReminder?> = combine(
+        preferences.lastCredoSyncAt,
+        db.transactionDao().observeAwaitingStatementSmsCount(),
+        db.financialGroupDao().observeActive(),
+    ) { lastCompletedAt, awaitingStatementCount, groups ->
+        credoSyncReminder(
+            lastCompletedAt = lastCompletedAt,
+            awaitingStatementCount = awaitingStatementCount,
+            hasCredoAccounts = groups.any { it.provider == CREDO_PROVIDER },
+            nowMillis = System.currentTimeMillis(),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The same headline as Accounts, so the two screens can never disagree about what is owned. */
     val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()

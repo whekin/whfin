@@ -362,9 +362,16 @@ fun MainScreen(
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
                                 onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
                                 onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
+                                showCredoSyncReminder = !demoMode,
                                 onOpenAnalytics = { open(SecondaryDestination.Analytics) },
                                 onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
                                 onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
+                                onOpenCredoSync = {
+                                    openCredoSetup(
+                                        enableSmsMonitoring = ::enableSmsMonitoring,
+                                        openCredo = { open(SecondaryDestination.CredoSync) },
+                                    )
+                                },
                                 addRequestKey = addRequestKey,
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,

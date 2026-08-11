@@ -146,4 +146,21 @@ class UiPreferencesTest {
             file.delete()
         }
     }
+
+    @Test
+    fun lastCredoSyncDefaultsUnknownAndPersistsSuccessfulRun() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val file = File.createTempFile("whfin-ui", ".preferences_pb").also(File::delete)
+        val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
+        val preferences = UiPreferences(dataStore)
+
+        try {
+            assertEquals(null, preferences.lastCredoSyncAt.first())
+            preferences.setLastCredoSyncAt(123_456L)
+            assertEquals(123_456L, preferences.lastCredoSyncAt.first())
+        } finally {
+            scope.cancel()
+            file.delete()
+        }
+    }
 }

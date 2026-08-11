@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
@@ -189,9 +190,11 @@ fun FeedScreen(
     showSmsOnboarding: Boolean,
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
+    showCredoSyncReminder: Boolean = true,
     onOpenAnalytics: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
+    onOpenCredoSync: () -> Unit = {},
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
@@ -207,6 +210,7 @@ fun FeedScreen(
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val rejected by viewModel.rejected.collectAsState()
     val integrityIssues by viewModel.integrityIssues.collectAsState()
+    val credoReminder by viewModel.credoSyncReminder.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     // A refused change is never silent: the data stayed as it was, and saying why beats leaving the
     // user to discover later that the row they picked is still there.
@@ -455,8 +459,13 @@ fun FeedScreen(
             if (showSmsOnboarding) item(key = "sms-onboarding") {
                 SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
             }
-            // Home stays quiet unless the ledger contradicts itself. Everything else about its
-            // standing state lives in Data health; this is the one thing worth interrupting for.
+            credoReminder?.takeIf { showCredoSyncReminder }?.let { reminder ->
+                item(key = "credo-sync-reminder") {
+                    CredoSyncReminderCard(reminder, onOpenCredoSync)
+                }
+            }
+            // Freshness has its one scheduled row above. Technical state still stays quiet unless
+            // the ledger contradicts itself; everything else lives in Data health.
             if (integrityIssues > 0) item(key = "integrity") {
                 WhfinNotice(
                     title = stringResource(R.string.home_integrity_title),
@@ -2061,6 +2070,39 @@ private fun HomeSectionHeader(
 }
 
 @Composable
+private fun CredoSyncReminderCard(
+    reminder: CredoSyncReminder,
+    onClick: () -> Unit,
+) {
+    val age = reminder.daysSinceSync?.let { days ->
+        pluralStringResource(R.plurals.home_credo_sync_days, days, days)
+    } ?: stringResource(R.string.home_credo_sync_never)
+    val waiting = reminder.awaitingStatementCount.takeIf { it > 0 }?.let { count ->
+        pluralStringResource(R.plurals.home_credo_sync_waiting, count, count)
+    }
+    WhfinLedgerGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("home-credo-sync-reminder"),
+        tonal = true,
+    ) {
+        WhfinLedgerRow(
+            title = stringResource(R.string.home_credo_sync_title),
+            supportingText = listOfNotNull(age, waiting).joinToString(" · "),
+            supportingMaxLines = 2,
+            icon = Icons.Default.Sync,
+            trailing = {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            onClick = onClick,
+        )
+    }
+}
+
+@Composable
 private fun HomeInsightsSection(
     insights: List<HomeInsight>,
     onOpenAnalytics: () -> Unit,
@@ -2665,6 +2707,10 @@ private fun FeedContentPreview() {
                     WhfinIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "History", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
+                CredoSyncReminderCard(
+                    CredoSyncReminder(daysSinceSync = 31, awaitingStatementCount = 100),
+                    {},
+                )
                 HomeInsightsSection(
                     listOf(
                         HomeInsight.SpendingPace(169_147, 96_000),

@@ -64,6 +64,16 @@
     <string name="home_insight_category_higher">%1$s may be higher than last month</string>
     <string name="home_insight_category_lower">%1$s may be lower than last month</string>
     <string name="home_insight_category_comparison">At current pace: %1$s · last month: %2$s</string>
+    <string name="home_credo_sync_title">Reconcile Credo</string>
+    <string name="home_credo_sync_never">Not reconciled yet</string>
+    <plurals name="home_credo_sync_days">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="home_credo_sync_waiting">
+        <item quantity="one">%d operation awaits a statement</item>
+        <item quantity="other">%d operations await statements</item>
+    </plurals>
     <string name="transactions_history_title">Transaction history</string>
     <string name="feed_unrouted_operation">Unrouted operation</string>
     <string name="feed_unrouted_choose_account">Choose account</string>
@@ -240,6 +250,7 @@
     <string name="credo_sync_disconnect">Forget MyCredo login</string>
     <string name="credo_sync_error_credentials">Check the username and password, then try again.</string>
     <string name="credo_sync_error_otp">The confirmation code must contain four digits. Request a new code if it expired.</string>
+    <string name="credo_sync_error_otp_not_sent">Credo did not send a code. Wait a moment, then request it again.</string>
     <string name="credo_sync_error_blocked">Credo temporarily blocked this sign-in. Stop retrying and use MyCredo or contact the bank.</string>
     <string name="credo_sync_error_expired">This sign-in expired. Connect again to start a new session.</string>
     <string name="credo_sync_error_network">MyCredo could not be reached. Nothing was imported; check the connection and try again.</string>

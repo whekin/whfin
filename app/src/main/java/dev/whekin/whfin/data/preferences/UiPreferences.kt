@@ -7,6 +7,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -153,6 +154,13 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[WidgetOpenAppButtonEnabledKey] ?: true }
 
+    /** A completed foreground statement run, including a successful no-op run. */
+    val lastCredoSyncAt: Flow<Long?> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[LastCredoSyncAtKey] }
+
     suspend fun dismissSmsPermissionPrompt() {
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
     }
@@ -204,6 +212,10 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[WidgetOpenAppButtonEnabledKey] = enabled }
     }
 
+    suspend fun setLastCredoSyncAt(timestampMillis: Long) {
+        dataStore.edit { preferences -> preferences[LastCredoSyncAtKey] = timestampMillis }
+    }
+
     private companion object {
         val SmsPermissionPromptDismissed = booleanPreferencesKey("sms_permission_prompt_dismissed")
         val SmsImportEnabled = booleanPreferencesKey("sms_import_enabled")
@@ -214,6 +226,7 @@ internal class UiPreferences(
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
         val QuickExpenseKeypadEnabledKey = booleanPreferencesKey("quick_expense_keypad_enabled")
         val WidgetOpenAppButtonEnabledKey = booleanPreferencesKey("widget_open_app_button_enabled")
+        val LastCredoSyncAtKey = longPreferencesKey("last_credo_sync_at")
         val DisplayCurrencyKey = stringPreferencesKey("display_currency")
         val EthereumRpcUrlKey = stringPreferencesKey("crypto_ethereum_rpc_url")
         val TronApiUrlKey = stringPreferencesKey("crypto_tron_api_url")

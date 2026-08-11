@@ -67,6 +67,20 @@
     <string name="home_insight_category_higher">«%1$s» может вырасти относительно прошлого месяца</string>
     <string name="home_insight_category_lower">«%1$s» может снизиться относительно прошлого месяца</string>
     <string name="home_insight_category_comparison">При текущем темпе: %1$s · в прошлом месяце: %2$s</string>
+    <string name="home_credo_sync_title">Сверить Credo</string>
+    <string name="home_credo_sync_never">Ещё не сверялось</string>
+    <plurals name="home_credo_sync_days">
+        <item quantity="one">%d день назад</item>
+        <item quantity="few">%d дня назад</item>
+        <item quantity="many">%d дней назад</item>
+        <item quantity="other">%d дня назад</item>
+    </plurals>
+    <plurals name="home_credo_sync_waiting">
+        <item quantity="one">%d операция ждёт выписку</item>
+        <item quantity="few">%d операции ждут выписку</item>
+        <item quantity="many">%d операций ждут выписку</item>
+        <item quantity="other">%d операции ждут выписку</item>
+    </plurals>
     <string name="transactions_history_title">История операций</string>
     <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
     <string name="feed_unrouted_choose_account">Выбрать счёт</string>
@@ -247,6 +261,7 @@
     <string name="credo_sync_disconnect">Забыть вход MyCredo</string>
     <string name="credo_sync_error_credentials">Проверьте логин и пароль и попробуйте снова.</string>
     <string name="credo_sync_error_otp">Код подтверждения должен состоять из четырёх цифр. Если он истёк, запросите новый.</string>
+    <string name="credo_sync_error_otp_not_sent">Credo не отправил код. Подождите немного и запросите его снова.</string>
     <string name="credo_sync_error_blocked">Credo временно заблокировал этот вход. Не повторяйте попытки и используйте MyCredo или свяжитесь с банком.</string>
     <string name="credo_sync_error_expired">Сессия входа истекла. Подключитесь снова, чтобы начать новую.</string>
     <string name="credo_sync_error_network">Не удалось связаться с MyCredo. Ничего не импортировано; проверьте интернет и повторите.</string>

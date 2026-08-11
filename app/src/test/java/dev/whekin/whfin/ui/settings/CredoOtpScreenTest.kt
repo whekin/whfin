@@ -103,6 +103,33 @@ class CredoOtpScreenTest {
     }
 
     @Test
+    fun otpNotSentKeepsTheChallengeAndOffersResend() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(
+                        stage = CredoSyncStage.AwaitingOtp,
+                        errorCode = "OTP_NOT_SENT",
+                    ),
+                    appLockEnabled = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.credo_sync_error_otp_not_sent)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_resend_otp)).assertExists()
+    }
+
+    @Test
     fun otpKeypadAndConfirmationNeverLiveInAScrollContainer() {
         compose.setContent {
             WhfinTheme {

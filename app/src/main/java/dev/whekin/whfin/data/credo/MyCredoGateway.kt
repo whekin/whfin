@@ -130,11 +130,14 @@ class MyCredoGateway internal constructor(
     }
 
     override suspend fun sendOtp(operationId: String) {
-        graphQl(
+        val data = graphQl(
             session = null,
             query = SEND_OTP_MUTATION,
             variables = JSONObject().put("operationId", operationId),
         )
+        if (!data.optBoolean("operationSendChallenge", false)) {
+            throw CredoApiException("OTP_NOT_SENT")
+        }
     }
 
     override suspend fun confirmLogin(

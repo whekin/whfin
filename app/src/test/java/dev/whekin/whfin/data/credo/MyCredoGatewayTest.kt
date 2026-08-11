@@ -88,6 +88,23 @@ class MyCredoGatewayTest {
     }
 
     @Test
+    fun sendOtp_falseResult_isReportedAsNotSent() = runBlocking {
+        val transport = RecordingTransport(
+            """{"data":{"operationSendChallenge":false}}""",
+        )
+        val gateway = MyCredoGateway(
+            context = ApplicationProvider.getApplicationContext<Context>(),
+            transport = transport,
+            deviceHistoryId = "device-id",
+        )
+
+        val error = runCatching { gateway.sendOtp("op-1") }.exceptionOrNull()
+
+        assertTrue(error is CredoApiException)
+        assertEquals("OTP_NOT_SENT", (error as CredoApiException).code)
+    }
+
+    @Test
     fun productionTransport_rejectsCleartextAndUnexpectedHostsBeforeSendingCredentials() {
         val transport = UrlConnectionCredoTransport("WHFIN test")
 
