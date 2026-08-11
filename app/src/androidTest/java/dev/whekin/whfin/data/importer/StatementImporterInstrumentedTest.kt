@@ -135,6 +135,33 @@ class StatementImporterInstrumentedTest {
     }
 
     @Test
+    fun anUnknownBankLabelImportsSafelyAndIsReportedByPreviewAndResult() = runBlocking {
+        val rawName = "სრულიად უცნობი ოპერაცია"
+        val bytes = SyntheticCredoWorkbook.build(
+            openingBalance = "100.00",
+            closingBalance = "90.00",
+            rows = listOf(
+                Row(
+                    date = LocalDate.of(2026, 1, 12),
+                    operation = rawName,
+                    debit = "10.00",
+                    balance = "90.00",
+                ),
+            ),
+        )
+
+        val preview = importer.preview(ByteArrayInputStream(bytes), "statement.xlsx")
+        val result = importer.import(ByteArrayInputStream(bytes), "statement.xlsx")
+
+        assertEquals(setOf(rawName), preview.unmappedOperationNames)
+        assertEquals(setOf(rawName), result.unmappedOperationNames)
+        val imported = db.transactionDao().observeByAccount(result.accountId).first()
+            .single { it.source == TxSource.STATEMENT }
+        assertFalse(imported.isTransfer)
+        assertEquals(-1_000L, imported.amountMinor)
+    }
+
+    @Test
     fun previewingAnAlreadyImportedFile_promisesNoChange() = runBlocking {
         val bytes = workbook(cardPayment, conversion, incoming)
         importer.import(ByteArrayInputStream(bytes), "statement.xlsx")

@@ -11,6 +11,12 @@ dropping the message.
   permission. While an OTP challenge is actively on screen, the exact `# SMS Code: 1234` login template
   can fill the four local code dots. The code is process-only, has no replay, is never submitted
   automatically, and payment/card OTP templates are deliberately excluded.
+- The manifest receiver remains the background path for transaction monitoring. During MyCredo
+  `Connecting` / `AwaitingOtp`, WHFIN also context-registers an exported receiver guarded by the
+  system `BROADCAST_SMS` sender permission. This foreground fallback is scoped to the live login:
+  Samsung One UI was observed delivering the bank SMS broadcast without including WHFIN's manifest
+  receiver even while `RECEIVE_SMS` was granted. The OTP screen explains automatic fill and explicit
+  confirmation.
 - `READ_SMS` is requested only from the explicit 90-day history action, when the user asks to view
   one diagnostic's original message, or when they explicitly choose to add that original to a report.
 - The scan is capped at 500 Credo candidates and produces a dry-run summary before any write.

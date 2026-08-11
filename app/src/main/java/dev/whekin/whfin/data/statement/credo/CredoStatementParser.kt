@@ -11,6 +11,7 @@ import dev.whekin.whfin.data.statement.XlsxSheetReader
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Credo adapter: выписка MYCREDO (*.xlsx), лист "Account Details" + лист "Transactions".
@@ -25,8 +26,8 @@ object CredoStatementParser : StatementParser {
     /** Обе формы встречаются в Description конвертации: английская и грузинская. */
     override val conversionNoteMarkers = listOf("exchange", "კონვერტ")
 
-    private const val DETAILS_SHEET = "Account Details"
-    private const val TRANSACTIONS_SHEET = "Transactions"
+    private val detailsSheetNames = setOf("account details", "account detail")
+    private val transactionsSheetNames = setOf("transactions", "transaction details")
 
     /** Сырое грузинское название операции — стабильный ключ. */
     private val operationMap = mapOf(
@@ -49,6 +50,7 @@ object CredoStatementParser : StatementParser {
         "საპროცენტო სარგებლის გადახდა" to StatementOperation.INTEREST,
         "ანაბრის თანხის გადატანა" to StatementOperation.OWN_TRANSFER,
     )
+    private val normalizedOperationMap = operationMap.mapKeys { (name, _) -> normalizedLabel(name) }
 
     /** `გადახდა - NIKORA 7.14 GEL 09.07.2025` -> (NIKORA, 09.07.2025) */
     private val cardDescriptionRegex =
@@ -61,63 +63,74 @@ object CredoStatementParser : StatementParser {
 
     override fun canParse(file: StatementFile): Boolean = runCatching {
         val sheets = file.open().use { XlsxSheetReader().read(it) }.sheets
-        sheets.containsKey(DETAILS_SHEET) && sheets.containsKey(TRANSACTIONS_SHEET)
+        sheets.keys.any { normalizedLabel(it) in detailsSheetNames } &&
+            sheets.keys.any { normalizedLabel(it) in transactionsSheetNames }
     }.getOrDefault(false)
 
     override fun parse(file: StatementFile): BankStatement {
         val workbook = file.open().use { XlsxSheetReader().read(it) }
-        val details = workbook.sheets[DETAILS_SHEET]
-            ?: error("Sheet '$DETAILS_SHEET' not found — not a MYCREDO statement?")
-        val txSheet = workbook.sheets[TRANSACTIONS_SHEET]
-            ?: error("Sheet '$TRANSACTIONS_SHEET' not found — not a MYCREDO statement?")
+        val details = workbook.sheets.entries
+            .firstOrNull { normalizedLabel(it.key) in detailsSheetNames }
+            ?.value
+            ?: malformed("Credo account details sheet not found.")
+        val txSheet = workbook.sheets.entries
+            .firstOrNull { normalizedLabel(it.key) in transactionsSheetNames }
+            ?.value
+            ?: malformed("Credo transactions sheet not found.")
 
         val meta = details.associate { row ->
-            (row.cells["A"] ?: "").trim().removeSuffix(":").trim() to
-                (row.cells["B"] ?: "").trim()
+            normalizedLabel(row.cells["A"].orEmpty()) to row.cells["B"].orEmpty().trim()
         }
-        val period = meta["Statement Period"]
-            ?.split("-")
-            ?.map { it.trim() }
-            ?.takeIf { it.size == 2 }
+        val period = requiredMeta(meta, "statement period", "period")
+            .split(Regex("""\s+-\s+"""), limit = 2)
+            .map { it.trim() }
+            .takeIf { it.size == 2 }
+            ?: malformed("Credo statement period is unreadable.")
 
-        val header = txSheet.firstOrNull { it.cells["A"] == "Date" }
-            ?: error("Transactions header row not found")
+        val header = txSheet.firstOrNull { row ->
+            row.cells.values.any { normalizedLabel(it) == "date" } &&
+                row.cells.values.any { normalizedLabel(it) == "operation" }
+        } ?: malformed("Credo transactions header row not found.")
+        val columns = TransactionColumns.from(header)
         val rows = txSheet
             .filter { row ->
                 row.index > header.index &&
-                    (row.cells["A"]?.toDoubleOrNull() != null ||
-                        listOf("B", "C", "D", "E").any { column -> !row.cells[column].isNullOrBlank() })
+                    (row.cells[columns.date]?.toDoubleOrNull() != null ||
+                        columns.financial.any { column -> !row.cells[column].isNullOrBlank() })
             }
             .map { row ->
-                parseRow(row) ?: throw MalformedStatementException(
+                parseRow(row, columns) ?: throw MalformedStatementException(
                     "Credo statement row ${row.index} contains incomplete financial data.",
                 )
             }
 
         return BankStatement(
             bank = bank,
-            accountIban = meta["Account Number"] ?: error("Account Number missing"),
-            currency = meta["Account Currency"] ?: "GEL",
-            periodFrom = period?.get(0)?.let { LocalDate.parse(it, purchaseDateFormat) },
-            periodTo = period?.get(1)?.let { LocalDate.parse(it, purchaseDateFormat) },
-            openingBalanceMinor = meta["Opening Balance"]?.let(::moneyToMinor),
-            closingBalanceMinor = meta["Closing Balance"]?.let(::moneyToMinor),
+            accountIban = requiredMeta(meta, "account number", "iban"),
+            currency = requiredMeta(meta, "account currency", "currency").uppercase(Locale.ROOT),
+            periodFrom = parseCredoDate(period[0]),
+            periodTo = parseCredoDate(period[1]),
+            openingBalanceMinor = requiredMoney(meta, "opening balance", "beginning balance"),
+            closingBalanceMinor = requiredMoney(meta, "closing balance", "ending balance"),
             rows = rows,
         )
     }
 
-    private fun parseRow(row: XlsxSheetReader.Row): StatementRow? {
-        val serial = row.cells["A"]?.toDoubleOrNull() ?: return null
-        val operationRaw = row.cells["B"]?.trim() ?: return null
-        val debit = row.cells["C"]?.let(::moneyToMinor)
-        val credit = row.cells["D"]?.let(::moneyToMinor)
+    private fun parseRow(row: XlsxSheetReader.Row, columns: TransactionColumns): StatementRow? {
+        val serial = row.cells[columns.date]?.toDoubleOrNull() ?: return null
+        val operationRaw = row.cells[columns.operation]?.trim()?.takeIf(String::isNotEmpty) ?: return null
+        val debit = row.cells[columns.debit]?.let(::moneyToMinor)
+        val credit = row.cells[columns.credit]?.let(::moneyToMinor)
+        val debitAmount = debit?.takeIf { it != 0L }
+        val creditAmount = credit?.takeIf { it != 0L }
         val amount = when {
-            debit != null && debit != 0L -> -debit
-            credit != null -> credit
+            debitAmount != null && creditAmount != null -> return null
+            debitAmount != null -> -debitAmount
+            creditAmount != null -> creditAmount
             else -> return null
         }
-        val description = row.cells["F"]?.trim().orEmpty()
-        val operation = operationMap[operationRaw] ?: StatementOperation.OTHER
+        val description = columns.description?.let(row.cells::get)?.trim().orEmpty()
+        val operation = normalizedOperationMap[normalizedLabel(operationRaw)] ?: StatementOperation.OTHER
 
         var merchantRaw: String? = null
         var purchaseDate: LocalDate? = null
@@ -135,14 +148,87 @@ object CredoStatementParser : StatementParser {
             operation = operation,
             operationRaw = operationRaw,
             amountMinor = amount,
-            balanceAfterMinor = row.cells["E"]?.let(::moneyToMinor),
+            balanceAfterMinor = row.cells[columns.balance]?.let(::moneyToMinor),
             description = description,
-            beneficiaryName = row.cells["G"]?.trim()?.takeIf { it.isNotEmpty() },
-            beneficiaryAccount = row.cells["H"]?.trim()?.takeIf { it.isNotEmpty() },
+            beneficiaryName = columns.beneficiaryName?.let(row.cells::get)?.trim()?.takeIf { it.isNotEmpty() },
+            beneficiaryAccount = columns.beneficiaryAccount?.let(row.cells::get)?.trim()?.takeIf { it.isNotEmpty() },
             merchantRaw = merchantRaw,
             purchaseDate = purchaseDate,
         )
     }
+
+    private data class TransactionColumns(
+        val date: String,
+        val operation: String,
+        val debit: String,
+        val credit: String,
+        val balance: String,
+        val description: String?,
+        val beneficiaryName: String?,
+        val beneficiaryAccount: String?,
+    ) {
+        val financial = listOf(operation, debit, credit, balance)
+
+        companion object {
+            fun from(header: XlsxSheetReader.Row): TransactionColumns {
+                val labels = header.cells.entries.groupBy(
+                    keySelector = { (_, value) -> normalizedLabel(value) },
+                    valueTransform = { (column, _) -> column },
+                )
+                fun columns(vararg aliases: String): List<String> = aliases
+                    .flatMap { alias -> labels[alias].orEmpty() }
+                    .distinct()
+                fun required(vararg aliases: String): String {
+                    val candidates = columns(*aliases)
+                    if (candidates.size != 1) {
+                        malformed("Credo transactions column '${aliases.first()}' is missing or ambiguous.")
+                    }
+                    return candidates.single()
+                }
+                fun optional(vararg aliases: String): String? {
+                    val candidates = columns(*aliases)
+                    if (candidates.size > 1) {
+                        malformed("Credo transactions column '${aliases.first()}' is ambiguous.")
+                    }
+                    return candidates.singleOrNull()
+                }
+
+                return TransactionColumns(
+                    date = required("date", "posting date"),
+                    operation = required("operation", "operation type"),
+                    debit = required("turnover db", "turnover debit", "debit"),
+                    credit = required("turnover cr", "turnover credit", "credit"),
+                    balance = required("balance", "account balance"),
+                    description = optional("description", "details"),
+                    beneficiaryName = optional("beneficiary name", "beneficiary"),
+                    beneficiaryAccount = optional("beneficiary account", "beneficiary iban"),
+                )
+            }
+        }
+    }
+
+    private fun requiredMeta(meta: Map<String, String>, vararg aliases: String): String =
+        aliases.asSequence().mapNotNull(meta::get).firstOrNull(String::isNotBlank)
+            ?: malformed("Credo statement field '${aliases.first()}' is missing.")
+
+    private fun requiredMoney(meta: Map<String, String>, vararg aliases: String): Long =
+        moneyToMinor(requiredMeta(meta, *aliases))
+            ?: malformed("Credo statement field '${aliases.first()}' is unreadable.")
+
+    private fun parseCredoDate(raw: String): LocalDate =
+        listOf(purchaseDateFormat, DateTimeFormatter.ISO_LOCAL_DATE)
+            .firstNotNullOfOrNull { format -> runCatching { LocalDate.parse(raw, format) }.getOrNull() }
+            ?: malformed("Credo statement date is unreadable.")
+
+    private fun malformed(message: String): Nothing = throw MalformedStatementException(message)
+
+    private fun normalizedLabel(raw: String): String = raw
+        .replace('\u00A0', ' ')
+        .trim()
+        .lowercase(Locale.ROOT)
+        .replace(Regex("""[():]+"""), " ")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
 
     /** "1,083.20" -> 108320 */
     fun moneyToMinor(raw: String): Long? {

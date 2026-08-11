@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,6 +61,7 @@ import dev.whekin.whfin.core.ui.WhfinCodeDots
 import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.sms.registerCredoOtpReceiver
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -122,6 +124,16 @@ fun CredoSyncRoute(
     }
     LaunchedEffect(otpInbox) {
         otpInbox.codes.collect { code -> incomingOtp = code }
+    }
+    DisposableEffect(context, otpInbox, state.stage) {
+        val registration = if (
+            state.stage == CredoSyncStage.Connecting || state.stage == CredoSyncStage.AwaitingOtp
+        ) {
+            runCatching { registerCredoOtpReceiver(context, otpInbox) }.getOrNull()
+        } else {
+            null
+        }
+        onDispose { registration?.close() }
     }
     CredoSyncScreen(
         state = state,
@@ -381,8 +393,13 @@ private fun OtpContent(
         ) {
             WhfinSectionLabel(stringResource(R.string.credo_sync_otp_section))
             Text(
-                text = if (mobileHint.isNullOrBlank()) stringResource(R.string.credo_sync_otp_body)
-                else stringResource(R.string.credo_sync_otp_body_with_phone, mobileHint),
+                text = buildString {
+                    append(
+                        if (mobileHint.isNullOrBlank()) stringResource(R.string.credo_sync_otp_body)
+                        else stringResource(R.string.credo_sync_otp_body_with_phone, mobileHint),
+                    )
+                    append('\n').append(stringResource(R.string.credo_sync_otp_autofill_hint))
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -509,6 +526,23 @@ private fun ConnectedContent(
                                     file.reconciled,
                                 ),
                             )
+                            if (file.unmappedOperationNames.isNotEmpty()) {
+                                append('\n')
+                                append(
+                                    pluralStringResource(
+                                        R.plurals.statements_unmapped_operations,
+                                        file.unmappedOperationNames.size,
+                                        file.unmappedOperationNames.size,
+                                    ),
+                                )
+                                append('\n')
+                                append(
+                                    stringResource(
+                                        R.string.statements_unmapped_labels,
+                                        file.unmappedOperationNames.sorted().joinToString(),
+                                    ),
+                                )
+                            }
                         } else {
                             append(credoErrorMessage(file.errorCode))
                         }

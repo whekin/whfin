@@ -203,6 +203,7 @@
     <string name="credo_sync_otp_section">CONFIRM SIGN IN</string>
     <string name="credo_sync_otp_body">Enter the 4-digit code sent by Credo. WHFIN never stores this code.</string>
     <string name="credo_sync_otp_body_with_phone">Enter the 4-digit code sent to %1$s. WHFIN never stores this code.</string>
+    <string name="credo_sync_otp_autofill_hint">With SMS access, the code appears here automatically. You still confirm it yourself.</string>
     <string name="credo_sync_otp">Confirmation code</string>
     <string name="credo_sync_otp_progress">%1$d of %2$d code digits entered</string>
     <string name="credo_sync_delete_digit">Delete code digit</string>
@@ -220,6 +221,11 @@
     <string name="credo_sync_history_progress">Going back · year %1$d</string>
     <string name="credo_sync_valuing">Pricing foreign days in lari · %1$d so far</string>
     <string name="credo_sync_result_section">SYNC RESULT</string>
+    <plurals name="statements_unmapped_operations">
+        <item quantity="one">%1$d new bank operation label was imported as an ordinary transaction. Its balance is correct, but its type may affect analytics.</item>
+        <item quantity="other">%1$d new bank operation labels were imported as ordinary transactions. Their balances are correct, but their types may affect analytics.</item>
+    </plurals>
+    <string name="statements_unmapped_labels">Bank labels: %1$s</string>
     <plurals name="credo_sync_unchanged">
         <item quantity="one">%1$d account was already up to date.</item>
         <item quantity="other">%1$d accounts were already up to date.</item>

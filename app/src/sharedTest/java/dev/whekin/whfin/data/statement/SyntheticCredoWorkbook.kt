@@ -29,6 +29,17 @@ object SyntheticCredoWorkbook {
         val beneficiaryAccount: String? = null,
     )
 
+    data class Columns(
+        val date: String = "A",
+        val operation: String = "B",
+        val debit: String = "C",
+        val credit: String = "D",
+        val balance: String = "E",
+        val description: String = "F",
+        val beneficiaryName: String = "G",
+        val beneficiaryAccount: String = "H",
+    )
+
     fun build(
         iban: String = IBAN,
         currency: String = "GEL",
@@ -37,15 +48,19 @@ object SyntheticCredoWorkbook {
         openingBalance: String = "100.00",
         openingBalanceLabel: String = "Opening Balance",
         closingBalance: String = "63.86",
+        closingBalanceLabel: String = "Closing Balance",
         rows: List<Row> = emptyList(),
         includeDetailsSheet: Boolean = true,
+        detailsSheetName: String = "Account Details",
+        transactionsSheetName: String = "Transactions",
+        columns: Columns = Columns(),
     ): ByteArray {
         val details = listOf(
             "Account Number" to iban,
             "Account Currency" to currency,
             "Statement Period" to "${periodFrom.format()} - ${periodTo.format()}",
             openingBalanceLabel to openingBalance,
-            "Closing Balance" to closingBalance,
+            closingBalanceLabel to closingBalance,
         ).mapIndexed { index, (label, value) ->
             xmlRow(index + 1, mapOf("A" to label, "B" to value))
         }.joinToString("\n")
@@ -53,34 +68,36 @@ object SyntheticCredoWorkbook {
         val header = xmlRow(
             1,
             mapOf(
-                "A" to "Date",
-                "B" to "Operation",
-                "C" to "Turnover DB",
-                "D" to "Turnover Cr",
-                "E" to "Balance",
-                "F" to "Description",
+                columns.date to "Date",
+                columns.operation to "Operation",
+                columns.debit to "Turnover DB",
+                columns.credit to "Turnover Cr",
+                columns.balance to "Balance",
+                columns.description to "Description",
+                columns.beneficiaryName to "Beneficiary Name",
+                columns.beneficiaryAccount to "Beneficiary Account",
             ),
         )
         val body = rows.mapIndexed { index, row ->
             xmlRow(
                 index + 2,
                 buildMap {
-                    put("A", serial(row.date))
-                    put("B", row.operation)
-                    row.debit?.let { put("C", it) }
-                    row.credit?.let { put("D", it) }
-                    row.balance?.let { put("E", it) }
-                    if (row.description.isNotEmpty()) put("F", row.description)
-                    row.beneficiaryName?.let { put("G", it) }
-                    row.beneficiaryAccount?.let { put("H", it) }
+                    put(columns.date, serial(row.date))
+                    put(columns.operation, row.operation)
+                    row.debit?.let { put(columns.debit, it) }
+                    row.credit?.let { put(columns.credit, it) }
+                    row.balance?.let { put(columns.balance, it) }
+                    if (row.description.isNotEmpty()) put(columns.description, row.description)
+                    row.beneficiaryName?.let { put(columns.beneficiaryName, it) }
+                    row.beneficiaryAccount?.let { put(columns.beneficiaryAccount, it) }
                 },
-                numericColumns = setOf("A"),
+                numericColumns = setOf(columns.date),
             )
         }.joinToString("\n")
 
         val sheets = buildList {
-            if (includeDetailsSheet) add("Account Details" to details)
-            add("Transactions" to "$header\n$body")
+            if (includeDetailsSheet) add(detailsSheetName to details)
+            add(transactionsSheetName to "$header\n$body")
         }
 
         val workbook = buildString {

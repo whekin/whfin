@@ -83,6 +83,29 @@ class CredoConnectedScreenTest {
     }
 
     @Test
+    fun safelyImportedUnknownBankLabelsAreVisibleInTheResult() {
+        show(
+            CredoSyncUiState(
+                stage = CredoSyncStage.Connected,
+                accounts = accounts,
+                results = listOf(
+                    CredoSyncFileResult(
+                        "Card •0000 · GEL",
+                        inserted = 1,
+                        unmappedOperationNames = setOf("new bank operation"),
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText(
+            context.resources.getQuantityString(R.plurals.statements_unmapped_operations, 1, 1),
+            substring = true,
+        ).performScrollTo().assertExists()
+        compose.onNodeWithText("new bank operation", substring = true).performScrollTo().assertExists()
+    }
+
+    @Test
     fun aRunWhereNothingChangedStillReportsItself() {
         show(
             CredoSyncUiState(

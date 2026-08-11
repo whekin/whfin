@@ -14,7 +14,7 @@ class CredoSmsReceiver : BroadcastReceiver() {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
         val app = context.applicationContext as WhfinApp
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-        val body = messages.joinToString("") { it.messageBody.orEmpty() }
+        val body = credoSmsBody(intent)
         // Login OTP is a process-only handoff and does not depend on the transaction monitoring
         // toggle. The Credo setup enables monitoring before requesting this same permission.
         app.credoOtpInbox.accept(body)

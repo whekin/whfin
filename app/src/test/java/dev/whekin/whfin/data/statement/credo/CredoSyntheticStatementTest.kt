@@ -5,6 +5,7 @@ import dev.whekin.whfin.data.statement.StatementOperation
 import dev.whekin.whfin.data.statement.StatementParsers
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Row
+import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Columns
 import dev.whekin.whfin.data.statement.MalformedStatementException
 import dev.whekin.whfin.data.statement.UnsupportedStatementException
 import org.junit.Assert.assertEquals
@@ -30,6 +31,35 @@ class CredoSyntheticStatementTest {
         )
 
         assertEquals(10_000L, statement.openingBalanceMinor)
+    }
+
+    @Test
+    fun `safe label formatting changes do not make a Credo statement unreadable`() {
+        val statement = CredoStatementParser.parse(
+            StatementFile(
+                "statement.xlsx",
+                SyntheticCredoWorkbook.build(
+                    openingBalanceLabel = "  opening   balance :  ",
+                    detailsSheetName = " Account   Details ",
+                    transactionsSheetName = " transactions ",
+                ),
+            ),
+        )
+
+        assertEquals(10_000L, statement.openingBalanceMinor)
+    }
+
+    @Test
+    fun `unknown balance summary labels fail before any importer can write`() {
+        val file = StatementFile(
+            "statement.xlsx",
+            SyntheticCredoWorkbook.build(
+                openingBalanceLabel = "Start amount",
+                closingBalanceLabel = "End amount",
+            ),
+        )
+
+        assertThrows(MalformedStatementException::class.java) { CredoStatementParser.parse(file) }
     }
 
     private val cardPayment = Row(
@@ -143,10 +173,35 @@ class CredoSyntheticStatementTest {
 
     @Test
     fun `an unmapped operation degrades to OTHER and keeps its raw name`() {
-        val row = parse(unknown).rows.single()
+        val statement = parse(unknown)
+        val row = statement.rows.single()
 
         assertEquals(StatementOperation.OTHER, row.operation)
         assertEquals("სრულიად უცნობი ოპერაცია", row.operationRaw)
+        assertEquals(setOf("სრულიად უცნობი ოპერაცია"), statement.unmappedOperationNames)
+    }
+
+    @Test
+    fun `transaction columns are resolved by header rather than fixed letters`() {
+        val columns = Columns(
+            date = "C",
+            operation = "F",
+            debit = "H",
+            credit = "A",
+            balance = "D",
+            description = "B",
+            beneficiaryName = "E",
+            beneficiaryAccount = "G",
+        )
+        val statement = CredoStatementParser.parse(
+            StatementFile(
+                "statement.xlsx",
+                SyntheticCredoWorkbook.build(rows = listOf(cardPayment), columns = columns),
+            ),
+        )
+
+        assertEquals(-714L, statement.rows.single().amountMinor)
+        assertEquals(9_286L, statement.rows.single().balanceAfterMinor)
     }
 
     @Test
@@ -157,7 +212,7 @@ class CredoSyntheticStatementTest {
             statement.closingBalanceMinor!! - statement.openingBalanceMinor!!,
             statement.rows.sumOf { it.amountMinor },
         )
-        var previous = statement.openingBalanceMinor!!
+        var previous = requireNotNull(statement.openingBalanceMinor)
         statement.rows.forEach { row ->
             assertEquals(previous + row.amountMinor, row.balanceAfterMinor)
             previous = row.balanceAfterMinor!!
@@ -192,5 +247,18 @@ class CredoSyntheticStatementTest {
         )
 
         assertThrows(MalformedStatementException::class.java) { parse(malformed) }
+    }
+
+    @Test
+    fun `a row with both debit and credit refuses ambiguity`() {
+        val ambiguous = Row(
+            date = LocalDate.of(2026, 1, 12),
+            operation = "გადახდები",
+            debit = "7.14",
+            credit = "7.14",
+            balance = "100.00",
+        )
+
+        assertThrows(MalformedStatementException::class.java) { parse(ambiguous) }
     }
 }

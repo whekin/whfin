@@ -79,6 +79,14 @@ This is a single-context repository with root domain documentation and system-wi
   полный payload в редакторе до Share. Ничего не пишется в Room/backup и нет telemetry. Unit/Compose tests
   и end-to-end synthetic failure → editor → raw confirmation → Android Sharesheet проверены на disposable
   Pixel при dark + RU + font scale 1.5.
+  MyCredo XLSX parser переносит безопасный format drift: sheet/metadata labels нормализуются,
+  финансовые колонки находятся по заголовкам независимо от букв и порядка, но IBAN/currency/period,
+  обе сводки баланса и все денежные колонки остаются обязательными до любой записи. Новый operation
+  label импортируется как обычная `OTHER` только при целой balance chain и явно показывается в результате.
+  Пять приватных current-format файлов проходят эту границу. Реальная OTP SMS на Samsung доказала OEM-gap:
+  One UI не включил manifest receiver WHFIN в доставленный broadcast при выданном `RECEIVE_SMS`, поэтому
+  `Connecting/AwaitingOtp` дополнительно держит узкий context receiver с `BROADCAST_SMS`; экран объясняет
+  автоподстановку и ручное подтверждение. Filled OTP визуально проверен dark/font 1.5 без скролла.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
   Первые два шага согласованного SMS-slice отделили monitoring от routing/import и вывели parsed
   Unrouted operation в Feed на её реальной дате. Она физически остаётся в `sms_diagnostics`, поэтому

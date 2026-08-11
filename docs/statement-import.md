@@ -98,7 +98,8 @@ numbers in over as many visits to statistics as it takes. The history walk there
 2. `canParse` is a structural probe over the real bytes and must not throw. A broken probe must not
    block the adapters after it. Do not identify a bank by file name alone.
 3. Map every known operation. An unmapped one degrades to `OTHER` while `operationRaw` keeps the raw
-   bank name, so the gap is visible instead of silently mis-categorized.
+   bank name. Preview and import results surface the number of such labels; the row is imported as an
+   ordinary non-transfer only after the same balance-chain proof as every known operation.
 4. Amounts are signed minor units: debit negative, credit positive. The balance chain
    (`previous + amount == balanceAfter`) is the correctness check that catches column mistakes.
 5. `conversionNoteMarkers` exists because transfer pairing runs over stored transactions long after
@@ -107,12 +108,19 @@ numbers in over as many visits to statistics as it takes. The history walk there
    generated fixtures; private files stay behind `WHFIN_REAL_STATEMENT` /
    `WHFIN_REAL_STATEMENTS_DIR`.
 
+Credo additionally treats punctuation, whitespace, case and column order as presentation rather than
+schema. Sheet and metadata labels are normalized, and transaction columns are resolved from their
+headers instead of fixed Excel letters. This tolerance is deliberately bounded: IBAN, currency,
+period, both balance-summary values and all financial columns remain required. An unrecognized rename
+there fails before Room is touched instead of guessing GEL or importing without a balance proof.
+
 ## Test harness
 
 - `app/src/sharedTest/.../SyntheticCredoWorkbook.kt` generates a Credo-shaped xlsx from synthetic
   data and is shared by JVM and instrumented tests. A TBC generator belongs next to it.
-- `CredoSyntheticStatementTest` (JVM) — metadata, period, signs, merchant/purchase date, own
-  movement, unmapped operation, balance chain, registry routing, and refusal of a foreign workbook.
+- `CredoSyntheticStatementTest` (JVM) — normalized metadata/sheet labels, reordered header-driven
+  columns, required balance summary, period, signs, merchant/purchase date, own movement, unmapped
+  operation, balance chain, registry routing, and refusal of a foreign workbook.
 - `StatementParsersTest` (JVM) — routing to the first accepting adapter, unsupported format,
   a throwing probe, repeated reads of the same bytes, conversion vocabulary.
 - `StatementImporterInstrumentedTest` (emulator, Room) — the shared pipeline: account and bank group

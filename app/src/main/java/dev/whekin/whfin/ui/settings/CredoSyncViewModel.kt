@@ -50,6 +50,7 @@ data class CredoSyncFileResult(
     val inserted: Int = 0,
     val duplicates: Int = 0,
     val reconciled: Int = 0,
+    val unmappedOperationNames: Set<String> = emptySet(),
     val errorCode: String? = null,
     /** The period this account was asked for, shown only when it failed. Dates carry no amounts. */
     val askedFrom: String? = null,
@@ -212,8 +213,15 @@ class CredoSyncViewModel internal constructor(
                         }
                     }.getOrNull()
                     if (preview?.changesNothing == true) {
-                        unchanged += 1
-                        _state.value = _state.value.copy(unchanged = unchanged)
+                        if (preview.unmappedOperationNames.isEmpty()) {
+                            unchanged += 1
+                            _state.value = _state.value.copy(unchanged = unchanged)
+                        } else {
+                            results += CredoSyncFileResult(
+                                accountLabel = account.maskedLabel,
+                                unmappedOperationNames = preview.unmappedOperationNames,
+                            )
+                        }
                         continue
                     }
                     val result = ByteArrayInputStream(bytes).use { input ->
@@ -230,6 +238,7 @@ class CredoSyncViewModel internal constructor(
                         inserted = result.inserted,
                         duplicates = result.duplicates,
                         reconciled = result.reconciled,
+                        unmappedOperationNames = result.unmappedOperationNames,
                     )
                 } catch (error: CredoSessionExpiredException) {
                     // Сессия умерла посреди прогона: остальные счета не молотим тем же 401,
@@ -303,6 +312,7 @@ class CredoSyncViewModel internal constructor(
                 var inserted = 0
                 var duplicates = 0
                 var reconciled = 0
+                val unmappedOperationNames = linkedSetOf<String>()
                 var errorCode: String? = null
                 var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
                 var failedDetail: String? = null
@@ -332,6 +342,7 @@ class CredoSyncViewModel internal constructor(
                         val preview = ByteArrayInputStream(bytes).use { input ->
                             StatementImporter(db).preview(input, account.fileName())
                         }
+                        unmappedOperationNames += preview.unmappedOperationNames
                         if (!preview.changesNothing) {
                             val result = ByteArrayInputStream(bytes).use { input ->
                                 StatementImporter(db).import(
@@ -389,12 +400,13 @@ class CredoSyncViewModel internal constructor(
                         originalStatementToken = failedOriginal?.first,
                         originalStatementFileName = failedOriginal?.second,
                     )
-                    inserted == 0 && reconciled == 0 -> unchanged += 1
+                    inserted == 0 && reconciled == 0 && unmappedOperationNames.isEmpty() -> unchanged += 1
                     else -> results += CredoSyncFileResult(
                         account.maskedLabel,
                         inserted = inserted,
                         duplicates = duplicates,
                         reconciled = reconciled,
+                        unmappedOperationNames = unmappedOperationNames,
                         askedFrom = failedWindow?.from?.toString(),
                         askedTo = failedWindow?.to?.toString(),
                         detail = failedDetail,

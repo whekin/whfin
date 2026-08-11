@@ -63,7 +63,15 @@ data class BankStatement(
     val openingBalanceMinor: Long?,
     val closingBalanceMinor: Long?,
     val rows: List<StatementRow>,
-)
+) {
+    /** Balance-proven bank labels that were imported but are not classified yet. */
+    val unmappedOperationNames: Set<String>
+        get() = rows.asSequence()
+            .filter { it.operation == StatementOperation.OTHER }
+            .map { it.operationRaw.trim() }
+            .filter { it.isNotEmpty() }
+            .toCollection(linkedSetOf())
+}
 
 data class StatementRow(
     /** Posting date, i.e. the statement's own Date column. */

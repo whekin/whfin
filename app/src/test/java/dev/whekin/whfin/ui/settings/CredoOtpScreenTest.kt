@@ -93,6 +93,10 @@ class CredoOtpScreenTest {
         compose.onNodeWithContentDescription(
             context.getString(R.string.credo_sync_otp_progress, 4, 4),
         ).assertExists()
+        compose.onNodeWithText(
+            context.getString(R.string.credo_sync_otp_autofill_hint),
+            substring = true,
+        ).assertExists()
         assertEquals(null, submitted)
         compose.onNodeWithText(context.getString(R.string.credo_sync_confirm)).performClick()
         assertEquals("4821", submitted)

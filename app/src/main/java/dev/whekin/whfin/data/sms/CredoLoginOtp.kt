@@ -1,5 +1,13 @@
 package dev.whekin.whfin.data.sms
 
+import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.provider.Telephony
+import androidx.core.content.ContextCompat
+import java.io.Closeable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -26,3 +34,35 @@ class CredoOtpInbox {
         return _codes.tryEmit(code)
     }
 }
+
+/**
+ * Foreground fallback for OEMs that omit a sideloaded app from the manifest SMS broadcast.
+ * It exists only while a MyCredo login is connecting or waiting for its OTP.
+ */
+internal class CredoOtpForegroundReceiver(
+    private val inbox: CredoOtpInbox,
+    private val bodyFrom: (Intent) -> String = ::credoSmsBody,
+) : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+        inbox.accept(bodyFrom(intent))
+    }
+}
+
+internal fun registerCredoOtpReceiver(context: Context, inbox: CredoOtpInbox): Closeable {
+    val appContext = context.applicationContext
+    val receiver = CredoOtpForegroundReceiver(inbox)
+    ContextCompat.registerReceiver(
+        appContext,
+        receiver,
+        IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION),
+        Manifest.permission.BROADCAST_SMS,
+        null,
+        ContextCompat.RECEIVER_EXPORTED,
+    )
+    return Closeable { runCatching { appContext.unregisterReceiver(receiver) } }
+}
+
+internal fun credoSmsBody(intent: Intent): String =
+    Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        .joinToString("") { it.messageBody.orEmpty() }

@@ -309,7 +309,33 @@ private fun ImportResultCard(
                     title = file.fileName?.let(::statementDisplayName)
                         ?: stringResource(R.string.statements_file_unnamed),
                     supportingText = result?.let {
-                        stringResource(R.string.statements_file_result, it.inserted, it.duplicates, it.reconciled)
+                        buildString {
+                            append(
+                                stringResource(
+                                    R.string.statements_file_result,
+                                    it.inserted,
+                                    it.duplicates,
+                                    it.reconciled,
+                                ),
+                            )
+                            if (it.unmappedOperationNames.isNotEmpty()) {
+                                append('\n')
+                                append(
+                                    pluralStringResource(
+                                        R.plurals.statements_unmapped_operations,
+                                        it.unmappedOperationNames.size,
+                                        it.unmappedOperationNames.size,
+                                    ),
+                                )
+                                append('\n')
+                                append(
+                                    stringResource(
+                                        R.string.statements_unmapped_labels,
+                                        it.unmappedOperationNames.sorted().joinToString(),
+                                    ),
+                                )
+                            }
+                        }
                     } ?: file.error,
                     markerColor = if (file.error == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     divider = index != files.lastIndex,

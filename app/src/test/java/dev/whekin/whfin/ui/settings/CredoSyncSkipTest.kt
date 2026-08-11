@@ -238,7 +238,7 @@ class CredoSyncSkipTest {
         await { vm.state.value.results.size == 1 }
 
         val result = vm.state.value.results.single()
-        assertEquals("STATEMENT_REJECTED", result.errorCode)
+        assertEquals("STATEMENT_UNREADABLE", result.errorCode)
         val token = result.originalStatementToken
         assertNotNull("Rejected downloaded XLSX has no export token", token)
         assertEquals("mycredo_gel_0000.xlsx", result.originalStatementFileName)
