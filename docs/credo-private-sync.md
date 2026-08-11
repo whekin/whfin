@@ -54,7 +54,12 @@ raw responses and credentials are never shown or logged. The UI shows the safe c
 unknown response; HTTP 403/429 is called out as website protection and tells the user not to retry in a
 loop. Authentication failures are not automatically retried. A failed statement does not roll back
 successful imports from other ledgers, and the existing transaction deduplication makes a deliberate
-later retry safe.
+later retry safe. After a partial transient failure, the primary action retries only the failed
+ledgers; successful ledgers are not requested again. The continuation set is device-local (outside
+backup) and survives process death or an in-place update. For an incomplete first sync created by an
+older build, WHFIN reconstructs the missing set from account-level `CREDO_SYNC` imports, but only while
+there is no completed-sync marker. A completed retry clears the continuation and restores normal
+all-account routine sync behavior.
 
 `OTP_NOT_SENT` is recoverable within the current challenge: WHFIN keeps the OTP screen open and offers
 one explicit resend instead of initiating a second login or retrying automatically. Both a GraphQL
@@ -82,7 +87,8 @@ Hardening (2026-07-16):
   `SESSION_EXPIRED`. Silent re-login is impossible by design: a fresh login requires an explicit OTP,
   and WHFIN never triggers an OTP SMS without the user.
 - These paths are covered by Robolectric tests with a scripted gateway (retry exhaustion, permanent
-  errors, 401 mid-batch, partial success keeping the connected state).
+  errors, 401 mid-batch, partial success keeping the connected state, targeted retry, and process
+  recreation between failure and retry).
 
 Credential hardening (2026-08-04):
 

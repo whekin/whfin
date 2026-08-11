@@ -556,7 +556,7 @@ private fun ConnectedContent(
             title = stringResource(
                 R.string.credo_sync_progress_title,
                 state.currentAccount,
-                state.accounts.size,
+                state.currentAccountTotal.takeIf { it > 0 } ?: state.accounts.size,
             ),
             body = when {
                 state.valuedDays > 0 -> stringResource(R.string.credo_sync_valuing, state.valuedDays)
@@ -571,7 +571,13 @@ private fun ConnectedContent(
         )
     }
     WhfinButton(
-        label = stringResource(if (syncing) R.string.credo_sync_syncing else R.string.credo_sync_now),
+        label = stringResource(
+            when {
+                syncing -> R.string.credo_sync_syncing
+                state.retryableFailures > 0 -> R.string.credo_sync_retry_failed
+                else -> R.string.credo_sync_now
+            },
+        ),
         onClick = onSync,
         modifier = Modifier.fillMaxWidth(),
         enabled = !syncing,
@@ -627,7 +633,13 @@ private fun ConnectedContent(
                                 )
                             }
                         } else {
-                            append(credoErrorMessage(file.errorCode))
+                            append(
+                                if (file.errorCode == "NETWORK_ERROR") {
+                                    stringResource(R.string.credo_sync_statement_network_error)
+                                } else {
+                                    credoErrorMessage(file.errorCode)
+                                },
+                            )
                         }
                         // A history walk may report both imported rows and the later rule/window
                         // that stopped it. The detail is always WHFIN's wording, never bank data.
@@ -830,6 +842,48 @@ private fun CredoRejectedStatementPreview() {
                             askedTo = "2026-08-11",
                             originalStatementToken = "memory-only-preview",
                             originalStatementFileName = "mycredo_gel_0001.xlsx",
+                        ),
+                    ),
+                ),
+                appLockEnabled = true,
+                onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
+                onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Credo partial retry light", widthDp = 400, heightDp = 900, showBackground = true)
+@Preview(
+    name = "Credo partial retry dark",
+    widthDp = 400,
+    heightDp = 900,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Credo partial retry font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f)
+@Preview(name = "Credo partial retry compact", widthDp = 400, heightDp = 640)
+@Composable
+private fun CredoPartialRetryPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            CredoSyncScreen(
+                state = CredoSyncUiState(
+                    stage = CredoSyncStage.Connected,
+                    accounts = previewAccounts,
+                    retryableFailures = 2,
+                    unchanged = 7,
+                    results = listOf(
+                        CredoSyncFileResult(
+                            accountLabel = "Current account · •0001 · EUR",
+                            errorCode = "NETWORK_ERROR",
+                            askedFrom = "2025-08-12",
+                            askedTo = "2026-08-12",
+                        ),
+                        CredoSyncFileResult(
+                            accountLabel = "Deposit · •0002 · GEL",
+                            errorCode = "NETWORK_ERROR",
+                            askedFrom = "2025-08-12",
+                            askedTo = "2026-08-12",
                         ),
                     ),
                 ),

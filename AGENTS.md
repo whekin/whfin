@@ -730,6 +730,12 @@ This is a single-context repository with root domain documentation and system-wi
   а истёкшая авторизация (401/UNAUTHORIZED) останавливает прогон целиком, сбрасывает сессию и
   переводит UI в повторный вход с кодом SESSION_EXPIRED — молчаливый re-login невозможен by design
   (нужен OTP). Покрыто Robolectric-тестами со скриптованным gateway.
+  Частичный transient-сбой теперь оставляет device-local continuation: повторная кнопка запрашивает
+  только неудавшиеся ledgers и не трогает уже импортированные, в том числе после process death или
+  install-r. Для незавершённого первого прогона старой версии missing-set восстанавливается из
+  account-level `CREDO_SYNC` imports только без completed-sync timestamp; успешная догрузка очищает
+  continuation и возвращает обычный all-account routine sync. UI говорит об ошибке одной выписки,
+  а не о недоступности Credo целиком. Покрыто тестами retry и ViewModel recreation.
   Security hardening (2026-08-04): сохранение стало настоящим opt-in только при активной App Lock;
   username и пароль лежат одним authenticated AES-256-GCM payload под non-exportable Android Keystore
   key без plaintext username. Неиспользованный pre-production migration path удалён: поддерживается

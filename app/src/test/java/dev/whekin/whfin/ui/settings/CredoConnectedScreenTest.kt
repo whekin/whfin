@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -41,6 +42,7 @@ class CredoConnectedScreenTest {
 
     private fun show(
         state: CredoSyncUiState,
+        onSync: () -> Unit = {},
         onLoadHistory: () -> Unit = {},
         onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
     ) {
@@ -53,7 +55,7 @@ class CredoConnectedScreenTest {
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
                     onResendOtp = {},
-                    onSync = {},
+                    onSync = onSync,
                     onLoadHistory = onLoadHistory,
                     onDisconnect = {},
                     onDismissError = {},
@@ -119,6 +121,30 @@ class CredoConnectedScreenTest {
         // No result rows at all, so the section has to appear for the count alone.
         compose.onNodeWithText(context.getString(R.string.credo_sync_result_section))
             .performScrollTo().assertExists()
+    }
+
+    @Test
+    fun partialNetworkFailureOffersATargetedRetryWithoutBlamingTheWholeConnection() {
+        var retryRequests = 0
+        show(
+            state = CredoSyncUiState(
+                stage = CredoSyncStage.Connected,
+                accounts = accounts,
+                retryableFailures = 2,
+                results = accounts.map { account ->
+                    CredoSyncFileResult(account.maskedLabel, errorCode = "NETWORK_ERROR")
+                },
+            ),
+            onSync = { retryRequests += 1 },
+        )
+
+        compose.onAllNodesWithText(context.getString(R.string.credo_sync_statement_network_error))[0]
+            .performScrollTo()
+            .assertExists()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_retry_failed))
+            .performScrollTo()
+            .performClick()
+        assertEquals(1, retryRequests)
     }
 
     @Test

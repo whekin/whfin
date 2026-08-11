@@ -9,6 +9,7 @@ import dev.whekin.whfin.data.credo.CredoCredentials
 import dev.whekin.whfin.data.credo.CredoGateway
 import dev.whekin.whfin.data.credo.CredoLoginChallenge
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
+import dev.whekin.whfin.data.credo.CredoRetryStore
 import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoHistoryScan
 import dev.whekin.whfin.data.credo.CredoSession
@@ -35,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -71,6 +73,8 @@ data class CredoSyncUiState(
     val mobileHint: String? = null,
     val accounts: List<CredoRemoteAccount> = emptyList(),
     val currentAccount: Int = 0,
+    /** Number of ledgers in this pass; a targeted retry can be smaller than [accounts]. */
+    val currentAccountTotal: Int = 0,
     /** Which year-long statement of a history load is in flight; 0 during a routine sync. */
     val currentChunk: Int = 0,
     /** Days of historical rates fetched so far, while a history load prices what it brought in. */
@@ -79,6 +83,8 @@ data class CredoSyncUiState(
     val results: List<CredoSyncFileResult> = emptyList(),
     /** Accounts whose statement would have added nothing: said once, not as a row each. */
     val unchanged: Int = 0,
+    /** Transient statement failures the primary action will retry without re-downloading successes. */
+    val retryableFailures: Int = 0,
     val errorCode: String? = null,
     val isBusy: Boolean = false,
 )
@@ -90,6 +96,7 @@ class CredoSyncViewModel internal constructor(
     private val syncDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
     private val retryDelayMillis: List<Long> = DEFAULT_RETRY_DELAYS,
     private val preferences: UiPreferences = UiPreferences(app),
+    private val retryStore: CredoRetryStore = CredoRetryStore(app),
     private val loadSavedCredentials: () -> CredoCredentials? = secretStore::load,
     private val saveCredentials: (CredoCredentials) -> Unit = secretStore::save,
 ) : AndroidViewModel(app) {
@@ -108,6 +115,7 @@ class CredoSyncViewModel internal constructor(
             hasSavedPassword = secretStore.hasCredentials(),
         ),
     )
+    private var retryAccountKeys: Set<String> = emptySet()
     val state: StateFlow<CredoSyncUiState> = _state.asStateFlow()
 
     private var challenge: CredoLoginChallenge? = null
@@ -167,6 +175,7 @@ class CredoSyncViewModel internal constructor(
             stage = CredoSyncStage.Connecting,
             errorCode = null,
             results = emptyList(),
+            retryableFailures = 0,
         )
         runCatching {
             gateway.initiateLogin(credentials)
@@ -214,18 +223,25 @@ class CredoSyncViewModel internal constructor(
 
     fun sync() {
         val activeSession = session ?: return fail("LOGIN_EXPIRED")
-        val accounts = _state.value.accounts
-        if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
+        val allAccounts = _state.value.accounts
+        if (allAccounts.isEmpty()) return fail("NO_ACCOUNTS")
         if (_state.value.stage == CredoSyncStage.Syncing) return
+        val accounts = retryAccountKeys
+            .takeIf(Set<String>::isNotEmpty)
+            ?.let { failed -> allAccounts.filter { it.stableKey in failed } }
+            .orEmpty()
+            .ifEmpty { allAccounts }
         viewModelScope.launch(syncDispatcher) {
             clearDownloadedStatements()
             val results = mutableListOf<CredoSyncFileResult>()
+            val nextRetryAccountKeys = mutableSetOf<String>()
             var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
                 val (fromIso, toIso) = statementRangeFor(account)
                 _state.value = _state.value.copy(
                     stage = CredoSyncStage.Syncing,
                     currentAccount = index + 1,
+                    currentAccountTotal = accounts.size,
                     currentPhase = StatementImporter.Phase.READING,
                     results = results.toList(),
                     unchanged = unchanged,
@@ -282,9 +298,11 @@ class CredoSyncViewModel internal constructor(
                         stage = CredoSyncStage.Disconnected,
                         accounts = emptyList(),
                         currentAccount = 0,
+                        currentAccountTotal = 0,
                         currentPhase = null,
                         results = results.toList(),
                         unchanged = unchanged,
+                        retryableFailures = 0,
                         errorCode = "SESSION_EXPIRED",
                     )
                     return@launch
@@ -300,6 +318,7 @@ class CredoSyncViewModel internal constructor(
                     val original = downloadedBytes?.let { bytes ->
                         retainDownloadedStatement(account, bytes)
                     }
+                    if (code.isCredoTransientError()) nextRetryAccountKeys += account.stableKey
                     CredoSyncFileResult(
                         account.maskedLabel,
                         errorCode = code,
@@ -314,12 +333,16 @@ class CredoSyncViewModel internal constructor(
                 }
                 results += fileResult
             }
+            retryAccountKeys = nextRetryAccountKeys
+            retryStore.save(nextRetryAccountKeys)
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
                 currentAccount = 0,
+                currentAccountTotal = 0,
                 currentPhase = null,
                 results = results,
                 unchanged = unchanged,
+                retryableFailures = nextRetryAccountKeys.size,
                 errorCode = null,
             )
             if (results.none { it.errorCode != null || it.detail != null }) {
@@ -395,6 +418,7 @@ class CredoSyncViewModel internal constructor(
                         preview.statement
                     } catch (error: CredoSessionExpiredException) {
                         results += CredoSyncFileResult(account.maskedLabel, errorCode = "SESSION_EXPIRED")
+                        retryAccountKeys = emptySet()
                         session = null
                         _state.value = _state.value.copy(
                             stage = CredoSyncStage.Disconnected,
@@ -404,6 +428,7 @@ class CredoSyncViewModel internal constructor(
                             currentPhase = null,
                             results = results.toList(),
                             unchanged = unchanged,
+                            retryableFailures = 0,
                             errorCode = "SESSION_EXPIRED",
                         )
                         return@launch
@@ -525,6 +550,8 @@ class CredoSyncViewModel internal constructor(
         pendingCredentials = null
         session = null
         syncAfterLogin = false
+        retryAccountKeys = emptySet()
+        retryStore.save(emptySet())
         clearDownloadedStatements()
         loginDraft.username = ""
         loginDraft.credential = ""
@@ -576,6 +603,10 @@ class CredoSyncViewModel internal constructor(
             activeSession to remoteAccounts
         }.onSuccess { (activeSession, remoteAccounts) ->
             remoteAccounts.forEach { rememberBankProduct(it) }
+            retryAccountKeys = retryStore.load()
+                .intersect(remoteAccounts.mapTo(mutableSetOf(), CredoRemoteAccount::stableKey))
+                .ifEmpty { recoverIncompleteInitialSync(remoteAccounts) }
+            retryStore.save(retryAccountKeys)
             session = activeSession
             if (rememberPassword) saveCredentials(credentials) else secretStore.clear()
             challenge = null
@@ -587,6 +618,7 @@ class CredoSyncViewModel internal constructor(
                 savedUsername = credentials.username,
                 hasSavedPassword = rememberPassword,
                 accounts = remoteAccounts,
+                retryableFailures = retryAccountKeys.size,
             )
             if (syncAfterLogin) {
                 syncAfterLogin = false
@@ -599,6 +631,28 @@ class CredoSyncViewModel internal constructor(
                 else code,
             )
         }
+    }
+
+    /**
+     * Upgrades cannot inherit the in-memory failure set written by an older APK. A first sync still
+     * has a durable footprint, though: successful ledgers have a CREDO_SYNC import while failed
+     * remote accounts do not. Resume only in that narrow state (no completed run marker, at least
+     * one success and at least one gap); after the resumed pass succeeds, the normal full-sync marker
+     * is written and this fallback can never silently narrow later routine syncs.
+     */
+    private suspend fun recoverIncompleteInitialSync(
+        remoteAccounts: List<CredoRemoteAccount>,
+    ): Set<String> {
+        val completed = remoteAccounts.filterTo(mutableSetOf()) { remote ->
+            val ledger = db.accountDao().byIbanAndCurrency(remote.accountNumber, remote.currency)
+                ?: return@filterTo false
+            db.statementImportDao().forAccount(ledger.id).any { it.origin == StatementImportOrigin.CREDO_SYNC }
+        }.mapTo(mutableSetOf(), CredoRemoteAccount::stableKey)
+        return incompleteInitialSyncTargets(
+            remoteAccounts = remoteAccounts,
+            completedAccountKeys = completed,
+            lastCompletedSyncAt = preferences.lastCredoSyncAt.first(),
+        )
     }
 
     private suspend fun rememberBankProduct(remote: CredoRemoteAccount) {
@@ -707,6 +761,17 @@ internal fun String.isCredoAuthError(): Boolean =
 
 internal fun String.isCredoTransientError(): Boolean =
     this == "NETWORK_ERROR" || this == "HTTP_500" || this == "HTTP_502" || this == "HTTP_503" || this == "HTTP_504"
+
+internal fun incompleteInitialSyncTargets(
+    remoteAccounts: List<CredoRemoteAccount>,
+    completedAccountKeys: Set<String>,
+    lastCompletedSyncAt: Long?,
+): Set<String> {
+    if (lastCompletedSyncAt != null || completedAccountKeys.isEmpty()) return emptySet()
+    val remoteKeys = remoteAccounts.mapTo(mutableSetOf(), CredoRemoteAccount::stableKey)
+    if (completedAccountKeys.containsAll(remoteKeys)) return emptySet()
+    return remoteKeys - completedAccountKeys
+}
 
 internal fun credoStatementRange(now: ZonedDateTime, from: ZonedDateTime): Pair<String, String> =
     DateTimeFormatter.ISO_INSTANT.format(from.toInstant()) to

@@ -90,6 +90,9 @@ class CredoSyncHardeningTest {
         ApplicationProvider.getApplicationContext<Application>()
             .getSharedPreferences("whfin_credo_secrets", android.content.Context.MODE_PRIVATE)
             .edit().clear().commit()
+        ApplicationProvider.getApplicationContext<Application>()
+            .getSharedPreferences("whfin_credo_device", android.content.Context.MODE_PRIVATE)
+            .edit().clear().commit()
     }
 
     private fun viewModel(
@@ -248,5 +251,145 @@ class CredoSyncHardeningTest {
 
         assertNull(vm.state.value.errorCode)
         assertEquals(3, vm.state.value.results.size)
+    }
+
+    @Test
+    fun retryAfterPartialNetworkFailureTouchesOnlyTheFailedLedgers() {
+        val accounts = (1L..9L).map { index ->
+            CredoRemoteAccount(
+                accountNumber = "GE00XX${index.toString().padStart(16, '0')}",
+                currency = "GEL",
+                accountId = index,
+                category = null,
+                type = null,
+            )
+        }
+        val calls = mutableMapOf<String, Int>()
+        val gateway = object : CredoGateway {
+            override suspend fun initiateLogin(credentials: CredoCredentials) =
+                CredoLoginChallenge("op", false, null, "salt")
+
+            override suspend fun sendOtp(operationId: String) = Unit
+
+            override suspend fun confirmLogin(
+                challenge: CredoLoginChallenge,
+                username: String,
+                otp: String?,
+            ) = CredoSession("token", null)
+
+            override suspend fun accounts(session: CredoSession) = accounts
+
+            override suspend fun downloadStatement(
+                session: CredoSession,
+                account: CredoRemoteAccount,
+                fromIso: String,
+                toIso: String,
+            ): ByteArray {
+                val key = account.stableKey
+                val attempt = calls.getOrDefault(key, 0) + 1
+                calls[key] = attempt
+                if (account.accountId!! <= 7L || attempt > 3) throw CredoApiException("EMPTY_STATEMENT")
+                throw CredoApiException("NETWORK_ERROR")
+            }
+        }
+        val vm = viewModel(gateway)
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+
+        vm.sync()
+        await { vm.state.value.results.size == 2 && vm.state.value.stage == CredoSyncStage.Connected }
+        assertEquals(7, vm.state.value.unchanged)
+        assertEquals(3, calls.getValue(accounts[7].stableKey))
+        assertEquals(3, calls.getValue(accounts[8].stableKey))
+
+        vm.sync()
+        await {
+            calls.getOrDefault(accounts[8].stableKey, 0) == 4 &&
+                vm.state.value.stage == CredoSyncStage.Connected
+        }
+
+        accounts.take(7).forEach { account ->
+            assertEquals("successful ledgers must not be downloaded again", 1, calls.getValue(account.stableKey))
+        }
+        assertEquals(4, calls.getValue(accounts[7].stableKey))
+        assertEquals(4, calls.getValue(accounts[8].stableKey))
+        assertTrue(vm.state.value.results.isEmpty())
+        assertEquals(2, vm.state.value.unchanged)
+    }
+
+    @Test
+    fun partialRetryTargetsSurviveViewModelRecreation() {
+        val accounts = (1L..9L).map { id ->
+            CredoRemoteAccount(
+                accountNumber = "GE00XX${id.toString().padStart(16, '0')}",
+                currency = if (id == 8L) "EUR" else "GEL",
+                accountId = id,
+                category = null,
+                type = null,
+            )
+        }
+        val calls = mutableMapOf<String, Int>()
+        val gateway = object : CredoGateway {
+            override suspend fun initiateLogin(credentials: CredoCredentials) =
+                CredoLoginChallenge("op", false, null, "salt")
+
+            override suspend fun sendOtp(operationId: String) = Unit
+
+            override suspend fun confirmLogin(
+                challenge: CredoLoginChallenge,
+                username: String,
+                otp: String?,
+            ) = CredoSession("token", null)
+
+            override suspend fun accounts(session: CredoSession) = accounts
+
+            override suspend fun downloadStatement(
+                session: CredoSession,
+                account: CredoRemoteAccount,
+                fromIso: String,
+                toIso: String,
+            ): ByteArray {
+                val attempt = calls.getOrDefault(account.stableKey, 0) + 1
+                calls[account.stableKey] = attempt
+                if (account.accountId!! <= 7L || attempt > 3) throw CredoApiException("EMPTY_STATEMENT")
+                throw CredoApiException("NETWORK_ERROR")
+            }
+        }
+        val first = viewModel(gateway)
+        first.connect("user", "password", remember = false)
+        await { first.state.value.stage == CredoSyncStage.Connected }
+        first.sync()
+        await { first.state.value.retryableFailures == 2 && first.state.value.stage == CredoSyncStage.Connected }
+
+        val recreated = viewModel(gateway)
+        recreated.connect("user", "password", remember = false)
+        await {
+            recreated.state.value.stage == CredoSyncStage.Connected &&
+                recreated.state.value.retryableFailures == 2
+        }
+        recreated.sync()
+        await { recreated.state.value.retryableFailures == 0 && recreated.state.value.unchanged == 2 }
+
+        accounts.take(7).forEach { account -> assertEquals(1, calls.getValue(account.stableKey)) }
+        assertEquals(4, calls.getValue(accounts[7].stableKey))
+        assertEquals(4, calls.getValue(accounts[8].stableKey))
+    }
+
+    @Test
+    fun upgradeRecoversOnlyMissingAccountsFromAnIncompleteFirstSync() {
+        val accounts = (1L..9L).map { id ->
+            CredoRemoteAccount("GE00XX${id.toString().padStart(16, '0')}", "GEL", id, null, null)
+        }
+
+        val targets = incompleteInitialSyncTargets(
+            remoteAccounts = accounts,
+            completedAccountKeys = accounts.take(7).mapTo(mutableSetOf(), CredoRemoteAccount::stableKey),
+            lastCompletedSyncAt = null,
+        )
+
+        assertEquals(accounts.takeLast(2).mapTo(mutableSetOf(), CredoRemoteAccount::stableKey), targets)
+        assertTrue(
+            incompleteInitialSyncTargets(accounts, targets, lastCompletedSyncAt = 123L).isEmpty(),
+        )
     }
 }
