@@ -108,10 +108,18 @@ numbers in over as many visits to statistics as it takes. The history walk there
    generated fixtures; private files stay behind `WHFIN_REAL_STATEMENT` /
    `WHFIN_REAL_STATEMENTS_DIR`.
 
+Credo own movements may cross the midnight bookkeeping boundary. Reconciliation therefore uses a
+±1-day window only for an exact, unique SMS transfer on the same ledger and with the same amount;
+ordinary purchases keep their date/merchant rule. A repeated import can repair a statement row that
+an older version inserted beside that SMS: the SMS row is upgraded in place and the redundant
+statement row is retired, preserving the original SMS transfer group.
+
 Credo additionally treats punctuation, whitespace, case and column order as presentation rather than
 schema. Sheet and metadata labels are normalized, and transaction columns are resolved from their
 headers instead of fixed Excel letters. This tolerance is deliberately bounded: IBAN, currency,
-period, both balance-summary values and all financial columns remain required. An unrecognized rename
+period, both balance-summary values and all financial columns remain required. Both the legacy
+`dd.MM.yyyy - dd.MM.yyyy` and current `dd/MM/yyyy : dd/MM/yyyy` period shapes are accepted. A zero-row
+export is valid only when its opening and closing balances agree. An unrecognized rename
 there fails before Room is touched instead of guessing GEL or importing without a balance proof.
 
 ## Test harness

@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.provider.Telephony
 import androidx.core.content.ContextCompat
 import java.io.Closeable
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -25,13 +26,35 @@ object CredoLoginOtp {
  * challenge. Neither the body nor the extracted code is persisted.
  */
 class CredoOtpInbox {
-    private val _codes = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val _codes = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
     val codes: SharedFlow<String> = _codes.asSharedFlow()
+    @Volatile private var challengeActive = false
+
+    /** Opens a fresh, foreground-only handoff window and rejects any code from an older login. */
+    fun beginChallenge() {
+        clearBufferedCode()
+        challengeActive = true
+    }
+
+    /** Restores delivery after a configuration-driven route recreation without discarding a code. */
+    fun ensureChallenge() {
+        challengeActive = true
+    }
+
+    fun endChallenge() {
+        challengeActive = false
+        clearBufferedCode()
+    }
 
     fun accept(body: String): Boolean {
+        if (!challengeActive) return false
         val code = CredoLoginOtp.extract(body) ?: return false
         return _codes.tryEmit(code)
     }
+
+    /** The collector owns the code now; a recreated screen must not refill a rejected/used OTP. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun clearBufferedCode() = _codes.resetReplayCache()
 }
 
 /**

@@ -103,6 +103,35 @@ class CredoOtpScreenTest {
     }
 
     @Test
+    fun rejectedOtpClearsAllDigitsForTheNextAttempt() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var state by mutableStateOf(CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp))
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = state,
+                    appLockEnabled = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+        listOf("1", "2", "3", "4").forEach { compose.onNodeWithText(it).performClick() }
+
+        compose.runOnIdle { state = state.copy(errorCode = "INVALID_OTP") }
+
+        compose.onNodeWithContentDescription(
+            context.getString(R.string.credo_sync_otp_progress, 0, 4),
+        ).assertExists()
+    }
+
+    @Test
     fun otpNotSentKeepsTheChallengeAndOffersResend() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
@@ -244,5 +273,34 @@ class CredoOtpScreenTest {
         compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_remember_password))
             .performScrollTo()
             .assertIsOff()
+    }
+
+    @Test
+    fun savedProfileIsACompactSyncActionWithoutCredentialFields() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(
+                        stage = CredoSyncStage.Disconnected,
+                        savedUsername = "saved-user",
+                        hasSavedPassword = true,
+                    ),
+                    appLockEnabled = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        compose.onNodeWithText(context.getString(R.string.credo_sync_now)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.credo_sync_experimental_body)).assertDoesNotExist()
     }
 }

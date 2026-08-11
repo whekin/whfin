@@ -92,6 +92,7 @@ fun CredoSyncRoute(
     onOpenAppLock: () -> Unit,
     routineSyncRequestKey: Int = 0,
     onRoutineSyncRequestConsumed: () -> Unit = {},
+    showCredentialManagement: Boolean = false,
     viewModel: CredoSyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -127,11 +128,30 @@ fun CredoSyncRoute(
     LaunchedEffect(routineSyncRequestKey, appLockEnabled) {
         if (routineSyncRequestKey > 0) {
             onRoutineSyncRequestConsumed()
-            if (appLockEnabled) viewModel.syncLatest()
+            if (appLockEnabled) {
+                otpInbox.beginChallenge()
+                viewModel.syncLatest()
+            }
         }
     }
     LaunchedEffect(otpInbox) {
-        otpInbox.codes.collect { code -> incomingOtp = code }
+        otpInbox.codes.collect { code ->
+            incomingOtp = code
+            otpInbox.clearBufferedCode()
+        }
+    }
+    LaunchedEffect(state.stage) {
+        when (state.stage) {
+            CredoSyncStage.Connecting,
+            CredoSyncStage.AwaitingOtp,
+            -> otpInbox.ensureChallenge()
+
+            CredoSyncStage.Connected -> otpInbox.endChallenge()
+            else -> Unit
+        }
+    }
+    DisposableEffect(otpInbox) {
+        onDispose { otpInbox.endChallenge() }
     }
     DisposableEffect(context, otpInbox, state.stage) {
         val registration = if (
@@ -151,10 +171,14 @@ fun CredoSyncRoute(
         onIncomingOtpConsumed = { incomingOtp = null },
         onOpenAppLock = onOpenAppLock,
         onConnect = { username, credential, rememberPassword ->
+            otpInbox.beginChallenge()
             viewModel.connect(username, credential, rememberPassword && appLockEnabled)
         },
         onSubmitOtp = viewModel::submitOtp,
-        onResendOtp = viewModel::resendOtp,
+        onResendOtp = {
+            otpInbox.beginChallenge()
+            viewModel.resendOtp()
+        },
         onSync = viewModel::sync,
         onLoadHistory = viewModel::loadHistory,
         onDisconnect = viewModel::disconnect,
@@ -166,6 +190,7 @@ fun CredoSyncRoute(
             pendingOriginalExport = PendingOriginalExport(token, fileName)
             createOriginalStatement.launch(fileName)
         },
+        showCredentialManagement = showCredentialManagement,
     )
 }
 
@@ -187,6 +212,7 @@ fun CredoSyncScreen(
     originalExportOutcome: CredoOriginalExportOutcome? = null,
     onDismissOriginalExportOutcome: () -> Unit = {},
     onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
+    showCredentialManagement: Boolean = false,
 ) {
     val usableSavedPassword = appLockEnabled && state.hasSavedPassword
     // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
@@ -210,6 +236,9 @@ fun CredoSyncScreen(
         if (state.stage == CredoSyncStage.AwaitingOtp || state.stage == CredoSyncStage.Connected) {
             draft.credential = ""
         }
+    }
+    LaunchedEffect(state.errorCode) {
+        if (state.stage == CredoSyncStage.AwaitingOtp && state.errorCode == "INVALID_OTP") otp = ""
     }
     LaunchedEffect(state.stage, incomingOtp) {
         if (state.stage == CredoSyncStage.AwaitingOtp && incomingOtp != null) {
@@ -243,13 +272,23 @@ fun CredoSyncScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        WhfinNotice(
-            title = stringResource(R.string.credo_sync_experimental_title),
-            body = stringResource(R.string.credo_sync_experimental_body),
-            icon = Icons.Default.Security,
-            kind = WhfinNoticeKind.Info,
-            modifier = Modifier.fillMaxWidth(),
+        val savedProfile = usableSavedPassword && state.stage in setOf(
+            CredoSyncStage.Disconnected,
+            CredoSyncStage.Connecting,
         )
+        if (!savedProfile && state.stage in setOf(
+                CredoSyncStage.Disconnected,
+                CredoSyncStage.Connecting,
+            )
+        ) {
+            WhfinNotice(
+                title = stringResource(R.string.credo_sync_experimental_title),
+                body = stringResource(R.string.credo_sync_experimental_body),
+                icon = Icons.Default.Security,
+                kind = WhfinNoticeKind.Info,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         state.errorCode?.let { errorCode ->
             WhfinNotice(
@@ -265,19 +304,29 @@ fun CredoSyncScreen(
         when (state.stage) {
             CredoSyncStage.Disconnected,
             CredoSyncStage.Connecting,
-            -> LoginContent(
-                username = draft.username,
-                onUsernameChange = { draft.username = it },
-                credential = draft.credential,
-                onCredentialChange = { draft.credential = it },
-                hasSavedPassword = usableSavedPassword,
-                rememberPassword = rememberPassword,
-                onRememberPasswordChange = { rememberPassword = it },
-                canRememberPassword = appLockEnabled,
-                onOpenAppLock = onOpenAppLock,
-                loading = state.stage == CredoSyncStage.Connecting,
-                onConnect = { onConnect(draft.username, draft.credential, rememberPassword) },
-            )
+            -> if (savedProfile) {
+                SavedProfileContent(
+                    loading = state.stage == CredoSyncStage.Connecting,
+                    ready = draft.username.isNotBlank(),
+                    showCredentialManagement = showCredentialManagement,
+                    onSync = { onConnect(draft.username, "", true) },
+                    onForget = onDisconnect,
+                )
+            } else {
+                LoginContent(
+                    username = draft.username,
+                    onUsernameChange = { draft.username = it },
+                    credential = draft.credential,
+                    onCredentialChange = { draft.credential = it },
+                    hasSavedPassword = false,
+                    rememberPassword = rememberPassword,
+                    onRememberPasswordChange = { rememberPassword = it },
+                    canRememberPassword = appLockEnabled,
+                    onOpenAppLock = onOpenAppLock,
+                    loading = state.stage == CredoSyncStage.Connecting,
+                    onConnect = { onConnect(draft.username, draft.credential, rememberPassword) },
+                )
+            }
 
             CredoSyncStage.AwaitingOtp -> Unit // handled by the fixed keypad surface above
 
@@ -291,8 +340,43 @@ fun CredoSyncScreen(
                 originalExportOutcome = originalExportOutcome,
                 onDismissOriginalExportOutcome = onDismissOriginalExportOutcome,
                 onSaveOriginalStatement = onSaveOriginalStatement,
+                showCredentialManagement = showCredentialManagement,
             )
         }
+    }
+}
+
+@Composable
+private fun SavedProfileContent(
+    loading: Boolean,
+    ready: Boolean,
+    showCredentialManagement: Boolean,
+    onSync: () -> Unit,
+    onForget: () -> Unit,
+) {
+    WhfinSectionLabel(stringResource(R.string.credo_sync_saved_profile_title))
+    Text(
+        stringResource(R.string.credo_sync_saved_profile_body),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    WhfinButton(
+        label = stringResource(
+            if (loading) R.string.credo_sync_connecting else R.string.credo_sync_now,
+        ),
+        onClick = onSync,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = ready && !loading,
+        leadingIcon = if (loading) null else Icons.Default.CloudSync,
+    )
+    if (showCredentialManagement) {
+        WhfinButton(
+            label = stringResource(R.string.credo_sync_disconnect),
+            onClick = onForget,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !loading,
+            style = WhfinActionStyle.Quiet,
+        )
     }
 }
 
@@ -458,24 +542,15 @@ private fun ConnectedContent(
     originalExportOutcome: CredoOriginalExportOutcome?,
     onDismissOriginalExportOutcome: () -> Unit,
     onSaveOriginalStatement: (String, String) -> Unit,
+    showCredentialManagement: Boolean,
 ) {
     val syncing = state.stage == CredoSyncStage.Syncing
-    WhfinSectionLabel(stringResource(R.string.credo_sync_accounts_section))
+    WhfinSectionLabel(stringResource(R.string.credo_sync_saved_profile_title))
     Text(
         stringResource(R.string.credo_sync_accounts_found, state.accounts.size),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-        state.accounts.forEachIndexed { index, account ->
-            WhfinLedgerRow(
-                title = account.maskedLabel,
-                supportingText = stringResource(R.string.credo_sync_statement_period),
-                icon = Icons.Default.AccountBalance,
-                divider = index != state.accounts.lastIndex,
-            )
-        }
-    }
     if (syncing) {
         WhfinNotice(
             title = stringResource(
@@ -630,13 +705,15 @@ private fun ConnectedContent(
         )
     }
 
-    WhfinButton(
-        label = stringResource(R.string.credo_sync_disconnect),
-        onClick = onDisconnect,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !syncing,
-        style = WhfinActionStyle.DestructiveSecondary,
-    )
+    if (showCredentialManagement) {
+        WhfinButton(
+            label = stringResource(R.string.credo_sync_disconnect),
+            onClick = onDisconnect,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !syncing,
+            style = WhfinActionStyle.Quiet,
+        )
+    }
 }
 
 @Composable

@@ -50,6 +50,19 @@ class CredoSyntheticStatementTest {
     }
 
     @Test
+    fun `current MyCredo slash dates and colon period separator are accepted`() {
+        val statement = CredoStatementParser.parse(
+            StatementFile(
+                "statement.xlsx",
+                SyntheticCredoWorkbook.build(periodText = "11/07/2026 : 11/08/2026"),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 7, 11), statement.periodFrom)
+        assertEquals(LocalDate.of(2026, 8, 11), statement.periodTo)
+    }
+
+    @Test
     fun `unknown balance summary labels fail before any importer can write`() {
         val file = StatementFile(
             "statement.xlsx",

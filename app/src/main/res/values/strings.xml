@@ -200,6 +200,8 @@
     <string name="credo_sync_error_title">Couldn’t continue</string>
     <string name="action_dismiss">Dismiss</string>
     <string name="credo_sync_sign_in_section">MYCREDO SIGN IN</string>
+    <string name="credo_sync_saved_profile_title">MYCREDO</string>
+    <string name="credo_sync_saved_profile_body">Your encrypted sign-in is saved on this device. Credo may ask you to confirm a new 4-digit code.</string>
     <string name="credo_sync_username">Username</string>
     <string name="credo_sync_password">Password</string>
     <string name="credo_sync_password_saved">Saved on this device</string>

@@ -40,6 +40,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 is PlannedRow.Duplicate -> Unit
                 is PlannedRow.Insert -> insert(entry, account, statement.currency, now)
                 is PlannedRow.Reconcile -> reconcile(entry, statement.currency)
+                is PlannedRow.ReconcileDuplicate -> reconcileDuplicate(entry, statement.currency)
             }
         }
 
@@ -133,6 +134,36 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 gelValueMinor = null,
                 gelRateOn = null,
             ),
+        )
+    }
+
+    /**
+     * Repairs the historical failure mode where a statement row landed beside, rather than on top
+     * of, an SMS row. The SMS row remains canonical because it can already carry the user's edits,
+     * diagnostics, and the other leg of an SMS transfer group.
+     */
+    private suspend fun reconcileDuplicate(entry: PlannedRow.ReconcileDuplicate, currency: String) {
+        val duplicate = db.transactionDao().byId(entry.duplicateStatementId) ?: return
+        val sms = db.transactionDao().byId(entry.transactionId) ?: return
+
+        duplicate.transferGroupId
+            ?.takeIf { it != sms.transferGroupId }
+            ?.let { derivedGroupId ->
+                // Statement pairings are derived and can be rebuilt. Clearing the whole group avoids
+                // leaving its other leg attached to a group whose matched leg is about to be retired.
+                db.transactionDao().clearTransferGroups(listOf(derivedGroupId))
+                db.transactionDao().deleteTransferGroups(listOf(derivedGroupId))
+            }
+        db.transactionDao().update(
+            duplicate.copy(
+                externalKey = null,
+                transferGroupId = null,
+                isVoided = true,
+            ),
+        )
+        reconcile(
+            PlannedRow.Reconcile(entry.row, entry.externalKey, entry.transactionId),
+            currency,
         )
     }
 

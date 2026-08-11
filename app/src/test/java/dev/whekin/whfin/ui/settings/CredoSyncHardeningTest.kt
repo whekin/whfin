@@ -36,6 +36,7 @@ class CredoSyncHardeningTest {
         /** Скрипт download-исходов по ключу счёта: очередь бросаемых кодов, null = успех недостижим. */
         private val downloadScript: MutableMap<String, ArrayDeque<String>>,
         private val requiresOtp: Boolean = false,
+        private val confirmError: String? = null,
     ) : CredoGateway {
         val downloadCalls = mutableListOf<String>()
 
@@ -53,7 +54,10 @@ class CredoSyncHardeningTest {
             challenge: CredoLoginChallenge,
             username: String,
             otp: String?,
-        ) = CredoSession(accessToken = "token", refreshToken = null)
+        ): CredoSession {
+            confirmError?.let { throw CredoApiException(it) }
+            return CredoSession(accessToken = "token", refreshToken = null)
+        }
 
         override suspend fun accounts(session: CredoSession) = listOf(
             CredoRemoteAccount("GE00XX0000000000000001", "GEL", 1, null, null),
@@ -126,6 +130,24 @@ class CredoSyncHardeningTest {
         assertEquals(3, gateway.downloadCalls.size)
         assertEquals(credentials, remembered)
         assertEquals("saved-user", vm.state.value.savedUsername)
+    }
+
+    @Test
+    fun invalidInputDuringOtpConfirmationIsAnOtpErrorNotACredentialError() {
+        val gateway = ScriptedGateway(
+            downloadScript = mutableMapOf(),
+            requiresOtp = true,
+            confirmError = "INVALID_INPUT_DATA",
+        )
+        val vm = viewModel(gateway)
+
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.AwaitingOtp }
+        vm.submitOtp("0000")
+        await { vm.state.value.errorCode != null }
+
+        assertEquals(CredoSyncStage.AwaitingOtp, vm.state.value.stage)
+        assertEquals("INVALID_OTP", vm.state.value.errorCode)
     }
 
     /** connect/sync прыгают через реальный IO-пул — ждём состояние с таймаутом. */

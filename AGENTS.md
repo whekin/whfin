@@ -85,7 +85,9 @@ This is a single-context repository with root domain documentation and system-wi
   финансовые колонки находятся по заголовкам независимо от букв и порядка, но IBAN/currency/period,
   обе сводки баланса и все денежные колонки остаются обязательными до любой записи. Новый operation
   label импортируется как обычная `OTHER` только при целой balance chain и явно показывается в результате.
-  Пять приватных current-format файлов проходят эту границу. Реальная OTP SMS на Samsung доказала OEM-gap:
+  Текущий period `dd/MM/yyyy : dd/MM/yyyy` поддержан вместе со старым форматом; пустая выписка допустима
+  только при равных opening/closing. Семь приватных current-format файлов проходят эту границу.
+  Реальная OTP SMS на Samsung доказала OEM-gap:
   One UI не включил manifest receiver WHFIN в доставленный broadcast при выданном `RECEIVE_SMS`, поэтому
   `Connecting/AwaitingOtp` дополнительно держит узкий context receiver без sender-permission filter:
   exact Samsung SMS показало, что One UI может broker-ить защищённый системный broadcast через sender,
@@ -745,14 +747,23 @@ This is a single-context repository with root domain documentation and system-wi
   а UI предупреждает, что явно сохранённая выписка не зашифрована.
   Реальные exports 2026-08-11 добавили двоеточие в `Opening Balance:` и raw operation
   `გადარიცხვის საკომისიო`; parser нормализует metadata-label suffix и маппит новый вариант как FEE.
-  Все пять сохранённых GEL/USD/EUR XLSX проходят structural, operation и balance-chain проверку.
+  Семь сохранённых GEL/USD/EUR XLSX, включая пустые current-format exports с period через `/` и `:`,
+  проходят structural, operation и balance-chain проверку.
   Credo setup теперь одним контекстным действием включает future SMS monitoring и запрашивает общий
-  `RECEIVE_SMS`. Точный `# SMS Code: NNNN` передаётся без replay/persistence из receiver в активный OTP
-  экран и только заполняет точки; payment OTP исключены, Confirm остаётся явным, `READ_SMS`/Inbox не нужны.
+  `RECEIVE_SMS`. Точный `# SMS Code: NNNN` передаётся через challenge-scoped one-code process buffer из
+  receiver в активный OTP экран и только заполняет точки; буфер закрывает receiver→collector race и
+  очищается после consume/reject/resend/завершения. Payment OTP исключены, Confirm остаётся явным,
+  `READ_SMS`/Inbox не нужны.
   App Lock хранит Credo как caller: после создания PIN и по Back возвращает прямо в незавершённый Credo
   flow как из Personal setup, так и из Settings.
   `OTP_NOT_SENT` и false-result OTP mutation теперь являются одним recoverable состоянием: challenge
   сохраняется, экран кратко объясняет сбой и даёт только явный resend без автоматического нового login.
+  Generic `INVALID_INPUT_DATA` при подтверждении OTP контекстно становится `INVALID_OTP`; неверные четыре
+  цифры сразу очищаются. Saved-profile UI не повторяет credential fields — обычный путь содержит одно действие
+  sync, а forget credential доступен тихой строкой только из Settings. Connected-result больше не дублирует
+  полный список счетов. Ночные own transfer/conversion сверяются с единственным SMS того же ledger и точной
+  суммы в ±1 день. Повторный импорт исправляет уже созданный statement+SMS дубль, сохраняя исходную SMS
+  transfer-group; неоднозначные кандидаты остаются нетронутыми.
   Успешный routine/full-history foreground-прогон сохраняет timestamp даже при no-op; через 30 дней Home
   показывает компактную строку `Сверить Credo` с возрастом сверки и числом активных SMS-операций, которые
   ждут выписку. После feature-upgrade baseline берётся из последнего `CREDO_SYNC` import, поэтому карточка

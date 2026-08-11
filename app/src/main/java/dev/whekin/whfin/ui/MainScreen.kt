@@ -476,6 +476,7 @@ fun MainScreen(
                             onOpenAppLock = { openAppLock(SecondaryDestination.CredoSync) },
                             routineSyncRequestKey = credoRoutineSyncRequestKey,
                             onRoutineSyncRequestConsumed = { credoRoutineSyncRequestKey = 0 },
+                            showCredentialManagement = credoReturnTo == SecondaryDestination.Settings,
                         )
                     }
                     ShellScene.Statements -> SecondaryPage(

@@ -59,6 +59,7 @@ class CredoOtpReceiverRegistrationTest {
     fun `foreground receiver forwards the current MyCredo template to the active inbox`() = runTest {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val inbox = CredoOtpInbox()
+        inbox.beginChallenge()
         val received = async(UnconfinedTestDispatcher(testScheduler)) { inbox.codes.first() }
         val receiver = CredoOtpForegroundReceiver(inbox) {
             "# SMS Code: 0519 Please make sure to enter this authorization code at www.mycredo.ge " +

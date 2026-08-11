@@ -44,9 +44,12 @@ class CredoStatementParserTest {
             assertEquals("bank", "Credo", statement.bank.provider)
             assertTrue("statement IBAN", statement.accountIban.matches(Regex("[A-Z]{2}[0-9]{2}[A-Z0-9]{18}")))
             assertTrue("statement currency", statement.currency.matches(Regex("[A-Z]{3}")))
-            assertTrue("statement rows", statement.rows.isNotEmpty())
             val openingBalance = requireNotNull(statement.openingBalanceMinor)
             val closingBalance = requireNotNull(statement.closingBalanceMinor)
+            assertTrue(
+                "empty statement must preserve its balance",
+                statement.rows.isNotEmpty() || openingBalance == closingBalance,
+            )
             assertEquals(
                 "closing balance",
                 closingBalance - openingBalance,

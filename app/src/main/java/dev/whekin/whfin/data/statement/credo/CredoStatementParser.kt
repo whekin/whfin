@@ -82,7 +82,7 @@ object CredoStatementParser : StatementParser {
             normalizedLabel(row.cells["A"].orEmpty()) to row.cells["B"].orEmpty().trim()
         }
         val period = requiredMeta(meta, "statement period", "period")
-            .split(Regex("""\s+-\s+"""), limit = 2)
+            .split(Regex("""\s+(?:-|:)\s+"""), limit = 2)
             .map { it.trim() }
             .takeIf { it.size == 2 }
             ?: malformed("Credo statement period is unreadable.")
@@ -216,7 +216,11 @@ object CredoStatementParser : StatementParser {
             ?: malformed("Credo statement field '${aliases.first()}' is unreadable.")
 
     private fun parseCredoDate(raw: String): LocalDate =
-        listOf(purchaseDateFormat, DateTimeFormatter.ISO_LOCAL_DATE)
+        listOf(
+            purchaseDateFormat,
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ISO_LOCAL_DATE,
+        )
             .firstNotNullOfOrNull { format -> runCatching { LocalDate.parse(raw, format) }.getOrNull() }
             ?: malformed("Credo statement date is unreadable.")
 

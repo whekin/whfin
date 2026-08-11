@@ -23,7 +23,9 @@ data class ImportPlan(
     val reviewCandidateIds: List<Long>,
 ) {
     val inserted: Int get() = entries.count { it is PlannedRow.Insert }
-    val reconciled: Int get() = entries.count { it is PlannedRow.Reconcile }
+    val reconciled: Int get() = entries.count {
+        it is PlannedRow.Reconcile || it is PlannedRow.ReconcileDuplicate
+    }
     val duplicates: Int get() = entries.count { it is PlannedRow.Duplicate }
     val totalRows: Int get() = entries.size
 
@@ -46,6 +48,18 @@ sealed interface PlannedRow {
         override val row: StatementRow,
         override val externalKey: String,
         val transactionId: Long,
+    ) : PlannedRow
+
+    /**
+     * A previous import inserted the statement row before its SMS evidence could be matched.
+     * Re-running the statement upgrades the original SMS row and retires the duplicate statement
+     * row, producing the same ledger state as a successful first-pass reconciliation.
+     */
+    data class ReconcileDuplicate(
+        override val row: StatementRow,
+        override val externalKey: String,
+        val transactionId: Long,
+        val duplicateStatementId: Long,
     ) : PlannedRow
 
     /** Already imported under this exact key; importing the same file again changes nothing. */

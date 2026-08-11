@@ -14,6 +14,9 @@ The batch continues when one ledger fails and shows a result per ledger. It neve
 authenticates in the background. The user's Home reminder tap is one explicit `sync latest` action: when
 an encrypted login is already saved it proceeds through sign-in, an explicit OTP confirmation, and the
 routine statement download without asking for a second tap. The in-memory session ends with the process.
+The routine saved-profile screen contains one sync action and no credential fields. Credential entry
+and the quiet forget action live in Settings; the connected result likewise avoids repeating the full
+account inventory already available on Accounts.
 
 A fully successful foreground run records its completion time even when every ledger was already up
 to date. On feature upgrade, the latest persisted `CREDO_SYNC` statement import is the initial freshness
@@ -56,6 +59,8 @@ later retry safe.
 `OTP_NOT_SENT` is recoverable within the current challenge: WHFIN keeps the OTP screen open and offers
 one explicit resend instead of initiating a second login or retrying automatically. Both a GraphQL
 error with that code and a false `operationSendChallenge` result reduce to the same safe local state.
+During OTP confirmation, Credo's otherwise generic `INVALID_INPUT_DATA` is presented as an invalid OTP,
+not as a login/password failure, and the rejected four digits are cleared for immediate retry.
 
 When the XLSX download itself succeeds but WHFIN rejects the workbook during parsing or balance
 validation, the affected result offers `Save original XLSX`. This copies the exact downloaded bytes
@@ -93,8 +98,10 @@ Credential hardening (2026-08-04):
   its dots, numeric keypad, Confirm and Resend actions never require a scroll. OTP still exists only in
   the current composition and is cleared when the challenge ends or is resent. Opening Credo setup also
   enables transaction SMS monitoring and requests the shared `RECEIVE_SMS` permission. A new exact
-  MyCredo login-code broadcast can fill the dots through a non-replaying process-only handoff; Inbox is
-  not queried, payment OTP templates do not match, and Confirm remains explicit. Because Samsung One UI
+  MyCredo login-code broadcast can fill the dots through a challenge-scoped, one-code process-only
+  handoff. The one-code buffer closes the receiver-to-collector race, is consumed immediately, and is
+  cleared on reject, resend, completion, or disposal. Inbox is not queried, payment OTP templates do
+  not match, and Confirm remains explicit. Because Samsung One UI
   may omit a sideloaded manifest receiver from an otherwise delivered `SMS_RECEIVED` broadcast, the live
   `Connecting` / `AwaitingOtp` route also owns a context-registered receiver; it is closed as soon as the
   login leaves those stages. Neither receiver adds a sender-permission filter: One UI can broker the

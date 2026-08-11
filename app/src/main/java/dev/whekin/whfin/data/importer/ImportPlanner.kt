@@ -26,22 +26,36 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
         // One draft may confirm only one statement line: without this the same SMS would be claimed
         // by every similar row in the file and the rest would be inserted as duplicates of it.
         val claimed = mutableSetOf<Long>()
-        val candidatesByDay = mutableMapOf<LocalDate, List<dev.whekin.whfin.data.db.TransactionEntity>>()
+        val candidatesByWindow = mutableMapOf<Pair<LocalDate, Boolean>, List<dev.whekin.whfin.data.db.TransactionEntity>>()
 
         val entries = statement.rows.map { row ->
             val key = identity.rowKey(row)
-            if (key in existingKeys) return@map PlannedRow.Duplicate(row, key)
-
             val day = row.purchaseDate ?: row.postedDate
-            val candidates = candidatesByDay.getOrPut(day) {
+            val crossesMidnight = row.operation.isOwnMovement
+            val candidates = candidatesByWindow.getOrPut(day to crossesMidnight) {
+                // Credo can stamp a movement made just after midnight on the previous bank posting
+                // day. Own movements still require one exact account+amount candidate, so a narrow
+                // ±1-day window fixes that boundary without guessing between purchases.
+                val fromDay = if (crossesMidnight) day.minusDays(1) else day
+                val throughDay = if (crossesMidnight) day.plusDays(1) else day
                 db.transactionDao().reconciliationCandidates(
                     account.id,
-                    day.atStartOfDay(zone).toInstant().toEpochMilli(),
-                    day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
+                    fromDay.atStartOfDay(zone).toInstant().toEpochMilli(),
+                    throughDay.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
                 )
             }.filterNot { it.id in claimed }
 
             val draft = StatementReconciler.match(row, candidates)
+            if (key in existingKeys) {
+                val existing = db.transactionDao().byExternalKey(key)
+                if (draft != null && existing?.source == dev.whekin.whfin.data.db.TxSource.STATEMENT &&
+                    !existing.isVoided
+                ) {
+                    claimed += draft.id
+                    return@map PlannedRow.ReconcileDuplicate(row, key, draft.id, existing.id)
+                }
+                return@map PlannedRow.Duplicate(row, key)
+            }
             if (draft != null) {
                 claimed += draft.id
                 PlannedRow.Reconcile(row, key, draft.id)

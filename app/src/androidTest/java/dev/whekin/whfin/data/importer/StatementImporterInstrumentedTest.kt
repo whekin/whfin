@@ -9,6 +9,8 @@ import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.TransferGroupEntity
+import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook
 import dev.whekin.whfin.data.statement.SyntheticCredoWorkbook.Row
@@ -251,6 +253,112 @@ class StatementImporterInstrumentedTest {
             db.transactionDao().observeByAccount(accountId).first()
                 .count { it.source == TxSource.STATEMENT },
         )
+    }
+
+    @Test
+    fun midnightSmsOwnMovementReconcilesWithThePreviousBankPostingDay() = runBlocking {
+        val accountId = db.accountDao().insert(
+            AccountEntity(
+                name = "Credo GEL",
+                type = AccountType.BANK,
+                groupId = db.financialGroupDao().insert(
+                    FinancialGroupEntity(name = "Credo", type = FinancialGroupType.BANK, provider = "Credo"),
+                ),
+                currency = "GEL",
+                iban = SyntheticCredoWorkbook.IBAN,
+            ),
+        )
+        val zone = java.time.ZoneId.of("Asia/Tbilisi")
+        db.transactionDao().insert(
+            dev.whekin.whfin.data.db.TransactionEntity(
+                accountId = accountId,
+                amountMinor = -28_886,
+                currency = "GEL",
+                occurredAt = LocalDate.of(2026, 8, 12).atStartOfDay(zone).toInstant().toEpochMilli() + 50 * 60_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                isTransfer = true,
+                externalKey = "sms|midnight-conversion",
+            ),
+        )
+        val statementRow = Row(
+            date = LocalDate.of(2026, 8, 11),
+            operation = "უნაღდო კონვერტაცია",
+            debit = "288.86",
+            balance = "211.14",
+            description = "currency exchange",
+        )
+
+        val result = importStatement(
+            periodFrom = LocalDate.of(2026, 8, 11),
+            periodTo = LocalDate.of(2026, 8, 12),
+            opening = "500.00",
+            closing = "211.14",
+            rows = listOf(statementRow),
+        )
+
+        assertEquals(1, result.reconciled)
+        assertEquals(0, result.inserted)
+        assertEquals(TxSource.STATEMENT, db.transactionDao().byId(1)?.source)
+    }
+
+    @Test
+    fun repeatedImportRepairsAStatementThatPreviouslyLandedBesideItsSms() = runBlocking {
+        val statementRow = Row(
+            date = LocalDate.of(2026, 8, 11),
+            operation = "უნაღდო კონვერტაცია",
+            debit = "288.86",
+            balance = "211.14",
+            description = "currency exchange",
+        )
+        val first = importStatement(
+            periodFrom = LocalDate.of(2026, 8, 11),
+            periodTo = LocalDate.of(2026, 8, 12),
+            opening = "500.00",
+            closing = "211.14",
+            rows = listOf(statementRow),
+        )
+        val originalStatement = db.transactionDao().observeByAccount(first.accountId).first()
+            .single { it.source == TxSource.STATEMENT }
+        val smsGroupId = db.transactionDao().insertTransferGroup(
+            TransferGroupEntity(
+                type = TransferGroupType.CONVERSION,
+                note = "Credo SMS conversion",
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        val zone = java.time.ZoneId.of("Asia/Tbilisi")
+        val smsId = db.transactionDao().insert(
+            dev.whekin.whfin.data.db.TransactionEntity(
+                accountId = first.accountId,
+                amountMinor = -28_886,
+                currency = "GEL",
+                occurredAt = LocalDate.of(2026, 8, 12).atStartOfDay(zone).toInstant().toEpochMilli() + 50 * 60_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                isTransfer = true,
+                transferGroupId = smsGroupId,
+                externalKey = "sms|late-reconciliation",
+            ),
+        )
+
+        val repaired = importStatement(
+            periodFrom = LocalDate.of(2026, 8, 11),
+            periodTo = LocalDate.of(2026, 8, 12),
+            opening = "500.00",
+            closing = "211.14",
+            rows = listOf(statementRow),
+        )
+
+        assertEquals(1, repaired.reconciled)
+        assertEquals(0, repaired.duplicates)
+        assertTrue(db.transactionDao().byId(originalStatement.id)!!.isVoided)
+        assertNull(db.transactionDao().byId(originalStatement.id)!!.externalKey)
+        val canonical = db.transactionDao().byId(smsId)!!
+        assertEquals(TxSource.STATEMENT, canonical.source)
+        assertEquals(smsGroupId, canonical.transferGroupId)
+        assertEquals(1, db.transactionDao().observeByAccount(first.accountId).first().count { it.amountMinor == -28_886L })
+        assertEquals(21_114L, db.transactionDao().sumByAccount(first.accountId))
     }
 
     @Test

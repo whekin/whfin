@@ -592,7 +592,13 @@ class CredoSyncViewModel internal constructor(
                 syncAfterLogin = false
                 sync()
             }
-        }.onFailure(::fail)
+        }.onFailure { error ->
+            val code = error.safeCode()
+            fail(
+                if (loginChallenge.requiresOtp && code == "INVALID_INPUT_DATA") "INVALID_OTP"
+                else code,
+            )
+        }
     }
 
     private suspend fun rememberBankProduct(remote: CredoRemoteAccount) {

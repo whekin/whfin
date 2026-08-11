@@ -45,6 +45,7 @@ object SyntheticCredoWorkbook {
         currency: String = "GEL",
         periodFrom: LocalDate = LocalDate.of(2026, 1, 1),
         periodTo: LocalDate = LocalDate.of(2026, 1, 31),
+        periodText: String = "${periodFrom.format()} - ${periodTo.format()}",
         openingBalance: String = "100.00",
         openingBalanceLabel: String = "Opening Balance",
         closingBalance: String = "63.86",
@@ -58,7 +59,7 @@ object SyntheticCredoWorkbook {
         val details = listOf(
             "Account Number" to iban,
             "Account Currency" to currency,
-            "Statement Period" to "${periodFrom.format()} - ${periodTo.format()}",
+            "Statement Period" to periodText,
             openingBalanceLabel to openingBalance,
             closingBalanceLabel to closingBalance,
         ).mapIndexed { index, (label, value) ->

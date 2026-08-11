@@ -207,6 +207,8 @@
     <string name="credo_sync_error_title">Не удалось продолжить</string>
     <string name="action_dismiss">Скрыть</string>
     <string name="credo_sync_sign_in_section">ВХОД В MYCREDO</string>
+    <string name="credo_sync_saved_profile_title">MYCREDO</string>
+    <string name="credo_sync_saved_profile_body">Зашифрованный вход сохранён на этом устройстве. Credo может попросить подтвердить новый 4-значный код.</string>
     <string name="credo_sync_username">Логин</string>
     <string name="credo_sync_password">Пароль</string>
     <string name="credo_sync_password_saved">Сохранён на устройстве</string>
