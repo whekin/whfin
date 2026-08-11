@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinField
@@ -61,6 +62,7 @@ import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -93,6 +95,8 @@ fun CredoSyncRoute(
     val scope = rememberCoroutineScope()
     var pendingOriginalExport by remember { mutableStateOf<PendingOriginalExport?>(null) }
     var originalExportOutcome by remember { mutableStateOf<CredoOriginalExportOutcome?>(null) }
+    var incomingOtp by remember { mutableStateOf<String?>(null) }
+    val otpInbox = remember(context) { (context.applicationContext as WhfinApp).credoOtpInbox }
     val createOriginalStatement = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(XLSX_MIME),
     ) { uri ->
@@ -116,10 +120,15 @@ fun CredoSyncRoute(
     LaunchedEffect(appLockEnabled) {
         if (appLockEnabled) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
     }
+    LaunchedEffect(otpInbox) {
+        otpInbox.codes.collect { code -> incomingOtp = code }
+    }
     CredoSyncScreen(
         state = state,
         appLockEnabled = appLockEnabled,
         loginDraft = viewModel.loginDraft,
+        incomingOtp = incomingOtp,
+        onIncomingOtpConsumed = { incomingOtp = null },
         onOpenAppLock = onOpenAppLock,
         onConnect = { username, credential, rememberPassword ->
             viewModel.connect(username, credential, rememberPassword && appLockEnabled)
@@ -145,6 +154,8 @@ fun CredoSyncScreen(
     state: CredoSyncUiState,
     appLockEnabled: Boolean,
     loginDraft: CredoLoginDraft? = null,
+    incomingOtp: String? = null,
+    onIncomingOtpConsumed: () -> Unit = {},
     onOpenAppLock: () -> Unit,
     onConnect: (String, String, Boolean) -> Unit,
     onSubmitOtp: (String) -> Unit,
@@ -178,6 +189,12 @@ fun CredoSyncScreen(
         if (state.stage != CredoSyncStage.AwaitingOtp) otp = ""
         if (state.stage == CredoSyncStage.AwaitingOtp || state.stage == CredoSyncStage.Connected) {
             draft.credential = ""
+        }
+    }
+    LaunchedEffect(state.stage, incomingOtp) {
+        if (state.stage == CredoSyncStage.AwaitingOtp && incomingOtp != null) {
+            otp = incomingOtp.filter(Char::isDigit).take(4)
+            onIncomingOtpConsumed()
         }
     }
 
@@ -628,7 +645,15 @@ private fun CredoDisconnectedPreview() {
     }
 }
 
-@Preview(name = "Credo OTP", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(name = "Credo OTP filled light", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(
+    name = "Credo OTP filled dark",
+    widthDp = 400,
+    heightDp = 700,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Credo OTP filled font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f)
+@Preview(name = "Credo OTP filled compact", widthDp = 400, heightDp = 640)
 @Composable
 private fun CredoOtpPreview() {
     WhfinTheme {
@@ -636,6 +661,7 @@ private fun CredoOtpPreview() {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp, mobileHint = "+995 *** ** 42"),
                 appLockEnabled = true,
+                incomingOtp = "4821",
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )

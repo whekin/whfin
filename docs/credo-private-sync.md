@@ -78,7 +78,12 @@ Credential hardening (2026-08-04):
   process death still clears it. Remembering is no longer preselected for new logins.
 - The four-digit OTP surface is fixed-height rather than part of the connector's scrolling content:
   its dots, numeric keypad, Confirm and Resend actions never require a scroll. OTP still exists only in
-  the current composition and is cleared when the challenge ends or is resent.
+  the current composition and is cleared when the challenge ends or is resent. Opening Credo setup also
+  enables transaction SMS monitoring and requests the shared `RECEIVE_SMS` permission. A new exact
+  MyCredo login-code broadcast can fill the dots through a non-replaying process-only handoff; Inbox is
+  not queried, payment OTP templates do not match, and Confirm remains explicit.
+- App Lock remembers Credo as its caller. Completing PIN setup or backing out returns directly to the
+  in-progress Credo form in both Personal setup and Settings instead of falling through to Settings.
 - The sign-in screen explains the direct connection, local encryption, non-persistence of OTP/session
   tokens, payment-free adapter surface and the important distinction between that surface and the
   privileges of the bank login itself.

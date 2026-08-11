@@ -42,8 +42,10 @@ Unsupported TBC/BOG channels are not advertised as coming soon.
 
 For the current Credo dogfood build, the recommended guided-but-skippable sequence is:
 
-1. Connect MyCredo, complete OTP, and perform the initial read-only account/history sync.
-2. Enable future Credo SMS monitoring with a clear disclosure and `RECEIVE_SMS`.
+1. Start MyCredo setup. This also enables future Credo SMS monitoring and contextually requests the
+   shared `RECEIVE_SMS` permission before the bank sends its login code.
+2. Connect MyCredo, let a new exact four-digit login SMS fill the local code surface, explicitly confirm
+   it, and perform the initial read-only account/history sync.
 3. Optionally find cards immediately through a bounded recent-message dry-run and separate `READ_SMS`;
    otherwise routing can finish when the next transaction message arrives.
 4. Show a summary of connected ledgers, SMS status, and any card/account decisions still waiting.

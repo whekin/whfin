@@ -92,4 +92,28 @@ class ShellNavigationTest {
             ),
         )
     }
+
+    @Test
+    fun `app lock setup returns to the Credo caller`() {
+        assertEquals(
+            SecondaryDestination.CredoSync,
+            appLockReturnDestination(SecondaryDestination.CredoSync),
+        )
+        assertEquals(
+            SecondaryDestination.Settings,
+            appLockReturnDestination(null),
+        )
+    }
+
+    @Test
+    fun `opening Credo setup enables SMS monitoring before navigation`() {
+        val events = mutableListOf<String>()
+
+        openCredoSetup(
+            enableSmsMonitoring = { events += "sms" },
+            openCredo = { events += "credo" },
+        )
+
+        assertEquals(listOf("sms", "credo"), events)
+    }
 }

@@ -120,7 +120,8 @@ production bank sync.
   key; не дублировать username открытым, исключить secret preferences,
   OTP и access/refresh tokens из Android backup и переносимого JSON.
 - [x] Первый этап оставить foreground-only: access/refresh tokens не персистятся, фоновых retry нет,
-  OTP не читается и не подтверждается автоматически.
+  новый four-digit MyCredo OTP подставляется только из process-only `RECEIVE_SMS` broadcast и никогда
+  не подтверждается автоматически.
 - [x] Проверить реальный username/password → OTP → список ledger’ов и импорт XLSX на OnePlus вручную, без передачи
   credentials разработчику и без instrumentation на пользовательском устройстве.
 - [ ] После dogfood решить, нужен ли session refresh/background sync; до этого не расширять secret scope.
@@ -133,7 +134,9 @@ production bank sync.
   вынести в явное действие; добавить пользовательское имя IBAN-контейнера и разделить everyday от
   savings/deposits без ложного объединения разных валют.
 - [x] Заменить системное OTP-поле на локальную четырёхточечную WHFIN-клавиатуру, не сохраняя OTP и не
-  включая автоматическое чтение/подтверждение.
+  подтверждая его автоматически. Вход в Credo setup контекстно включает future transaction monitoring,
+  запрашивает общий `RECEIVE_SMS` и может заполнить локальные точки из точного login-шаблона; Inbox для
+  этого не читается, replay/persistence кода нет.
 - [ ] Полный rollback результативной выписки не предлагать, пока транзакции и изменения реконсиляции
   не получат обратимый import provenance. Удаление audit record при сохранённых данных запрещено.
 

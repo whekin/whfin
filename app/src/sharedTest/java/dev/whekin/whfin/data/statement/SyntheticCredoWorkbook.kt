@@ -35,6 +35,7 @@ object SyntheticCredoWorkbook {
         periodFrom: LocalDate = LocalDate.of(2026, 1, 1),
         periodTo: LocalDate = LocalDate.of(2026, 1, 31),
         openingBalance: String = "100.00",
+        openingBalanceLabel: String = "Opening Balance",
         closingBalance: String = "63.86",
         rows: List<Row> = emptyList(),
         includeDetailsSheet: Boolean = true,
@@ -43,7 +44,7 @@ object SyntheticCredoWorkbook {
             "Account Number" to iban,
             "Account Currency" to currency,
             "Statement Period" to "${periodFrom.format()} - ${periodTo.format()}",
-            "Opening Balance" to openingBalance,
+            openingBalanceLabel to openingBalance,
             "Closing Balance" to closingBalance,
         ).mapIndexed { index, (label, value) ->
             xmlRow(index + 1, mapOf("A" to label, "B" to value))

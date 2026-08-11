@@ -19,10 +19,12 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.demo.RuntimeModeStore
 import dev.whekin.whfin.data.integrity.DataIntegrityChecker
+import dev.whekin.whfin.data.sms.CredoOtpInbox
 
 class WhfinApp : Application() {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val credoOtpInbox = CredoOtpInbox()
 
     val runtimeModes by lazy { RuntimeModeStore(this) }
     val userDb: WhfinDatabase by lazy { WhfinDatabase.get(this) }

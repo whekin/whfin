@@ -14,8 +14,11 @@ import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
+import dev.whekin.whfin.ui.openCredoSetup
 
-private enum class PersonalSetupPage { Home, CredoSync, BankSms, Statements, Backup, AppLock }
+internal enum class PersonalSetupPage { Home, CredoSync, BankSms, Statements, Backup, AppLock }
+
+internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
 
 @Composable
 fun PersonalSetupFlow(
@@ -42,7 +45,12 @@ fun PersonalSetupFlow(
     when (page) {
         PersonalSetupPage.Home -> PersonalSetupScreen(
             state = state,
-            onConnectCredo = { page = PersonalSetupPage.CredoSync },
+            onConnectCredo = {
+                openCredoSetup(
+                    enableSmsMonitoring = onEnableSmsMonitoring,
+                    openCredo = { page = PersonalSetupPage.CredoSync },
+                )
+            },
             onEnableSmsMonitoring = onEnableSmsMonitoring,
             onOpenBankSms = { page = PersonalSetupPage.BankSms },
             onImportStatement = { page = PersonalSetupPage.Statements },
@@ -92,7 +100,7 @@ fun PersonalSetupFlow(
         }
         PersonalSetupPage.AppLock -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.app_lock_title),
-            onBack = { page = PersonalSetupPage.CredoSync },
+            onBack = { page = personalSetupPageAfterAppLock() },
         ) {
             AppLockScreen(
                 timeout = appLockTimeout,
@@ -100,7 +108,10 @@ fun PersonalSetupFlow(
                 biometricAvailability = biometricAvailability,
                 biometricEnabled = biometricUnlockEnabled,
                 onTimeoutChange = onAppLockTimeoutChange,
-                onPinCreated = onAppLockPinCreated,
+                onPinCreated = { pin, timeout ->
+                    onAppLockPinCreated(pin, timeout)
+                    page = personalSetupPageAfterAppLock()
+                },
                 onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                 onOpenBiometricSettings = onOpenBiometricSettings,
             )

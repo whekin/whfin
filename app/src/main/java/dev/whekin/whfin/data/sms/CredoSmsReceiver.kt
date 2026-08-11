@@ -12,13 +12,16 @@ import kotlinx.coroutines.launch
 class CredoSmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
-        val pending = goAsync()
         val app = context.applicationContext as WhfinApp
+        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        val body = messages.joinToString("") { it.messageBody.orEmpty() }
+        // Login OTP is a process-only handoff and does not depend on the transaction monitoring
+        // toggle. The Credo setup enables monitoring before requesting this same permission.
+        app.credoOtpInbox.accept(body)
+        val pending = goAsync()
         app.appScope.launch {
             try {
                 if (!UiPreferences(app).smsImportEnabled.first()) return@launch
-                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-                val body = messages.joinToString("") { it.messageBody.orEmpty() }
                 if (!CredoSmsParser.isCredoCandidate(body)) return@launch
                 val receivedAt = messages.minOfOrNull { it.timestampMillis }
                     ?: System.currentTimeMillis()

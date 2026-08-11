@@ -697,6 +697,14 @@ This is a single-context repository with root domain documentation and system-wi
   failure не показывает ложное действие; временная копия живёт только в памяти процесса, сбрасывается
   новым sync/history scan или disconnect и не попадает в Room/backup/logs. Имя маскирует счёт до last4,
   а UI предупреждает, что явно сохранённая выписка не зашифрована.
+  Реальные exports 2026-08-11 добавили двоеточие в `Opening Balance:` и raw operation
+  `გადარიცხვის საკომისიო`; parser нормализует metadata-label suffix и маппит новый вариант как FEE.
+  Все пять сохранённых GEL/USD/EUR XLSX проходят structural, operation и balance-chain проверку.
+  Credo setup теперь одним контекстным действием включает future SMS monitoring и запрашивает общий
+  `RECEIVE_SMS`. Точный `# SMS Code: NNNN` передаётся без replay/persistence из receiver в активный OTP
+  экран и только заполняет точки; payment OTP исключены, Confirm остаётся явным, `READ_SMS`/Inbox не нужны.
+  App Lock хранит Credo как caller: после создания PIN и по Back возвращает прямо в незавершённый Credo
+  flow как из Personal setup, так и из Settings.
   Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`

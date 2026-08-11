@@ -37,6 +37,7 @@ object CredoStatementParser : StatementParser {
         "სწრაფი გადარიცხვა" to StatementOperation.TRANSFER_OUT,
         "გადარიცხვა კრედო ბანკის კლიენტებს შორის" to StatementOperation.TRANSFER_OUT,
         "ლარის გადარიცხვის საკომისიო" to StatementOperation.FEE,
+        "გადარიცხვის საკომისიო" to StatementOperation.FEE,
         "სწრაფი გადარიცხვის საკომისიო" to StatementOperation.FEE,
         "სხვა და სხვა საკომისიო" to StatementOperation.FEE,
         "გადახდები" to StatementOperation.BILL_PAYMENT,
@@ -71,7 +72,8 @@ object CredoStatementParser : StatementParser {
             ?: error("Sheet '$TRANSACTIONS_SHEET' not found — not a MYCREDO statement?")
 
         val meta = details.associate { row ->
-            (row.cells["A"] ?: "").trim() to (row.cells["B"] ?: "").trim()
+            (row.cells["A"] ?: "").trim().removeSuffix(":").trim() to
+                (row.cells["B"] ?: "").trim()
         }
         val period = meta["Statement Period"]
             ?.split("-")

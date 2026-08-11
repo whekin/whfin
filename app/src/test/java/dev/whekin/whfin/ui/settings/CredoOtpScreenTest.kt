@@ -69,6 +69,36 @@ class CredoOtpScreenTest {
     }
 
     @Test
+    fun incomingLoginOtpFillsTheLocalCodeWithoutSubmittingIt() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var submitted: String? = null
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
+                    appLockEnabled = true,
+                    incomingOtp = "4821",
+                    onOpenAppLock = {},
+                    onConnect = { _, _, _ -> },
+                    onSubmitOtp = { submitted = it },
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription(
+            context.getString(R.string.credo_sync_otp_progress, 4, 4),
+        ).assertExists()
+        assertEquals(null, submitted)
+        compose.onNodeWithText(context.getString(R.string.credo_sync_confirm)).performClick()
+        assertEquals("4821", submitted)
+    }
+
+    @Test
     fun otpKeypadAndConfirmationNeverLiveInAScrollContainer() {
         compose.setContent {
             WhfinTheme {

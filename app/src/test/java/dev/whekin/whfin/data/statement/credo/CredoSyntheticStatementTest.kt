@@ -20,6 +20,18 @@ import java.time.LocalDate
  */
 class CredoSyntheticStatementTest {
 
+    @Test
+    fun `opening balance label accepts the colon now emitted by MyCredo`() {
+        val statement = CredoStatementParser.parse(
+            StatementFile(
+                "statement.xlsx",
+                SyntheticCredoWorkbook.build(openingBalanceLabel = "Opening Balance:"),
+            ),
+        )
+
+        assertEquals(10_000L, statement.openingBalanceMinor)
+    }
+
     private val cardPayment = Row(
         date = LocalDate.of(2026, 1, 12),
         operation = "საბარათე ოპერაცია",
@@ -118,6 +130,15 @@ class CredoSyntheticStatementTest {
         )
         assertEquals(StatementOperation.FEE, rows[2].operation)
         assertEquals("GE00WH0000000000000001", rows[0].beneficiaryAccount)
+    }
+
+    @Test
+    fun `generic transfer fee emitted by current MyCredo maps to fee`() {
+        val row = parse(
+            fee.copy(operation = "გადარიცხვის საკომისიო"),
+        ).rows.single()
+
+        assertEquals(StatementOperation.FEE, row.operation)
     }
 
     @Test

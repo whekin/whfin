@@ -169,6 +169,18 @@ internal fun shellTargetFor(
 internal fun shellTransitionIsForward(from: ShellTarget, to: ShellTarget): Boolean =
     to.scene.depth >= from.scene.depth
 
+internal fun appLockReturnDestination(
+    caller: SecondaryDestination?,
+): SecondaryDestination = caller ?: SecondaryDestination.Settings
+
+internal fun openCredoSetup(
+    enableSmsMonitoring: () -> Unit,
+    openCredo: () -> Unit,
+) {
+    enableSmsMonitoring()
+    openCredo()
+}
+
 @Composable
 fun MainScreen(
     initialTab: Int = 0,
@@ -219,6 +231,7 @@ fun MainScreen(
     }
     var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
     }
@@ -250,6 +263,18 @@ fun MainScreen(
         secondaryDestination = SecondaryDestination.AccountTransactions
     }
 
+    fun openAppLock(returnTo: SecondaryDestination?) {
+        appLockReturnTo = returnTo
+        open(SecondaryDestination.AppLock)
+    }
+
+    fun enableSmsMonitoring() {
+        onSmsImportEnabledChange(true)
+        if (!hasSmsPermission) {
+            if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings()
+        }
+    }
+
     fun goBack(withHaptic: Boolean) {
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
@@ -261,10 +286,13 @@ fun MainScreen(
             secondaryDestination == SecondaryDestination.AnalyticsExpenses -> {
                 secondaryDestination = SecondaryDestination.Analytics
             }
+            secondaryDestination == SecondaryDestination.AppLock -> {
+                secondaryDestination = appLockReturnDestination(appLockReturnTo)
+                appLockReturnTo = null
+            }
             secondaryDestination == SecondaryDestination.CredoSync ||
                 secondaryDestination == SecondaryDestination.Statements ||
                 secondaryDestination == SecondaryDestination.SmsDiagnostics ||
-                secondaryDestination == SecondaryDestination.AppLock ||
                 secondaryDestination == SecondaryDestination.Backup ||
                 secondaryDestination == SecondaryDestination.Corrections ||
                 secondaryDestination == SecondaryDestination.DataHealth ||
@@ -394,9 +422,14 @@ fun MainScreen(
                             onOpenSystemSettings = onOpenSystemSettings,
                             onOpenStatements = { open(SecondaryDestination.Statements) },
                             onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
-                            onOpenCredoSync = { open(SecondaryDestination.CredoSync) },
+                            onOpenCredoSync = {
+                                openCredoSetup(
+                                    enableSmsMonitoring = ::enableSmsMonitoring,
+                                    openCredo = { open(SecondaryDestination.CredoSync) },
+                                )
+                            },
                             appLockTimeout = appLockTimeout,
-                            onOpenAppLock = { open(SecondaryDestination.AppLock) },
+                            onOpenAppLock = { openAppLock(returnTo = null) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
                             onOpenCorrections = { open(SecondaryDestination.Corrections) },
                             onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
@@ -419,7 +452,7 @@ fun MainScreen(
                     ) {
                         CredoSyncRoute(
                             appLockEnabled = appLockHasPin && appLockTimeout.enabled,
-                            onOpenAppLock = { open(SecondaryDestination.AppLock) },
+                            onOpenAppLock = { openAppLock(SecondaryDestination.CredoSync) },
                         )
                     }
                     ShellScene.Statements -> SecondaryPage(
@@ -437,16 +470,7 @@ fun MainScreen(
                             canRequestReceivePermission = canRequestSmsPermission,
                             hasHistoryPermission = hasSmsHistoryPermission,
                             canRequestHistoryPermission = canRequestSmsHistoryPermission,
-                            onEnableMonitoring = {
-                                onSmsImportEnabledChange(true)
-                                if (!hasSmsPermission) {
-                                    if (canRequestSmsPermission) {
-                                        onRequestSmsPermission()
-                                    } else {
-                                        onOpenSystemSettings()
-                                    }
-                                }
-                            },
+                            onEnableMonitoring = ::enableSmsMonitoring,
                             onRequestReceivePermission = onRequestSmsPermission,
                             onOpenFeed = {
                                 haptics.performHapticFeedback(WhfinHaptics.navigation)
@@ -478,7 +502,11 @@ fun MainScreen(
                             biometricAvailability = biometricAvailability,
                             biometricEnabled = biometricUnlockEnabled,
                             onTimeoutChange = onAppLockTimeoutChange,
-                            onPinCreated = onAppLockPinCreated,
+                            onPinCreated = { pin, timeout ->
+                                onAppLockPinCreated(pin, timeout)
+                                secondaryDestination = appLockReturnDestination(appLockReturnTo)
+                                appLockReturnTo = null
+                            },
                             onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                             onOpenBiometricSettings = onOpenBiometricSettings,
                         )
