@@ -386,6 +386,7 @@ interface TransactionDao {
     @Query(
             "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.transferGroupId IS NULL " +
+            "AND t.source IN ('STATEMENT', 'SMS') " +
             "AND t.isVoided = 0 AND t.occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY t.occurredAt"
     )
     suspend fun ungroupedTransfers(groupId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
@@ -393,12 +394,27 @@ interface TransactionDao {
     @Query(
         "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "LEFT JOIN transfer_groups g ON g.id = t.transferGroupId " +
-            "WHERE a.groupId = :groupId AND t.isTransfer = 1 " +
-            "AND (LOWER(t.note) LIKE '%exchange%' OR t.note LIKE '%კონვერტ%') " +
-            "AND (t.transferGroupId IS NULL OR g.type = 'CONVERSION') " +
+            "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.source IN ('STATEMENT', 'SMS') " +
+            "AND ((t.transferGroupId IS NOT NULL AND g.type = 'CONVERSION') " +
+            "OR (t.transferGroupId IS NULL AND " +
+            "(LOWER(t.note) LIKE '%exchange%' OR t.note LIKE '%კონვერტ%'))) " +
             "AND t.isVoided = 0 AND t.occurredAt BETWEEN :fromMillis AND :toMillis"
     )
     suspend fun conversionTransfers(groupId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
+
+    /**
+     * Imported pairings are derived data and may be rebuilt when later statements reveal better legs.
+     * Opening anchors are included only to detach groups produced by older pairing code; they are not
+     * candidates for a new pair.
+     */
+    @Query(
+        "SELECT DISTINCT t.transferGroupId FROM transactions t " +
+            "JOIN accounts a ON a.id = t.accountId " +
+            "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
+            "AND (t.source IN ('STATEMENT', 'SMS') " +
+            "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%'))",
+    )
+    suspend fun rebuildableTransferGroupIds(groupId: Long): List<Long>
 
     @Query("UPDATE transactions SET transferGroupId = NULL WHERE id = :id")
     suspend fun clearTransferGroup(id: Long)

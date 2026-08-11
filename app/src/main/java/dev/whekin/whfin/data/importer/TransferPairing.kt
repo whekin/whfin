@@ -41,6 +41,11 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
             .groupBy { it.groupId!! }
             .forEach { (groupId, _) ->
                 db.withTransaction {
+                    val importedGroupIds = db.transactionDao().rebuildableTransferGroupIds(groupId)
+                    if (importedGroupIds.isNotEmpty()) {
+                        db.transactionDao().clearTransferGroups(importedGroupIds)
+                        db.transactionDao().deleteTransferGroups(importedGroupIds)
+                    }
                     pair(
                         groupId = groupId,
                         // Full-history imports can hold conversions well beyond the former
@@ -48,7 +53,7 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
                         // boundary pairs permanently single-legged.
                         fromMillis = 0L,
                         toMillis = LocalDate.now().plusDays(2).atMillis() - 1,
-                        conversionsOnly = true,
+                        conversionsOnly = false,
                     )
                 }
             }
@@ -111,33 +116,59 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
         conversionsOnly: Boolean,
     ): Boolean {
         if (other.accountId == first.accountId) return false
-        val mutualIbanEvidence = first.counterpartyIban == accountsById[other.accountId]?.iban ||
-            other.counterpartyIban == accountsById[first.accountId]?.iban
+        val firstIbanEvidence = ibanEvidence(first, other, accountsById)
+        val otherIbanEvidence = ibanEvidence(other, first, accountsById)
+        val hasIbanEvidence = firstIbanEvidence == true || otherIbanEvidence == true
+        val ibanContradicts = firstIbanEvidence == false || otherIbanEvidence == false
         val oppositeSigns = (first.amountMinor < 0) != (other.amountMinor < 0)
         val distance = kotlin.math.abs(other.occurredAt - first.occurredAt)
 
-        val conversion = first.currency != other.currency && oppositeSigns && mutualIbanEvidence &&
+        val conversion = first.currency != other.currency && oppositeSigns && hasIbanEvidence &&
+            !ibanContradicts &&
             (conversionsOnly || isExchange(first) || isExchange(other)) &&
             distance <= CONVERSION_WINDOW_MILLIS
         if (conversionsOnly) return conversion
 
         val plainTransfer = other.currency == first.currency &&
             other.amountMinor == -first.amountMinor &&
+            !ibanContradicts &&
             distance <= TRANSFER_WINDOW_MILLIS
         return plainTransfer || conversion
     }
 
-    /** Mutual IBAN evidence wins over closeness in time; otherwise the nearest row is taken. */
+    /** Two-sided, then one-sided IBAN evidence wins over mere closeness in time. */
     private fun distance(
         first: TransactionEntity,
         other: TransactionEntity,
         accountsById: Map<Long, AccountEntity>,
     ): Long {
-        val mutual = first.counterpartyIban == accountsById[other.accountId]?.iban &&
-            other.counterpartyIban == accountsById[first.accountId]?.iban
-        return (if (mutual) 0L else MUTUAL_IBAN_BONUS_MILLIS) +
+        val evidenceCount = listOf(
+            ibanEvidence(first, other, accountsById),
+            ibanEvidence(other, first, accountsById),
+        ).count { it == true }
+        return (2 - evidenceCount) * IBAN_EVIDENCE_BONUS_MILLIS +
             kotlin.math.abs(other.occurredAt - first.occurredAt)
     }
+
+    /**
+     * Null means that this row provides no IBAN evidence. False means that the statement explicitly
+     * names a different IBAN, so pairing it to [candidate] would contradict the source even when the
+     * named account is old and no longer present in the app.
+     */
+    private fun ibanEvidence(
+        tx: TransactionEntity,
+        candidate: TransactionEntity,
+        accountsById: Map<Long, AccountEntity>,
+    ): Boolean? {
+        val counterpartyIban = tx.counterpartyIban.normalizedIban() ?: return null
+        val candidateIban = accountsById[candidate.accountId]?.iban.normalizedIban() ?: return null
+        return counterpartyIban == candidateIban
+    }
+
+    private fun String?.normalizedIban(): String? = this
+        ?.filterNot(Char::isWhitespace)
+        ?.uppercase()
+        ?.takeIf(String::isNotEmpty)
 
     /** Pairing runs over stored rows, so the vocabulary of a conversion comes from the adapters. */
     private fun isExchange(tx: TransactionEntity): Boolean = tx.note?.let { note ->
@@ -149,6 +180,6 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
     private companion object {
         const val TRANSFER_WINDOW_MILLIS = 3L * 24 * 60 * 60 * 1000
         const val CONVERSION_WINDOW_MILLIS = 12L * 60 * 60 * 1000
-        const val MUTUAL_IBAN_BONUS_MILLIS = 10L * 24 * 60 * 60 * 1000
+        const val IBAN_EVIDENCE_BONUS_MILLIS = 10L * 24 * 60 * 60 * 1000
     }
 }
