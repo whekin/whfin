@@ -306,6 +306,9 @@
     <string name="sms_history_permission_compact_body">Optional Android access · dry run before any import</string>
     <string name="sms_diagnostics_attention">NEEDS ACTION</string>
     <string name="sms_diagnostics_recent">RECENT ACTIVITY</string>
+    <string name="sms_reason_statement_covers">The statement for this day is already loaded and holds no matching row.</string>
+    <string name="sms_covered_warning_title">The statement already covers this day</string>
+    <string name="sms_covered_warning_body">Linking this message writes a new operation. If the bank filed the same money under another name, the ledger will hold it twice.</string>
     <plurals name="sms_ignored_collapsed">
         <item quantity="one">%d safely ignored message</item>
         <item quantity="other">%d safely ignored messages</item>
@@ -446,6 +449,7 @@
     <string name="data_health_family_allocations">A split does not match its operation</string>
     <string name="data_health_family_corrections">A correction disagrees with what it hides</string>
     <string name="data_health_family_merges">A merged copy does not point at a live row</string>
+    <string name="data_health_family_duplicates">One operation is recorded twice</string>
     <string name="data_health_family_transfers">A transfer lost one of its legs</string>
     <string name="data_health_family_debts">A debt does not match its events</string>
     <string name="data_health_family_links">A record points at something missing</string>

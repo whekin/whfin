@@ -912,10 +912,19 @@ private fun DiagnosticRow(
     val time = remember(item.receivedAt) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(item.receivedAt))
     }
+    // A message held back by the coverage rule is not the same question as an ambiguous one, and
+    // looked identical: "choose an account" invites exactly the second row the rule just prevented.
+    val heldByStatement = item.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
     WhfinLedgerRow(
         title = stringResource(presentation.title),
-        supportingText = stringResource(R.string.sms_diagnostic_detail, details, time),
-        supportingMaxLines = 3,
+        supportingText = buildString {
+            append(stringResource(R.string.sms_diagnostic_detail, details, time))
+            if (heldByStatement) {
+                append('\n')
+                append(stringResource(R.string.sms_reason_statement_covers))
+            }
+        },
+        supportingMaxLines = if (heldByStatement) 5 else 3,
         icon = presentation.icon,
         iconTint = presentation.color(),
         markerColor = if (item.needsAttention()) presentation.color() else null,

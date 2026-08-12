@@ -38,6 +38,7 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.sms.isCurrencyExchangeLedger
 import dev.whekin.whfin.ui.currencySymbol
@@ -177,6 +178,17 @@ fun SmsRoutingSheet(
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // The automatic paths refuse to write inside a covered period; a person may still overrule
+        // that, because a bank does sometimes print the same money under another name. What they
+        // must not do is overrule it without being told what it costs.
+        if (diagnostic.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD) {
+            WhfinNotice(
+                title = stringResource(R.string.sms_covered_warning_title),
+                body = stringResource(R.string.sms_covered_warning_body),
+                kind = WhfinNoticeKind.Attention,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         diagnostic.amountMinor?.let { amount ->

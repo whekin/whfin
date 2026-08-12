@@ -135,6 +135,7 @@ internal fun integrityFamilyLabel(code: String): Int = when {
     // Checked before "correction": a merge is not one, and calling it that would send the user
     // looking for an audit record that was never supposed to exist.
     code.contains("merged") -> R.string.data_health_family_merges
+    code == "duplicate_statement_row" -> R.string.data_health_family_duplicates
     code.contains("correction") -> R.string.data_health_family_corrections
     code.contains("transfer_group") -> R.string.data_health_family_transfers
     code.contains("debt") -> R.string.data_health_family_debts

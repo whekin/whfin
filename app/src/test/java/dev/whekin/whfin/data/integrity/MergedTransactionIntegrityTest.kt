@@ -84,6 +84,69 @@ class MergedTransactionIntegrityTest {
     }
 
     @Test
+    fun `an sms row standing beside its statement twin is one purchase counted twice`() = runBlocking {
+        db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -2_500,
+                currency = "GEL",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+                externalKey = "stmt|1",
+                createdAt = 1,
+            ),
+        )
+        db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -2_500,
+                currency = "GEL",
+                occurredAt = 2_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                externalKey = "sms|1",
+                createdAt = 2,
+            ),
+        )
+
+        val codes = DataIntegrityChecker(db).run().issues.map { it.code }
+
+        assertEquals(listOf("duplicate_statement_row"), codes)
+    }
+
+    @Test
+    fun `the same money on different days is not a duplicate`() = runBlocking {
+        val day = 24L * 60 * 60 * 1000
+        db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -2_500,
+                currency = "GEL",
+                occurredAt = day,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.STATEMENT,
+                externalKey = "stmt|1",
+                createdAt = 1,
+            ),
+        )
+        db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -2_500,
+                currency = "GEL",
+                occurredAt = day * 5,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                externalKey = "sms|1",
+                createdAt = 2,
+            ),
+        )
+
+        assertTrue(DataIntegrityChecker(db).run().isHealthy)
+    }
+
+    @Test
     fun `a merge pointing at a retired row means the money disappeared`() = runBlocking {
         val retired = row(voided = true, externalKey = "stmt|1", mergedInto = null)
         row(voided = true, mergedInto = retired)

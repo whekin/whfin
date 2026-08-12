@@ -4,6 +4,9 @@ import dev.whekin.whfin.data.db.DebtEventKind
 import dev.whekin.whfin.data.db.DebtStatus
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.WhfinDatabase
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 enum class IntegritySeverity { ERROR, WARNING }
 
@@ -23,7 +26,13 @@ data class IntegrityReport(val issues: List<IntegrityIssue>) {
  * Read-only checks for invariants that Room foreign keys cannot express.  It is deliberately a
  * separate module so backup/release diagnostics can run it without mutating the user's ledger.
  */
-class DataIntegrityChecker(private val db: WhfinDatabase) {
+class DataIntegrityChecker(
+    private val db: WhfinDatabase,
+    private val zone: ZoneId = ZoneId.of("Asia/Tbilisi"),
+) {
+    private fun Long.dayIn(zone: ZoneId): LocalDate =
+        Instant.ofEpochMilli(this).atZone(zone).toLocalDate()
+
     suspend fun run(): IntegrityReport {
         val issues = buildList {
             val accounts = db.accountDao().allForIntegrity().associateBy { it.id }
@@ -100,6 +109,33 @@ class DataIntegrityChecker(private val db: WhfinDatabase) {
                     add(error("revoked_without_correction", "transactions", transaction.id, "Only a correction row can carry a revocation."))
                 }
             }
+
+            // The two layers describe the same money, so an SMS row that stands beside a statement
+            // row of the same ledger, amount and day is one purchase counted twice. The automatic
+            // paths no longer create these, but a ledger that already holds a pair from an older
+            // build has no other way to learn of it: nothing about either row looks wrong alone.
+            val statementByDay = transactions
+                .filterNot { it.isVoided }
+                .filter { it.source == TxSource.STATEMENT }
+                .groupBy { Triple(it.accountId, it.amountMinor, it.occurredAt.dayIn(zone)) }
+            transactions
+                .filterNot { it.isVoided }
+                .filter { it.source == TxSource.SMS }
+                .forEach { sms ->
+                    val twins = statementByDay[
+                        Triple(sms.accountId, sms.amountMinor, sms.occurredAt.dayIn(zone)),
+                    ].orEmpty()
+                    if (twins.isNotEmpty()) {
+                        add(
+                            error(
+                                "duplicate_statement_row",
+                                "transactions",
+                                sms.id,
+                                "An SMS row stands beside a statement row of the same money.",
+                            ),
+                        )
+                    }
+                }
 
             // A transfer group is the only thing that keeps the legs of one movement together, so a
             // group left with a single active leg means the other side was lost and the money now

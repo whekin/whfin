@@ -317,6 +317,9 @@
     <string name="sms_history_permission_compact_body">Отдельный доступ Android · предпросмотр перед импортом</string>
     <string name="sms_diagnostics_attention">НУЖНО ДЕЙСТВИЕ</string>
     <string name="sms_diagnostics_recent">НЕДАВНЯЯ АКТИВНОСТЬ</string>
+    <string name="sms_reason_statement_covers">Выписка за этот день уже загружена, и подходящей строки в ней нет.</string>
+    <string name="sms_covered_warning_title">Выписка за этот день уже загружена</string>
+    <string name="sms_covered_warning_body">Привязка создаст новую операцию. Если банк записал те же деньги под другим названием, они окажутся в базе дважды.</string>
     <plurals name="sms_ignored_collapsed">
         <item quantity="one">%d пропущенное сообщение</item>
         <item quantity="few">%d пропущенных сообщения</item>
@@ -461,6 +464,7 @@
     <string name="data_health_family_allocations">Доля не сходится со своей операцией</string>
     <string name="data_health_family_corrections">Исправление расходится с тем, что скрывает</string>
     <string name="data_health_family_merges">Объединённая копия не указывает на живую строку</string>
+    <string name="data_health_family_duplicates">Одна операция записана дважды</string>
     <string name="data_health_family_transfers">У перевода потеряна одна нога</string>
     <string name="data_health_family_debts">Долг не сходится со своими событиями</string>
     <string name="data_health_family_links">Запись ссылается на отсутствующее</string>
