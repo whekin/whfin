@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.preferences.AppLockTimeout
+import dev.whekin.whfin.data.security.AppLockProblem
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.security.PinVerificationResult
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -84,8 +85,10 @@ class AppLockScreenTest {
     }
 
     @Test
-    fun lockedGate_acceptsCodeAndOffersBiometrics() {
+    fun lockedGate_withBiometrics_hidesKeypadUntilCodeRequested() {
         var verified: String? = null
+        var biometricRequested = 0
+        var codeRequested = 0
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
@@ -96,16 +99,65 @@ class AppLockScreenTest {
                         verified = it
                         PinVerificationResult.Success
                     },
-                    onBiometric = {},
+                    onBiometric = { biometricRequested++ },
+                    onUseCode = { codeRequested++ },
                 )
             }
         }
 
         compose.onNodeWithText(context.getString(R.string.app_lock_gate_title)).assertIsDisplayed()
+        compose.onNodeWithText("1").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.app_lock_use_biometrics)).performClick()
+        compose.runOnIdle { assertEquals(1, biometricRequested) }
+
+        compose.onNodeWithText(context.getString(R.string.app_lock_use_code)).performClick()
         compose.onNodeWithContentDescription(context.getString(R.string.app_lock_use_biometrics)).fetchSemanticsNode()
         "1234".forEach { compose.onNodeWithText(it.toString()).performClick() }
         compose.runOnIdle {
             assertEquals("1234", verified)
+            assertEquals(1, codeRequested)
         }
+    }
+
+    @Test
+    fun lockedGate_withoutBiometrics_showsKeypadImmediately() {
+        var verified: String? = null
+        compose.setContent {
+            WhfinTheme {
+                AppLockGate(
+                    biometricAvailable = false,
+                    problem = null,
+                    onVerifyPin = {
+                        verified = it
+                        PinVerificationResult.Success
+                    },
+                    onBiometric = {},
+                )
+            }
+        }
+
+        "1234".forEach { compose.onNodeWithText(it.toString()).performClick() }
+        compose.runOnIdle { assertEquals("1234", verified) }
+    }
+
+    @Test
+    fun lockedGate_promptProblem_revealsKeypad() {
+        var codeRequested = 0
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                AppLockGate(
+                    biometricAvailable = true,
+                    problem = AppLockProblem.Cancelled,
+                    onVerifyPin = { PinVerificationResult.Success },
+                    onBiometric = {},
+                    onUseCode = { codeRequested++ },
+                )
+            }
+        }
+
+        compose.onNodeWithText("1").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.app_lock_cancelled)).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, codeRequested) }
     }
 }

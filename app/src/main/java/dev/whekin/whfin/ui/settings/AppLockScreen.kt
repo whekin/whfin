@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,11 +33,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
+import dev.whekin.whfin.core.ui.WhfinActionStyle
+import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -184,11 +188,32 @@ fun AppLockGate(
     problem: dev.whekin.whfin.data.security.AppLockProblem?,
     onVerifyPin: (String) -> PinVerificationResult,
     onBiometric: () -> Unit,
+    onUseCode: () -> Unit = {},
 ) {
     val resources = LocalResources.current
     var pin by remember { mutableStateOf("") }
     var pinProblem by remember { mutableStateOf<String?>(null) }
+    // The keypad stays hidden while the system biometric prompt owns the screen. Any prompt outcome —
+    // including its "Use WHFIN code" button, which reports Cancelled — has to reveal it, otherwise a
+    // dismissed prompt would leave the mark alone on screen with no way in.
+    var showCode by remember { mutableStateOf(!biometricAvailable) }
+    LaunchedEffect(biometricAvailable, problem) {
+        if (!biometricAvailable || problem != null) {
+            if (!showCode) onUseCode()
+            showCode = true
+        }
+    }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        if (!showCode) {
+            AppLockWaiting(
+                onBiometric = onBiometric,
+                onUseCode = {
+                    showCode = true
+                    onUseCode()
+                },
+            )
+            return@Surface
+        }
         WhfinPinPad(
             title = stringResource(R.string.app_lock_gate_title),
             body = stringResource(R.string.app_lock_gate_body),
@@ -223,6 +248,54 @@ fun AppLockGate(
             showBiometric = biometricAvailable,
             onBiometric = onBiometric,
             applySystemInsets = true,
+        )
+    }
+}
+
+@Composable
+private fun AppLockWaiting(
+    onBiometric: () -> Unit,
+    onUseCode: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 28.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(132.dp),
+        )
+        Text(
+            stringResource(R.string.app_lock_gate_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            stringResource(R.string.app_lock_prompt_subtitle),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        WhfinButton(
+            label = stringResource(R.string.app_lock_use_biometrics),
+            onClick = onBiometric,
+            style = WhfinActionStyle.Secondary,
+            leadingIcon = Icons.Default.Fingerprint,
+            modifier = Modifier.padding(top = 40.dp),
+        )
+        WhfinButton(
+            label = stringResource(R.string.app_lock_use_code),
+            onClick = onUseCode,
+            style = WhfinActionStyle.Quiet,
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
@@ -331,12 +404,38 @@ private fun AppLockScreenPreview() {
     }
 }
 
+@Preview(name = "Locked awaiting biometrics", widthDp = 400, heightDp = 800, showBackground = true)
+@Preview(
+    name = "Locked awaiting biometrics dark",
+    widthDp = 400,
+    heightDp = 800,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(
+    name = "Locked awaiting biometrics font 1.5",
+    widthDp = 400,
+    heightDp = 900,
+    fontScale = 1.5f,
+    showBackground = true,
+)
+@Composable
+private fun AppLockGateWaitingPreview() {
+    WhfinTheme {
+        AppLockGate(
+            biometricAvailable = true,
+            problem = null,
+            onVerifyPin = { PinVerificationResult.Invalid(4) },
+            onBiometric = {},
+        )
+    }
+}
+
 @Preview(name = "Locked", widthDp = 400, heightDp = 800, showBackground = true)
 @Composable
 private fun AppLockGatePreview() {
     WhfinTheme {
         AppLockGate(
-            biometricAvailable = true,
+            biometricAvailable = false,
             problem = null,
             onVerifyPin = { PinVerificationResult.Invalid(4) },
             onBiometric = {},

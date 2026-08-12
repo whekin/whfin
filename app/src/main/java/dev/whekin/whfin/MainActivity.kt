@@ -106,6 +106,9 @@ class MainActivity : FragmentActivity() {
     private var mainOpenAccountAdd by mutableStateOf(false)
     private var runtimeModeRestarting = false
     private var resumed = false
+    // Set once the locked user asks for the code instead of biometrics, so returning to the foreground
+    // does not push the system prompt back over the keypad they chose. Cleared on every unlock.
+    private var codeUnlockChosen = false
     private val uiPreferences by lazy { UiPreferences(applicationContext) }
     private val pinStore by lazy { AppLockPinStore(applicationContext) }
     private lateinit var appLock: AppLockViewModel
@@ -182,6 +185,9 @@ class MainActivity : FragmentActivity() {
                     ?: AppLockTimeout.Disabled
                 val scope = rememberCoroutineScope()
                 val mainState = rememberSaveableStateHolder()
+                LaunchedEffect(appLock.locked) {
+                    if (!appLock.locked) codeUnlockChosen = false
+                }
                 LaunchedEffect(savedTimeout, biometricEnabled) {
                     biometricEnabled?.let { this@MainActivity.biometricUnlockEnabled = it }
                     savedTimeout?.let { timeout ->
@@ -215,7 +221,12 @@ class MainActivity : FragmentActivity() {
                             biometricAvailability == BiometricAvailability.Available,
                         problem = appLock.problem,
                         onVerifyPin = ::verifyPin,
-                        onBiometric = ::requestBiometricUnlock,
+                        onBiometric = {
+                            // An explicit tap outranks an earlier code choice.
+                            codeUnlockChosen = false
+                            requestBiometricUnlock()
+                        },
+                        onUseCode = { codeUnlockChosen = true },
                     )
                     AppStartupContent.Main -> when (appEntry) {
                         AppEntry.Welcome -> WelcomeChoiceScreen(
@@ -477,7 +488,7 @@ class MainActivity : FragmentActivity() {
     private fun requestBiometricUnlock() {
         if (
             !resumed || !appLock.locked || !appLock.timeout.enabled ||
-            !biometricUnlockEnabled || authenticator.isPromptVisible
+            !biometricUnlockEnabled || authenticator.isPromptVisible || codeUnlockChosen
         ) return
         if (biometricAvailability != BiometricAvailability.Available) return
         authenticator.authenticate(
