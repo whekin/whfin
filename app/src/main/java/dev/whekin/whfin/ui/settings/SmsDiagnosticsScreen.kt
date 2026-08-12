@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -108,6 +109,11 @@ fun SmsDiagnosticsRoute(
     onOpenFeed: () -> Unit,
     onRequestHistoryPermission: () -> Unit,
     onOpenSystemSettings: () -> Unit,
+    /**
+     * Called when the user finishes linking a card. During setup this step exists to be finished,
+     * so the flow moves on by itself instead of leaving a Back press as the only way out.
+     */
+    onCardLinked: () -> Unit = {},
     viewModel: SmsDiagnosticsViewModel = viewModel(),
 ) {
     val loadState by viewModel.loadState.collectAsState()
@@ -167,9 +173,15 @@ fun SmsDiagnosticsRoute(
         onConfirmHistoryImport = viewModel::confirmHistoryImport,
         onCancelHistoryImport = viewModel::cancelHistoryImport,
         onResolve = viewModel::resolve,
-        onAddCardMapping = viewModel::addCardMapping,
+        onAddCardMapping = { accountId, last4, cardType ->
+            viewModel.addCardMapping(accountId, last4, cardType)
+            onCardLinked()
+        },
         onCreateAccountAndResolve = viewModel::createCredoAccountAndResolve,
-        onCreateAccountAndAddCardMapping = viewModel::createCredoAccountAndAddCardMapping,
+        onCreateAccountAndAddCardMapping = { name, currency, last4, cardType ->
+            viewModel.createCredoAccountAndAddCardMapping(name, currency, last4, cardType)
+            onCardLinked()
+        },
         onViewMessage = { diagnostic ->
             if (hasHistoryPermission) {
                 viewModel.loadMessage(diagnostic)
@@ -229,6 +241,7 @@ internal fun SmsDiagnosticsScreen(
     onSharePayload: (String) -> Unit = {},
 ) {
     var selectedDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
+    var ignoredExpanded by rememberSaveable { mutableStateOf(false) }
     var showAddCard by rememberSaveable { mutableStateOf(false) }
     var shareDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
     var shareText by rememberSaveable { mutableStateOf("") }
@@ -285,7 +298,12 @@ internal fun SmsDiagnosticsScreen(
             }
             is SmsDiagnosticsLoadState.Content -> {
                 val attention = loadState.data.diagnostics.filter(SmsDiagnosticEntity::needsAttention)
-                val recent = loadState.data.diagnostics.filterNot(SmsDiagnosticEntity::needsAttention)
+                // Codes and notices outnumber operations several times over. They are kept — a
+                // message WHFIN decided to skip is worth being able to check — but folded into one
+                // line, so what actually moved money is not buried under them.
+                val handled = loadState.data.diagnostics.filterNot(SmsDiagnosticEntity::needsAttention)
+                val ignored = handled.filter { it.outcome == SmsDiagnosticOutcome.IGNORED }
+                val recent = handled - ignored.toSet()
                 if (attention.isEmpty() && recent.isEmpty()) {
                     item("empty") {
                         WhfinStatePane(
@@ -327,11 +345,49 @@ internal fun SmsDiagnosticsScreen(
                         )
                     }
                 }
-                if (recent.isNotEmpty()) {
+                if (recent.isNotEmpty() || ignored.isNotEmpty()) {
                     item("recent-label") { WhfinSectionLabel(stringResource(R.string.sms_diagnostics_recent)) }
                     item("recent-group") {
                         DiagnosticGroup(
                             items = recent.take(20),
+                            onResolve = { selectedDiagnosticId = it.id },
+                            onOpenFeed = onOpenFeed,
+                            onViewMessage = onViewMessage,
+                            onShareProblem = { diagnostic ->
+                                onDismissShareMessage()
+                                shareDiagnosticId = diagnostic.id
+                                shareText = SmsProblemReport.redacted(appVersion, diagnostic)
+                                shareIncludesOriginal = false
+                            },
+                        )
+                    }
+                }
+                if (ignored.isNotEmpty()) {
+                    item("ignored-summary") {
+                        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+                            WhfinLedgerRow(
+                                title = pluralStringResource(
+                                    R.plurals.sms_ignored_collapsed,
+                                    ignored.size,
+                                    ignored.size,
+                                ),
+                                supportingText = stringResource(
+                                    if (ignoredExpanded) {
+                                        R.string.sms_ignored_collapse
+                                    } else {
+                                        R.string.sms_ignored_expand
+                                    },
+                                ),
+                                icon = Icons.Default.Block,
+                                iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                onClick = { ignoredExpanded = !ignoredExpanded },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                    if (ignoredExpanded) item("ignored-group") {
+                        DiagnosticGroup(
+                            items = ignored.take(50),
                             onResolve = { selectedDiagnosticId = it.id },
                             onOpenFeed = onOpenFeed,
                             onViewMessage = onViewMessage,

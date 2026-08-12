@@ -645,6 +645,10 @@ interface StatementImportDao {
     @Query("SELECT * FROM statement_imports WHERE accountId = :accountId")
     suspend fun forAccount(accountId: Long): List<StatementImportEntity>
 
+    /** Whether this installation holds any statement at all: a first connection has nothing yet. */
+    @Query("SELECT COUNT(*) FROM statement_imports")
+    suspend fun count(): Int
+
     @Insert
     suspend fun insert(item: StatementImportEntity): Long
 

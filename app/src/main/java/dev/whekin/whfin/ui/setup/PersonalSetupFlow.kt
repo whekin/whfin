@@ -84,6 +84,7 @@ fun PersonalSetupFlow(
                 onOpenFeed = { onContinue(0, false) },
                 onRequestHistoryPermission = onRequestSmsHistoryPermission,
                 onOpenSystemSettings = onOpenSystemSettings,
+                onCardLinked = { page = PersonalSetupPage.Home },
             )
         }
         PersonalSetupPage.Statements -> PersonalSetupSecondaryPage(

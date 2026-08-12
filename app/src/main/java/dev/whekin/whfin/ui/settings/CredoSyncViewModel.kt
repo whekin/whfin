@@ -93,6 +93,12 @@ data class CredoSyncUiState(
     val unchanged: Int = 0,
     /** Transient statement failures the primary action will retry without re-downloading successes. */
     val retryableFailures: Int = 0,
+    /**
+     * False until this installation holds a statement. A first connection has nothing to be
+     * incremental about, and offering "sync the last year" first makes the whole history a second
+     * button the user has to know to press.
+     */
+    val hasImportedHistory: Boolean = true,
     val errorCode: String? = null,
     val isBusy: Boolean = false,
 )
@@ -369,6 +375,7 @@ class CredoSyncViewModel internal constructor(
                 results += fileResult
             }
             linkCardsFromInbox()
+            refreshHistoryPresence()
             retryAccountKeys = nextRetryAccountKeys
             retryStore.save(nextRetryAccountKeys)
             _state.value = _state.value.copy(
@@ -529,6 +536,7 @@ class CredoSyncViewModel internal constructor(
                 }
             }
 
+            refreshHistoryPresence()
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
                 currentAccount = 0,
@@ -614,6 +622,11 @@ class CredoSyncViewModel internal constructor(
         _state.value = _state.value.copy(errorCode = null)
     }
 
+    private suspend fun refreshHistoryPresence() {
+        val hasHistory = runCatching { db.statementImportDao().count() > 0 }.getOrDefault(true)
+        _state.value = _state.value.copy(hasImportedHistory = hasHistory)
+    }
+
     /**
      * Connects the cards to their ledgers while the statements that name them are fresh.
      *
@@ -695,6 +708,7 @@ class CredoSyncViewModel internal constructor(
             activeSession to remoteAccounts
         }.onSuccess { (activeSession, remoteAccounts) ->
             remoteAccounts.forEach { rememberBankProduct(it) }
+            refreshHistoryPresence()
             retryAccountKeys = retryStore.load()
                 .intersect(remoteAccounts.mapTo(mutableSetOf(), CredoRemoteAccount::stableKey))
                 .ifEmpty { recoverIncompleteInitialSync(remoteAccounts) }

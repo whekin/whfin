@@ -231,6 +231,8 @@
     <string name="credo_sync_retry_failed">Retry failed statements</string>
     <string name="credo_sync_statement_network_error">Download failed. The other accounts are safe.</string>
     <string name="credo_sync_history_action">Fetch older history</string>
+    <string name="credo_sync_first_import">Import everything</string>
+    <string name="credo_sync_first_import_body">The first import walks each account back a year at a time until the bank has nothing earlier. Later syncs only fetch what is new.</string>
     <string name="credo_sync_history_body">Recent sync fills gaps in the latest 12 months. Older history walks each account back a year at a time until the bank has nothing earlier.</string>
     <string name="credo_sync_history_progress">Going back · year %1$d</string>
     <string name="credo_sync_valuing">Pricing foreign days in lari · %1$d so far</string>
@@ -302,6 +304,12 @@
     <string name="sms_history_permission_compact_body">Optional Android access · dry run before any import</string>
     <string name="sms_diagnostics_attention">NEEDS ACTION</string>
     <string name="sms_diagnostics_recent">RECENT ACTIVITY</string>
+    <plurals name="sms_ignored_collapsed">
+        <item quantity="one">%d safely ignored message</item>
+        <item quantity="other">%d safely ignored messages</item>
+    </plurals>
+    <string name="sms_ignored_expand">Show ignored messages</string>
+    <string name="sms_ignored_collapse">Hide ignored messages</string>
     <string name="sms_diagnostics_empty_title">No bank messages yet</string>
     <string name="sms_diagnostics_empty_body">New Credo operations will appear here when monitoring is on.</string>
     <string name="sms_diagnostics_error_title">Bank SMS unavailable</string>

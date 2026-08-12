@@ -238,6 +238,8 @@
     <string name="credo_sync_retry_failed">Повторить неудачные выписки</string>
     <string name="credo_sync_statement_network_error">Не удалось скачать выписку. Остальные счета в порядке.</string>
     <string name="credo_sync_history_action">Загрузить более раннюю историю</string>
+    <string name="credo_sync_first_import">Загрузить всю историю</string>
+    <string name="credo_sync_first_import_body">Первая загрузка проходит каждый счёт назад по году, пока у банка не закончатся данные. Дальше синхронизация забирает только новое.</string>
     <string name="credo_sync_history_body">Обычная синхронизация заполняет пробелы за последние 12 месяцев. Более ранняя история проходит каждый счёт назад по году, пока у банка не закончатся данные.</string>
     <string name="credo_sync_history_progress">Уходим назад · год %1$d</string>
     <string name="credo_sync_valuing">Считаем валютные дни в лари · уже %1$d</string>
@@ -313,6 +315,14 @@
     <string name="sms_history_permission_compact_body">Отдельный доступ Android · предпросмотр перед импортом</string>
     <string name="sms_diagnostics_attention">НУЖНО ДЕЙСТВИЕ</string>
     <string name="sms_diagnostics_recent">НЕДАВНЯЯ АКТИВНОСТЬ</string>
+    <plurals name="sms_ignored_collapsed">
+        <item quantity="one">%d пропущенное сообщение</item>
+        <item quantity="few">%d пропущенных сообщения</item>
+        <item quantity="many">%d пропущенных сообщений</item>
+        <item quantity="other">%d пропущенных сообщений</item>
+    </plurals>
+    <string name="sms_ignored_expand">Показать пропущенные</string>
+    <string name="sms_ignored_collapse">Скрыть пропущенные</string>
     <string name="sms_diagnostics_empty_title">Сообщений банка пока нет</string>
     <string name="sms_diagnostics_empty_body">Новые операции Credo появятся здесь, когда мониторинг включён.</string>
     <string name="sms_diagnostics_error_title">SMS банка недоступны</string>

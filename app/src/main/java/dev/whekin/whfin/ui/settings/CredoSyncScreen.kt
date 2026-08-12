@@ -607,30 +607,39 @@ private fun ConnectedContent(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+    // A first connection holds nothing to be incremental about. Offering the last year first made
+    // the whole history a second button the user had to know to press, so the first run is simply
+    // the whole history and everything after it is the incremental sync.
+    val firstImport = !state.hasImportedHistory
     WhfinButton(
         label = stringResource(
             when {
                 syncing -> R.string.credo_sync_syncing
                 state.retryableFailures > 0 -> R.string.credo_sync_retry_failed
+                firstImport -> R.string.credo_sync_first_import
                 else -> R.string.credo_sync_now
             },
         ),
-        onClick = onSync,
+        onClick = if (firstImport && state.retryableFailures == 0) onLoadHistory else onSync,
         modifier = Modifier.fillMaxWidth(),
         enabled = !syncing,
-        leadingIcon = Icons.Default.CloudSync,
+        leadingIcon = if (firstImport) Icons.Default.History else Icons.Default.CloudSync,
     )
-    // Reaching past the year a sync covers is a deliberate, one-off request, not a faster sync.
-    WhfinButton(
-        label = stringResource(R.string.credo_sync_history_action),
-        onClick = onLoadHistory,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !syncing,
-        style = WhfinActionStyle.Secondary,
-        leadingIcon = Icons.Default.History,
-    )
+    if (!firstImport) {
+        // Reaching past the year a sync covers is a deliberate, one-off request, not a faster sync.
+        WhfinButton(
+            label = stringResource(R.string.credo_sync_history_action),
+            onClick = onLoadHistory,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !syncing,
+            style = WhfinActionStyle.Secondary,
+            leadingIcon = Icons.Default.History,
+        )
+    }
     Text(
-        stringResource(R.string.credo_sync_history_body),
+        stringResource(
+            if (firstImport) R.string.credo_sync_first_import_body else R.string.credo_sync_history_body,
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
