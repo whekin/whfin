@@ -445,6 +445,7 @@
     <string name="data_health_backup_summary">Export an encrypted copy before repairing anything.</string>
     <string name="data_health_family_allocations">A split does not match its operation</string>
     <string name="data_health_family_corrections">A correction disagrees with what it hides</string>
+    <string name="data_health_family_merges">A merged copy does not point at a live row</string>
     <string name="data_health_family_transfers">A transfer lost one of its legs</string>
     <string name="data_health_family_debts">A debt does not match its events</string>
     <string name="data_health_family_links">A record points at something missing</string>

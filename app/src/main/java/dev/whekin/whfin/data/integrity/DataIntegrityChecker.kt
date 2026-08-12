@@ -60,12 +60,29 @@ class DataIntegrityChecker(private val db: WhfinDatabase) {
                         add(error("currency_mismatch", "transactions", transaction.id, "Transaction currency differs from its ledger currency."))
                     }
                 }
-                if (transaction.isVoided && transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS)) {
+                if (
+                    transaction.isVoided &&
+                    transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS) &&
+                    // A merged copy states its own reason, and it is not a correction: the row was
+                    // never a separate operation, so there is nothing for an audit record to undo.
+                    transaction.mergedIntoTransactionId == null
+                ) {
                     val corrections = transactions.filter {
                         it.correctionOfTransactionId == transaction.id && it.correctionRevokedAt == null
                     }
                     if (corrections.none { it.isVoided && it.source == TxSource.ADJUSTMENT }) {
                         add(error("missing_transaction_correction", "transactions", transaction.id, "Voided imported transaction has no active audit correction."))
+                    }
+                }
+                transaction.mergedIntoTransactionId?.let { survivorId ->
+                    val survivor = byTransaction[survivorId]
+                    // The pointer is the whole justification for retiring the row, so it has to lead
+                    // somewhere that still counts. Otherwise the money simply disappeared.
+                    if (survivor == null || survivor.isVoided) {
+                        add(error("orphan_merged_transaction", "transactions", transaction.id, "Merged copy points at a missing or retired row."))
+                    }
+                    if (!transaction.isVoided) {
+                        add(error("active_merged_transaction", "transactions", transaction.id, "A merged copy must stay out of active balances."))
                     }
                 }
                 if (transaction.correctionOfTransactionId != null) {

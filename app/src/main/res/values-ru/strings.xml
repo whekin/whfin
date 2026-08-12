@@ -460,6 +460,7 @@
     <string name="data_health_backup_summary">Сделать зашифрованную копию до любых исправлений.</string>
     <string name="data_health_family_allocations">Доля не сходится со своей операцией</string>
     <string name="data_health_family_corrections">Исправление расходится с тем, что скрывает</string>
+    <string name="data_health_family_merges">Объединённая копия не указывает на живую строку</string>
     <string name="data_health_family_transfers">У перевода потеряна одна нога</string>
     <string name="data_health_family_debts">Долг не сходится со своими событиями</string>
     <string name="data_health_family_links">Запись ссылается на отсутствующее</string>

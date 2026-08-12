@@ -295,6 +295,46 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate12To13NamesTheSurvivorOfAnUnmistakableMergeAndLeavesTheRestAlone() {
+        helper.createDatabase(TEST_DB_12_13, 12).apply {
+            execSQL(
+                "INSERT INTO `accounts` (`id`, `name`, `type`, `currency`, `isArchived`, `sortOrder`) " +
+                    "VALUES (1, 'Everyday', 'BANK', 'GEL', 0, 0)",
+            )
+            // 1 is a retired duplicate of 2; 3 is voided by a correction and must keep its own
+            // reason; 4 is a lone voided row nothing explains, and inventing a pairing for it would
+            // be worse than leaving the data-health screen to report it.
+            execSQL(
+                "INSERT INTO `transactions` (`id`, `accountId`, `amountMinor`, `currency`, `occurredAt`, " +
+                    "`status`, `source`, `isTransfer`, `isVoided`, `externalKey`, " +
+                    "`correctionOfTransactionId`, `createdAt`) VALUES " +
+                    "(1, 1, -1000, 'GEL', 1765238400000, 'CONFIRMED', 'STATEMENT', 0, 1, NULL, NULL, 1), " +
+                    "(2, 1, -1000, 'GEL', 1765238400000, 'CONFIRMED', 'STATEMENT', 0, 0, 'stmt|1', NULL, 2), " +
+                    "(3, 1, -3000, 'GEL', 1765238400000, 'CONFIRMED', 'STATEMENT', 0, 1, NULL, NULL, 3), " +
+                    "(4, 1, -4000, 'GEL', 1765238400000, 'CONFIRMED', 'STATEMENT', 0, 1, NULL, NULL, 4), " +
+                    "(5, 1, 3000, 'GEL', 1765238400000, 'MANUAL', 'ADJUSTMENT', 0, 1, NULL, 3, 5)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB_12_13, 13, true, MIGRATION_12_13).apply {
+            query("SELECT `id`, `mergedIntoTransactionId` FROM `transactions` ORDER BY `id`").use { cursor ->
+                val merged = buildMap {
+                    while (cursor.moveToNext()) {
+                        put(cursor.getLong(0), if (cursor.isNull(1)) null else cursor.getLong(1))
+                    }
+                }
+                assertEquals(2L, merged[1L])
+                assertEquals(null, merged[2L])
+                assertEquals(null, merged[3L])
+                assertEquals(null, merged[4L])
+                assertEquals(null, merged[5L])
+            }
+            close()
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-1-2"
         const val TEST_DB_ALL = "whfin-migration-all"
@@ -306,5 +346,6 @@ class WhfinDatabaseMigrationTest {
         const val TEST_DB_9_10 = "whfin-migration-9-10"
         const val TEST_DB_10_11 = "whfin-migration-10-11"
         const val TEST_DB_11_12 = "whfin-migration-11-12"
+        const val TEST_DB_12_13 = "whfin-migration-12-13"
     }
 }

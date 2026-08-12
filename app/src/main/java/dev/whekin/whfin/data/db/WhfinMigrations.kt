@@ -244,6 +244,41 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+/**
+ * A merged duplicate says so, instead of being voided with nothing to point at.
+ *
+ * The rows already retired this way carry no reason at all, so the ones whose surviving twin is
+ * unmistakable — same ledger, same amount, same day, and the survivor holds the statement identity —
+ * are named here. An ambiguous one is left alone: a wrong pointer would be a worse answer than none,
+ * and the data-health screen can still show it.
+ */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `transactions` ADD COLUMN `mergedIntoTransactionId` INTEGER")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_transactions_mergedIntoTransactionId` " +
+                "ON `transactions` (`mergedIntoTransactionId`)",
+        )
+        db.execSQL(
+            "UPDATE `transactions` SET `mergedIntoTransactionId` = (" +
+                "SELECT `survivor`.`id` FROM `transactions` AS `survivor` " +
+                "WHERE `survivor`.`isVoided` = 0 " +
+                "AND `survivor`.`accountId` = `transactions`.`accountId` " +
+                "AND `survivor`.`amountMinor` = `transactions`.`amountMinor` " +
+                "AND `survivor`.`externalKey` IS NOT NULL " +
+                "AND date(`survivor`.`occurredAt` / 1000, 'unixepoch') = " +
+                "date(`transactions`.`occurredAt` / 1000, 'unixepoch')" +
+                ") " +
+                "WHERE `isVoided` = 1 AND `externalKey` IS NULL " +
+                "AND `correctionOfTransactionId` IS NULL " +
+                "AND `id` NOT IN (" +
+                "SELECT `correctionOfTransactionId` FROM `transactions` " +
+                "WHERE `correctionOfTransactionId` IS NOT NULL AND `correctionRevokedAt` IS NULL" +
+                ")",
+        )
+    }
+}
+
 val ALL_MIGRATIONS = arrayOf(
     MIGRATION_1_2,
     MIGRATION_2_3,
@@ -256,4 +291,5 @@ val ALL_MIGRATIONS = arrayOf(
     MIGRATION_9_10,
     MIGRATION_10_11,
     MIGRATION_11_12,
+    MIGRATION_12_13,
 )

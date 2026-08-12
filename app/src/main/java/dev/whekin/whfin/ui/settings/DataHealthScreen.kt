@@ -132,6 +132,9 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
 /** Groups the checker's codes into families a person can act on, instead of leaking raw rule names. */
 internal fun integrityFamilyLabel(code: String): Int = when {
     code.startsWith("allocation") || code == "orphan_allocation" -> R.string.data_health_family_allocations
+    // Checked before "correction": a merge is not one, and calling it that would send the user
+    // looking for an audit record that was never supposed to exist.
+    code.contains("merged") -> R.string.data_health_family_merges
     code.contains("correction") -> R.string.data_health_family_corrections
     code.contains("transfer_group") -> R.string.data_health_family_transfers
     code.contains("debt") -> R.string.data_health_family_debts

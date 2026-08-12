@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-const val WHFIN_DATABASE_VERSION = 12
+const val WHFIN_DATABASE_VERSION = 13
 
 @Database(
     entities = [

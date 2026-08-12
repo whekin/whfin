@@ -154,6 +154,9 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 externalKey = null,
                 transferGroupId = null,
                 isVoided = true,
+                // Naming the survivor is what makes this a merge rather than a row voided for no
+                // reason: nothing else in the ledger could say why this copy stopped counting.
+                mergedIntoTransactionId = entry.transactionId,
             ),
         )
         reconcile(

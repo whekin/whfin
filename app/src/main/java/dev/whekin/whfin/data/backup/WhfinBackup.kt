@@ -200,7 +200,8 @@ internal object WhfinBackupSchema {
                 "occurredAt", "postedAt", "merchantId", "rawCounterparty", "counterpartyIban",
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
                 "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "isVoided",
-                "correctionOfTransactionId", "correctionRevokedAt", "createdAt",
+                "correctionOfTransactionId", "correctionRevokedAt", "mergedIntoTransactionId",
+                "createdAt",
             ),
             legacyColumns = mapOf(
                 "gelValueMinor" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
@@ -210,6 +211,9 @@ internal object WhfinBackupSchema {
                 // A pre-v10 backup could not record a revoked correction: every correction it holds
                 // still describes a voided row.
                 "correctionRevokedAt" to BackupLegacyColumn(introducedInDatabaseVersion = 10, defaultValue = null),
+                // Before v13 a merged copy could only be voided; the reason was not recorded, and
+                // inventing one on restore would claim a pairing this file never made.
+                "mergedIntoTransactionId" to BackupLegacyColumn(introducedInDatabaseVersion = 13, defaultValue = null),
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),
