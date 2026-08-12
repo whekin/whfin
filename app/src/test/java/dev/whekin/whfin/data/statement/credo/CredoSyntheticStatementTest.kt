@@ -63,6 +63,48 @@ class CredoSyntheticStatementTest {
     }
 
     @Test
+    fun `the period survives whichever separator Credo joins its dates with`() {
+        val forms = mapOf(
+            "11/07/2026 : 11/08/2026" to (LocalDate.of(2026, 7, 11) to LocalDate.of(2026, 8, 11)),
+            "11/07/2026-11/08/2026" to (LocalDate.of(2026, 7, 11) to LocalDate.of(2026, 8, 11)),
+            "11.07.2026 – 11.08.2026" to (LocalDate.of(2026, 7, 11) to LocalDate.of(2026, 8, 11)),
+            "2026-07-11 - 2026-08-11" to (LocalDate.of(2026, 7, 11) to LocalDate.of(2026, 8, 11)),
+        )
+
+        forms.forEach { (periodText, expected) ->
+            val statement = CredoStatementParser.parse(
+                StatementFile("statement.xlsx", SyntheticCredoWorkbook.build(periodText = periodText)),
+            )
+
+            assertEquals(periodText, expected.first, statement.periodFrom)
+            assertEquals(periodText, expected.second, statement.periodTo)
+        }
+    }
+
+    @Test
+    fun `a period stating a single day covers that day`() {
+        val statement = CredoStatementParser.parse(
+            StatementFile("statement.xlsx", SyntheticCredoWorkbook.build(periodText = "11/08/2026")),
+        )
+
+        assertEquals(LocalDate.of(2026, 8, 11), statement.periodFrom)
+        assertEquals(LocalDate.of(2026, 8, 11), statement.periodTo)
+    }
+
+    @Test
+    fun `an unreadable period stops the import and reports what it saw`() {
+        val file = StatementFile(
+            "statement.xlsx",
+            SyntheticCredoWorkbook.build(periodText = "Statement is being generated"),
+        )
+
+        val error = assertThrows(MalformedStatementException::class.java) {
+            CredoStatementParser.parse(file)
+        }
+        assertTrue(error.message!!.contains("Statement is being generated"))
+    }
+
+    @Test
     fun `unknown balance summary labels fail before any importer can write`() {
         val file = StatementFile(
             "statement.xlsx",

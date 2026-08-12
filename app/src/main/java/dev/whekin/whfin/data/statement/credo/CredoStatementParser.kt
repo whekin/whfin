@@ -58,6 +58,9 @@ object CredoStatementParser : StatementParser {
 
     private val purchaseDateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
+    /** One date of a statement period, in any of the orders and separators Credo has used. */
+    private val periodDateRegex = Regex("""\d{1,4}[./-]\d{1,2}[./-]\d{1,4}""")
+
     /** Excel serial date -> LocalDate (эпоха 1899-12-30, как в openpyxl). */
     private val excelEpoch = LocalDate.of(1899, 12, 30)
 
@@ -81,11 +84,7 @@ object CredoStatementParser : StatementParser {
         val meta = details.associate { row ->
             normalizedLabel(row.cells["A"].orEmpty()) to row.cells["B"].orEmpty().trim()
         }
-        val period = requiredMeta(meta, "statement period", "period")
-            .split(Regex("""\s+(?:-|:)\s+"""), limit = 2)
-            .map { it.trim() }
-            .takeIf { it.size == 2 }
-            ?: malformed("Credo statement period is unreadable.")
+        val period = splitPeriod(requiredMeta(meta, "statement period", "period"))
 
         val header = txSheet.firstOrNull { row ->
             row.cells.values.any { normalizedLabel(it) == "date" } &&
@@ -214,6 +213,26 @@ object CredoStatementParser : StatementParser {
     private fun requiredMoney(meta: Map<String, String>, vararg aliases: String): Long =
         moneyToMinor(requiredMeta(meta, *aliases))
             ?: malformed("Credo statement field '${aliases.first()}' is unreadable.")
+
+    /**
+     * The two ends of the statement period, however Credo chose to join them today.
+     *
+     * The separator has already changed once (a spaced dash became a spaced colon), and an export
+     * covering a single day states that day once. Neither is a reason to refuse a statement whose
+     * balances and rows are intact, so the shape of the join is read loosely while the dates
+     * themselves stay strict. A value that yields no date at all still stops the import, and it says
+     * what it saw: without that, the same failure is undiagnosable once the file is gone.
+     */
+    private fun splitPeriod(raw: String): List<String> {
+        // Reading the dates rather than the separator: a dash also lives inside an ISO date, so
+        // splitting on punctuation would break the very format it was meant to accept.
+        val dates = periodDateRegex.findAll(raw).map { it.value }.toList()
+        return when (dates.size) {
+            1 -> listOf(dates[0], dates[0])
+            2 -> dates
+            else -> malformed("Credo statement period is unreadable: \"$raw\".")
+        }
+    }
 
     private fun parseCredoDate(raw: String): LocalDate =
         listOf(
