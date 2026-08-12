@@ -669,7 +669,7 @@ private fun ConnectedContent(
         enabled = !syncing,
         leadingIcon = if (firstImport) Icons.Default.History else Icons.Default.CloudSync,
     )
-    if (!firstImport) {
+    if (!firstImport && state.canLoadOlderHistory) {
         // Reaching past the year a sync covers is a deliberate, one-off request, not a faster sync.
         WhfinButton(
             label = stringResource(R.string.credo_sync_history_action),
@@ -682,7 +682,11 @@ private fun ConnectedContent(
     }
     Text(
         stringResource(
-            if (firstImport) R.string.credo_sync_first_import_body else R.string.credo_sync_history_body,
+            when {
+                firstImport -> R.string.credo_sync_first_import_body
+                state.canLoadOlderHistory -> R.string.credo_sync_history_body
+                else -> R.string.credo_sync_history_complete_body
+            },
         ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

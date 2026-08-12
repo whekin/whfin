@@ -240,6 +240,7 @@
     <string name="credo_sync_statement_network_error">Не удалось скачать выписку. Остальные счета в порядке.</string>
     <string name="credo_sync_history_action">Загрузить более раннюю историю</string>
     <string name="credo_sync_first_import">Загрузить всю историю</string>
+    <string name="credo_sync_history_complete_body">Каждый счёт пройден до начала того, что хранит Credo. Синхронизация забирает только новое.</string>
     <string name="credo_sync_first_import_body">Первая загрузка проходит каждый счёт назад по году, пока у банка не закончатся данные. Дальше синхронизация забирает только новое.</string>
     <string name="credo_sync_history_body">Обычная синхронизация заполняет пробелы за последние 12 месяцев. Более ранняя история проходит каждый счёт назад по году, пока у банка не закончатся данные.</string>
     <string name="credo_sync_history_progress">Уходим назад · год %1$d</string>

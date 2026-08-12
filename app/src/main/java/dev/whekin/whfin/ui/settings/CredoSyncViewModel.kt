@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.credo.CredoRetryStore
 import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoHistoryScan
+import dev.whekin.whfin.data.credo.CredoHistoryStore
 import dev.whekin.whfin.data.credo.CredoSession
 import dev.whekin.whfin.data.credo.CredoSyncWindow
 import dev.whekin.whfin.data.credo.FailedStatementStore
@@ -99,6 +100,11 @@ data class CredoSyncUiState(
      * button the user has to know to press.
      */
     val hasImportedHistory: Boolean = true,
+    /**
+     * True while some account has never been walked back to the beginning of what the bank keeps.
+     * Once every account has, the offer is gone: it would only re-download years to add nothing.
+     */
+    val canLoadOlderHistory: Boolean = true,
     val errorCode: String? = null,
     val isBusy: Boolean = false,
 )
@@ -111,6 +117,7 @@ class CredoSyncViewModel internal constructor(
     private val retryDelayMillis: List<Long> = DEFAULT_RETRY_DELAYS,
     private val preferences: UiPreferences = UiPreferences(app),
     private val retryStore: CredoRetryStore = CredoRetryStore(app),
+    private val historyStore: CredoHistoryStore = CredoHistoryStore(app),
     private val loadSavedCredentials: () -> CredoCredentials? = secretStore::load,
     private val saveCredentials: (CredoCredentials) -> Unit = secretStore::save,
 ) : AndroidViewModel(app) {
@@ -409,6 +416,7 @@ class CredoSyncViewModel internal constructor(
         viewModelScope.launch(syncDispatcher) {
             _state.value = _state.value.copy(results = emptyList(), resultsAreRetained = false)
             val results = mutableListOf<CredoSyncFileResult>()
+            val walkedToTheEnd = mutableSetOf<String>()
             var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
                 var inserted = 0
@@ -481,6 +489,7 @@ class CredoSyncViewModel internal constructor(
                         // bank says so with an empty one. Anything else stops the walk too, but is
                         // worth reporting — unless this account already got history out of it.
                         val code = error.safeCode()
+                        if (code in NO_MORE_HISTORY) walkedToTheEnd += account.stableKey
                         if (code !in NO_MORE_HISTORY) {
                             errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
                             failedWindow = window
@@ -498,7 +507,12 @@ class CredoSyncViewModel internal constructor(
                         }
                         break
                     }
-                    if (CredoHistoryScan.reachedBottom(window, statement)) break
+                    if (CredoHistoryScan.reachedBottom(window, statement)) {
+                        // The bank has nothing earlier for this account, and that answer will not
+                        // change; the walk never has to be offered for it again.
+                        walkedToTheEnd += account.stableKey
+                        break
+                    }
                     earliest = statement.periodFrom ?: window.from
                 }
 
@@ -536,6 +550,7 @@ class CredoSyncViewModel internal constructor(
                 }
             }
 
+            historyStore.markComplete(walkedToTheEnd)
             refreshHistoryPresence()
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
@@ -604,6 +619,7 @@ class CredoSyncViewModel internal constructor(
         syncAfterLogin = false
         retryAccountKeys = emptySet()
         retryStore.save(emptySet())
+        historyStore.clear()
         failedStatements.clear()
         loginDraft.username = ""
         loginDraft.credential = ""
@@ -624,7 +640,13 @@ class CredoSyncViewModel internal constructor(
 
     private suspend fun refreshHistoryPresence() {
         val hasHistory = runCatching { db.statementImportDao().count() > 0 }.getOrDefault(true)
-        _state.value = _state.value.copy(hasImportedHistory = hasHistory)
+        val walked = historyStore.load()
+        val accounts = _state.value.accounts
+        _state.value = _state.value.copy(
+            hasImportedHistory = hasHistory,
+            // An account Credo listed after the last walk still has history nobody has reached.
+            canLoadOlderHistory = accounts.isEmpty() || accounts.any { it.stableKey !in walked },
+        )
     }
 
     /**

@@ -233,6 +233,7 @@
     <string name="credo_sync_statement_network_error">Download failed. The other accounts are safe.</string>
     <string name="credo_sync_history_action">Fetch older history</string>
     <string name="credo_sync_first_import">Import everything</string>
+    <string name="credo_sync_history_complete_body">Every account has been walked back as far as Credo keeps. Syncing now only fetches what is new.</string>
     <string name="credo_sync_first_import_body">The first import walks each account back a year at a time until the bank has nothing earlier. Later syncs only fetch what is new.</string>
     <string name="credo_sync_history_body">Recent sync fills gaps in the latest 12 months. Older history walks each account back a year at a time until the bank has nothing earlier.</string>
     <string name="credo_sync_history_progress">Going back · year %1$d</string>
