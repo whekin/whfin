@@ -19,6 +19,7 @@ import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.importer.MerchantNormalizer
 import java.security.MessageDigest
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
@@ -159,19 +160,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             )
         }
 
-        findStatementEvidence(diagnostic, account)?.let { existing ->
+        statementEvidence.find(diagnostic, listOf(account))?.let { match ->
             val saved = diagnostic.copy(
                 outcome = SmsDiagnosticOutcome.ATTACHED,
                 reason = null,
-                transactionId = existing.id,
-                accountId = existing.accountId,
+                transactionId = match.transaction.id,
+                accountId = match.transaction.accountId,
                 updatedAt = System.currentTimeMillis(),
             )
             db.smsDiagnosticDao().update(saved)
             return SmsImportResult(
                 outcome = SmsDiagnosticOutcome.ATTACHED,
                 diagnosticId = diagnostic.id,
-                transactionId = existing.id,
+                transactionId = match.transaction.id,
             )
         }
 
@@ -392,16 +393,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                     receivedAt = receivedAt,
                     accountId = resolution.account.id,
                 )
-                findStatementEvidence(evidenceDiagnostic, resolution.account)?.let { existing ->
+                statementEvidence.find(evidenceDiagnostic, listOf(resolution.account))?.let { existing ->
                     if (!persist) {
                         return SmsImportResult(
                             SmsDiagnosticOutcome.ATTACHED,
-                            transactionId = existing.id,
+                            transactionId = existing.transaction.id,
                         )
                     }
-                    val diagnostic = evidenceDiagnostic.copy(transactionId = existing.id)
+                    val diagnostic = evidenceDiagnostic.copy(transactionId = existing.transaction.id)
                     val id = persistDiagnostic(diagnostic)
-                    return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, id, existing.id)
+                    return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, id, existing.transaction.id)
+                }
+                if (isCoveredByStatement(resolution.account.id, evidenceDiagnostic.occurredAt)) {
+                    return unwritten(evidenceDiagnostic, persist)
                 }
                 if (!persist) return SmsImportResult(SmsDiagnosticOutcome.IMPORTED)
                 val transactionId = insertTransaction(sms, resolution.account, key, receivedAt)
@@ -472,6 +476,30 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             val id = if (persist) persistDiagnostic(diagnostic) else null
             return SmsImportResult(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, id, reason = reason)
         }
+        val groupedDiagnostic = diagnosticFor(
+            sms = sms,
+            externalKey = key,
+            outcome = SmsDiagnosticOutcome.ATTACHED,
+            reason = null,
+            receivedAt = receivedAt,
+            accountId = resolution.from.id,
+        )
+        // Both IBANs were known, so this message routed cleanly — and wrote a second pair of legs on
+        // top of the transfer the statement had already filed, doubling both balances. Routing was
+        // never the question here; whether the operation is already in the ledger is.
+        statementEvidence.find(groupedDiagnostic, listOf(resolution.from, resolution.to))?.let { existing ->
+            if (!persist) {
+                return SmsImportResult(
+                    SmsDiagnosticOutcome.ATTACHED,
+                    transactionId = existing.transaction.id,
+                )
+            }
+            val id = persistDiagnostic(groupedDiagnostic.copy(transactionId = existing.transaction.id))
+            return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, id, existing.transaction.id)
+        }
+        if (isCoveredByStatement(resolution.from.id, groupedDiagnostic.occurredAt)) {
+            return unwritten(groupedDiagnostic, persist)
+        }
         if (!persist) return SmsImportResult(SmsDiagnosticOutcome.IMPORTED)
         val transactionId = insertGroupedTransactions(
             sms = sms,
@@ -495,8 +523,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
 
     private suspend fun resolveAccount(sms: CredoSmsParser.Sms): AccountResolution {
         val currency = sms.balanceCurrency ?: sms.currency
-        if (sms is CredoSmsParser.CardPayment) {
-            val mapped = db.accountDao().byCardAndCurrency(sms.cardLast4, currency)
+        // A refund names its card and no account; the card is what says where the money went back to.
+        val cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
+            ?: (sms as? CredoSmsParser.IncomingTransfer)?.cardLast4
+        if (cardLast4 != null) {
+            val mapped = db.accountDao().byCardAndCurrency(cardLast4, currency)
             return when (mapped.size) {
                 1 -> AccountResolution.Found(mapped.single())
                 0 -> AccountResolution.NeedsChoice(
@@ -750,6 +781,43 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     /**
+     * Whether an imported statement already covers this account on this day.
+     *
+     * Inside a covered period the statement is the whole truth of that account, so a message that
+     * found no row there is not new money — it is a row the bank has not printed the same way, or
+     * one this app failed to recognise. Writing it anyway is how one purchase became two. It stays
+     * a visible question instead, and the next import attaches it.
+     */
+    private suspend fun isCoveredByStatement(accountId: Long, occurredAt: Long?): Boolean {
+        val at = occurredAt ?: return false
+        val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+        return db.statementImportDao().forAccount(accountId).any { import ->
+            val from = import.periodFrom?.let(LocalDate::ofEpochDay) ?: return@any false
+            val to = import.periodTo?.let(LocalDate::ofEpochDay) ?: return@any false
+            !day.isBefore(from) && !day.isAfter(to)
+        }
+    }
+
+    /** Recorded, visible, and deliberately not in the ledger. */
+    private suspend fun unwritten(
+        diagnostic: SmsDiagnosticEntity,
+        persist: Boolean,
+    ): SmsImportResult {
+        val unrouted = diagnostic.copy(
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+            accountId = null,
+            transactionId = null,
+        )
+        val id = if (persist) persistDiagnostic(unrouted) else null
+        return SmsImportResult(
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            diagnosticId = id,
+            reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+        )
+    }
+
+    /**
      * Learns which ledger each card belongs to from messages the phone already holds.
      *
      * Nothing about these messages is stored: they are classified, matched against statements that
@@ -811,40 +879,15 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             }
             val sms = diagnostic.toParsedSms() ?: return@forEach
             val resolution = resolveAccount(sms)
-            if (resolution is AccountResolution.Found) {
+            if (
+                resolution is AccountResolution.Found &&
+                !isCoveredByStatement(resolution.account.id, diagnostic.occurredAt)
+            ) {
                 resolveIntoAccount(diagnostic, resolution.account, TxStatus.CONFIRMED)
                 resolved += 1
             }
         }
         resolved
-    }
-
-    private suspend fun findStatementEvidence(
-        diagnostic: SmsDiagnosticEntity,
-        account: AccountEntity,
-    ): TransactionEntity? {
-        if (diagnostic.kind != SmsDiagnosticKind.CARD_PAYMENT) return null
-        val counterparty = diagnostic.counterparty ?: return null
-        val occurredAt = diagnostic.occurredAt ?: return null
-        val day = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate()
-        val candidates = db.transactionDao().statementCandidates(
-            accountId = account.id,
-            fromMillis = day.atStartOfDay(zone).toInstant().toEpochMilli(),
-            toMillis = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
-        ).filter { candidate ->
-            candidate.rawCounterparty?.let(MerchantNormalizer::normalize) ==
-                MerchantNormalizer.normalize(counterparty) &&
-                // A row another message already explains is that message's; two purchases at one
-                // shop on one day are indistinguishable, and the second would land on the first.
-                db.smsDiagnosticDao()
-                    .countOtherForTransaction(candidate.id, diagnostic.externalKey) == 0
-        }
-        val sameCurrencyAmount = diagnostic.amountMinor
-            ?.takeIf { diagnostic.currency == account.currency }
-            ?.let { -kotlin.math.abs(it) }
-        return sameCurrencyAmount
-            ?.let { amount -> candidates.filter { it.amountMinor == amount }.singleOrNull() }
-            ?: candidates.singleOrNull()
     }
 
     private fun diagnosticFor(
@@ -878,7 +921,8 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         secondaryCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency,
         balanceMinor = sms.balanceMinor,
         balanceCurrency = sms.balanceCurrency,
-        cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4,
+        cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
+            ?: (sms as? CredoSmsParser.IncomingTransfer)?.cardLast4,
         counterparty = when (sms) {
             is CredoSmsParser.CardPayment -> sms.merchantRaw
             is CredoSmsParser.IncomingTransfer -> sms.senderName
@@ -943,7 +987,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
             )
             SmsDiagnosticKind.INCOMING_TRANSFER -> CredoSmsParser.IncomingTransfer(
-                amount, valueCurrency, counterparty, balanceMinor, balanceCurrency, timestamp,
+                amount, valueCurrency, counterparty, cardLast4, balanceMinor, balanceCurrency, timestamp,
             )
             SmsDiagnosticKind.BILL_PAYMENT -> CredoSmsParser.BillPayment(
                 amount, valueCurrency, counterparty, balanceMinor, balanceCurrency, timestamp,

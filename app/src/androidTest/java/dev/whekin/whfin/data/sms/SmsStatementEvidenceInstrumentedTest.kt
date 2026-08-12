@@ -7,11 +7,16 @@ import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
+import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.flow.first
@@ -157,6 +162,76 @@ class SmsStatementEvidenceInstrumentedTest {
     }
 
     @Test
+    fun anOwnTransferTheStatementAlreadyHoldsDoesNotWriteASecondPair() = runBlocking {
+        val from = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        val to = ledger("Second GEL", "GEL", IBAN_TWO)
+        val at = LocalDateTime.of(2026, 4, 5, 0, 0)
+        val sent = statementRow(from, amountMinor = -20_000, merchant = null, at = at, isTransfer = true)
+        statementRow(to, amountMinor = 20_000, merchant = null, at = at, isTransfer = true)
+
+        // Both IBANs are known, so this routes cleanly — and used to write a second pair of legs on
+        // top of the transfer the statement had filed, doubling both balances.
+        val result = importer.import(OWN_TRANSFER, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, result.outcome)
+        assertEquals(sent, result.transactionId)
+        assertEquals(2, transactionCount())
+    }
+
+    @Test
+    fun aMessageInsideACoveredPeriodIsNeverWrittenToTheLedger() = runBlocking {
+        val account = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        db.paymentInstrumentDao().linkForAccount(
+            requireNotNull(db.accountDao().byId(account)),
+            "0001",
+            PaymentInstrumentType.PHYSICAL_CARD,
+        )
+        db.statementImportDao().insert(
+            StatementImportEntity(
+                accountId = account,
+                sourceId = null,
+                fileName = "statement.xlsx",
+                origin = StatementImportOrigin.CREDO_SYNC,
+                periodFrom = LocalDate.of(2026, 4, 1).toEpochDay(),
+                periodTo = LocalDate.of(2026, 4, 30).toEpochDay(),
+                openingBalanceMinor = 0,
+                closingBalanceMinor = 0,
+                totalRows = 0,
+                inserted = 0,
+                duplicates = 0,
+                reconciled = 0,
+                reviewCount = 0,
+                importedAt = 0,
+            ),
+        )
+
+        // The card names its ledger, but the statement covers that day and holds no such row: the
+        // bank printed it differently, or we failed to recognise it. A second row for one purchase
+        // is worse than a question that the next import can answer.
+        val result = importer.import(CARD_PAYMENT, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
+        assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, result.reason)
+        assertEquals(0, transactionCount())
+    }
+
+    @Test
+    fun aMerchantThatOnlyTheMessageSpellsOutStillMatches() = runBlocking {
+        val account = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        val statementId = statementRow(
+            account,
+            amountMinor = -1_234,
+            merchant = "ANTHROPIC",
+            balanceAfterMinor = 56_789,
+        )
+
+        val result = importer.import(LONG_MERCHANT_CARD_PAYMENT, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, result.outcome)
+        assertEquals(statementId, result.transactionId)
+    }
+
+    @Test
     fun aConversionIsAttachedOnlyWhenBothLegsAreOnFile() = runBlocking {
         val gel = ledger("Everyday GEL", "GEL", IBAN_ONE)
         ledger("Second GEL", "GEL", IBAN_TWO)
@@ -238,6 +313,23 @@ class SmsStatementEvidenceInstrumentedTest {
             EXAMPLE PHARMACY>Tbilisi               GE
             Balance: 545.91 GEL
             03/04/2026 21:03:05
+            Details: https://mycredo.page.link/Pdk
+        """.trimIndent()
+        val OWN_TRANSFER = """
+            Transfer between accounts
+            Amount: 200.00 GEL;
+            From: $IBAN_ONE
+            To: $IBAN_TWO
+            Balance: 1334.56 GEL
+            Date: 4/5/2026 10:43:03 PM
+            Check details in MyCredo: https://mycredo.page.link/Pdkp
+        """.trimIndent()
+        val LONG_MERCHANT_CARD_PAYMENT = """
+            Payment: 12.34 GEL
+            Card N ****0001
+            ANTHROPIC* CLAUDE.AI>Tbilisi           GE
+            Balance: 567.89 GEL
+            03/04/2026 20:48:05
             Details: https://mycredo.page.link/Pdk
         """.trimIndent()
         val CURRENCY_EXCHANGE = """

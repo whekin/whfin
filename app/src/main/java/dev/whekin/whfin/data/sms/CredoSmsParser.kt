@@ -73,6 +73,14 @@ object CredoSmsParser {
         override val amountMinor: Long,
         override val currency: String,
         val senderName: String?,
+        /**
+         * Set when the money came back to a card rather than to an account.
+         *
+         * A refund names the card and no account at all, so without this the message has nothing to
+         * route by: it landed in the ledger only after the user picked an account by hand, or not at
+         * all. The card already knows which ledger it belongs to.
+         */
+        val cardLast4: String? = null,
         override val balanceMinor: Long?,
         override val balanceCurrency: String?,
         override val timestamp: LocalDateTime?,
@@ -143,7 +151,7 @@ object CredoSmsParser {
     private val transferDate = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a", Locale.US)
 
     private val amountRegex = Regex("""([\d,]+\.\d{1,2})\s*([A-Z]{3})""")
-    private val cardRegex = Regex("""Card N \*+(\d{4})""")
+    private val cardRegex = Regex("""(?i)card N \*+\s*(\d{4})""")
     private val paymentDateRegex = Regex("""(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})""")
     private val transferDateRegex =
         Regex("""Date:\s*(\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M)""")
@@ -265,18 +273,38 @@ object CredoSmsParser {
     }
 
     private fun parseIncomingTransfer(text: String): IncomingTransfer? {
-        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
+        // Two templates share the opening: a transfer states `Amount:` and a date, a card refund
+        // states the money on the first line, names the card, and carries no date at all.
+        val (amount, currency) = firstAmountAfter(text, "Amount:")
+            ?: firstAmountAfter(text, "Incoming transfer")
+            ?: return null
+        val card = cardRegex.find(text)?.groupValues?.get(1)
         val sender = Regex("""From sender:\s*([^;\n]+)""").find(text)
             ?.groupValues?.get(1)?.trim()
+            ?: card?.let { refundSource(text) }
         val balance = firstAmountAfter(text, "Balance:")
+        val timestamp = transferTimestamp(text)
+        // A stated date that will not parse is a message we do not understand; an absent one is
+        // simply absent, and the delivery time is then the honest booking moment.
+        if (timestamp == null && text.contains("Date:")) return null
         return IncomingTransfer(
             amountMinor = amount,
             currency = currency,
             senderName = sender,
+            cardLast4 = card,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = transferTimestamp(text) ?: return null,
+            timestamp = timestamp,
         )
+    }
+
+    /** Who returned the money: printed between the card and the balance, without a label. */
+    private fun refundSource(text: String): String? {
+        val cardLine = cardRegex.find(text)?.value ?: return null
+        return text.substringAfter(cardLine)
+            .substringBefore("Balance")
+            .trim()
+            .takeIf(String::isNotEmpty)
     }
 
     private fun parseDepositTopUp(text: String): DepositTopUp? {

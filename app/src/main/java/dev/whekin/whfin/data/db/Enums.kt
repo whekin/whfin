@@ -78,5 +78,11 @@ enum class SmsDiagnosticReason {
     NO_ACCOUNT,
     MULTIPLE_ACCOUNTS,
     NO_CARD_MAPPING,
+    /**
+     * The statement already covers this account on this day and holds no matching row. The message
+     * is kept as evidence rather than written: inside a covered period the statement is the truth of
+     * that account, and a second row for one operation is worse than a visible question.
+     */
+    STATEMENT_COVERS_PERIOD,
     STORAGE_ERROR,
 }

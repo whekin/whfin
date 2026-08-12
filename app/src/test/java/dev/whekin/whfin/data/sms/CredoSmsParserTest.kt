@@ -216,6 +216,39 @@ class CredoSmsParserTest {
     }
 
     @Test
+    fun `a refund to a card is money, not an unreadable message`() {
+        // Credo prints this one differently: the amount leads, the card stands in for the account,
+        // the merchant carries no label and there is no date at all.
+        val sms = """
+            Incoming transfer: 1.48 GEL card N **** 0001
+             EXAMPLE SERVICE Balance: 28.56 GEL  You can make payments at terminals, online shops,
+            or via ATMs. The amount will be reflected in your account within 3 working days.
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as IncomingTransfer
+        assertEquals(148L, result.amountMinor)
+        assertEquals("GEL", result.currency)
+        assertEquals("0001", result.cardLast4)
+        assertEquals("EXAMPLE SERVICE", result.senderName)
+        assertEquals(2856L, result.balanceMinor)
+        // No date is stated, so the caller books it at delivery rather than inventing one.
+        assertNull(result.timestamp)
+    }
+
+    @Test
+    fun `an incoming transfer with an unreadable date is not booked at delivery time`() {
+        val sms = """
+            Incoming transfer
+            Amount: 25.00 GEL;
+            From sender: EXAMPLE EMPLOYER;
+            Balance: 300.00 GEL;
+            Date: not a date at all
+        """.trimIndent()
+
+        assertNull(CredoSmsParser.parse(sms))
+    }
+
+    @Test
     fun `thousands separator in amount`() {
         val sms = """
             Incoming transfer
