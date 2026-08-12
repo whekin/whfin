@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +33,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
@@ -97,7 +98,10 @@ fun CredoSyncRoute(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    // SAF backgrounds the Activity. With immediate App Lock this composable is then removed, and a
+    // composition-scoped write would be cancelled halfway: the selected file stayed empty and the
+    // one action that explains a failed statement silently did nothing.
+    val scope = (context as ComponentActivity).lifecycleScope
     var pendingOriginalExport by remember { mutableStateOf<PendingOriginalExport?>(null) }
     var originalExportOutcome by remember { mutableStateOf<CredoOriginalExportOutcome?>(null) }
     var incomingOtp by remember { mutableStateOf<String?>(null) }
@@ -599,7 +603,15 @@ private fun ConnectedContent(
     )
 
     if (state.results.isNotEmpty() || state.unchanged > 0) {
-        WhfinSectionLabel(stringResource(R.string.credo_sync_result_section))
+        WhfinSectionLabel(
+            stringResource(
+                if (state.resultsAreRetained) {
+                    R.string.credo_sync_result_section_retained
+                } else {
+                    R.string.credo_sync_result_section
+                },
+            ),
+        )
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             state.results.forEachIndexed { index, file ->
                 val hasFailure = file.errorCode != null || file.detail != null

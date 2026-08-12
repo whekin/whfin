@@ -242,6 +242,7 @@
     <string name="credo_sync_history_progress">Уходим назад · год %1$d</string>
     <string name="credo_sync_valuing">Считаем валютные дни в лари · уже %1$d</string>
     <string name="credo_sync_result_section">РЕЗУЛЬТАТ СИНХРОНИЗАЦИИ</string>
+    <string name="credo_sync_result_section_retained">ПРОШЛЫЕ СБОИ</string>
     <plurals name="statements_unmapped_operations">
         <item quantity="one">%1$d новый тип банковской операции импортирован как обычная операция. Баланс верен, но тип может влиять на аналитику.</item>
         <item quantity="few">%1$d новых типа банковских операций импортированы как обычные операции. Балансы верны, но типы могут влиять на аналитику.</item>
