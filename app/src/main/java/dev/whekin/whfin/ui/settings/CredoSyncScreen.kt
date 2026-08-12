@@ -66,6 +66,7 @@ import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
 import com.google.android.gms.auth.api.phone.SmsRetriever
+import dev.whekin.whfin.data.sms.CredoLoginOtp
 import dev.whekin.whfin.data.sms.CredoOtpConsent
 import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.registerCredoOtpReceiver
@@ -315,8 +316,13 @@ fun CredoSyncScreen(
     }
     LaunchedEffect(state.stage, incomingOtp) {
         if (state.stage == CredoSyncStage.AwaitingOtp && incomingOtp != null) {
-            otp = incomingOtp.filter(Char::isDigit).take(4)
+            val filled = incomingOtp.filter(Char::isDigit).take(CredoLoginOtp.LENGTH)
+            otp = filled
             onIncomingOtpConsumed()
+            // A code that arrived by itself has already been confirmed once — by the consent dialog,
+            // or by the message reaching this phone at all. Making the user tap Confirm on four
+            // digits they did not type is asking them to agree to their own agreement.
+            if (filled.length == CredoLoginOtp.LENGTH) onSubmitOtp(filled)
         }
     }
 

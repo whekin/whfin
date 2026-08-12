@@ -69,7 +69,7 @@ class CredoOtpScreenTest {
     }
 
     @Test
-    fun incomingLoginOtpFillsTheLocalCodeWithoutSubmittingIt() {
+    fun incomingLoginOtpFillsTheLocalCodeAndConfirmsIt() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         var submitted: String? = null
         compose.setContent {
@@ -97,8 +97,9 @@ class CredoOtpScreenTest {
             context.getString(R.string.credo_sync_otp_autofill_hint),
             substring = true,
         ).assertExists()
-        assertEquals(null, submitted)
-        compose.onNodeWithText(context.getString(R.string.credo_sync_confirm)).performClick()
+        // A code that arrived on its own was already agreed to — by the consent dialog, or by the
+        // message reaching this phone at all. Asking for Confirm on four digits the user did not
+        // type is asking them to agree to their own agreement.
         assertEquals("4821", submitted)
     }
 

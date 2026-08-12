@@ -853,7 +853,7 @@ class CredoSyncViewModel internal constructor(
         /** The same window the explicit history scan uses; a card older than that is long linked. */
         const val INBOX_LOOKBACK_MILLIS = 90L * 24 * 60 * 60 * 1000
 
-        const val OTP_LENGTH = 4
+        const val OTP_LENGTH = dev.whekin.whfin.data.sms.CredoLoginOtp.LENGTH
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")
 
         /** How the far end of an account's history announces itself: there is nothing to export. */

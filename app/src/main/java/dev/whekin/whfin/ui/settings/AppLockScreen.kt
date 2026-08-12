@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -257,6 +258,9 @@ private fun AppLockWaiting(
     onBiometric: () -> Unit,
     onUseCode: () -> Unit,
 ) {
+    // The middle of the screen is not ours: One UI puts its fingerprint sheet there, and a centred
+    // mark sat directly under it. The mark takes the top, the actions the bottom, and the prompt
+    // covers the empty space between them.
     Column(
         Modifier
             .fillMaxSize()
@@ -264,13 +268,12 @@ private fun AppLockWaiting(
             .navigationBarsPadding()
             .padding(horizontal = 28.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         Icon(
             painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(132.dp),
+            modifier = Modifier.padding(top = 24.dp).size(112.dp),
         )
         Text(
             stringResource(R.string.app_lock_gate_title),
@@ -284,12 +287,12 @@ private fun AppLockWaiting(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
+        Spacer(Modifier.weight(1f))
         WhfinButton(
             label = stringResource(R.string.app_lock_use_biometrics),
             onClick = onBiometric,
             style = WhfinActionStyle.Secondary,
             leadingIcon = Icons.Default.Fingerprint,
-            modifier = Modifier.padding(top = 40.dp),
         )
         WhfinButton(
             label = stringResource(R.string.app_lock_use_code),

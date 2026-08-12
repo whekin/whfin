@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 /** The four-digit MyCredo login template; payment confirmation codes are deliberately excluded. */
 object CredoLoginOtp {
+    /** Credo's login code is four digits; a payment confirmation is six and is never accepted. */
+    const val LENGTH = 4
+
     private val loginCode = Regex("""(?m)^# SMS Code:\s*(\d{4})(?!\d)""")
 
     fun extract(body: String): String? = loginCode.find(body)?.groupValues?.get(1)
