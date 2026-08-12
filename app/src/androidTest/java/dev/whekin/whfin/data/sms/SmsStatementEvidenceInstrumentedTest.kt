@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -144,12 +144,16 @@ class SmsStatementEvidenceInstrumentedTest {
         statementRow(only, amountMinor = -1_234, balanceAfterMinor = 56_789)
 
         val first = importer.import(CARD_PAYMENT, RECEIVED_AT)
-        // Same purchase, same shop, a minute later: a second charge that the statement has not
-        // reached yet must not be filed onto the row that belongs to the first.
+        // Same amount, same shop, a minute later: a second charge the statement has not reached yet.
+        // It belongs in the ledger the first one just identified — but as its own row, never filed
+        // onto the row that already explains the first.
         val second = importer.import(REPEATED_CARD_PAYMENT, RECEIVED_AT + 60_000)
 
         assertEquals(SmsDiagnosticOutcome.ATTACHED, first.outcome)
-        assertNull(second.transactionId)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, second.outcome)
+        assertNotEquals(first.transactionId, second.transactionId)
+        assertEquals(2, transactionCount())
+        assertEquals(only, db.transactionDao().byId(requireNotNull(second.transactionId))?.accountId)
     }
 
     @Test

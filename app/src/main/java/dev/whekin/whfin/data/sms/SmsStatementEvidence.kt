@@ -126,7 +126,10 @@ internal class SmsStatementEvidence(
         val to = day.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         return db.accountDao().bankAccountsByCurrency(currency).flatMap { account ->
             db.transactionDao().statementCandidates(account.id, from, to)
-                .filter { db.smsDiagnosticDao().countForTransaction(it.id) == 0 }
+                .filter {
+                    db.smsDiagnosticDao()
+                        .countOtherForTransaction(it.id, diagnostic.externalKey) == 0
+                }
                 .map { account to it }
         }
     }

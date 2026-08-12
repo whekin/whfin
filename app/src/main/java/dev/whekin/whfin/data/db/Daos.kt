@@ -709,9 +709,15 @@ interface SmsDiagnosticDao {
     )
     suspend fun unrouted(): List<SmsDiagnosticEntity>
 
-    /** Whether a statement row is already spoken for: one ledger row never explains two messages. */
-    @Query("SELECT COUNT(*) FROM sms_diagnostics WHERE transactionId = :transactionId")
-    suspend fun countForTransaction(transactionId: Long): Int
+    /**
+     * Whether some other message already explains this ledger row: one row never explains two.
+     * The message being evaluated is excluded, so re-reading it does not refuse its own row.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM sms_diagnostics " +
+            "WHERE transactionId = :transactionId AND externalKey != :externalKey"
+    )
+    suspend fun countOtherForTransaction(transactionId: Long, externalKey: String): Int
 
     @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
     suspend fun byId(id: Long): SmsDiagnosticEntity?

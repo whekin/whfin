@@ -833,7 +833,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             toMillis = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
         ).filter { candidate ->
             candidate.rawCounterparty?.let(MerchantNormalizer::normalize) ==
-                MerchantNormalizer.normalize(counterparty)
+                MerchantNormalizer.normalize(counterparty) &&
+                // A row another message already explains is that message's; two purchases at one
+                // shop on one day are indistinguishable, and the second would land on the first.
+                db.smsDiagnosticDao()
+                    .countOtherForTransaction(candidate.id, diagnostic.externalKey) == 0
         }
         val sameCurrencyAmount = diagnostic.amountMinor
             ?.takeIf { diagnostic.currency == account.currency }
