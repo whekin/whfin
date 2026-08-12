@@ -126,6 +126,27 @@ ledger in place, then calls the normal importer resolution path and remembers a 
 If a matching confirmed statement row already exists, resolution records `ATTACHED` and points the
 diagnostic at that row instead of creating a duplicate.
 
+## The statement answers first
+
+A message only becomes a question after the imported statements have been asked. `SmsStatementEvidence`
+searches every non-archived BANK/SAVINGS ledger of the message's currency for a confirmed `STATEMENT`
+row within a day either side: a card is carried by normalized merchant plus amount, a conversion needs
+both legs on file, and everything else needs the exact signed amount. The balance the bank stated breaks
+ties that the amount cannot, because only one ledger stood at that figure. A row that another diagnostic
+already points at is never taken, and an ambiguous set is left alone — the interactive resolver is the
+answer to ambiguity, not a coin toss. Nothing is written to the ledger: the transaction is already bank
+truth, so the diagnostic becomes `ATTACHED` evidence on it.
+
+An exact card match also links the card: neither source knows the pair alone, since a statement never
+prints a card number and a message never names an account. `linkForAccounts` then covers every currency
+ledger of that IBAN, so later messages from the same card route without a statement. An existing mapping
+is never overruled, and the instrument is created as `PHYSICAL_CARD` — the type is editable in Bank SMS
+and affects only how the card is labelled.
+
+`attachUnroutedToStatements()` runs after every statement import and when Bank SMS opens, so the two
+layers meet in either order — including the common one where a bank connection back-fills a year of
+statements and the phone's inbox is scanned afterwards.
+
 Grouped own-account transfers and currency conversions stay one provisional Feed row. Their resolver
 derives valid `from → to` pairs in the same bank group; tapping a pair creates a normal `TRANSFER` or
 `CONVERSION` group plus both active signed legs inside one Room transaction. Currency exchange excludes

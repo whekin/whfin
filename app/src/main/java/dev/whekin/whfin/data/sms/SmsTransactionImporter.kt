@@ -750,6 +750,41 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     /**
+     * Learns which ledger each card belongs to from messages the phone already holds.
+     *
+     * Nothing about these messages is stored: they are classified, matched against statements that
+     * are already in the ledger, and thrown away. The only thing written is the card link — the one
+     * fact neither side knows alone and the one that stops every later message from that card from
+     * becoming a question. Importing the messages themselves stays an explicit, previewed action.
+     *
+     * @return how many cards were newly linked.
+     */
+    suspend fun learnCardsFrom(bodies: List<String>): Int = db.withTransaction {
+        var learned = 0
+        bodies.forEach { body ->
+            val payment = CredoSmsParser.parse(body) as? CredoSmsParser.CardPayment ?: return@forEach
+            if (db.accountDao().byCardAndCurrency(
+                    payment.cardLast4,
+                    payment.balanceCurrency ?: payment.currency,
+                ).isNotEmpty()
+            ) {
+                return@forEach
+            }
+            val probe = diagnosticFor(
+                sms = payment,
+                externalKey = smsExternalKey(body),
+                outcome = SmsDiagnosticOutcome.ATTACHED,
+                reason = null,
+                receivedAt = System.currentTimeMillis(),
+            )
+            val match = statementEvidence.find(probe)?.takeIf { it.exact } ?: return@forEach
+            learnCardMapping(probe, match.account)
+            learned += 1
+        }
+        learned
+    }
+
+    /**
      * Re-reads every message still waiting on the user against the statements imported since.
      *
      * The two layers arrive in either order. A statement imported after a message already adopts it,

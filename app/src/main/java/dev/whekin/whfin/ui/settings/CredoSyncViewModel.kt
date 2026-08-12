@@ -1,6 +1,9 @@
 package dev.whekin.whfin.ui.settings
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
@@ -19,6 +22,9 @@ import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
+import dev.whekin.whfin.data.sms.HistoricalSms
+import dev.whekin.whfin.data.sms.SmsHistoryReader
+import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.importer.AmbiguousBankLedgerException
 import dev.whekin.whfin.data.importer.InvalidStatementException
@@ -362,6 +368,7 @@ class CredoSyncViewModel internal constructor(
                 }
                 results += fileResult
             }
+            linkCardsFromInbox()
             retryAccountKeys = nextRetryAccountKeys
             retryStore.save(nextRetryAccountKeys)
             _state.value = _state.value.copy(
@@ -607,6 +614,35 @@ class CredoSyncViewModel internal constructor(
         _state.value = _state.value.copy(errorCode = null)
     }
 
+    /**
+     * Connects the cards to their ledgers while the statements that name them are fresh.
+     *
+     * A sync brings in the rows; the phone already holds the messages that say which card made each
+     * one. Doing this here means the pairing is done by the time the user could be asked about it —
+     * asking someone which of four lari accounts a card belongs to is asking them to guess at what
+     * their own data already states.
+     *
+     * Only the card link is written: no message is imported and none is stored. Without READ_SMS
+     * this does nothing at all — the permission is never requested on this account's behalf.
+     */
+    private suspend fun linkCardsFromInbox() {
+        val app = getApplication<Application>()
+        if (
+            ContextCompat.checkSelfPermission(app, Manifest.permission.READ_SMS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        runCatching {
+            val since = System.currentTimeMillis() - INBOX_LOOKBACK_MILLIS
+            val messages = SmsHistoryReader(app.contentResolver).credoCandidates(since)
+            val importer = SmsTransactionImporter(db)
+            importer.learnCardsFrom(messages.map(HistoricalSms::body))
+            // A card learned a moment ago can place messages that were already waiting.
+            importer.attachUnroutedToStatements()
+        }
+    }
+
     /** Copies an explicitly selected failed download; the bytes are otherwise app-private. */
     internal fun writeDownloadedStatement(token: String, output: OutputStream): Boolean =
         failedStatements.copyTo(token, output)
@@ -800,6 +836,9 @@ class CredoSyncViewModel internal constructor(
         "mycredo_${currency.lowercase()}_${accountNumber.takeLast(4)}.xlsx"
 
     private companion object {
+        /** The same window the explicit history scan uses; a card older than that is long linked. */
+        const val INBOX_LOOKBACK_MILLIS = 90L * 24 * 60 * 60 * 1000
+
         const val OTP_LENGTH = 4
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")
 

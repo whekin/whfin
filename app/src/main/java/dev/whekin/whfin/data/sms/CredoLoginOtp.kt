@@ -30,19 +30,30 @@ class CredoOtpInbox {
     val codes: SharedFlow<String> = _codes.asSharedFlow()
     @Volatile private var challengeActive = false
 
+    /**
+     * When the open challenge began. A code that predates it belongs to an earlier login, and after
+     * a resend it belongs to the previous attempt — both must be ignored rather than filled in.
+     */
+    @Volatile
+    var challengeSince: Long = 0
+        private set
+
     /** Opens a fresh, foreground-only handoff window and rejects any code from an older login. */
-    fun beginChallenge() {
+    fun beginChallenge(now: Long = System.currentTimeMillis()) {
         clearBufferedCode()
+        challengeSince = now
         challengeActive = true
     }
 
     /** Restores delivery after a configuration-driven route recreation without discarding a code. */
-    fun ensureChallenge() {
+    fun ensureChallenge(now: Long = System.currentTimeMillis()) {
+        if (challengeSince == 0L) challengeSince = now
         challengeActive = true
     }
 
     fun endChallenge() {
         challengeActive = false
+        challengeSince = 0
         clearBufferedCode()
     }
 

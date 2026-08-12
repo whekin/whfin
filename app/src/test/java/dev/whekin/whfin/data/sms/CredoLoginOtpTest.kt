@@ -35,6 +35,28 @@ class CredoLoginOtpTest {
     }
 
     @Test
+    fun `the challenge window names the moment the inbox may be read from`() {
+        val inbox = CredoOtpInbox()
+
+        assertEquals(0L, inbox.challengeSince)
+
+        inbox.beginChallenge(now = 1_000)
+        assertEquals(1_000L, inbox.challengeSince)
+
+        // A recreated route keeps looking at the same window rather than skipping a code that
+        // arrived while it was gone.
+        inbox.ensureChallenge(now = 5_000)
+        assertEquals(1_000L, inbox.challengeSince)
+
+        // A resend moves the window forward: the previous attempt's code is still in the inbox.
+        inbox.beginChallenge(now = 9_000)
+        assertEquals(9_000L, inbox.challengeSince)
+
+        inbox.endChallenge()
+        assertEquals(0L, inbox.challengeSince)
+    }
+
+    @Test
     fun `code survives the receiver to collector handoff`() {
         val inbox = CredoOtpInbox()
         inbox.beginChallenge()

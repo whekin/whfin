@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.settings
 
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,6 +32,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
@@ -62,14 +65,23 @@ import dev.whekin.whfin.core.ui.WhfinCodeDots
 import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
+import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.registerCredoOtpReceiver
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+/** Fast enough to feel automatic, slow enough not to poll the inbox for nothing. */
+private const val OTP_INBOX_POLL_MILLIS = 1_000L
+
+private fun hasSmsReadPermission(context: android.content.Context): Boolean =
+    ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_SMS) ==
+        PackageManager.PERMISSION_GRANTED
 
 enum class CredoOriginalExportOutcome { Saved, Error }
 
@@ -105,6 +117,9 @@ fun CredoSyncRoute(
     var pendingOriginalExport by remember { mutableStateOf<PendingOriginalExport?>(null) }
     var originalExportOutcome by remember { mutableStateOf<CredoOriginalExportOutcome?>(null) }
     var incomingOtp by remember { mutableStateOf<String?>(null) }
+    // Bumped whenever a challenge is opened, so a resend restarts the inbox watch: the previous
+    // attempt's code is still in the inbox and must not be filled in for the new one.
+    var otpChallengeKey by remember { mutableIntStateOf(0) }
     val otpInbox = remember(context) { (context.applicationContext as WhfinApp).credoOtpInbox }
     val createOriginalStatement = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(XLSX_MIME),
@@ -134,6 +149,7 @@ fun CredoSyncRoute(
             onRoutineSyncRequestConsumed()
             if (appLockEnabled) {
                 otpInbox.beginChallenge()
+                otpChallengeKey += 1
                 viewModel.syncLatest()
             }
         }
@@ -142,6 +158,21 @@ fun CredoSyncRoute(
         otpInbox.codes.collect { code ->
             incomingOtp = code
             otpInbox.clearBufferedCode()
+        }
+    }
+    // The broadcast is the fast path, not the only one: an OEM that quietly leaves this app out of
+    // an SMS delivery it holds the permission for is indistinguishable from a bank taking its time.
+    // While a challenge is open the inbox is checked too, for the login template alone.
+    LaunchedEffect(state.stage, otpChallengeKey) {
+        val waiting = state.stage == CredoSyncStage.Connecting ||
+            state.stage == CredoSyncStage.AwaitingOtp
+        val since = otpInbox.challengeSince
+        if (!waiting || since == 0L || !hasSmsReadPermission(context)) return@LaunchedEffect
+        val reader = SmsHistoryReader(context.contentResolver)
+        while (true) {
+            val message = runCatching { reader.loginCodeSince(since) }.getOrNull()
+            if (message != null && otpInbox.accept(message.body)) return@LaunchedEffect
+            delay(OTP_INBOX_POLL_MILLIS)
         }
     }
     LaunchedEffect(state.stage) {
@@ -176,11 +207,13 @@ fun CredoSyncRoute(
         onOpenAppLock = onOpenAppLock,
         onConnect = { username, credential, rememberPassword ->
             otpInbox.beginChallenge()
+            otpChallengeKey += 1
             viewModel.connect(username, credential, rememberPassword && appLockEnabled)
         },
         onSubmitOtp = viewModel::submitOtp,
         onResendOtp = {
             otpInbox.beginChallenge()
+            otpChallengeKey += 1
             viewModel.resendOtp()
         },
         onSync = viewModel::sync,
