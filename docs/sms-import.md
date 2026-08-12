@@ -143,6 +143,12 @@ ledger of that IBAN, so later messages from the same card route without a statem
 is never overruled, and the instrument is created as `PHYSICAL_CARD` — the type is editable in Bank SMS
 and affects only how the card is labelled.
 
+Inside a period an import already covers, a message never writes to the ledger: finding no row there
+means the bank printed it differently or WHFIN failed to read it, not that new money appeared. The
+diagnostic keeps `STATEMENT_COVERS_PERIOD`, says so on the Bank SMS row, and the resolver warns
+before a manual choice writes what the automatic paths declined to — overruling stays possible
+because a bank does sometimes file the same money under another name.
+
 `attachUnroutedToStatements()` runs after every statement import and when Bank SMS opens, so the two
 layers meet in either order — including the common one where a bank connection back-fills a year of
 statements and the phone's inbox is scanned afterwards.
