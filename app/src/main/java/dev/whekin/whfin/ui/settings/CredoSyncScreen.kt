@@ -65,6 +65,8 @@ import dev.whekin.whfin.core.ui.WhfinCodeDots
 import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.importer.StatementImporter
+import com.google.android.gms.auth.api.phone.SmsRetriever
+import dev.whekin.whfin.data.sms.CredoOtpConsent
 import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.registerCredoOtpReceiver
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -106,6 +108,11 @@ fun CredoSyncRoute(
     routineSyncRequestKey: Int = 0,
     onRoutineSyncRequestConsumed: () -> Unit = {},
     showCredentialManagement: Boolean = false,
+    /**
+     * Where the user came from. A sync ends with its result on screen, and reading it is the point;
+     * leaving afterwards should not require finding the Back arrow again.
+     */
+    onDone: (() -> Unit)? = null,
     viewModel: CredoSyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -121,6 +128,15 @@ fun CredoSyncRoute(
     // attempt's code is still in the inbox and must not be filled in for the new one.
     var otpChallengeKey by remember { mutableIntStateOf(0) }
     val otpInbox = remember(context) { (context.applicationContext as WhfinApp).credoOtpInbox }
+    val smsConsent = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        // Declining is an answer too: the code was never read, and the user types it as before.
+        val message = result.data?.getStringExtra(SmsRetriever.EXTRA_SMS_MESSAGE)
+        if (result.resultCode == android.app.Activity.RESULT_OK && message != null) {
+            otpInbox.accept(message)
+        }
+    }
     val createOriginalStatement = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(XLSX_MIME),
     ) { uri ->
@@ -198,6 +214,24 @@ fun CredoSyncRoute(
         }
         onDispose { registration?.close() }
     }
+    // The permission-free path, and the one a store release can stand on: Play Services watches for
+    // a single code and shows the user the exact message before handing anything over. It runs
+    // beside the broadcast and the inbox rather than replacing them — whichever answers first wins,
+    // and on a device without Play Services this one simply never does.
+    DisposableEffect(context, otpInbox, otpChallengeKey, state.stage) {
+        val waiting = state.stage == CredoSyncStage.Connecting ||
+            state.stage == CredoSyncStage.AwaitingOtp
+        val registration = if (waiting) {
+            runCatching {
+                CredoOtpConsent.register(context) { consent ->
+                    runCatching { smsConsent.launch(consent) }
+                }
+            }.getOrNull()?.also { CredoOtpConsent.startListening(context) }
+        } else {
+            null
+        }
+        onDispose { registration?.close() }
+    }
     CredoSyncScreen(
         state = state,
         appLockEnabled = appLockEnabled,
@@ -228,6 +262,7 @@ fun CredoSyncRoute(
             createOriginalStatement.launch(fileName)
         },
         showCredentialManagement = showCredentialManagement,
+        onDone = onDone,
     )
 }
 
@@ -250,6 +285,7 @@ fun CredoSyncScreen(
     onDismissOriginalExportOutcome: () -> Unit = {},
     onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
     showCredentialManagement: Boolean = false,
+    onDone: (() -> Unit)? = null,
 ) {
     val usableSavedPassword = appLockEnabled && state.hasSavedPassword
     // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
@@ -378,6 +414,7 @@ fun CredoSyncScreen(
                 onDismissOriginalExportOutcome = onDismissOriginalExportOutcome,
                 onSaveOriginalStatement = onSaveOriginalStatement,
                 showCredentialManagement = showCredentialManagement,
+                onDone = onDone,
             )
         }
     }
@@ -580,6 +617,7 @@ private fun ConnectedContent(
     onDismissOriginalExportOutcome: () -> Unit,
     onSaveOriginalStatement: (String, String) -> Unit,
     showCredentialManagement: Boolean,
+    onDone: (() -> Unit)? = null,
 ) {
     val syncing = state.stage == CredoSyncStage.Syncing
     WhfinSectionLabel(stringResource(R.string.credo_sync_saved_profile_title))
@@ -741,6 +779,20 @@ private fun ConnectedContent(
             pluralStringResource(R.plurals.credo_sync_unchanged, state.unchanged, state.unchanged),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    // Reading the result is the point of the run; leaving once it is read should not mean hunting
+    // for the Back arrow. Only this session's own result offers it — kept failures are not an
+    // errand the user just finished.
+    if (onDone != null && !syncing && !state.resultsAreRetained &&
+        (state.results.isNotEmpty() || state.unchanged > 0)
+    ) {
+        WhfinButton(
+            label = stringResource(R.string.credo_sync_done),
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth(),
+            style = WhfinActionStyle.Secondary,
+            leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
         )
     }
 

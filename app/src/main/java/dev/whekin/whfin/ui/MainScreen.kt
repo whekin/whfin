@@ -477,6 +477,7 @@ fun MainScreen(
                             routineSyncRequestKey = credoRoutineSyncRequestKey,
                             onRoutineSyncRequestConsumed = { credoRoutineSyncRequestKey = 0 },
                             showCredentialManagement = credoReturnTo == SecondaryDestination.Settings,
+                            onDone = { goBack(withHaptic = true) },
                         )
                     }
                     ShellScene.Statements -> SecondaryPage(

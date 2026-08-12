@@ -66,6 +66,7 @@ fun PersonalSetupFlow(
             CredoSyncRoute(
                 appLockEnabled = appLockHasPin && appLockTimeout.enabled,
                 onOpenAppLock = { page = PersonalSetupPage.AppLock },
+                onDone = { page = PersonalSetupPage.Home },
             )
         }
         PersonalSetupPage.BankSms -> PersonalSetupSecondaryPage(

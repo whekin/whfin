@@ -194,6 +194,7 @@
     <string name="widget_open_app_action">Open WHFIN</string>
     <string name="settings_automation">AUTOMATION</string>
     <string name="credo_sync_title">Credo sync</string>
+    <string name="credo_sync_done">Done</string>
     <string name="credo_sync_settings_summary">Statements arrive on their own</string>
     <string name="credo_sync_experimental_title">Direct, protected connection</string>
     <string name="credo_sync_experimental_body">WHFIN connects straight from this phone to Credo—there is no intermediary server. The connector can read account lists and statements but cannot make payments; your bank login itself is not read-only. This unofficial connection may break after Credo changes.</string>

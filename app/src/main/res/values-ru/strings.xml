@@ -201,6 +201,7 @@
     <string name="widget_open_app_action">Открыть WHFIN</string>
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
+    <string name="credo_sync_done">Готово</string>
     <string name="credo_sync_settings_summary">Выписки приходят сами</string>
     <string name="credo_sync_experimental_title">Прямое защищённое подключение</string>
     <string name="credo_sync_experimental_body">WHFIN подключается к Credo напрямую с этого телефона — сервера-посредника нет. Коннектор читает список счетов и выписки, но не умеет совершать платежи; сам банковский логин не ограничен режимом «только чтение». Неофициальное подключение может сломаться после изменений Credo.</string>
