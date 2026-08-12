@@ -113,6 +113,17 @@ This is a single-context repository with root domain documentation and system-wi
   Grouped unresolved возвращает в contextual Feed resolver, а карты добавляются компактной строкой,
   не блокируя весь экран. Compose tests и реальный RU + dark + font 1.5 render проверены на disposable
   Pixel.
+  Неразмеченное SMS сначала спрашивает выписку, и только потом пользователя: `SmsStatementEvidence`
+  ищет подтверждённую `STATEMENT`-строку по всем ledger нужной валюты в пределах ±1 дня (карта — по
+  нормализованному мерчанту и сумме, конвертация — только когда на месте обе ноги, остальное — по точной
+  знаковой сумме), а объявленный банком остаток разрешает неоднозначность, которую сумма разрешить не
+  может. Строку, на которую уже ссылается другое сообщение, взять нельзя; неоднозначный набор остаётся
+  вопросом. В ledger ничего не пишется — сообщение становится `ATTACHED`-доказательством. Точное
+  совпадение карты дополнительно даёт связь карта→ledger (выписка не печатает номер карты, SMS не
+  называет счёт), поэтому следующие сообщения той же карты routes сами. Проход
+  `attachUnroutedToStatements()` выполняется после каждого импорта выписки и при открытии Bank SMS,
+  а после Credo sync `linkCardsFromInbox` дополнительно выводит связи карт из уже лежащих в inbox
+  сообщений (только связь; ничего не импортируется и не сохраняется, без READ_SMS шаг не делает ничего).
   Card resolver теперь одним действием сохраняет mapping и backfill-ит все совместимые Unrouted payments
   той же карты; все они сразу активны. Routed SMS не является пользовательским pending/review: в деталях
   показывается provenance `SMS`, а выписка позже тихо сверяет и обогащает ту же строку. v11→v12 переводит
@@ -779,7 +790,13 @@ This is a single-context repository with root domain documentation and system-wi
   ждут выписку. После feature-upgrade baseline берётся из последнего `CREDO_SYNC` import, поэтому карточка
   не возникает сразу. Тап является одним явным `sync latest`: сохранённый login → OTP → routine sync без
   второй кнопки; Back возвращает на фактический caller (Home или Settings), а не всегда в Settings.
-  Остаётся наблюдение за
+  Период выписки читается по самим датам, а не по разделителю (`-`, `–`, `:`, ISO, одна дата = один
+  день); нечитаемый период называет своё сырое значение в ошибке. Байты отвергнутой выписки лежат в
+  app-private `files/failed-statements` (cap 8, TTL 14 дней, вне Android allowlist и JSON-бэкапа), экран
+  читает их при открытии разделом `Прошлые сбои`, а запись выбранного файла идёт на Activity scope —
+  SAF + Immediate App Lock отменяли composition scope и кнопка молча ничего не делала. OTP: broadcast
+  остаётся быстрым путём, но пока открыт challenge, inbox читается по шаблону `# SMS Code:` (окно
+  начинается вместе с challenge, поэтому resend не подставит прошлый код). Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
