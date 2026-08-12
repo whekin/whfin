@@ -701,6 +701,18 @@ interface SmsDiagnosticDao {
     )
     suspend fun unroutedBetween(fromMillis: Long, toMillis: Long): List<SmsDiagnosticEntity>
 
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE transactionId IS NULL " +
+            "AND outcome IN ('NEEDS_CARD_MAPPING', 'CHOOSE_ACCOUNT') " +
+            "AND occurredAt IS NOT NULL AND amountMinor IS NOT NULL AND currency IS NOT NULL " +
+            "ORDER BY occurredAt, id"
+    )
+    suspend fun unrouted(): List<SmsDiagnosticEntity>
+
+    /** Whether a statement row is already spoken for: one ledger row never explains two messages. */
+    @Query("SELECT COUNT(*) FROM sms_diagnostics WHERE transactionId = :transactionId")
+    suspend fun countForTransaction(transactionId: Long): Int
+
     @Query("SELECT * FROM sms_diagnostics WHERE id = :id")
     suspend fun byId(id: Long): SmsDiagnosticEntity?
 

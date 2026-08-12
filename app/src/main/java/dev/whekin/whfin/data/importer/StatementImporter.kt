@@ -3,6 +3,7 @@ package dev.whekin.whfin.data.importer
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.WhfinDatabase
+import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.statement.BankStatement
 import dev.whekin.whfin.data.statement.StatementFile
 import dev.whekin.whfin.data.statement.StatementParsers
@@ -129,6 +130,9 @@ class StatementImporter(private val db: WhfinDatabase) {
             )
             onPhase(Phase.RECONCILING)
             val importId = ImportApplier(db, zone).apply(plan, resolved.account, fileName, origin)
+            // Rows this file only confirmed, rather than inserted, still answer messages that were
+            // waiting for an account — as does a row in a ledger this file did not touch at all.
+            SmsTransactionImporter(db).attachUnroutedToStatements()
             Result(
                 accountId = plan.accountId,
                 accountCreated = plan.accountCreated,

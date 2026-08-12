@@ -38,6 +38,7 @@ internal fun isCurrencyExchangeLedger(account: AccountEntity): Boolean =
 /** Converts a Credo SMS classification into a visible diagnostic and, when possible, an active transaction. */
 class SmsTransactionImporter(private val db: WhfinDatabase) {
     private val zone = ZoneId.of("Asia/Tbilisi")
+    private val statementEvidence = SmsStatementEvidence(db, zone)
 
     /** A reversal follows its payment closely; a wider window would retract an unrelated purchase. */
     private val CANCELLATION_WINDOW_MILLIS = 3L * 24 * 60 * 60 * 1000
@@ -421,14 +422,17 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 SmsImportResult(outcome, id, resolvedTransactionId)
             }
             is AccountResolution.NeedsChoice -> {
-                val diagnostic = diagnosticFor(
+                val unrouted = diagnosticFor(
                     sms = sms,
                     externalKey = key,
                     outcome = resolution.outcome,
                     reason = resolution.reason,
                     receivedAt = receivedAt,
                 )
-                val id = if (persist) persistDiagnostic(diagnostic) else null
+                // The statement already filed this payment under one account: ask it before asking
+                // the user, or the same money gets a second row in whichever ledger they pick.
+                attachToStatement(unrouted, persist)?.let { return it }
+                val id = if (persist) persistDiagnostic(unrouted) else null
                 SmsImportResult(resolution.outcome, id, reason = resolution.reason)
             }
         }
@@ -464,6 +468,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 reason = reason,
                 receivedAt = receivedAt,
             )
+            attachToStatement(diagnostic, persist)?.let { return it }
             val id = if (persist) persistDiagnostic(diagnostic) else null
             return SmsImportResult(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, id, reason = reason)
         }
@@ -696,6 +701,87 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 createdAt = System.currentTimeMillis(),
             ),
         )
+    }
+
+    /**
+     * Files a message the routing rules could not place against the row the statement already holds.
+     *
+     * Nothing is written to the ledger here — the transaction exists and is bank truth. The message
+     * only stops being a question, and, when the pair is unambiguous, says which ledger the card it
+     * names belongs to. That mapping is the whole reason a second message from the same card never
+     * has to be asked about again.
+     */
+    private suspend fun attachToStatement(
+        diagnostic: SmsDiagnosticEntity,
+        persist: Boolean,
+    ): SmsImportResult? {
+        val match = statementEvidence.find(diagnostic) ?: return null
+        if (!persist) {
+            return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, transactionId = match.transaction.id)
+        }
+        val id = persistDiagnostic(
+            diagnostic.copy(
+                outcome = SmsDiagnosticOutcome.ATTACHED,
+                reason = null,
+                accountId = match.account.id,
+                transactionId = match.transaction.id,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        if (match.exact) learnCardMapping(diagnostic, match.account)
+        return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, id, match.transaction.id)
+    }
+
+    /**
+     * A statement never prints a card number and a card message never names an account; together
+     * they do. Learning the pair here is what turns one matched purchase into every later message
+     * from that card landing on its own.
+     */
+    private suspend fun learnCardMapping(diagnostic: SmsDiagnosticEntity, account: AccountEntity) {
+        val last4 = diagnostic.cardLast4?.takeIf { it.matches(Regex("\\d{4}")) } ?: return
+        if (account.groupId == null) return
+        // An existing mapping is the user's own; a match is evidence, not grounds to overrule it.
+        if (db.accountDao().byCardAndCurrency(last4, account.currency).isNotEmpty()) return
+        db.paymentInstrumentDao().linkForAccounts(
+            cardFamilyFor(account),
+            last4,
+            PaymentInstrumentType.PHYSICAL_CARD,
+        )
+    }
+
+    /**
+     * Re-reads every message still waiting on the user against the statements imported since.
+     *
+     * The two layers arrive in either order. A statement imported after a message already adopts it,
+     * but a message read after its statement had nowhere to look — which is exactly what happens
+     * when a bank connection back-fills a year and the phone's inbox is scanned afterwards.
+     *
+     * @return how many questions stopped being questions.
+     */
+    suspend fun attachUnroutedToStatements(): Int = db.withTransaction {
+        var resolved = 0
+        db.smsDiagnosticDao().unrouted().forEach { diagnostic ->
+            val attached = attachToStatement(diagnostic, persist = true)
+            if (attached != null) {
+                resolved += 1
+                return@forEach
+            }
+            // A card mapping learned a moment ago can place messages the statement never covered.
+            // Transfers and conversions are two ledgers at once and keep their own resolver: a
+            // single-account path through here would write half of one.
+            if (diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
+                diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
+            ) {
+                return@forEach
+            }
+            val sms = diagnostic.toParsedSms() ?: return@forEach
+            val resolution = resolveAccount(sms)
+            if (resolution is AccountResolution.Found) {
+                resolveIntoAccount(diagnostic, resolution.account, TxStatus.CONFIRMED)
+                resolved += 1
+            }
+        }
+        resolved
     }
 
     private suspend fun findStatementEvidence(

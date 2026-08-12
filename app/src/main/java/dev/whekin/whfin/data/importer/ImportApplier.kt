@@ -3,8 +3,6 @@ package dev.whekin.whfin.data.importer
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.ReconciliationIssueEntity
-import dev.whekin.whfin.data.db.SmsDiagnosticKind
-import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.StatementSourceEntity
@@ -84,7 +82,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun insert(entry: PlannedRow.Insert, account: AccountEntity, currency: String, now: Long) {
         val row = entry.row
         val merchant = merchantFor(row)
-        val id = db.transactionDao().insert(
+        db.transactionDao().insert(
             TransactionEntity(
                 accountId = account.id,
                 amountMinor = row.amountMinor,
@@ -104,9 +102,6 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 createdAt = now,
             ),
         )
-        if (id > 0) {
-            attachUnroutedCardEvidence(account, id, row.amountMinor, currency, row.purchaseDate ?: row.postedDate, row.merchantRaw)
-        }
     }
 
     private suspend fun reconcile(entry: PlannedRow.Reconcile, currency: String) {
@@ -196,45 +191,6 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 type = StatementSourceType.ACCOUNT,
                 accountId = account.id,
                 label = account.iban ?: account.name,
-            ),
-        )
-    }
-
-    /**
-     * Links the SMS that announced this payment but had no ledger to land in.
-     *
-     * The statement is what finally says which account it belonged to, so the message becomes
-     * evidence attached to a confirmed row instead of a second pending draft of the same money.
-     */
-    private suspend fun attachUnroutedCardEvidence(
-        account: AccountEntity,
-        transactionId: Long,
-        amountMinor: Long,
-        currency: String,
-        purchaseDate: LocalDate,
-        merchantRaw: String?,
-    ) {
-        val wanted = MerchantNormalizer.normalize(merchantRaw ?: return)
-        if (wanted.isEmpty()) return
-        val candidates = db.smsDiagnosticDao().unroutedBetween(
-            purchaseDate.atMillis(),
-            purchaseDate.plusDays(1).atMillis() - 1,
-        ).filter { diagnostic ->
-            diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT &&
-                diagnostic.counterparty?.let(MerchantNormalizer::normalize) == wanted
-        }
-        val exact = candidates.filter { diagnostic ->
-            diagnostic.currency == currency &&
-                diagnostic.amountMinor?.let { -kotlin.math.abs(it) } == amountMinor
-        }
-        val match = exact.singleOrNull() ?: candidates.singleOrNull() ?: return
-        db.smsDiagnosticDao().update(
-            match.copy(
-                outcome = SmsDiagnosticOutcome.ATTACHED,
-                reason = null,
-                transactionId = transactionId,
-                accountId = account.id,
-                updatedAt = System.currentTimeMillis(),
             ),
         )
     }

@@ -103,6 +103,13 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private val historyReader = SmsHistoryReader(app.contentResolver)
     private var pendingHistory: List<HistoricalSms> = emptyList()
 
+    init {
+        // Statements imported since these messages were read can answer them without the user.
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { importer.attachUnroutedToStatements() }
+        }
+    }
+
     val loadState: StateFlow<SmsDiagnosticsLoadState> = combine(
         db.smsDiagnosticDao().observeRecent(),
         db.accountDao().observeActive(),
@@ -195,14 +202,18 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             _scanState.value = SmsScanState.Importing
             runCatching {
                 val results = messages.map { importer.import(it.body, it.receivedAt) }
+                // A card learned from the last message of a batch also places the first: the whole
+                // batch is re-read against the statements once it has landed.
+                val resolved = importer.attachUnroutedToStatements()
+                val needsAttention = results.count {
+                    it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
+                        it.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
+                        it.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
+                        it.outcome == SmsDiagnosticOutcome.ERROR
+                }
                 SmsScanState.Complete(
                     imported = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
-                    needsAttention = results.count {
-                        it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
-                            it.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
-                            it.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
-                            it.outcome == SmsDiagnosticOutcome.ERROR
-                    },
+                    needsAttention = (needsAttention - resolved).coerceAtLeast(0),
                 )
             }.fold(
                 onSuccess = { _scanState.value = it },
