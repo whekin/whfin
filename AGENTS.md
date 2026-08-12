@@ -810,7 +810,16 @@ This is a single-context repository with root domain documentation and system-wi
   читает их при открытии разделом `Прошлые сбои`, а запись выбранного файла идёт на Activity scope —
   SAF + Immediate App Lock отменяли composition scope и кнопка молча ничего не делала. OTP: broadcast
   остаётся быстрым путём, но пока открыт challenge, inbox читается по шаблону `# SMS Code:` (окно
-  начинается вместе с challenge, поэтому resend не подставит прошлый код). Остаётся наблюдение за
+  начинается вместе с challenge, поэтому resend не подставит прошлый код). Третий путь — SMS User
+  Consent API (`play-services-auth-api-phone`): разрешений не требует вовсе, показывает системный
+  диалог с точным текстом сообщения и отдаёт его только по согласию; receiver зарегистрирован с
+  sender-permission Play Services. Три пути идут параллельно, выигрывает первый ответивший. Код,
+  который заполнился сам, сразу отправляется (согласие уже дано), набранный руками — по явному
+  Confirm. Это снимает OTP как обоснование SMS-разрешений для Play: `RECEIVE_SMS`/`READ_SMS`
+  остаются только ради мониторинга операций. Завершённый прогон предлагает `Готово` и возвращает на
+  фактический caller; пройденная до конца история перестаёт предлагаться (device-local маркер
+  `CredoHistoryStore` вне бэкапа, сбрасывается вместе с логином, возвращается для нового счёта).
+  Остаётся наблюдение за
   изменениями web-протокола. Это остаётся личным foreground dogfood, а не обещанием production bank sync.
   Детали: `docs/credo-private-sync.md`
 - [~] Production readiness: Settings получили отдельные Privacy & Data и About WHFIN с реальной
