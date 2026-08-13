@@ -100,7 +100,6 @@ internal data class BackupTable(
     val name: String,
     val columns: List<String>,
     val orderBy: List<String> = listOf("id"),
-    val legacyColumns: Map<String, BackupLegacyColumn> = emptyMap(),
     /**
      * Allowed values for columns Room reads back as enums.
      *
@@ -110,11 +109,6 @@ internal data class BackupTable(
      * deleted.
      */
     val enumColumns: Map<String, Set<String>> = emptyMap(),
-)
-
-internal data class BackupLegacyColumn(
-    val introducedInDatabaseVersion: Int,
-    val defaultValue: BackupValue?,
 )
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
@@ -149,10 +143,6 @@ internal object WhfinBackupSchema {
                 "id", "name", "type", "groupId", "currency", "iban", "walletAddressId",
                 "cryptoAssetId", "savingsGoalMinor", "savingsMode", "fundRole", "bankProduct",
                 "isArchived", "sortOrder",
-            ),
-            legacyColumns = mapOf(
-                "fundRole" to BackupLegacyColumn(11, BackupValue.Text("AVAILABLE")),
-                "bankProduct" to BackupLegacyColumn(11, null),
             ),
             enumColumns = mapOf(
                 "type" to ACCOUNT_TYPES,
@@ -203,18 +193,6 @@ internal object WhfinBackupSchema {
                 "correctionOfTransactionId", "correctionRevokedAt", "mergedIntoTransactionId",
                 "createdAt",
             ),
-            legacyColumns = mapOf(
-                "gelValueMinor" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
-                "gelRateOn" to BackupLegacyColumn(introducedInDatabaseVersion = 7, defaultValue = null),
-                "isVoided" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = BackupValue.Integer(0)),
-                "correctionOfTransactionId" to BackupLegacyColumn(introducedInDatabaseVersion = 8, defaultValue = null),
-                // A pre-v10 backup could not record a revoked correction: every correction it holds
-                // still describes a voided row.
-                "correctionRevokedAt" to BackupLegacyColumn(introducedInDatabaseVersion = 10, defaultValue = null),
-                // Before v13 a merged copy could only be voided; the reason was not recorded, and
-                // inventing one on restore would claim a pairing this file never made.
-                "mergedIntoTransactionId" to BackupLegacyColumn(introducedInDatabaseVersion = 13, defaultValue = null),
-            ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),
                 "source" to setOf("SMS", "STATEMENT", "MANUAL", "ADJUSTMENT", "CRYPTO"),
@@ -240,10 +218,6 @@ internal object WhfinBackupSchema {
                 "transactionId", "debtValueMinor", "closesCase", "occurredAt", "note",
                 "isVoided", "correctionOfEventId",
             ),
-            legacyColumns = mapOf(
-                "isVoided" to BackupLegacyColumn(introducedInDatabaseVersion = 9, defaultValue = BackupValue.Integer(0)),
-                "correctionOfEventId" to BackupLegacyColumn(introducedInDatabaseVersion = 9, defaultValue = null),
-            ),
             enumColumns = mapOf("kind" to setOf("OPENED", "SETTLEMENT", "ADJUSTMENT", "CLOSED")),
         ),
         BackupTable(
@@ -252,12 +226,6 @@ internal object WhfinBackupSchema {
                 "id", "accountId", "sourceId", "fileName", "origin", "periodFrom", "periodTo",
                 "openingBalanceMinor", "closingBalanceMinor", "totalRows", "inserted", "duplicates",
                 "reconciled", "reviewCount", "importedAt",
-            ),
-            legacyColumns = mapOf(
-                "origin" to BackupLegacyColumn(
-                    introducedInDatabaseVersion = 4,
-                    defaultValue = BackupValue.Text("FILE"),
-                ),
             ),
             enumColumns = mapOf("origin" to setOf("FILE", "CREDO_SYNC")),
         ),
@@ -373,19 +341,6 @@ internal object WhfinBackupCodec {
             }
         }
 
-        if (snapshot.summary.databaseVersion < 11) {
-            // Old portable backups carry the combined savingsMode. Reconstruct the same totals the
-            // source installation showed rather than defaulting every restored ledger to Available.
-            db.execSQL(
-                "UPDATE `accounts` SET `fundRole` = 'RESERVE' " +
-                    "WHERE `type` = 'SAVINGS' OR `savingsMode` IS NOT NULL",
-            )
-            db.execSQL(
-                "UPDATE `accounts` SET `bankProduct` = 'TERM_DEPOSIT' " +
-                    "WHERE `savingsMode` = 'TERM_DEPOSIT'",
-            )
-        }
-
         db.query("PRAGMA foreign_key_check").use { cursor ->
             if (cursor.moveToFirst()) {
                 throw WhfinBackupException("Backup contains broken relationships in ${cursor.getString(0)}.")
@@ -424,7 +379,7 @@ internal object WhfinBackupCodec {
         }
         val dbVersion = databaseVersion
             ?: throw WhfinBackupException("Missing WHFIN database version.")
-        if (dbVersion !in 2..WHFIN_DATABASE_VERSION) {
+        if (dbVersion != WHFIN_DATABASE_VERSION) {
             throw WhfinBackupException("Unsupported WHFIN database version: $dbVersion.")
         }
         val currency = primaryCurrency
@@ -434,35 +389,17 @@ internal object WhfinBackupCodec {
             ?: throw WhfinBackupException("Missing application version.")
         val exported = exportedAt ?: throw WhfinBackupException("Missing backup export time.")
         val tables = rowsByTable ?: throw WhfinBackupException("Backup data is missing.")
-        val normalizedTables = tables.mapValues { (tableName, rows) ->
+        tables.forEach { (tableName, rows) ->
             val table = WhfinBackupSchema.byName.getValue(tableName)
-            rows.map { row ->
-                val normalized = LinkedHashMap(row)
-                table.legacyColumns.forEach { (column, legacy) ->
-                    if (column !in normalized) {
-                        // Older export writers occasionally emitted the newer database version
-                        // before adding a nullable/default column to every row (the demo fixture
-                        // is one such portable artifact).  Only the v8 correction columns are
-                        // intentionally lenient; existing provenance columns remain strict so a
-                        // current backup cannot silently lose statement-import evidence.
-                        if (
-                            dbVersion >= legacy.introducedInDatabaseVersion &&
-                            legacy.introducedInDatabaseVersion < 8
-                        ) {
-                            throw WhfinBackupException("Missing columns in ${table.name}: $column.")
-                        }
-                        normalized[column] = legacy.defaultValue
-                    }
-                }
+            rows.forEach { row ->
                 table.enumColumns.forEach { (column, allowed) ->
-                    val value = normalized[column]
+                    val value = row[column]
                     if (value is BackupValue.Text && value.value !in allowed) {
                         throw WhfinBackupException(
                             "Unsupported value in ${table.name}.$column: ${value.value}.",
                         )
                     }
                 }
-                normalized
             }
         }
         return BackupSnapshot(
@@ -471,9 +408,9 @@ internal object WhfinBackupCodec {
                 appVersion = version,
                 databaseVersion = dbVersion,
                 primaryCurrency = currency,
-                rowCount = normalizedTables.values.sumOf(List<*>::size),
+                rowCount = tables.values.sumOf(List<*>::size),
             ),
-            rowsByTable = normalizedTables,
+            rowsByTable = tables,
         )
     }
 
@@ -514,7 +451,7 @@ internal object WhfinBackupCodec {
             row[column] = readBackupValue()
         }
         endObject()
-        val missing = table.columns - row.keys - table.legacyColumns.keys
+        val missing = table.columns - row.keys
         if (missing.isNotEmpty()) {
             throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
         }

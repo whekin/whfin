@@ -2,8 +2,8 @@
   "format": "whfin-backup",
   "schemaVersion": 1,
   "exportedAt": "2026-07-31T18:00:00Z",
-  "appVersion": "0.1.0-demo (1)",
-  "databaseVersion": 13,
+  "appVersion": "0.2.0-demo (2)",
+  "databaseVersion": 1,
   "primaryCurrency": "GEL",
   "tables": {
     "financial_groups": [

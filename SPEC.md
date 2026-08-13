@@ -119,8 +119,9 @@ hash, тип, masked/parsed поля и результат. История чи�
 
 ## Безопасность и переносимость данных
 
-- Начиная с Room DB v2 все изменения схемы выполняются явными миграциями; текущая схема — v12. Destructive
-  migration запрещена для пользовательского устройства.
+- До первого реального использования модель намеренно сведена к одной чистой Room DB v1 без legacy-
+  миграций. После фиксации первого пользовательского релиза каждое изменение схемы обязано получить
+  явную data-preserving migration; destructive fallback на пользовательском устройстве запрещён.
 - Основной переносимый backup — версионированный JSON через SAF, спроектированный для round-trip
   restore. Raw SMS, OTP, app-lock secrets, банковские пароли/токены и Keystore keys не экспортируются.
 - Незашифрованный JSON считается чувствительным файлом и требует предупреждения. Позже допускается
@@ -129,7 +130,7 @@ hash, тип, masked/parsed поля и результат. История чи�
   database и non-secret UI/widget preferences; cloud backup разрешён лишь при encryption capability,
   device-to-device transfer использует тот же scope. Банковские tokens/secrets должны храниться отдельно.
 - Публичный demo mode использует отдельную `whfin-demo.db` с полностью синтетическим fixture и никогда
-  не восстанавливает поверх `whfin-v2.db`. Demo DB и локальные флаги demo/developer исключены из Android
+  не восстанавливает поверх `whfin.db`. Demo DB и локальные флаги demo/developer исключены из Android
   backup; входящие SMS, виджет и quick entry остаются явно привязаны к пользовательской базе.
 - App Lock использует системный `BiometricPrompt`: strong biometric или PIN/pattern/password устройства,
   с настраиваемым timeout и сокрытием содержимого в recent apps. Виджет не раскрывает баланс на

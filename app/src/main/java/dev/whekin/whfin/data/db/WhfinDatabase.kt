@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-const val WHFIN_DATABASE_VERSION = 13
+const val WHFIN_DATABASE_VERSION = 1
 
 @Database(
     entities = [
@@ -53,7 +53,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun exchangeRateDao(): ExchangeRateDao
 
     companion object {
-        const val NAME = "whfin-v2.db"
+        const val NAME = "whfin.db"
 
         @Volatile
         private var instance: WhfinDatabase? = null
@@ -67,6 +67,6 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(*ALL_MIGRATIONS).build()
+        ).build()
     }
 }

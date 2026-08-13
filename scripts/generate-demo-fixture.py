@@ -573,7 +573,7 @@ document = {
     "format": "whfin-backup",
     "schemaVersion": 1,
     "exportedAt": EXPORTED_AT,
-    "appVersion": "0.1.0-demo (1)",
+    "appVersion": "0.2.0-demo (2)",
     "databaseVersion": DATABASE_VERSION,
     "primaryCurrency": GEL,
     "tables": tables,

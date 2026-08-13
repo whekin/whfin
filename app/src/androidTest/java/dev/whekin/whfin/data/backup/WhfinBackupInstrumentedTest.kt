@@ -107,29 +107,26 @@ class WhfinBackupInstrumentedTest {
     }
 
     @Test
-    fun restore_acceptsVersion2BackupAndClearsLocalDiagnostics() = runBlocking {
+    fun restore_rejectsBackupFromAnotherDatabaseContractWithoutChangingCurrentData() = runBlocking {
         seedEveryTable(source)
         target.openHelper.writableDatabase.execSQL(
-            "INSERT INTO sms_diagnostics (externalKey, kind, outcome, receivedAt, updatedAt) " +
-                "VALUES ('sms|local', 'UNRECOGNIZED', 'UNRECOGNIZED', 1, 1)",
+            "INSERT INTO `people` (`id`, `name`, `role`, `color`, `isArchived`) " +
+                "VALUES (99, 'Keep me', NULL, 1, 0)",
         )
-        val version2 = export(source).toString(Charsets.UTF_8)
-            .replace("\"databaseVersion\": $WHFIN_DATABASE_VERSION", "\"databaseVersion\": 2")
-            .replace("        \"origin\": \"FILE\",\n", "")
-            .replace(Regex("""        "fundRole": "[A-Z_]+",\n"""), "")
-            .replace(Regex("""        "bankProduct": (?:"[A-Z_]+"|null),\n"""), "")
+        val otherContract = export(source).toString(Charsets.UTF_8)
+            .replace(
+                "\"databaseVersion\": $WHFIN_DATABASE_VERSION",
+                "\"databaseVersion\": ${WHFIN_DATABASE_VERSION + 1}",
+            )
 
-        WhfinBackupManager(target).restore(ByteArrayInputStream(version2.toByteArray()))
-
-        target.openHelper.writableDatabase.query("SELECT COUNT(*) FROM sms_diagnostics").use { cursor ->
-            check(cursor.moveToFirst())
-            assertEquals(0, cursor.getInt(0))
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking {
+                WhfinBackupManager(target).restore(ByteArrayInputStream(otherContract.toByteArray()))
+            }
         }
-        target.openHelper.writableDatabase.query(
-            "SELECT fundRole FROM accounts WHERE id = 3",
-        ).use { cursor ->
+        target.openHelper.writableDatabase.query("SELECT name FROM people WHERE id = 99").use { cursor ->
             check(cursor.moveToFirst())
-            assertEquals("RESERVE", cursor.getString(0))
+            assertEquals("Keep me", cursor.getString(0))
         }
     }
 

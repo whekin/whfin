@@ -22,14 +22,14 @@
 
 ## 1. Data Safety
 
-Статус: этап завершён. Destructive fallback удалён; ручная v1→v2 migration и полный
-earliest→current schema-test проходят на disposable-эмуляторе. Текущая DB — v7 с явными
-migrations v1→v2 … v6→v7, поэтому следующий schema change обязан получить migration v7→N.
+Статус: этап завершён. До первого реального использования накопленная development-схема сведена к
+одной чистой Room DB v1 без legacy-кода. После первого пользовательского релиза следующий schema change
+обязан получить сохраняющую данные migration v1→N и instrumented test.
 Версионированный JSON export/restore
 доступен в Settings через Storage Access Framework.
 
-- [x] Убрать `fallbackToDestructiveMigration(true)`. Начиная с текущей Room DB v2, каждое изменение
-  схемы получает явную миграцию и migration-test.
+- [x] Не использовать `fallbackToDestructiveMigration`. После первого пользовательского релиза каждое
+  изменение схемы получает явную сохраняющую данные migration и migration-test.
 - [x] Никогда не запускать destructive migration, `pm clear`, uninstall или instrumentation на физическом
   телефоне пользователя. Установка на него — только сохраняющая данные (`install -r` / `android run`).
 - [x] Добавить версионированный JSON backup через Storage Access Framework:
@@ -223,7 +223,7 @@ internal/closed testing до любого публичного распрост�
 
 ## Commit boundaries
 
-1. Safe Room migrations + versioned JSON backup/restore foundation — complete.
+1. Clean Room v1 contract + strict versioned JSON backup/restore foundation — complete.
 2. WHFIN-code/biometric app lock and privacy behavior — complete.
 3. SMS structured outcomes, diagnostics/history scan, mapping repair and explicit failure sharing.
 4. Bank-neutral statement adapter + TBC parser/import.

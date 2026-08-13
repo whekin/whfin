@@ -30,7 +30,7 @@ This is a single-context repository with root domain documentation and system-wi
   Чистый signed release проверен Welcome → Demo → Home → composer → restart на disposable Pixel и затем
   установлен вместо debug на Samsung S25 (SM-S931B); сертификат установленного APK сверен. Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
-- [x] Модель данных пересобрана как clean Room DB v1 (`whfin-v2.db`, старые dev-данные намеренно
+- [x] Модель данных пересобрана как clean Room DB v1 (`whfin.db`, старые dev-данные намеренно
   сброшены): Person + TransactionAllocation; FinancialGroup→Account; PaymentInstrument physical/virtual
   many-to-many с валютными счетами; StatementSource по IBAN/карте; WalletAddress + chain-specific
   CryptoAsset; TransferGroup для многочастных переводов/конвертаций/bridge
@@ -562,10 +562,10 @@ This is a single-context repository with root domain documentation and system-wi
   ColorOS больше не зависит от необязательного provider update после замены APK. Первый Glance-кадр
   также ограничивает ожидание Room/DataStore тремя секундами и при сбое показывает рабочий Cash-fallback,
   поэтому системный loading layout не может остаться постоянным.
-- [x] Data Safety: destructive Room fallback удалён; v1→v2 оформлена явной migration, которая сохраняет
-  существующие строки и создаёт debt-таблицы. Schema assets подключены к `MigrationTestHelper`; обе
-  проверки прошли на disposable Pixel через адресный instrumented run. Любое будущее изменение от DB v2
-  обязано добавить migration + test. В Settings доступен versioned JSON backup/restore через SAF:
+- [x] Data Safety: до первого реального использования накопленная development-схема сведена к одной
+  clean Room DB v1 без migration/legacy-backup кода; destructive fallback отсутствует. После первого
+  пользовательского релиза любое изменение схемы обязано добавить сохраняющую данные migration + test.
+  В Settings доступен versioned JSON backup/restore через SAF:
   явный allowlist всех 18 Room-таблиц, deterministic export, полная замена только после подтверждения,
   строгая проверка format/database versions, malformed input и foreign keys. Raw SMS, OTP, secrets,
   разрешения и банковские токены не экспортируются; обычный JSON явно помечен как незашифрованный.
@@ -573,13 +573,11 @@ This is a single-context repository with root domain documentation and system-wi
   `FragmentActivity` на request code Activity Result API, подтверждено на disposable Pixel.
   Полный порядок и критерии:
   `docs/roadmap.md`
-  DB/backup v4 включает provenance выписки (`origin`); restore legacy backup v2–v3 добавляет только
-  отсутствующий `origin=FILE`, а backup v4 без этого поля считается повреждённым. Полный emulator-only
-  instrumentation прогон: 23 теста, включая 6 backup и 4 migration, проходит.
+  Clean backup v1 включает provenance выписки (`origin`) и требует точного полного набора колонок;
+  несовместимые development-backup намеренно отвергаются до изменения данных.
   DB v10 сделал correction обратимым по-настоящему: `transactions.correctionRevokedAt` отличает
-  действующую коррекцию от взятой назад, поэтому restore больше не оставляет вечную integrity-ошибку
-  и не запрещает исправить ту же строку повторно; audit-строки не удаляются никогда. Migration 9→10
-  помечает коррекции уже восстановленных строк отозванными. Allocations перестали требовать расход:
+  действующую коррекцию от взятой назад, поэтому restore не оставляет вечную integrity-ошибку
+  и не запрещает исправить ту же строку повторно; audit-строки не удаляются никогда. Allocations перестали требовать расход:
   занятые деньги и полученный возврат долга — приход, и теперь записываются вместе со своим человеком;
   делить между людьми по-прежнему можно только расход, знак доли обязан совпадать с родителем.
   DataIntegrityChecker добавил знаки долей, доли на ноге перевода и группу перевода с единственной
@@ -719,7 +717,7 @@ This is a single-context repository with root domain documentation and system-wi
   Ethereum → ошибка → переключение сети → сохранение → ledger TRX нативной суммой, `tron:mainnet`
   в базе). Второй слайс закрыл балансы: read-only `CryptoBalanceProvider` без ключей и подписи,
   `HttpCryptoBalanceProvider` читает `eth_getBalance`/`eth_call balanceOf` и TronGrid
-  `getaccount`/`triggerconstantcontract`, а Room DB v5 добавляет `crypto_balances` — по одной строке
+  `getaccount`/`triggerconstantcontract`, а актуальная Room DB v1 содержит `crypto_balances` — по одной строке
   на счёт с точными base units (TEXT, uint256 не влезает в Long), decimals, `observedAt` и хостом
   источника. Повторный refresh заменяет наблюдение, а не копит историю; неудачное чтение оставляет
   прошлое число и не превращается в ноль. Обновление ручное и foreground: кнопка в шапке кошелька,
@@ -883,7 +881,7 @@ This is a single-context repository with root domain documentation and system-wi
   карт. Балансы блокчейна не переносятся бэкапом, поэтому `DemoDataInstaller` досевает
   `crypto_balances` после restore, не спрашивая публичный узел о выдуманном адресе. Settings открывает его из строки возле About в отдельной `whfin-demo.db`, даты
   сдвигаются к текущему дню, reset затрагивает только sandbox, а постоянная workspace-полоса отделяет
-  синтетические данные от личных на всех рабочих экранах. `whfin-v2.db` остаётся
+  синтетические данные от личных на всех рабочих экранах. `whfin.db` остаётся
   byte-identical при входе/выходе; Android backup allowlist не включает demo DB/runtime flags. Live Credo
   и demo-facing SMS UI недоступны, а receiver/widget/quick entry всегда используют user DB. Instrumented
   regression проверяет изоляцию, насыщенность, foreign keys и повторный export; light/dark/font 1.5

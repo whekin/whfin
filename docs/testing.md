@@ -7,8 +7,8 @@
 - UI: fully Jetpack Compose, with Glance for widgets.
 - UI behavior: Compose UI test APIs with Robolectric for fast host tests.
 - Database: Room instrumented tests use an in-memory database and the device SQLite engine.
-- Database migrations: committed Room schema assets drive `MigrationTestHelper`; tests validate v1→v2,
-  v2→v3 SMS diagnostics creation/data preservation, and the complete earliest→current schema path.
+- Database contract: the committed Room v1 schema is generated from the complete current model. There is
+  intentionally no migration suite before first real use; the first post-release schema change must add one.
 - Portable backup: instrumented SQLite tests verify the explicit table/column allowlist against the
   current Room schema, every-table deterministic export→restore→export, malformed JSON rejection and
   future-format rejection without changing current data.
@@ -31,13 +31,13 @@ Hilt was intentionally not introduced during this UI refactor: migrating the app
 ```
 
 When a personal phone is also connected, do not invoke the aggregate connected task. Install and run
-the migration suite only on the disposable emulator serial:
+only a selected instrumented suite on the disposable emulator serial:
 
 ```bash
 adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s emulator-5554 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb -s emulator-5554 shell am instrument -w -r \
-  -e class dev.whekin.whfin.data.db.WhfinDatabaseMigrationTest \
+  -e class dev.whekin.whfin.data.backup.WhfinBackupInstrumentedTest \
   dev.whekin.whfin.debug.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
@@ -115,7 +115,7 @@ adb -s emulator-5554 shell am instrument -w -r \
 ```
 
 For visual QA use Settings → About → Explore demo. Every explicit entry restores only `whfin-demo.db`,
-shifts fixture dates relative to the current day, and leaves `whfin-v2.db` untouched. Exiting returns to
+shifts fixture dates relative to the current day, and leaves `whfin.db` untouched. Exiting returns to
 the same personal database; Reset demo now replaces only the demo sandbox after confirmation. Credo sync and demo-facing
 SMS controls are unavailable while the sandbox is active. Incoming SMS, widgets, and quick entry remain
 explicitly wired to the personal database rather than silently writing into the demo.
@@ -123,7 +123,7 @@ Entering, exiting, or resetting Demo restarts the foreground task so every datab
 against the selected database. A configuration-only `Activity.recreate()` is not sufficient: Android
 retains the Activity ViewModelStore and can leave Feed/Accounts observing the previous database.
 
-Android cloud/device-transfer rules allowlist only `whfin-v2.db`; `whfin-demo.db` and local
+Android cloud/device-transfer rules allowlist only `whfin.db`; `whfin-demo.db` and local
 `whfin_runtime` mode flags are not backed up. The instrumented installer regression seeds a sentinel in a
 separate user database and verifies that demo installation never changes it. Screenshots belong under
 ignored `artifacts/`, not in source control.
@@ -145,9 +145,8 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   regression found on OnePlus. Light/dark and font scale 1.5 renders passed.
 - Hidden Developer mode: five Version taps reveal the persistent device-local switch; light/dark and
   font scale 1.5 renders passed.
-- Room migration suite: v1 row preservation/debt-table migration and earliest→current schema validation
-  both passed against real SQLite on disposable Pixel 9 Pro API 36.1. The Room 2.8.4 test bundle requires
-  serialization 1.8.1, so that compatibility override is deliberately limited to Android-test configurations.
+- Room schema/backup integration passed against real SQLite on disposable Pixel 9 Pro API 36.1. The
+  complete model is now the single v1 schema; migration coverage starts with the first post-release change.
 - Statistics trend interaction and filtered transaction navigation: host tests passed; real Pixel 9 Pro API 36.1 render checked in light/dark, font scale 1.5, and RU. Transaction details and both Back paths were exercised manually.
 - SMS import toggle: DataStore default/persistence and Compose switch/action tests passed. Disposable Pixel render covered on/off, permission-required, process restart, RU light, EN dark, and EN font scale 1.5; the physical phone remained upgrade/manual-QA only.
 - Shell navigation regression: Settings and Bank statements were exercised repeatedly in dark 1.0 and light 1.5 renders; Statistics → filtered transactions → Back retained the chart scroll context. The Settings Compose test injects a fake `HapticFeedback` and asserts the platform toggle-off event.
@@ -172,8 +171,8 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   without exposing the Android device-PIN field. With Immediate lock active, the Glance `+`
   action opened Quick expense directly without biometric/PIN and without exposing balances/history.
 - SMS diagnostics: parser classification, permission disclosure and account-link UI pass host tests.
-  Eleven address-scoped instrumented tests passed on `emulator-5554`: v1→v2→v3 migrations, diagnostic
-  schema privacy, unknown-card repair, ambiguous-account outcome, backup compatibility and exclusion.
+  Eleven address-scoped instrumented tests passed on `emulator-5554`: diagnostic schema privacy,
+  unknown-card repair, ambiguous-account outcome, and backup exclusion.
   A sanitized Credo SMS injected through `adb emu sms send` reached the real receiver and rendered
   `Choose an account`; the screen, empty dry-run and unavailable mapping sheet were checked in EN light,
   EN dark and font scale 1.5. The physical phone was not used for instrumentation or history import.

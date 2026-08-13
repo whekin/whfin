@@ -18,8 +18,9 @@ This checklist tracks the difference between a good prototype and a build safe t
 
 - [x] Android backup scope is explicit: database plus non-secret UI/widget DataStore only; cloud backup
   requires encryption capability and D2D transfer uses the same allowlist.
-- [x] Remove destructive migration fallback; preserve data through explicit v1→v2, v2→v3 and v3→v4
-  migrations, and require a migration plus schema/data test for every future change from current DB v4.
+- [x] Before first real use, collapse the development history into one clean Room v1 contract and remove
+  legacy migrations/backup shims. After the first user-data release, require a preserving migration plus
+  schema/data test for every schema change; never enable destructive fallback.
 - [x] Add versioned JSON export/restore through Android SAF with an explicit sensitive-file warning,
   destructive restore confirmation and deterministic full-schema round-trip tests.
 - [x] Encrypted `.whfin-backup` export uses a portable passphrase-derived `WHFIN-ENC` envelope;

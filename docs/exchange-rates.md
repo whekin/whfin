@@ -85,4 +85,4 @@ to re-fetch a year of history.
   leaving the rest for the next one.
 - `AnalyticsCalculatorTest` — a valued foreign expense joining the totals, an unvalued one staying out
   and being named, and a split sharing the booked value proportionally.
-- `WhfinDatabaseMigrationTest.migrate5To6_addsAnEmptyQuoteSnapshot` and `migrate6To7_*`.
+- the committed Room v1 schema and backup allowlist cover both quote tables and booked-value columns.
