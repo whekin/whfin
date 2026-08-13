@@ -6,11 +6,14 @@ import dev.whekin.whfin.data.credo.CredoApiException
 import dev.whekin.whfin.data.credo.CredoCredentials
 import dev.whekin.whfin.data.credo.CredoGateway
 import dev.whekin.whfin.data.credo.CredoLoginChallenge
+import dev.whekin.whfin.data.credo.CredoHistoryStore
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
 import dev.whekin.whfin.data.credo.CredoSecretStore
 import dev.whekin.whfin.data.credo.CredoSession
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -37,6 +40,7 @@ class CredoSyncHardeningTest {
         private val downloadScript: MutableMap<String, ArrayDeque<String>>,
         private val requiresOtp: Boolean = false,
         private val confirmError: String? = null,
+        private val cancelConfirmation: Boolean = false,
     ) : CredoGateway {
         val downloadCalls = mutableListOf<String>()
 
@@ -55,6 +59,7 @@ class CredoSyncHardeningTest {
             username: String,
             otp: String?,
         ): CredoSession {
+            if (cancelConfirmation) throw CancellationException("screen left")
             confirmError?.let { throw CredoApiException(it) }
             return CredoSession(accessToken = "token", refreshToken = null)
         }
@@ -151,6 +156,37 @@ class CredoSyncHardeningTest {
 
         assertEquals(CredoSyncStage.AwaitingOtp, vm.state.value.stage)
         assertEquals("INVALID_OTP", vm.state.value.errorCode)
+    }
+
+    @Test
+    fun completedHistoryForEveryRemoteAccountStaysCompleteAfterLogin() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val gateway = ScriptedGateway(mutableMapOf())
+        val keys = runBlocking { gateway.accounts(CredoSession("probe", null)) }
+            .mapTo(mutableSetOf(), CredoRemoteAccount::stableKey)
+        CredoHistoryStore(app).markComplete(keys)
+        val vm = viewModel(gateway)
+
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+
+        assertFalse(vm.state.value.canLoadOlderHistory)
+    }
+
+    @Test
+    fun coroutineCancellationIsNotPresentedAsABankFailure() {
+        val vm = viewModel(
+            ScriptedGateway(
+                downloadScript = mutableMapOf(),
+                cancelConfirmation = true,
+            ),
+        )
+
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage != CredoSyncStage.Disconnected || vm.state.value.errorCode != null }
+
+        assertEquals(CredoSyncStage.Connecting, vm.state.value.stage)
+        assertNull(vm.state.value.errorCode)
     }
 
     /** connect/sync прыгают через реальный IO-пул — ждём состояние с таймаутом. */

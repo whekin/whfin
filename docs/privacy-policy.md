@@ -14,17 +14,19 @@ WHFIN stores accounts, balances, transactions, categories, merchant rules, peopl
 debts, statement import metadata and application preferences in the app's private storage on the
 Android device.
 
-WHFIN 0.1.0 does not provide a WHFIN cloud account, does not include advertising or analytics SDKs,
+WHFIN 0.2.0 does not provide a WHFIN cloud account, does not include advertising or analytics SDKs,
 and does not operate an application server that receives this financial data.
 
 ## SMS permission
 
 SMS access is optional and can be disabled in WHFIN or revoked in Android Settings. When enabled,
-WHFIN examines incoming Credo messages on the device and converts recognized transaction messages
-into pending financial records. A separate user action can read up to 90 days of recent messages and
-shows a dry-run summary before importing anything. OTP codes, rejected payments and unrelated messages
-are ignored. WHFIN stores only structured outcomes and masked parsed fields for diagnostics; raw SMS
-bodies and OTP codes are not stored, exported or uploaded. WHFIN does not send SMS content to a server.
+WHFIN examines incoming Credo messages on the device. A routed transaction becomes an active local
+ledger record immediately; a message without enough routing information remains a visible structured
+operation outside balances until resolved. A separate user action can read up to 90 days of recent
+messages and shows a dry-run summary before importing anything. OTP codes, rejected payments and
+unrelated messages are ignored. WHFIN stores only structured outcomes and masked parsed fields for
+diagnostics; raw SMS bodies and OTP codes are not stored, exported or uploaded. WHFIN does not send SMS
+content to a server.
 
 ## Statement files
 

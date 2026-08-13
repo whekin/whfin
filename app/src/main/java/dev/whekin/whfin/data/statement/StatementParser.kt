@@ -15,8 +15,26 @@ class StatementFile(val fileName: String?, private val bytes: ByteArray) {
     fun open(): InputStream = ByteArrayInputStream(bytes)
 
     companion object {
+        private const val MAX_STATEMENT_BYTES = 32 * 1024 * 1024
+
         fun read(input: InputStream, fileName: String? = null): StatementFile =
-            StatementFile(fileName, input.readBytes())
+            StatementFile(fileName, input.readStatementBytes())
+
+        private fun InputStream.readStatementBytes(): ByteArray {
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var total = 0
+            while (true) {
+                val read = read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > MAX_STATEMENT_BYTES) {
+                    throw MalformedStatementException("Statement file is larger than 32 MiB.")
+                }
+                output.write(buffer, 0, read)
+            }
+            return output.toByteArray()
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.statement
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -87,5 +88,20 @@ class XlsxSheetReaderTest {
         assertEquals("საბარათე ოპერაცია", dataRow.cells["B"])
         assertEquals("7.14", dataRow.cells["C"])
         assertEquals("გადახდა - NIKORA 7.14 GEL 09.07.2025", dataRow.cells["F"])
+    }
+
+    @Test
+    fun `rejects a zip entry that expands beyond the xlsx memory limit`() {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"))
+            val block = ByteArray(1024)
+            repeat(16 * 1024 + 1) { zip.write(block) }
+            zip.closeEntry()
+        }
+
+        assertThrows(MalformedStatementException::class.java) {
+            XlsxSheetReader().read(ByteArrayInputStream(out.toByteArray()))
+        }
     }
 }

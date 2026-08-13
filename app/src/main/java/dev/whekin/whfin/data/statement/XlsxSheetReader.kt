@@ -22,10 +22,31 @@ class XlsxSheetReader {
 
     fun read(input: InputStream): Workbook {
         val entries = mutableMapOf<String, ByteArray>()
+        var entryCount = 0
+        var expandedBytes = 0L
         ZipInputStream(input).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                if (!entry.isDirectory) entries[entry.name] = zip.readBytes()
+                entryCount += 1
+                if (entryCount > MAX_ENTRIES) malformed("XLSX archive contains too many entries.")
+                val name = entry.name
+                if (name.startsWith('/') || '\\' in name || name.split('/').any { it == ".." }) {
+                    malformed("XLSX archive contains an unsafe entry path.")
+                }
+                if (entry.size > MAX_ENTRY_BYTES) malformed("XLSX archive entry is too large.")
+                if (!entry.isDirectory) {
+                    val bytes = zip.readEntryBounded()
+                    expandedBytes += bytes.size
+                    if (expandedBytes > MAX_EXPANDED_BYTES) {
+                        malformed("XLSX archive expands beyond the safe limit.")
+                    }
+                    if (name.isWorkbookData()) {
+                        if (entries.put(name, bytes) != null) {
+                            malformed("XLSX archive contains duplicate entries.")
+                        }
+                    }
+                }
+                zip.closeEntry()
                 entry = zip.nextEntry
             }
         }
@@ -47,6 +68,28 @@ class XlsxSheetReader {
 
         return Workbook(sheets)
     }
+
+    private fun String.isWorkbookData(): Boolean =
+        this == "xl/workbook.xml" ||
+            this == "xl/_rels/workbook.xml.rels" ||
+            this == "xl/sharedStrings.xml" ||
+            (startsWith("xl/worksheets/") && endsWith(".xml"))
+
+    private fun ZipInputStream.readEntryBounded(): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) break
+            total += read
+            if (total > MAX_ENTRY_BYTES) malformed("XLSX archive entry is too large.")
+            output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
+    }
+
+    private fun malformed(message: String): Nothing = throw MalformedStatementException(message)
 
     private fun newParser(bytes: ByteArray): XmlPullParser {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -168,5 +211,11 @@ class XlsxSheetReader {
             }
         }
         return rows
+    }
+
+    private companion object {
+        const val MAX_ENTRIES = 512
+        const val MAX_ENTRY_BYTES = 16 * 1024 * 1024
+        const val MAX_EXPANDED_BYTES = 64L * 1024 * 1024
     }
 }

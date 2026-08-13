@@ -627,7 +627,7 @@
     <string name="permission_allow">Разрешить доступ к SMS</string>
     <string name="permission_open_settings">Открыть настройки Android</string>
     <string name="sms_onboarding_title">Траты без ручного ввода</string>
-    <string name="sms_onboarding_body">Разреши сообщения об операциях Credo — новые платежи будут автоматически появляться здесь как черновики.</string>
+    <string name="sms_onboarding_body">Разреши сообщения об операциях Credo — платежи с известным счётом будут сразу попадать в книгу.</string>
     <string name="sms_onboarding_action">Включить</string>
     <string name="sms_onboarding_dismiss">Больше не показывать это предложение</string>
     <string name="action_back">Назад</string>

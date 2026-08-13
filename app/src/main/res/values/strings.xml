@@ -608,7 +608,7 @@
     <string name="permission_allow">Allow SMS access</string>
     <string name="permission_open_settings">Open Android settings</string>
     <string name="sms_onboarding_title">Expenses without manual entry</string>
-    <string name="sms_onboarding_body">Allow Credo transaction messages and new payments will appear here automatically as drafts.</string>
+    <string name="sms_onboarding_body">Allow Credo transaction messages and routed payments will enter your ledger automatically.</string>
     <string name="sms_onboarding_action">Enable</string>
     <string name="sms_onboarding_dismiss">Don’t show this suggestion again</string>
     <string name="action_back">Back</string>

@@ -39,6 +39,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +49,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class CredoSyncStage { Disconnected, Connecting, AwaitingOtp, Connected, Syncing }
+
+private data class HistoryPresence(
+    val hasImportedHistory: Boolean,
+    val canLoadOlderHistory: Boolean,
+)
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) throw this
+}
 
 /**
  * What one account's run came to.
@@ -223,11 +233,17 @@ class CredoSyncViewModel internal constructor(
                             isBusy = false,
                         )
                     }
-                    .onFailure(::fail)
+                    .onFailure { error ->
+                        error.throwIfCancellation()
+                        fail(error)
+                    }
             } else {
                 finishLogin(loginChallenge, credentials, otp = null)
             }
-        }.onFailure(::fail)
+        }.onFailure { error ->
+            error.throwIfCancellation()
+            fail(error)
+        }
     }
 
     fun submitOtp(otp: String) {
@@ -247,7 +263,10 @@ class CredoSyncViewModel internal constructor(
                 .onSuccess {
                     _state.value = _state.value.copy(stage = CredoSyncStage.AwaitingOtp, isBusy = false)
                 }
-                .onFailure(::fail)
+                .onFailure { error ->
+                    error.throwIfCancellation()
+                    fail(error)
+                }
         }
     }
 
@@ -296,7 +315,7 @@ class CredoSyncViewModel internal constructor(
                         ByteArrayInputStream(bytes).use { input ->
                             StatementImporter(db).preview(input, account.fileName())
                         }
-                    }.getOrNull()
+                    }.onFailure(Throwable::throwIfCancellation).getOrNull()
                     // Readable again: whatever was kept from an earlier failure describes a file
                     // this account no longer has a problem with.
                     if (preview != null) failedStatements.forget(account.maskedLabel)
@@ -347,6 +366,7 @@ class CredoSyncViewModel internal constructor(
                     )
                     return@launch
                 } catch (error: Exception) {
+                    error.throwIfCancellation()
                     val code = error.safeCode()
                     if (code in NO_MORE_HISTORY) {
                         // The bank exports nothing for a period an account sat still through. With
@@ -484,6 +504,7 @@ class CredoSyncViewModel internal constructor(
                         )
                         return@launch
                     } catch (error: Exception) {
+                        error.throwIfCancellation()
                         // Walking off the start of an account's life is the normal way this ends,
                         // not a failure: before it existed there is no statement to export, and the
                         // bank says so with an empty one. Anything else stops the walk too, but is
@@ -548,7 +569,7 @@ class CredoSyncViewModel internal constructor(
                 TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfillAll { pass ->
                     _state.value = _state.value.copy(valuedDays = pass.daysFetched)
                 }
-            }
+            }.onFailure(Throwable::throwIfCancellation)
 
             historyStore.markComplete(walkedToTheEnd)
             refreshHistoryPresence()
@@ -638,14 +659,25 @@ class CredoSyncViewModel internal constructor(
         _state.value = _state.value.copy(errorCode = null)
     }
 
-    private suspend fun refreshHistoryPresence() {
-        val hasHistory = runCatching { db.statementImportDao().count() > 0 }.getOrDefault(true)
+    private suspend fun historyPresence(accounts: List<CredoRemoteAccount>): HistoryPresence {
+        val hasHistory = try {
+            db.statementImportDao().count() > 0
+        } catch (error: Exception) {
+            error.throwIfCancellation()
+            true
+        }
         val walked = historyStore.load()
-        val accounts = _state.value.accounts
-        _state.value = _state.value.copy(
+        return HistoryPresence(
             hasImportedHistory = hasHistory,
-            // An account Credo listed after the last walk still has history nobody has reached.
             canLoadOlderHistory = accounts.isEmpty() || accounts.any { it.stableKey !in walked },
+        )
+    }
+
+    private suspend fun refreshHistoryPresence() {
+        val presence = historyPresence(_state.value.accounts)
+        _state.value = _state.value.copy(
+            hasImportedHistory = presence.hasImportedHistory,
+            canLoadOlderHistory = presence.canLoadOlderHistory,
         )
     }
 
@@ -675,7 +707,7 @@ class CredoSyncViewModel internal constructor(
             importer.learnCardsFrom(messages.map(HistoricalSms::body))
             // A card learned a moment ago can place messages that were already waiting.
             importer.attachUnroutedToStatements()
-        }
+        }.onFailure(Throwable::throwIfCancellation)
     }
 
     /** Copies an explicitly selected failed download; the bytes are otherwise app-private. */
@@ -730,7 +762,7 @@ class CredoSyncViewModel internal constructor(
             activeSession to remoteAccounts
         }.onSuccess { (activeSession, remoteAccounts) ->
             remoteAccounts.forEach { rememberBankProduct(it) }
-            refreshHistoryPresence()
+            val historyPresence = historyPresence(remoteAccounts)
             retryAccountKeys = retryStore.load()
                 .intersect(remoteAccounts.mapTo(mutableSetOf(), CredoRemoteAccount::stableKey))
                 .ifEmpty { recoverIncompleteInitialSync(remoteAccounts) }
@@ -747,12 +779,15 @@ class CredoSyncViewModel internal constructor(
                 hasSavedPassword = rememberPassword,
                 accounts = remoteAccounts,
                 retryableFailures = retryAccountKeys.size,
+                hasImportedHistory = historyPresence.hasImportedHistory,
+                canLoadOlderHistory = historyPresence.canLoadOlderHistory,
             )
             if (syncAfterLogin) {
                 syncAfterLogin = false
                 sync()
             }
         }.onFailure { error ->
+            error.throwIfCancellation()
             val code = error.safeCode()
             fail(
                 if (loginChallenge.requiresOtp && code == "INVALID_INPUT_DATA") "INVALID_OTP"

@@ -87,6 +87,10 @@ This is a single-context repository with root domain documentation and system-wi
   label импортируется как обычная `OTHER` только при целой balance chain и явно показывается в результате.
   Текущий period `dd/MM/yyyy : dd/MM/yyyy` поддержан вместе со старым форматом; пустая выписка допустима
   только при равных opening/closing. Семь приватных current-format файлов проходят эту границу.
+  Вход теперь ограничен 32 MiB до парсинга, а XLSX — 512 entries, 16 MiB на entry и 64 MiB суммарной
+  распаковки, с отказом от duplicate/unsafe paths. Credo coroutine cancellation больше не превращается
+  в банковскую ошибку, а состояние `canLoadOlderHistory` после login вычисляется по только что полученным
+  remote accounts и не затирается новым UI state.
   Реальная OTP SMS на Samsung доказала OEM-gap:
   One UI не включил manifest receiver WHFIN в доставленный broadcast при выданном `RECEIVE_SMS`, поэтому
   `Connecting/AwaitingOtp` дополнительно держит узкий context receiver без sender-permission filter:
