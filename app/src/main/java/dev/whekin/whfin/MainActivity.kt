@@ -182,6 +182,12 @@ class MainActivity : FragmentActivity() {
                 }
                 val statementImports: List<StatementImportEntity>? by statementImportsFlow
                     .collectAsState(initial = null)
+                val personalUnroutedSmsFlow = remember {
+                    (application as WhfinApp).userDb.smsDiagnosticDao().observeUnrouted()
+                        .map<List<dev.whekin.whfin.data.db.SmsDiagnosticEntity>, Int?> { it.size }
+                }
+                val personalUnroutedSmsCount: Int? by personalUnroutedSmsFlow
+                    .collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
                 val effectiveTimeout = savedTimeout
@@ -246,6 +252,9 @@ class MainActivity : FragmentActivity() {
                         AppEntry.PersonalSetup -> mainState.SaveableStateProvider("personal-setup") {
                             PersonalSetupFlow(
                                 state = PersonalSetupState(
+                                    accountCount = personalAccounts?.count {
+                                        it.type != AccountType.PERSON
+                                    },
                                     bankLedgerCount = personalAccounts?.count {
                                         it.type == AccountType.BANK || it.type == AccountType.SAVINGS
                                     },
@@ -255,7 +264,7 @@ class MainActivity : FragmentActivity() {
                                     smsMonitoringEnabled = smsImportEnabled == true,
                                     hasSmsPermission = hasSmsPermission,
                                     canRequestSmsPermission = canRequestSmsPermission,
-                                    cardRouteCount = configuredSmsCards,
+                                    unresolvedSmsCount = personalUnroutedSmsCount,
                                 ),
                                 appVersion = portableAppVersion,
                                 appLockTimeout = effectiveTimeout,

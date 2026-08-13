@@ -9,10 +9,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Visibility
@@ -23,8 +23,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -82,21 +87,21 @@ fun WelcomeChoiceScreen(
                 }
                 WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
                     WelcomeRow(
-                        title = stringResource(R.string.welcome_sms_title),
-                        body = stringResource(R.string.welcome_sms_body),
+                        title = stringResource(R.string.welcome_step_sms_title),
+                        body = stringResource(R.string.welcome_step_sms_body),
                         icon = Icons.Default.Sms,
                         divider = true,
                     )
                     WelcomeRow(
-                        title = stringResource(R.string.welcome_statement_title),
-                        body = stringResource(R.string.welcome_statement_body),
-                        icon = Icons.AutoMirrored.Filled.FactCheck,
+                        title = stringResource(R.string.welcome_step_sync_title),
+                        body = stringResource(R.string.welcome_step_sync_body),
+                        icon = Icons.Default.CloudSync,
                         divider = true,
                     )
                     WelcomeRow(
-                        title = stringResource(R.string.welcome_private_title),
-                        body = stringResource(R.string.welcome_private_body),
-                        icon = Icons.Default.Lock,
+                        title = stringResource(R.string.welcome_step_review_title),
+                        body = stringResource(R.string.welcome_step_review_body),
+                        icon = Icons.Default.CheckCircle,
                     )
                 }
                 if (problem != null) {
@@ -151,12 +156,13 @@ private fun WelcomeRow(
 }
 
 data class PersonalSetupState(
+    val accountCount: Int? = null,
     val bankLedgerCount: Int? = null,
     val hasCredoImport: Boolean? = null,
     val smsMonitoringEnabled: Boolean = false,
     val hasSmsPermission: Boolean = false,
     val canRequestSmsPermission: Boolean = true,
-    val cardRouteCount: Int? = null,
+    val unresolvedSmsCount: Int? = null,
 )
 
 @Composable
@@ -174,7 +180,8 @@ fun PersonalSetupScreen(
     BackHandler(onBack = onExit)
     val credoReady = state.hasCredoImport == true
     val smsReady = state.smsMonitoringEnabled && state.hasSmsPermission
-    val cardsReady = (state.cardRouteCount ?: 0) > 0
+    val reviewReady = smsReady && credoReady && state.unresolvedSmsCount == 0
+    var otherWaysExpanded by rememberSaveable { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -209,24 +216,25 @@ fun PersonalSetupScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                item("bank-label") {
-                    WhfinSectionLabel(stringResource(R.string.personal_setup_bank_section))
-                }
-                item("bank") {
-                    WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
-                        WhfinLedgerRow(
-                            title = stringResource(R.string.personal_setup_credo_title),
-                            supportingText = stringResource(R.string.personal_setup_credo_body),
-                            supportingMaxLines = 3,
-                            icon = Icons.Default.AccountBalance,
-                        )
-                    }
-                }
                 item("steps-label") {
                     WhfinSectionLabel(stringResource(R.string.personal_setup_steps_section))
                 }
                 item("steps") {
-                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+                        SetupActionRow(
+                            title = stringResource(R.string.personal_setup_sms_title),
+                            status = when {
+                                smsReady -> stringResource(R.string.personal_setup_enabled)
+                                state.smsMonitoringEnabled -> stringResource(
+                                    R.string.personal_setup_permission_needed,
+                                )
+                                else -> stringResource(R.string.personal_setup_sms_body)
+                            },
+                            icon = Icons.Default.Sms,
+                            completed = smsReady,
+                            divider = true,
+                            onClick = if (smsReady) onOpenBankSms else onEnableSmsMonitoring,
+                        )
                         SetupActionRow(
                             title = stringResource(R.string.personal_setup_connect_title),
                             status = when (state.hasCredoImport) {
@@ -243,39 +251,65 @@ fun PersonalSetupScreen(
                             onClick = onConnectCredo,
                         )
                         SetupActionRow(
-                            title = stringResource(R.string.personal_setup_sms_title),
-                            status = when {
-                                smsReady -> stringResource(R.string.personal_setup_enabled)
-                                state.smsMonitoringEnabled -> stringResource(
-                                    R.string.personal_setup_permission_needed,
-                                )
-                                else -> stringResource(R.string.personal_setup_sms_body)
-                            },
-                            icon = Icons.Default.Sms,
-                            completed = smsReady,
-                            divider = true,
-                            onClick = if (smsReady) onOpenBankSms else onEnableSmsMonitoring,
-                        )
-                        SetupActionRow(
-                            title = stringResource(R.string.personal_setup_cards_title),
-                            status = when (state.cardRouteCount) {
+                            title = stringResource(R.string.personal_setup_review_title),
+                            status = when (state.unresolvedSmsCount) {
                                 null -> stringResource(R.string.personal_setup_checking)
-                                0 -> stringResource(R.string.personal_setup_cards_optional)
-                                else -> stringResource(
-                                    R.string.personal_setup_card_routes_ready,
-                                    state.cardRouteCount,
+                                0 -> if (smsReady && credoReady) {
+                                    stringResource(R.string.personal_setup_review_clear)
+                                } else {
+                                    stringResource(R.string.personal_setup_review_waiting)
+                                }
+                                else -> stringResource(R.string.personal_setup_review_count, state.unresolvedSmsCount)
+                            },
+                            icon = Icons.Default.CheckCircle,
+                            completed = reviewReady,
+                            onClick = onOpenBankSms,
+                        )
+                    }
+                }
+                item("accounts-label") {
+                    WhfinSectionLabel(stringResource(R.string.personal_setup_accounts_section))
+                }
+                item("accounts") {
+                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                        SetupActionRow(
+                            title = stringResource(R.string.personal_setup_manual_title),
+                            status = when (state.accountCount) {
+                                null -> stringResource(R.string.personal_setup_checking)
+                                0 -> stringResource(R.string.personal_setup_manual_body)
+                                else -> pluralStringResource(
+                                    R.plurals.personal_setup_accounts_ready,
+                                    state.accountCount,
+                                    state.accountCount,
                                 )
                             },
-                            icon = Icons.Default.CreditCard,
-                            completed = cardsReady,
-                            onClick = onOpenBankSms,
+                            icon = Icons.Default.Wallet,
+                            onClick = onCreateAccount,
                         )
                     }
                 }
                 item("other-label") {
                     WhfinSectionLabel(stringResource(R.string.personal_setup_other_section))
                 }
-                item("other") {
+                item("other-toggle") {
+                    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                        WhfinLedgerRow(
+                            title = stringResource(R.string.personal_setup_other_title),
+                            supportingText = stringResource(R.string.personal_setup_other_body),
+                            supportingMaxLines = 3,
+                            icon = Icons.AutoMirrored.Filled.FactCheck,
+                            trailing = {
+                                Icon(
+                                    if (otherWaysExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { otherWaysExpanded = !otherWaysExpanded },
+                        )
+                    }
+                }
+                if (otherWaysExpanded) item("other") {
                     WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                         SetupActionRow(
                             title = stringResource(R.string.personal_setup_statement_title),
@@ -283,13 +317,6 @@ fun PersonalSetupScreen(
                             icon = Icons.AutoMirrored.Filled.FactCheck,
                             divider = true,
                             onClick = onImportStatement,
-                        )
-                        SetupActionRow(
-                            title = stringResource(R.string.personal_setup_manual_title),
-                            status = stringResource(R.string.personal_setup_manual_body),
-                            icon = Icons.Default.Wallet,
-                            divider = true,
-                            onClick = onCreateAccount,
                         )
                         SetupActionRow(
                             title = stringResource(R.string.personal_setup_restore_title),
@@ -313,17 +340,32 @@ fun PersonalSetupScreen(
             ) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 when {
-                    !credoReady -> WhfinButton(
-                        label = stringResource(R.string.credo_sync_connect),
-                        onClick = onConnectCredo,
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        leadingIcon = Icons.Default.CloudSync,
-                    )
                     !smsReady -> WhfinButton(
                         label = stringResource(R.string.personal_setup_enable_sms_action),
                         onClick = onEnableSmsMonitoring,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         leadingIcon = Icons.Default.Sms,
+                    )
+                    !credoReady -> WhfinButton(
+                        label = stringResource(R.string.personal_setup_connect_and_sync_action),
+                        onClick = onConnectCredo,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        leadingIcon = Icons.Default.CloudSync,
+                    )
+                    state.unresolvedSmsCount == null -> WhfinButton(
+                        label = stringResource(R.string.personal_setup_checking),
+                        onClick = {},
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        enabled = false,
+                    )
+                    state.unresolvedSmsCount > 0 -> WhfinButton(
+                        label = stringResource(
+                            R.string.personal_setup_review_action,
+                            state.unresolvedSmsCount,
+                        ),
+                        onClick = onOpenBankSms,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        leadingIcon = Icons.Default.CheckCircle,
                     )
                     else -> WhfinButton(
                         label = stringResource(R.string.personal_setup_continue_action),
@@ -331,7 +373,7 @@ fun PersonalSetupScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
                 }
-                if (!credoReady || !smsReady) {
+                if (!reviewReady) {
                     WhfinButton(
                         label = stringResource(R.string.personal_setup_skip_action),
                         onClick = onContinue,
@@ -428,9 +470,10 @@ private fun PersonalSetupPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             PersonalSetupScreen(
                 state = PersonalSetupState(
+                    accountCount = 2,
                     bankLedgerCount = 2,
                     hasCredoImport = false,
-                    cardRouteCount = 0,
+                    unresolvedSmsCount = 0,
                 ),
                 onConnectCredo = {},
                 onEnableSmsMonitoring = {},

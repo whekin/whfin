@@ -7,7 +7,6 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.theme.WhfinTheme
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,8 +51,8 @@ class FirstRunScreensTest {
     }
 
     @Test
-    fun personalSetupLeadsWithCredoAndAllowsDeliberateSkip() {
-        var connected = false
+    fun personalSetupLeadsWithSmsAndAllowsDeliberateSkip() {
+        var smsRequested = false
         var continued = false
         compose.setContent {
             WhfinTheme {
@@ -61,10 +60,10 @@ class FirstRunScreensTest {
                     state = PersonalSetupState(
                         bankLedgerCount = 0,
                         hasCredoImport = false,
-                        cardRouteCount = 0,
+                        unresolvedSmsCount = 0,
                     ),
-                    onConnectCredo = { connected = true },
-                    onEnableSmsMonitoring = {},
+                    onConnectCredo = {},
+                    onEnableSmsMonitoring = { smsRequested = true },
                     onOpenBankSms = {},
                     onImportStatement = {},
                     onCreateAccount = {},
@@ -75,27 +74,27 @@ class FirstRunScreensTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.credo_sync_connect)).performClick()
-        compose.runOnIdle { assertTrue(connected) }
+        compose.onNodeWithText(context.getString(R.string.personal_setup_enable_sms_action)).performClick()
+        compose.runOnIdle { assertTrue(smsRequested) }
         compose.onNodeWithText(context.getString(R.string.personal_setup_skip_action)).performClick()
         compose.runOnIdle { assertTrue(continued) }
     }
 
     @Test
-    fun smsBecomesThePrimaryNextActionAfterInitialCredoSync() {
-        var smsRequested = 0
+    fun credoBecomesThePrimaryNextActionAfterSmsIsReady() {
+        var connected = false
         compose.setContent {
             WhfinTheme {
                 PersonalSetupScreen(
                     state = PersonalSetupState(
-                        bankLedgerCount = 2,
-                        hasCredoImport = true,
-                        smsMonitoringEnabled = false,
-                        hasSmsPermission = false,
-                        cardRouteCount = 0,
+                        bankLedgerCount = 0,
+                        hasCredoImport = false,
+                        smsMonitoringEnabled = true,
+                        hasSmsPermission = true,
+                        unresolvedSmsCount = 0,
                     ),
-                    onConnectCredo = {},
-                    onEnableSmsMonitoring = { smsRequested += 1 },
+                    onConnectCredo = { connected = true },
+                    onEnableSmsMonitoring = {},
                     onOpenBankSms = {},
                     onImportStatement = {},
                     onCreateAccount = {},
@@ -106,7 +105,37 @@ class FirstRunScreensTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.personal_setup_enable_sms_action)).performClick()
-        compose.runOnIdle { assertEquals(1, smsRequested) }
+        compose.onNodeWithText(context.getString(R.string.personal_setup_connect_and_sync_action)).performClick()
+        compose.runOnIdle { assertTrue(connected) }
+    }
+
+    @Test
+    fun unresolvedSmsBecomesTheLastPrimaryAction() {
+        var openedBankSms = false
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    state = PersonalSetupState(
+                        accountCount = 3,
+                        bankLedgerCount = 2,
+                        hasCredoImport = true,
+                        smsMonitoringEnabled = true,
+                        hasSmsPermission = true,
+                        unresolvedSmsCount = 2,
+                    ),
+                    onConnectCredo = {},
+                    onEnableSmsMonitoring = {},
+                    onOpenBankSms = { openedBankSms = true },
+                    onImportStatement = {},
+                    onCreateAccount = {},
+                    onRestoreBackup = {},
+                    onContinue = {},
+                    onExit = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.personal_setup_review_action, 2)).performClick()
+        compose.runOnIdle { assertTrue(openedBankSms) }
     }
 }
