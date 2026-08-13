@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Check
@@ -34,7 +35,6 @@ import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmsFailed
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -1058,7 +1058,7 @@ private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresent
     ) { MaterialTheme.colorScheme.primary }
     // Nothing is owed and nothing is pending: the bank took the charge back.
     SmsDiagnosticOutcome.CANCELED -> DiagnosticPresentation(
-        R.string.sms_outcome_canceled, Icons.Default.Undo,
+        R.string.sms_outcome_canceled, Icons.AutoMirrored.Filled.Undo,
     ) { MaterialTheme.colorScheme.onSurfaceVariant }
     SmsDiagnosticOutcome.DUPLICATE -> DiagnosticPresentation(
         R.string.sms_outcome_duplicate, Icons.Default.Check,

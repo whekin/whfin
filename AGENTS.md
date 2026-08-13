@@ -97,6 +97,10 @@ This is a single-context repository with root domain documentation and system-wi
   exact Samsung SMS показало, что One UI может broker-ить защищённый системный broadcast через sender,
   который не проходит лишний `BROADCAST_SMS` filter. Экран объясняет
   автоподстановку и ручное подтверждение. Filled OTP визуально проверен dark/font 1.5 без скролла.
+  Для transaction monitoring добавлен независимый OEM fallback: при foreground и выданном `READ_SMS`
+  приложение не чаще раза в 5 минут дочитывает максимум 500 Credo-кандидатов с последнего успешного
+  прохода (первый — 24 часа), с overlap и теми же idempotent external keys. Новое включение monitoring
+  запрашивает `RECEIVE_SMS`+`READ_SMS`; raw body остаётся только в памяти importer.
   Осталось: осторожный dry-run на OnePlus перед любым импортом реальных сообщений.
   Первые два шага согласованного SMS-slice отделили monitoring от routing/import и вывели parsed
   Unrouted operation в Feed на её реальной дате. Она физически остаётся в `sms_diagnostics`, поэтому

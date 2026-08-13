@@ -195,11 +195,12 @@ fun AddTransactionSheet(
 
     fun save() {
         if (!valid) return
+        val savedAmountMinor = amountMinor
         if (kind == ManualKind.DEBT) {
             val time = if (day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
             onSaveDebt(NewDebt(
                 personId = debtPersonId, personName = debtPersonName.takeIf { debtPersonId == null },
-                direction = debtDirection, amountMinor = amountMinor!!, currency = if (debtHasMovement) account?.currency ?: debtCurrency else debtCurrency,
+                direction = debtDirection, amountMinor = savedAmountMinor, currency = if (debtHasMovement) account?.currency ?: debtCurrency else debtCurrency,
                 accountId = account?.id?.takeIf { debtHasMovement },
                 occurredAt = day.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
                 note = note.trim().takeIf(String::isNotEmpty),
@@ -215,9 +216,9 @@ fun AddTransactionSheet(
             destinationAmountMinor = when {
                 !transfer -> null
                 conversion -> destinationMinor
-                else -> amountMinor
+                else -> savedAmountMinor
             },
-            amountMinor = if (kind == ManualKind.INCOME) amountMinor!! else -amountMinor!!,
+            amountMinor = if (kind == ManualKind.INCOME) savedAmountMinor else -savedAmountMinor,
             categoryId = categoryId.takeIf { kind != ManualKind.TRANSFER },
             note = note.trim().takeIf(String::isNotEmpty), day = day,
         )

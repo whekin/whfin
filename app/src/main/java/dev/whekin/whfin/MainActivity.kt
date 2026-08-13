@@ -46,6 +46,7 @@ import dev.whekin.whfin.data.security.PinVerificationResult
 import dev.whekin.whfin.data.security.WHFIN_BIOMETRIC_AUTHENTICATORS
 import dev.whekin.whfin.data.security.WhfinAuthenticator
 import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAvailability
+import dev.whekin.whfin.data.sms.SmsForegroundCatchUp
 import dev.whekin.whfin.ui.MainScreen
 import dev.whekin.whfin.ui.settings.AppLockGate
 import dev.whekin.whfin.ui.setup.PersonalSetupFlow
@@ -111,6 +112,9 @@ class MainActivity : FragmentActivity() {
     private var codeUnlockChosen = false
     private val uiPreferences by lazy { UiPreferences(applicationContext) }
     private val pinStore by lazy { AppLockPinStore(applicationContext) }
+    private val smsCatchUp by lazy {
+        SmsForegroundCatchUp(applicationContext, (application as WhfinApp).userDb)
+    }
     private lateinit var appLock: AppLockViewModel
     private lateinit var authenticator: WhfinAuthenticator
 
@@ -419,6 +423,7 @@ class MainActivity : FragmentActivity() {
         resumed = true
         refreshSmsPermission()
         refreshBiometricAvailability()
+        lifecycleScope.launch { smsCatchUp.runIfNeeded() }
         if (::appLock.isInitialized) {
             appLock.foreground()
             updateWindowPrivacy()
@@ -472,7 +477,7 @@ class MainActivity : FragmentActivity() {
     private fun requestSmsPermission() {
         ActivityCompat.requestPermissions(
             this,
-            arrayOf(Manifest.permission.RECEIVE_SMS),
+            arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS),
             REQUEST_RECEIVE_SMS,
         )
     }

@@ -3,12 +3,13 @@
 ## Implemented state
 
 The original physical-device diagnosis found two silent paths: missing card mappings and ambiguous
-same-currency bank accounts. Room DB v3 now records a structured local outcome for both instead of
+same-currency bank accounts. The clean Room v1 contract records a structured local outcome for both instead of
 dropping the message.
 
 - `RECEIVE_SMS` still observes only broadcasts delivered after permission is granted.
-- Opening Credo setup enables future transaction monitoring and requests that same `RECEIVE_SMS`
-  permission. While an OTP challenge is actively on screen, the exact `# SMS Code: 1234` login template
+- Opening Credo setup enables future transaction monitoring and requests `RECEIVE_SMS` plus `READ_SMS`:
+  the latter supports a bounded foreground catch-up when an OEM omits the manifest receiver. While an
+  OTP challenge is actively on screen, the exact `# SMS Code: 1234` login template
   can fill the four local code dots. The code is process-only, has no replay, is never submitted
   automatically, and payment/card OTP templates are deliberately excluded.
 - The manifest receiver remains the background path for transaction monitoring. During MyCredo
@@ -16,9 +17,11 @@ dropping the message.
   system `BROADCAST_SMS` sender permission. This foreground fallback is scoped to the live login:
   Samsung One UI was observed delivering the bank SMS broadcast without including WHFIN's manifest
   receiver even while `RECEIVE_SMS` was granted. The OTP screen explains automatic fill and explicit
-  confirmation.
-- `READ_SMS` is requested only from the explicit 90-day history action, when the user asks to view
-  one diagnostic's original message, or when they explicitly choose to add that original to a report.
+  confirmation. Whenever the app returns to the foreground with monitoring and `READ_SMS` enabled, it
+  idempotently scans at most 500 Credo candidates since the last successful catch-up (one day on first
+  use, with a five-minute overlap); the raw bodies are never persisted.
+- The explicit 90-day history action still requires a dry-run and confirmation before importing old
+  messages. Viewing or sharing one original remains a separate deliberate action.
 - The scan is capped at 500 Credo candidates and produces a dry-run summary before any write.
 - Raw message bodies exist only in parser/importer memory. `sms_diagnostics` stores a hash and parsed,
   masked fields; the table is excluded from portable JSON backup and cleared on restore.
@@ -90,10 +93,10 @@ it never exports raw messages, OTPs, or parser samples in JSON backup.
 
 ## Historical scan
 
-`RECEIVE_SMS` remains sufficient for future broadcasts. Reading messages already on the phone requires
-the separate restricted `READ_SMS` permission. The app may request it only from an explicit
-“Scan existing Credo messages” action after a prominent disclosure that explains local processing,
-scope, and retention.
+`RECEIVE_SMS` is the live-delivery path. `READ_SMS` is also requested when monitoring is enabled because
+Samsung One UI has demonstrably omitted the manifest receiver; it powers the bounded foreground catch-up.
+The separate 90-day historical import still starts only from the explicit “Scan existing Credo messages”
+action after a prominent disclosure that explains local processing, scope, and retention.
 
 The query should be bounded by likely Credo sender plus a user-visible time range/count. Before writing,
 show a dry-run summary: importable, duplicate, needs mapping, ignored, and unrecognized. The user can
