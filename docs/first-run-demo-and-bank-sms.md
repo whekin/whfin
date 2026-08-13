@@ -36,37 +36,41 @@ fixture has been installed successfully.
 
 ## Personal setup
 
-Personal setup is one resumable, outcome-oriented setup rather than a feature carousel. It is bank-centred:
-the current build explains that the guided route is tailored to Credo and shows only channels that
-actually work for it. Unsupported TBC/BOG channels are not advertised as coming soon.
+Personal setup is a resumable, bank-centred wizard: one short purpose and one dominant action per screen,
+not a dashboard of every unfinished task. The current build explains only the Credo route that actually
+works; unsupported TBC/BOG channels are not advertised as coming soon.
 
 For the current Credo dogfood build, the recommended guided-but-skippable sequence is:
 
-1. Enable future Credo SMS monitoring and request the shared `RECEIVE_SMS` + `READ_SMS` permissions.
-   Granting them advances directly to MyCredo; denial stays on the same explainable setup step.
-2. Connect MyCredo, let a new exact four-digit login SMS fill the local code surface, and explicitly
-   confirm it. The first successful login automatically starts the one-off full-history walk instead
+1. `Connect Credo` is one product step. Its single action enables future Credo SMS monitoring, requests
+   the shared `RECEIVE_SMS` + `READ_SMS` permissions, and then advances directly to MyCredo. SMS is a
+   channel of the bank connection, never a separate onboarding task. Denial stays on the same explainable
+   screen. Statement XLSX and restore live on a separate fallback screen; the bank step can be skipped.
+2. MyCredo lets a new exact four-digit login SMS fill the local code surface and requires explicit
+   confirmation. The first successful login automatically starts the one-off full-history walk instead
    of presenting it as a second action the person must discover.
 3. During that walk, statement import reconciles already-known SMS evidence and the bounded inbox read
    infers safe card mappings without copying raw messages into Room. A failed account remains on the
    Credo result surface for retry instead of advancing as if setup succeeded.
 4. After a successful pass, resolve Unrouted SMS first and statement reconciliation issues second. Each
-   queue is skipped when empty; when both are clear, setup returns to a concise ready state.
-5. Optionally add cash, an unconnected bank account, or a deposit, then continue to Home.
+   queue is skipped when empty; when both are clear, setup advances to the optional accounts step.
+5. A separate second wizard screen optionally adds cash, an unconnected bank account, or a deposit.
+   Skipping it reaches a concise Ready outcome and then Home.
 
-Completed steps become status rows and can be continued later from Credo Bank setup. Manual account
-creation and skipping into the empty Personal workspace remain available. Statement-file import and
-restore are collapsed behind one secondary fallback rather than competing with the guided route.
+The wizard never shows SMS, bank connection, reconciliation, accounts, statement import, and restore in
+one overview. Conditional reconciliation screens appear only when their live queues contain work. Manual
+account creation and skipping into the empty Personal workspace remain available, and all skipped tools
+remain discoverable from Settings.
 
 Future TBC and BOG support should use the same Bank setup grammar while exposing only the channels each
 bank truly supports.
 
-The implemented Credo surface links directly to the existing MyCredo/OTP flow, Bank SMS, statement XLSX
-import, portable restore, and manual Accounts entry. Its pinned action follows the next recommended
-incomplete step while `Continue without setup` remains explicit.
+The implemented Credo surface links directly to the existing MyCredo/OTP flow, conditional Bank SMS,
+statement XLSX import, portable restore, and manual Accounts entry. Each wizard screen pins its primary,
+fallback, and skip actions while its explanation remains independently scrollable at large font sizes.
 
-Back follows the visible hierarchy. At the setup root it exits the app; Credo, Bank SMS, statements,
-backup, and App Lock return to the setup overview or their real caller. Inside the application shell,
+Back follows the visible hierarchy. At the first setup step it exits the app; later wizard steps return
+one step, while Credo, Bank SMS, statements, backup, and App Lock return to their real caller. Inside the application shell,
 secondary destinations keep a caller stack, so paths such as Accounts → Settings → Statements unwind in
 that order instead of routing every tool back through Settings. A nested composer step consumes Back
 before the composer itself; a dirty composer still shows its discard decision.

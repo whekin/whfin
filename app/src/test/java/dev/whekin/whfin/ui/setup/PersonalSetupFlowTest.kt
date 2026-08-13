@@ -6,6 +6,41 @@ import org.junit.Test
 
 class PersonalSetupFlowTest {
     @Test
+    fun `bank connection waits for SMS consent before opening MyCredo`() {
+        assertNull(
+            personalSetupPageAfterBankConsent(
+                PersonalSetupState(hasCredoImport = false),
+            ),
+        )
+        assertEquals(
+            PersonalSetupPage.CredoSync,
+            personalSetupPageAfterBankConsent(
+                PersonalSetupState(
+                    hasCredoImport = false,
+                    smsMonitoringEnabled = true,
+                    hasSmsPermission = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `existing Credo history continues to resolution after SMS consent`() {
+        assertEquals(
+            PersonalSetupPage.Accounts,
+            personalSetupPageAfterBankConsent(
+                PersonalSetupState(
+                    hasCredoImport = true,
+                    smsMonitoringEnabled = true,
+                    hasSmsPermission = true,
+                    unresolvedSmsCount = 0,
+                    statementReviewCount = 0,
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun `guided resolution waits until both queues are loaded`() {
         assertNull(
             personalSetupResolutionPage(
@@ -29,7 +64,7 @@ class PersonalSetupFlowTest {
             ),
         )
         assertEquals(
-            PersonalSetupPage.Home,
+            PersonalSetupPage.Accounts,
             personalSetupResolutionPage(
                 PersonalSetupState(unresolvedSmsCount = 0, statementReviewCount = 0),
             ),

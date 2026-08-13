@@ -16,7 +16,17 @@ import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
 
-internal enum class PersonalSetupPage { Home, CredoSync, BankSms, Statements, Backup, AppLock }
+internal enum class PersonalSetupPage {
+    Bank,
+    Accounts,
+    Ready,
+    Alternative,
+    CredoSync,
+    BankSms,
+    Statements,
+    Backup,
+    AppLock,
+}
 
 internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
 
@@ -24,7 +34,13 @@ internal fun personalSetupResolutionPage(state: PersonalSetupState): PersonalSet
     state.reviewCount == null -> null
     (state.unresolvedSmsCount ?: 0) > 0 -> PersonalSetupPage.BankSms
     (state.statementReviewCount ?: 0) > 0 -> PersonalSetupPage.Statements
-    else -> PersonalSetupPage.Home
+    else -> PersonalSetupPage.Accounts
+}
+
+internal fun personalSetupPageAfterBankConsent(state: PersonalSetupState): PersonalSetupPage? = when {
+    !state.smsReady -> null
+    state.hasCredoImport != true -> PersonalSetupPage.CredoSync
+    else -> personalSetupResolutionPage(state)
 }
 
 @Composable
@@ -48,20 +64,21 @@ fun PersonalSetupFlow(
     onContinue: (initialTab: Int, openAccountAdd: Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
-    var page by rememberSaveable { mutableStateOf(PersonalSetupPage.Home) }
+    var page by rememberSaveable { mutableStateOf(PersonalSetupPage.Bank) }
     var advanceAfterSmsPermission by rememberSaveable { mutableStateOf(false) }
     var guidedResolutionActive by rememberSaveable { mutableStateOf(false) }
+    var statementsReturnPage by rememberSaveable { mutableStateOf(PersonalSetupPage.Alternative) }
 
-    fun beginSmsSetup() {
-        advanceAfterSmsPermission = true
-        onEnableSmsMonitoring()
-    }
-
-    fun openCredoAfterSms() {
-        if (state.smsReady) {
-            page = PersonalSetupPage.CredoSync
+    fun continueBankSetup() {
+        val next = personalSetupPageAfterBankConsent(state)
+        if (next != null) {
+            if (state.hasCredoImport == true) {
+                guidedResolutionActive = true
+            }
+            page = next
         } else {
-            beginSmsSetup()
+            advanceAfterSmsPermission = true
+            onEnableSmsMonitoring()
         }
     }
 
@@ -71,9 +88,14 @@ fun PersonalSetupFlow(
     }
 
     LaunchedEffect(page, advanceAfterSmsPermission, state.smsReady) {
-        if (page == PersonalSetupPage.Home && advanceAfterSmsPermission && state.smsReady) {
+        if (page == PersonalSetupPage.Bank && advanceAfterSmsPermission && state.smsReady) {
             advanceAfterSmsPermission = false
-            page = PersonalSetupPage.CredoSync
+            personalSetupPageAfterBankConsent(state)?.let { next ->
+                if (state.hasCredoImport == true) {
+                    guidedResolutionActive = true
+                }
+                page = next
+            }
         }
     }
     LaunchedEffect(
@@ -86,32 +108,68 @@ fun PersonalSetupFlow(
         val next = personalSetupResolutionPage(state) ?: return@LaunchedEffect
         val shouldAdvance = when (page) {
             PersonalSetupPage.CredoSync -> true
-            PersonalSetupPage.Home -> next != PersonalSetupPage.Home
             PersonalSetupPage.BankSms -> next != PersonalSetupPage.BankSms
-            PersonalSetupPage.Statements -> next == PersonalSetupPage.Home
+            PersonalSetupPage.Statements -> next == PersonalSetupPage.Accounts
             else -> false
         }
         if (shouldAdvance) page = next
     }
 
     when (page) {
-        PersonalSetupPage.Home -> PersonalSetupScreen(
+        PersonalSetupPage.Bank -> PersonalSetupScreen(
+            step = PersonalSetupStep.Bank,
             state = state,
-            onConnectCredo = ::openCredoAfterSms,
-            onEnableSmsMonitoring = ::beginSmsSetup,
-            onOpenBankSms = {
-                guidedResolutionActive = true
-                personalSetupResolutionPage(state)?.let { page = it }
-            },
-            onImportStatement = { page = PersonalSetupPage.Statements },
+            onConnectBank = ::continueBankSetup,
+            onShowAlternatives = { page = PersonalSetupPage.Alternative },
+            onImportStatement = {},
             onCreateAccount = { onContinue(1, true) },
-            onRestoreBackup = { page = PersonalSetupPage.Backup },
+            onRestoreBackup = {},
+            onSkip = { page = PersonalSetupPage.Accounts },
             onContinue = { onContinue(0, false) },
-            onExit = onExit,
+            onBack = onExit,
+        )
+        PersonalSetupPage.Accounts -> PersonalSetupScreen(
+            step = PersonalSetupStep.Accounts,
+            state = state,
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = { onContinue(1, true) },
+            onRestoreBackup = {},
+            onSkip = { page = PersonalSetupPage.Ready },
+            onContinue = { onContinue(0, false) },
+            onBack = { page = PersonalSetupPage.Bank },
+        )
+        PersonalSetupPage.Ready -> PersonalSetupScreen(
+            step = PersonalSetupStep.Ready,
+            state = state,
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = { onContinue(1, true) },
+            onRestoreBackup = {},
+            onSkip = {},
+            onContinue = { onContinue(0, false) },
+            onBack = { page = PersonalSetupPage.Accounts },
+        )
+        PersonalSetupPage.Alternative -> PersonalSetupScreen(
+            step = PersonalSetupStep.Alternative,
+            state = state,
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {
+                statementsReturnPage = PersonalSetupPage.Alternative
+                page = PersonalSetupPage.Statements
+            },
+            onCreateAccount = {},
+            onRestoreBackup = { page = PersonalSetupPage.Backup },
+            onSkip = { page = PersonalSetupPage.Accounts },
+            onContinue = {},
+            onBack = { page = PersonalSetupPage.Bank },
         )
         PersonalSetupPage.CredoSync -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.credo_sync_title),
-            onBack = { page = PersonalSetupPage.Home },
+            onBack = { page = PersonalSetupPage.Bank },
         ) {
             CredoSyncRoute(
                 appLockEnabled = appLockHasPin && appLockTimeout.enabled,
@@ -125,7 +183,7 @@ fun PersonalSetupFlow(
             title = stringResource(R.string.sms_diagnostics_title),
             onBack = {
                 guidedResolutionActive = false
-                page = PersonalSetupPage.Home
+                page = PersonalSetupPage.Bank
             },
         ) {
             SmsDiagnosticsRoute(
@@ -146,15 +204,19 @@ fun PersonalSetupFlow(
         PersonalSetupPage.Statements -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.statements_title),
             onBack = {
-                guidedResolutionActive = false
-                page = PersonalSetupPage.Home
+                if (guidedResolutionActive) {
+                    guidedResolutionActive = false
+                    page = PersonalSetupPage.Bank
+                } else {
+                    page = statementsReturnPage
+                }
             },
         ) {
             BankStatementsScreen()
         }
         PersonalSetupPage.Backup -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.backup_title),
-            onBack = { page = PersonalSetupPage.Home },
+            onBack = { page = PersonalSetupPage.Alternative },
         ) {
             BackupRoute(appVersion = appVersion)
         }

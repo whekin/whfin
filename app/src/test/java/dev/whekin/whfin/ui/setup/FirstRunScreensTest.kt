@@ -1,6 +1,8 @@
 package dev.whekin.whfin.ui.setup
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -51,72 +53,75 @@ class FirstRunScreensTest {
     }
 
     @Test
-    fun personalSetupLeadsWithSmsAndAllowsDeliberateSkip() {
-        var smsRequested = false
-        var continued = false
+    fun personalSetupCombinesSmsAndCredoInOneBankAction() {
+        var bankRequested = false
+        var skipped = false
         compose.setContent {
             WhfinTheme {
                 PersonalSetupScreen(
+                    step = PersonalSetupStep.Bank,
                     state = PersonalSetupState(
                         bankLedgerCount = 0,
                         hasCredoImport = false,
                         unresolvedSmsCount = 0,
                         statementReviewCount = 0,
                     ),
-                    onConnectCredo = {},
-                    onEnableSmsMonitoring = { smsRequested = true },
-                    onOpenBankSms = {},
+                    onConnectBank = { bankRequested = true },
+                    onShowAlternatives = {},
                     onImportStatement = {},
                     onCreateAccount = {},
                     onRestoreBackup = {},
-                    onContinue = { continued = true },
-                    onExit = {},
-                )
-            }
-        }
-
-        compose.onNodeWithText(context.getString(R.string.personal_setup_enable_sms_action)).performClick()
-        compose.runOnIdle { assertTrue(smsRequested) }
-        compose.onNodeWithText(context.getString(R.string.personal_setup_skip_action)).performClick()
-        compose.runOnIdle { assertTrue(continued) }
-    }
-
-    @Test
-    fun credoBecomesThePrimaryNextActionAfterSmsIsReady() {
-        var connected = false
-        compose.setContent {
-            WhfinTheme {
-                PersonalSetupScreen(
-                    state = PersonalSetupState(
-                        bankLedgerCount = 0,
-                        hasCredoImport = false,
-                        smsMonitoringEnabled = true,
-                        hasSmsPermission = true,
-                        unresolvedSmsCount = 0,
-                        statementReviewCount = 0,
-                    ),
-                    onConnectCredo = { connected = true },
-                    onEnableSmsMonitoring = {},
-                    onOpenBankSms = {},
-                    onImportStatement = {},
-                    onCreateAccount = {},
-                    onRestoreBackup = {},
+                    onSkip = { skipped = true },
                     onContinue = {},
-                    onExit = {},
+                    onBack = {},
                 )
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.personal_setup_connect_and_sync_action)).performClick()
-        compose.runOnIdle { assertTrue(connected) }
+        compose.onNode(
+            hasText(context.getString(R.string.personal_setup_connect_action)) and hasClickAction(),
+        ).performClick()
+        compose.runOnIdle { assertTrue(bankRequested) }
+        compose.onNodeWithText(context.getString(R.string.personal_setup_skip_bank_action)).performClick()
+        compose.runOnIdle { assertTrue(skipped) }
     }
 
     @Test
-    fun unresolvedSmsBecomesTheLastPrimaryAction() {
-        var openedBankSms = false
+    fun bankStepKeepsStatementAndBackupAsASeparateChoice() {
+        var alternatives = false
         compose.setContent {
             WhfinTheme {
                 PersonalSetupScreen(
+                    step = PersonalSetupStep.Bank,
+                    state = PersonalSetupState(
+                        bankLedgerCount = 0,
+                        hasCredoImport = false,
+                        unresolvedSmsCount = 0,
+                        statementReviewCount = 0,
+                    ),
+                    onConnectBank = {},
+                    onShowAlternatives = { alternatives = true },
+                    onImportStatement = {},
+                    onCreateAccount = {},
+                    onRestoreBackup = {},
+                    onSkip = {},
+                    onContinue = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.personal_setup_other_action)).performClick()
+        compose.runOnIdle { assertTrue(alternatives) }
+    }
+
+    @Test
+    fun optionalAccountsAreTheirOwnShortStep() {
+        var accountRequested = false
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    step = PersonalSetupStep.Accounts,
                     state = PersonalSetupState(
                         accountCount = 3,
                         bankLedgerCount = 2,
@@ -126,21 +131,47 @@ class FirstRunScreensTest {
                         unresolvedSmsCount = 2,
                         statementReviewCount = 0,
                     ),
-                    onConnectCredo = {},
-                    onEnableSmsMonitoring = {},
-                    onOpenBankSms = { openedBankSms = true },
+                    onConnectBank = {},
+                    onShowAlternatives = {},
                     onImportStatement = {},
-                    onCreateAccount = {},
+                    onCreateAccount = { accountRequested = true },
                     onRestoreBackup = {},
+                    onSkip = {},
                     onContinue = {},
-                    onExit = {},
+                    onBack = {},
                 )
             }
         }
 
-        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.personal_setup_review_action, 2, 2))
-            .performClick()
-        compose.runOnIdle { assertTrue(openedBankSms) }
+        compose.onNodeWithText(context.getString(R.string.personal_setup_accounts_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.personal_setup_add_account_action)).performClick()
+        compose.runOnIdle { assertTrue(accountRequested) }
+    }
+
+    @Test
+    fun alternativeSetupCanContinueWithoutMyCredo() {
+        var continued = false
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    step = PersonalSetupStep.Alternative,
+                    state = PersonalSetupState(hasCredoImport = false),
+                    onConnectBank = {},
+                    onShowAlternatives = {},
+                    onImportStatement = {},
+                    onCreateAccount = {},
+                    onRestoreBackup = {},
+                    onSkip = { continued = true },
+                    onContinue = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            context.getString(R.string.personal_setup_continue_without_bank_action),
+        ).performClick()
+        compose.runOnIdle { assertTrue(continued) }
     }
 
     @Test
@@ -148,6 +179,7 @@ class FirstRunScreensTest {
         compose.setContent {
             WhfinTheme {
                 PersonalSetupScreen(
+                    step = PersonalSetupStep.Ready,
                     state = PersonalSetupState(
                         accountCount = 3,
                         bankLedgerCount = 2,
@@ -157,14 +189,14 @@ class FirstRunScreensTest {
                         unresolvedSmsCount = 0,
                         statementReviewCount = 0,
                     ),
-                    onConnectCredo = {},
-                    onEnableSmsMonitoring = {},
-                    onOpenBankSms = {},
+                    onConnectBank = {},
+                    onShowAlternatives = {},
                     onImportStatement = {},
                     onCreateAccount = {},
                     onRestoreBackup = {},
+                    onSkip = {},
                     onContinue = {},
-                    onExit = {},
+                    onBack = {},
                 )
             }
         }
