@@ -51,9 +51,9 @@ class HomeInsightsTest {
         pace: AnalyticsPace,
         categoryChanges: List<AnalyticsCategoryChange>,
     ) = AnalyticsData(
-        selectedMonth = YearMonth.of(2026, 8),
+        period = dev.whekin.whfin.ui.analytics.AnalyticsPeriod.month(YearMonth.of(2026, 8)),
         incomeMinor = 0,
-        expenseMinor = pace.projectedExpenseMinor * pace.daysElapsed / pace.daysInMonth,
+        expenseMinor = pace.projectedExpenseMinor * pace.daysElapsed / pace.daysTotal,
         categoryRangeMonths = 1,
         categoryExpenseMinor = 0,
         categoryValues = emptyList(),

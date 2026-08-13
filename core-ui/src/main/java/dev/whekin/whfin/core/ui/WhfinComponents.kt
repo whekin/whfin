@@ -534,82 +534,127 @@ data class WhfinMonthlyBar(
     val periodDescription: String = label,
 )
 
-/** A compact, selectable period comparison with accessible 48 dp month targets. */
+/**
+ * A compact, selectable period comparison with accessible 48 dp month targets.
+ *
+ * A rolling window scrolls, because it has no last bar and a selected one worth centring. A closed
+ * period — a calendar year — is one shape the reader is meant to take in at once, so [fitToWidth]
+ * divides the available width instead of asking the reader to scroll a year they can already name.
+ */
 @Composable
 fun WhfinMonthlyBarChart(
     bars: List<WhfinMonthlyBar>,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.tertiary,
     onBarClick: ((Int) -> Unit)? = null,
+    fitToWidth: Boolean = false,
 ) {
     val maximum = bars.maxOfOrNull { it.value }?.coerceAtLeast(1L) ?: 1L
+    val chartModifier = modifier.fillMaxWidth().height(148.dp)
+    if (fitToWidth) {
+        Row(
+            modifier = chartModifier,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            bars.forEachIndexed { index, bar ->
+                MonthlyBar(
+                    bar = bar,
+                    index = index,
+                    maximum = maximum,
+                    color = color,
+                    onBarClick = onBarClick,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        return
+    }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val selectedIndex = bars.indexOfFirst { it.selected }
     LaunchedEffect(selectedIndex) {
         if (selectedIndex >= 0) listState.animateScrollToItem((selectedIndex - 2).coerceAtLeast(0))
     }
     LazyRow(
-        modifier = modifier.fillMaxWidth().height(148.dp),
+        modifier = chartModifier,
         state = listState,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         itemsIndexed(bars) { index, bar ->
-            // Столбец должен читаться как столбец: узкая 9dp полоса внутри 48dp слота выглядела
-            // палочкой-засечкой. Пустой месяц рисуется базовой чертой, а не почти невидимым
-            // огрызком столбца.
-            val fraction = (bar.value.toFloat() / maximum).coerceIn(0f, 1f)
-            val itemModifier = Modifier
-                .width(48.dp)
-                .fillMaxHeight()
-                .testTag("whfin-monthly-bar-$index")
-                .semantics(mergeDescendants = true) {
-                    contentDescription = "${bar.periodDescription}, ${bar.amountDescription}"
-                    selected = bar.selected
-                }
-            val content: @Composable () -> Unit = {
-                Column(
-                    Modifier.fillMaxHeight().padding(horizontal = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                        if (bar.value <= 0L) Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                        ) else Box(
-                            Modifier
-                                .fillMaxWidth(if (bar.selected) .82f else .66f)
-                                .fillMaxHeight(fraction.coerceAtLeast(0.02f))
-                                .background(
-                                    if (bar.selected) color else color.copy(alpha = .38f),
-                                    RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp),
-                                ),
-                        )
-                    }
-                    Text(
-                        bar.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (bar.selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-            }
-            if (onBarClick != null) Surface(
-                onClick = { onBarClick(index) },
-                modifier = itemModifier,
-                shape = MaterialTheme.shapes.small,
-                color = if (bar.selected) color.copy(alpha = .08f) else Color.Transparent,
-                content = content,
-            ) else Box(
-                modifier = itemModifier,
-                contentAlignment = Alignment.Center,
-            ) {
-                content()
-            }
+            MonthlyBar(
+                bar = bar,
+                index = index,
+                maximum = maximum,
+                color = color,
+                onBarClick = onBarClick,
+                modifier = Modifier.width(48.dp),
+            )
         }
+    }
+}
+
+@Composable
+private fun MonthlyBar(
+    bar: WhfinMonthlyBar,
+    index: Int,
+    maximum: Long,
+    color: Color,
+    onBarClick: ((Int) -> Unit)?,
+    modifier: Modifier,
+) {
+    // Столбец должен читаться как столбец: узкая 9dp полоса внутри 48dp слота выглядела
+    // палочкой-засечкой. Пустой месяц рисуется базовой чертой, а не почти невидимым
+    // огрызком столбца.
+    val fraction = (bar.value.toFloat() / maximum).coerceIn(0f, 1f)
+    val itemModifier = modifier
+        .fillMaxHeight()
+        .testTag("whfin-monthly-bar-$index")
+        .semantics(mergeDescendants = true) {
+            contentDescription = "${bar.periodDescription}, ${bar.amountDescription}"
+            selected = bar.selected
+        }
+    val content: @Composable () -> Unit = {
+        Column(
+            Modifier.fillMaxHeight().padding(horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                if (bar.value <= 0L) Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                ) else Box(
+                    Modifier
+                        .fillMaxWidth(if (bar.selected) .82f else .66f)
+                        .fillMaxHeight(fraction.coerceAtLeast(0.02f))
+                        .background(
+                            if (bar.selected) color else color.copy(alpha = .38f),
+                            RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp),
+                        ),
+                )
+            }
+            Text(
+                bar.label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (bar.selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+    }
+    if (onBarClick != null) Surface(
+        onClick = { onBarClick(index) },
+        modifier = itemModifier,
+        shape = MaterialTheme.shapes.small,
+        color = if (bar.selected) color.copy(alpha = .08f) else Color.Transparent,
+        content = content,
+    ) else Box(
+        modifier = itemModifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
     }
 }
 

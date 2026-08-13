@@ -159,6 +159,7 @@ import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.sms.SmsRoutingSheet
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
+import dev.whekin.whfin.ui.analytics.AnalyticsUiModel
 import dev.whekin.whfin.ui.analytics.AnalyticsUiState
 import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
 
@@ -265,7 +266,7 @@ fun FeedScreen(
     }
     val fallbackIncome = monthGelValues.sumOf { it.coerceAtLeast(0) }
     val fallbackExpenses = -monthGelValues.sumOf { it.coerceAtMost(0) }
-    val homeAnalytics = (homeAnalyticsState as? AnalyticsUiState.Content)?.data
+    val homeAnalytics = (homeAnalyticsState?.state as? AnalyticsUiState.Content)?.data
     val income = homeAnalytics?.incomeMinor ?: fallbackIncome
     val expenses = homeAnalytics?.expenseMinor ?: fallbackExpenses
     val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
@@ -869,7 +870,7 @@ fun FeedScreen(
 }
 
 @Composable
-private fun collectHomeAnalyticsState(enabled: Boolean): AnalyticsUiState? {
+private fun collectHomeAnalyticsState(enabled: Boolean): AnalyticsUiModel? {
     if (!enabled) return null
     val analyticsViewModel: AnalyticsViewModel = viewModel(key = "home-analytics")
     val state by analyticsViewModel.uiState.collectAsState()

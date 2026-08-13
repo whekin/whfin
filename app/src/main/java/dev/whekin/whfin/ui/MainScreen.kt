@@ -32,6 +32,8 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.ui.accounts.AccountsScreen
 import dev.whekin.whfin.ui.accounts.AccountOverviewScreen
 import dev.whekin.whfin.ui.accounts.AccountTransactionsScreen
+import dev.whekin.whfin.ui.analytics.AnalyticsPeriod
+import dev.whekin.whfin.ui.analytics.AnalyticsScale
 import dev.whekin.whfin.ui.analytics.AnalyticsScreen
 import dev.whekin.whfin.ui.analytics.ExpenseAnalysisScreen
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsRequest
@@ -71,16 +73,20 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     save = { request ->
         if (request == null) listOf(false) else listOf(
             true,
-            request.month.toString(),
+            request.period.month.toString(),
             request.categoryFilterEnabled,
             request.categoryId ?: Long.MIN_VALUE,
             request.filterName,
             request.expectedExpenseMinor,
+            request.period.scale.name,
         )
     },
     restore = { values ->
         if (values.first() == false) null else AnalyticsTransactionsRequest(
-            month = YearMonth.parse(values[1] as String),
+            period = AnalyticsPeriod(
+                scale = AnalyticsScale.valueOf(values[6] as String),
+                month = YearMonth.parse(values[1] as String),
+            ),
             categoryFilterEnabled = values[2] as Boolean,
             categoryId = (values[3] as Long).takeUnless { it == Long.MIN_VALUE },
             filterName = values[4] as String,

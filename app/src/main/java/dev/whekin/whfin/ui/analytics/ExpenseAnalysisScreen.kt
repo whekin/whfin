@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
@@ -65,81 +65,27 @@ internal fun ExpenseAnalysisScreen(
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     viewModel: AnalyticsViewModel = viewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    when (val value = state) {
-        AnalyticsUiState.Loading -> ExpenseAnalysisPeriodState(
-            month = YearMonth.now(),
-            state = WhfinPaneState.Loading,
-            title = stringResource(R.string.analytics_expenses_title),
-            body = stringResource(R.string.analytics_loading),
-            onBack = onBack,
-            onPreviousMonth = {},
-            onNextMonth = {},
-        )
-        is AnalyticsUiState.Empty -> ExpenseAnalysisPeriodState(
-            month = value.selectedMonth,
-            state = WhfinPaneState.Empty,
-            title = stringResource(R.string.analytics_expenses_empty_title),
-            body = stringResource(R.string.analytics_expenses_empty_body),
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-        )
-        is AnalyticsUiState.Error -> ExpenseAnalysisPeriodState(
-            month = value.selectedMonth,
-            state = WhfinPaneState.Error,
-            title = stringResource(R.string.analytics_error_title),
-            body = stringResource(R.string.analytics_error_body),
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-        )
-        is AnalyticsUiState.Content -> ExpenseAnalysisContent(
-            data = value.data,
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-            onSelectMonth = viewModel::selectMonth,
-            onShowAllTrend = viewModel::showAllExpensesTrend,
-            onShowCategoryTrend = viewModel::showCategoryTrend,
-            onOpenTransactions = onOpenTransactions,
-        )
-    }
-}
-
-@Composable
-private fun ExpenseAnalysisPeriodState(
-    month: YearMonth,
-    state: WhfinPaneState,
-    title: String,
-    body: String,
-    onBack: () -> Unit,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-) {
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            item { AnalyticsHeader(onBack, stringResource(R.string.analytics_expenses_title)) }
-            item {
-                MonthSelector(
-                    month,
-                    onPreviousMonth,
-                    onNextMonth,
-                    Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                )
-            }
-            item { WhfinStatePane(state, title, body, Modifier.fillMaxWidth()) }
-        }
-        WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
-    }
+    val model by viewModel.uiState.collectAsState()
+    ExpenseAnalysisContent(
+        model = model,
+        onBack = onBack,
+        onPreviousPeriod = viewModel::selectPreviousPeriod,
+        onNextPeriod = viewModel::selectNextPeriod,
+        onScaleChange = viewModel::setScale,
+        onSelectMonth = viewModel::selectMonth,
+        onShowAllTrend = viewModel::showAllExpensesTrend,
+        onShowCategoryTrend = viewModel::showCategoryTrend,
+        onOpenTransactions = onOpenTransactions,
+    )
 }
 
 @Composable
 internal fun ExpenseAnalysisContent(
-    data: AnalyticsData,
+    model: AnalyticsUiModel,
     onBack: () -> Unit,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
+    onScaleChange: (AnalyticsScale) -> Unit,
     onSelectMonth: (YearMonth) -> Unit,
     onShowAllTrend: () -> Unit,
     onShowCategoryTrend: (Long?) -> Unit,
@@ -147,75 +93,75 @@ internal fun ExpenseAnalysisContent(
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().testTag("expense-analysis-list"),
-            state = listState,
-            contentPadding = PaddingValues(bottom = navigationBottom + 28.dp),
-        ) {
-            item(key = "expense-header") {
-                AnalyticsHeader(onBack, stringResource(R.string.analytics_expenses_title))
-            }
-            item(key = "expense-hero") {
-                ExpenseHero(
+    AnalyticsScaffold(
+        model = model,
+        title = stringResource(R.string.analytics_expenses_title),
+        emptyTitle = stringResource(
+            when (model.period.scale) {
+                AnalyticsScale.MONTH -> R.string.analytics_expenses_empty_title
+                AnalyticsScale.YEAR -> R.string.analytics_expenses_empty_title_year
+            },
+        ),
+        emptyBody = stringResource(R.string.analytics_expenses_empty_body),
+        onBack = onBack,
+        onPreviousPeriod = onPreviousPeriod,
+        onNextPeriod = onNextPeriod,
+        onScaleChange = onScaleChange,
+        listState = listState,
+        listTestTag = "expense-analysis-list",
+    ) { data ->
+        item(key = "expense-hero") {
+            ExpenseHero(
+                data = data,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            )
+        }
+        item(key = "expense-distribution") {
+            ExpenseDistribution(
+                data = data,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+        }
+        item(key = "expense-trend") {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp)
+                    .testTag("expense-analysis-trend"),
+            ) {
+                PeriodTrend(
                     data = data,
-                    onPreviousMonth = onPreviousMonth,
-                    onNextMonth = onNextMonth,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 24.dp),
+                    onSelectMonth = onSelectMonth,
+                    onShowAllTrend = onShowAllTrend,
+                    onOpenTransactions = onOpenTransactions,
                 )
-            }
-            item(key = "expense-distribution") {
-                ExpenseDistribution(
-                    data = data,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                )
-            }
-            item(key = "expense-trend") {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp)
-                        .testTag("expense-analysis-trend"),
-                ) {
-                    YearTrend(
-                        data = data,
-                        selectedMonth = data.selectedMonth,
-                        onSelectMonth = onSelectMonth,
-                        onShowAllTrend = onShowAllTrend,
-                        onOpenTransactions = onOpenTransactions,
-                    )
-                }
-            }
-            item(key = "expense-categories") {
-                ExpenseCategories(
-                    data = data,
-                    onCategoryClick = { categoryId ->
-                        onShowCategoryTrend(categoryId)
-                        scope.launch { listState.animateScrollToItem(3) }
-                    },
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-            }
-            if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "expense-currencies") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 28.dp)) {
-                    OtherCurrenciesSection(data.otherCurrencyExpenses)
-                }
             }
         }
-        WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
+        item(key = "expense-categories") {
+            ExpenseCategories(
+                data = data,
+                onCategoryClick = { categoryId ->
+                    onShowCategoryTrend(categoryId)
+                    // Header and period selector precede the hero and the ring.
+                    scope.launch { listState.animateScrollToItem(4) }
+                },
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
+        if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "expense-currencies") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 28.dp)) {
+                OtherCurrenciesSection(data.otherCurrencyExpenses)
+            }
+        }
     }
 }
 
 @Composable
 private fun ExpenseHero(
     data: AnalyticsData,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        MonthSelector(data.selectedMonth, onPreviousMonth, onNextMonth)
         WhfinFieldLabel(stringResource(R.string.analytics_expenses_total))
         WhfinAmount(
             formatMinor(data.expenseMinor, "GEL"),
@@ -224,7 +170,7 @@ private fun ExpenseHero(
             color = MaterialTheme.colorScheme.tertiary,
         )
         Text(
-            averageComparisonText(data.expenseMinor, data.spendingAverageMinor),
+            averageComparisonText(data.expenseMinor, data.spendingAverageMinor, data.period.scale),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -350,6 +296,7 @@ private fun ExpenseCategories(
                 data.spendingCategoryValues.forEachIndexed { index, value ->
                     SpendingCategoryRow(
                         value = value,
+                        scale = data.period.scale,
                         totalMinor = data.expenseMinor,
                         color = value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
                         selected = data.trendFilter == AnalyticsTrendFilter.Category(value.categoryId),
@@ -365,6 +312,7 @@ private fun ExpenseCategories(
 @Composable
 private fun SpendingCategoryRow(
     value: AnalyticsCategoryValue,
+    scale: AnalyticsScale,
     totalMinor: Long,
     color: Color,
     selected: Boolean,
@@ -409,7 +357,7 @@ private fun SpendingCategoryRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        averageComparisonText(value.expenseMinor, value.averageExpenseMinor),
+                        averageComparisonText(value.expenseMinor, value.averageExpenseMinor, scale),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -429,19 +377,31 @@ private fun SpendingCategoryRow(
 }
 
 @Composable
-private fun averageComparisonText(current: Long, average: Long): String {
-    if (average <= 0L) return stringResource(R.string.analytics_expenses_no_average)
+private fun averageComparisonText(current: Long, average: Long, scale: AnalyticsScale): String {
+    // A month is read against the previous three; a year has only the year before it to be read against.
+    val month = scale == AnalyticsScale.MONTH
+    if (average <= 0L) return stringResource(
+        if (month) R.string.analytics_expenses_no_average else R.string.analytics_expenses_no_average_year,
+    )
     val difference = abs(current - average)
     val amount = formatMinor(difference, "GEL")
     return when {
-        current > average -> stringResource(R.string.analytics_expenses_above_average, amount)
-        current < average -> stringResource(R.string.analytics_expenses_below_average, amount)
-        else -> stringResource(R.string.analytics_expenses_at_average)
+        current > average -> stringResource(
+            if (month) R.string.analytics_expenses_above_average else R.string.analytics_expenses_above_average_year,
+            amount,
+        )
+        current < average -> stringResource(
+            if (month) R.string.analytics_expenses_below_average else R.string.analytics_expenses_below_average_year,
+            amount,
+        )
+        else -> stringResource(
+            if (month) R.string.analytics_expenses_at_average else R.string.analytics_expenses_at_average_year,
+        )
     }
 }
 
 private val expensePreviewData = AnalyticsData(
-    selectedMonth = YearMonth.of(2026, 7),
+    period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
     incomeMinor = 730_800,
     expenseMinor = 903_600,
     categoryRangeMonths = 1,
@@ -467,6 +427,13 @@ private val expensePreviewData = AnalyticsData(
     hasAnyTransactions = true,
 )
 
+private fun expensePreviewModel(data: AnalyticsData = expensePreviewData) = AnalyticsUiModel(
+    period = data.period,
+    canSelectPrevious = true,
+    canSelectNext = false,
+    state = AnalyticsUiState.Content(data),
+)
+
 @Preview(name = "Expenses populated", widthDp = 400, heightDp = 1000, showBackground = true)
 @Preview(name = "Expenses dark", widthDp = 400, heightDp = 1000, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Expenses font 1.5", widthDp = 400, heightDp = 1200, fontScale = 1.5f, showBackground = true)
@@ -475,7 +442,26 @@ private val expensePreviewData = AnalyticsData(
 private fun ExpenseAnalysisPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            ExpenseAnalysisContent(expensePreviewData, {}, {}, {}, {}, {}, {}, {})
+            ExpenseAnalysisContent(expensePreviewModel(), {}, {}, {}, {}, {}, {}, {}, {})
+        }
+    }
+}
+
+@Preview(name = "Expenses year", widthDp = 400, heightDp = 1000, showBackground = true)
+@Composable
+private fun ExpenseAnalysisYearPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            ExpenseAnalysisContent(
+                expensePreviewModel(
+                    expensePreviewData.copy(
+                        period = AnalyticsPeriod.year(YearMonth.of(2026, 7)),
+                        expenseMinor = 6_294_000,
+                        spendingAverageMinor = 5_810_000,
+                    ),
+                ),
+                {}, {}, {}, {}, {}, {}, {}, {},
+            )
         }
     }
 }

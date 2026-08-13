@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -85,81 +87,103 @@ internal fun AnalyticsScreen(
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     viewModel: AnalyticsViewModel = viewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    when (val value = state) {
-        AnalyticsUiState.Loading -> AnalyticsPeriodState(
-            month = YearMonth.now(),
-            state = WhfinPaneState.Loading,
-            title = stringResource(R.string.analytics_title),
-            body = stringResource(R.string.analytics_loading),
-            onBack = onBack,
-            onPreviousMonth = {},
-            onNextMonth = {},
-        )
-        is AnalyticsUiState.Empty -> AnalyticsPeriodState(
-            month = value.selectedMonth,
-            state = WhfinPaneState.Empty,
-            title = stringResource(R.string.analytics_empty_title),
-            body = stringResource(R.string.analytics_empty_body),
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-        )
-        is AnalyticsUiState.Error -> AnalyticsPeriodState(
-            month = value.selectedMonth,
-            state = WhfinPaneState.Error,
-            title = stringResource(R.string.analytics_error_title),
-            body = stringResource(R.string.analytics_error_body),
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-        )
-        is AnalyticsUiState.Content -> AnalyticsContent(
-            data = value.data,
-            onBack = onBack,
-            onPreviousMonth = viewModel::previousMonth,
-            onNextMonth = viewModel::nextMonth,
-            onSelectMonth = viewModel::selectMonth,
-            onRangeChange = viewModel::setCategoryRange,
-            onShowAllTrend = viewModel::showAllExpensesTrend,
-            onShowCategoryTrend = viewModel::showCategoryTrend,
-            onOpenExpenses = {
-                viewModel.showAllExpensesTrend()
-                onOpenExpenses()
-            },
-            onOpenTransactions = onOpenTransactions,
-        )
-    }
+    val model by viewModel.uiState.collectAsState()
+    AnalyticsContent(
+        model = model,
+        onBack = onBack,
+        onPreviousPeriod = viewModel::selectPreviousPeriod,
+        onNextPeriod = viewModel::selectNextPeriod,
+        onScaleChange = viewModel::setScale,
+        onSelectMonth = viewModel::selectMonth,
+        onRangeChange = viewModel::setCategoryRange,
+        onShowAllTrend = viewModel::showAllExpensesTrend,
+        onShowCategoryTrend = viewModel::showCategoryTrend,
+        onOpenExpenses = {
+            viewModel.showAllExpensesTrend()
+            onOpenExpenses()
+        },
+        onOpenTransactions = onOpenTransactions,
+    )
 }
 
+/**
+ * The frame every statistics screen shares: title, scale, period, then whatever the period is.
+ *
+ * Loading and failure keep the same period controls rather than a frozen "now", so the screen never
+ * shows a month the user is not on and never offers an arrow that does nothing.
+ */
 @Composable
-private fun AnalyticsPeriodState(
-    month: YearMonth,
-    state: WhfinPaneState,
+internal fun AnalyticsScaffold(
+    model: AnalyticsUiModel,
     title: String,
-    body: String,
+    emptyTitle: String,
+    emptyBody: String,
     onBack: () -> Unit,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
+    onScaleChange: (AnalyticsScale) -> Unit,
+    listState: LazyListState = rememberLazyListState(),
+    listTestTag: String,
+    content: LazyListScope.(AnalyticsData) -> Unit,
 ) {
+    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            item(key = "analytics-header") { AnalyticsHeader(onBack) }
-            item(key = "month-selector") {
-                MonthSelector(month, onPreviousMonth, onNextMonth, Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+        LazyColumn(
+            Modifier.fillMaxSize().testTag(listTestTag),
+            state = listState,
+            contentPadding = PaddingValues(bottom = navigationBottom + 28.dp),
+        ) {
+            item(key = "analytics-header") { AnalyticsHeader(onBack, title) }
+            item(key = "analytics-period") {
+                PeriodSelector(
+                    period = model.period,
+                    canSelectPrevious = model.canSelectPrevious,
+                    canSelectNext = model.canSelectNext,
+                    onPreviousPeriod = onPreviousPeriod,
+                    onNextPeriod = onNextPeriod,
+                    onScaleChange = onScaleChange,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
+                )
             }
-            item(key = "state") { WhfinStatePane(state, title, body, Modifier.fillMaxWidth()) }
+            when (val state = model.state) {
+                AnalyticsUiState.Loading -> item(key = "state") {
+                    WhfinStatePane(
+                        WhfinPaneState.Loading,
+                        title,
+                        stringResource(R.string.analytics_loading),
+                        Modifier.fillMaxWidth(),
+                    )
+                }
+                AnalyticsUiState.Empty -> item(key = "state") {
+                    WhfinStatePane(WhfinPaneState.Empty, emptyTitle, emptyBody, Modifier.fillMaxWidth())
+                }
+                AnalyticsUiState.Error -> item(key = "state") {
+                    WhfinStatePane(
+                        WhfinPaneState.Error,
+                        stringResource(R.string.analytics_error_title),
+                        stringResource(R.string.analytics_error_body),
+                        Modifier.fillMaxWidth(),
+                    )
+                }
+                is AnalyticsUiState.Content -> content(state.data)
+            }
         }
         WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
     }
 }
 
+/** Index of the trend block inside [AnalyticsScaffold], counting its own header and period items. */
+private fun analyticsTrendIndex(data: AnalyticsData) = 4 +
+    (if (data.pace != null) 1 else 0) +
+    (if (data.categoryChanges.isNotEmpty()) 1 else 0)
+
 @Composable
 internal fun AnalyticsContent(
-    data: AnalyticsData,
+    model: AnalyticsUiModel,
     onBack: () -> Unit,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
+    onScaleChange: (AnalyticsScale) -> Unit,
     onSelectMonth: (YearMonth) -> Unit,
     onRangeChange: (Int) -> Unit,
     onShowAllTrend: () -> Unit,
@@ -167,82 +191,80 @@ internal fun AnalyticsContent(
     onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
-    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val trendItemIndex = 3 +
-        (if (data.pace != null) 1 else 0) +
-        (if (data.categoryChanges.isNotEmpty()) 1 else 0)
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize().testTag("analytics-list"),
-            state = listState,
-            contentPadding = PaddingValues(bottom = navigationBottom + 28.dp),
-        ) {
-            item(key = "analytics-header") { AnalyticsHeader(onBack) }
-            item(key = "month-result") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 28.dp)) {
-                    MonthResult(data, onPreviousMonth, onNextMonth, onOpenExpenses)
-                }
+    AnalyticsScaffold(
+        model = model,
+        title = stringResource(R.string.analytics_title),
+        emptyTitle = stringResource(R.string.analytics_empty_title),
+        emptyBody = stringResource(R.string.analytics_empty_body),
+        onBack = onBack,
+        onPreviousPeriod = onPreviousPeriod,
+        onNextPeriod = onNextPeriod,
+        onScaleChange = onScaleChange,
+        listState = listState,
+        listTestTag = "analytics-list",
+    ) { data ->
+        item(key = "period-result") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                PeriodResult(data, onOpenExpenses)
             }
-            data.pace?.let { pace ->
-                item(key = "pace") {
-                    Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                        SpendingPace(data.expenseMinor, pace)
-                    }
-                }
-            }
-            if (data.categoryChanges.isNotEmpty()) {
-                item(key = "changes") {
-                    Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                        CategoryChanges(
-                            changes = data.categoryChanges,
-                            month = data.selectedMonth,
-                            onOpenTransactions = onOpenTransactions,
-                        )
-                    }
-                }
-            }
-            item(key = "categories") {
+        }
+        data.pace?.let { pace ->
+            item(key = "pace") {
                 Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                    CategoryBreakdown(
-                        data = data,
-                        onRangeChange = onRangeChange,
-                        onCategoryClick = { categoryId ->
-                            onShowCategoryTrend(categoryId)
-                            scope.launch { listState.animateScrollToItem(trendItemIndex) }
-                        },
-                    )
+                    SpendingPace(data.expenseMinor, pace, data.period.scale)
                 }
             }
-            item(key = "trend") {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
-                        .testTag("analytics-trend"),
-                ) {
-                    YearTrend(
-                        data = data,
-                        selectedMonth = data.selectedMonth,
-                        onSelectMonth = onSelectMonth,
-                        onShowAllTrend = onShowAllTrend,
+        }
+        if (data.categoryChanges.isNotEmpty()) {
+            item(key = "changes") {
+                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                    CategoryChanges(
+                        changes = data.categoryChanges,
+                        period = data.period,
                         onOpenTransactions = onOpenTransactions,
                     )
                 }
             }
-            if (data.unaccountedNetMinor != 0L) item(key = "unaccounted") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                    UnaccountedSection(data.unaccountedNetMinor)
-                }
-            }
-            if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "currencies") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                    OtherCurrenciesSection(data.otherCurrencyExpenses)
-                }
+        }
+        item(key = "categories") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                CategoryBreakdown(
+                    data = data,
+                    onRangeChange = onRangeChange,
+                    onCategoryClick = { categoryId ->
+                        onShowCategoryTrend(categoryId)
+                        scope.launch { listState.animateScrollToItem(analyticsTrendIndex(data)) }
+                    },
+                )
             }
         }
-        WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
+        item(key = "trend") {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
+                    .testTag("analytics-trend"),
+            ) {
+                PeriodTrend(
+                    data = data,
+                    onSelectMonth = onSelectMonth,
+                    onShowAllTrend = onShowAllTrend,
+                    onOpenTransactions = onOpenTransactions,
+                )
+            }
+        }
+        if (data.unaccountedNetMinor != 0L) item(key = "unaccounted") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                UnaccountedSection(data.unaccountedNetMinor)
+            }
+        }
+        if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "currencies") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                OtherCurrenciesSection(data.otherCurrencyExpenses)
+            }
+        }
     }
 }
 
@@ -264,16 +286,20 @@ internal fun AnalyticsHeader(onBack: () -> Unit, title: String = stringResource(
 }
 
 @Composable
-private fun MonthResult(
+private fun PeriodResult(
     data: AnalyticsData,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
     onOpenExpenses: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        MonthSelector(data.selectedMonth, onPreviousMonth, onNextMonth)
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            WhfinFieldLabel(stringResource(R.string.analytics_month_result))
+            WhfinFieldLabel(
+                stringResource(
+                    when (data.period.scale) {
+                        AnalyticsScale.MONTH -> R.string.analytics_month_result
+                        AnalyticsScale.YEAR -> R.string.analytics_year_result
+                    },
+                ),
+            )
             WhfinAmount(
                 formatMinor(data.deltaMinor, "GEL", withSign = true),
                 symbol = currencySymbol("GEL"),
@@ -312,32 +338,53 @@ private fun MonthResult(
 }
 
 @Composable
-internal fun MonthSelector(
-    month: YearMonth,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
+internal fun PeriodSelector(
+    period: AnalyticsPeriod,
+    canSelectPrevious: Boolean,
+    canSelectNext: Boolean,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
+    onScaleChange: (AnalyticsScale) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        WhfinIconButton(
-            Icons.Default.ChevronLeft,
-            stringResource(R.string.analytics_previous_month),
-            onPreviousMonth,
-            outlined = false,
-        )
-        Text(
-            monthTitle(month),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        WhfinIconButton(
-            Icons.Default.ChevronRight,
-            stringResource(R.string.analytics_next_month),
-            onNextMonth,
-            outlined = false,
-            enabled = month < YearMonth.now(),
-        )
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        WhfinChoiceRail {
+            items(AnalyticsScale.entries.toList(), key = { it.name }) { scale ->
+                WhfinFilterPill(
+                    label = stringResource(
+                        when (scale) {
+                            AnalyticsScale.MONTH -> R.string.analytics_scale_month
+                            AnalyticsScale.YEAR -> R.string.analytics_scale_year
+                        },
+                    ),
+                    selected = period.scale == scale,
+                    onClick = { onScaleChange(scale) },
+                    modifier = Modifier.testTag("analytics-scale-${scale.name.lowercase(Locale.ROOT)}"),
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WhfinIconButton(
+                Icons.Default.ChevronLeft,
+                stringResource(R.string.analytics_previous_period),
+                onPreviousPeriod,
+                outlined = false,
+                enabled = canSelectPrevious,
+            )
+            Text(
+                periodTitle(period),
+                modifier = Modifier.weight(1f).testTag("analytics-period-title"),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            WhfinIconButton(
+                Icons.Default.ChevronRight,
+                stringResource(R.string.analytics_next_period),
+                onNextPeriod,
+                outlined = false,
+                enabled = canSelectNext,
+            )
+        }
     }
 }
 
@@ -377,6 +424,7 @@ private fun AnalyticsMetric(
 private fun SpendingPace(
     expenseMinor: Long,
     pace: AnalyticsPace,
+    scale: AnalyticsScale,
 ) {
     Column(
         Modifier.testTag("analytics-pace"),
@@ -387,7 +435,7 @@ private fun SpendingPace(
             supportingText = stringResource(
                 R.string.analytics_pace_hint,
                 pace.daysElapsed,
-                pace.daysInMonth,
+                pace.daysTotal,
             ),
         )
         WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
@@ -406,7 +454,8 @@ private fun SpendingPace(
                     Text(
                         comparisonText(
                             pace.projectedExpenseMinor,
-                            pace.previousMonthExpenseMinor,
+                            pace.previousPeriodExpenseMinor,
+                            scale,
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -424,8 +473,13 @@ private fun SpendingPace(
                         Modifier.weight(1f),
                     )
                     AnalyticsMetric(
-                        stringResource(R.string.analytics_previous_month_expenses),
-                        formatMinor(pace.previousMonthExpenseMinor, "GEL"),
+                        stringResource(
+                            when (scale) {
+                                AnalyticsScale.MONTH -> R.string.analytics_previous_month_expenses
+                                AnalyticsScale.YEAR -> R.string.analytics_previous_year_expenses
+                            },
+                        ),
+                        formatMinor(pace.previousPeriodExpenseMinor, "GEL"),
                         MaterialTheme.colorScheme.onSurfaceVariant,
                         Modifier.weight(1f),
                     )
@@ -438,7 +492,7 @@ private fun SpendingPace(
 @Composable
 private fun CategoryChanges(
     changes: List<AnalyticsCategoryChange>,
-    month: YearMonth,
+    period: AnalyticsPeriod,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
     val fallbackColors = listOf(
@@ -452,7 +506,12 @@ private fun CategoryChanges(
     ) {
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_changes_title),
-            supportingText = stringResource(R.string.analytics_changes_hint),
+            supportingText = stringResource(
+                when (period.scale) {
+                    AnalyticsScale.MONTH -> R.string.analytics_changes_hint
+                    AnalyticsScale.YEAR -> R.string.analytics_changes_hint_year
+                },
+            ),
         )
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             changes.forEachIndexed { index, change ->
@@ -465,7 +524,7 @@ private fun CategoryChanges(
                     onClick = {
                         onOpenTransactions(
                             AnalyticsTransactionsRequest(
-                                month = month,
+                                period = period,
                                 categoryFilterEnabled = true,
                                 categoryId = change.categoryId,
                                 filterName = name,
@@ -560,7 +619,8 @@ private fun CategoryBreakdown(
             title = stringResource(R.string.analytics_categories),
             supportingText = stringResource(R.string.analytics_categories_hint),
         )
-        WhfinChoiceRail {
+        // The year already fixes its own window, so the rolling 1/3/6/12 rail belongs to months only.
+        if (data.showCategoryRange) WhfinChoiceRail {
             items(listOf(1, 3, 6, 12), key = { it }) { months ->
                 WhfinFilterPill(
                     label = stringResource(
@@ -663,22 +723,37 @@ private fun CategoryRow(
 }
 
 @Composable
-internal fun YearTrend(
+internal fun PeriodTrend(
     data: AnalyticsData,
-    selectedMonth: YearMonth,
     onSelectMonth: (YearMonth) -> Unit,
     onShowAllTrend: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
     val locale = currentLocale()
+    val period = data.period
     val filterName = when (val filter = data.trendFilter) {
         AnalyticsTrendFilter.All -> stringResource(R.string.analytics_all_expenses)
         is AnalyticsTrendFilter.Category -> data.trendFilterName ?: stringResource(R.string.analytics_uncategorized)
     }
-    val selectedValue = data.trendValues.firstOrNull { it.month == selectedMonth }?.expenseMinor ?: 0L
-    val previousValue = data.trendValues.firstOrNull { it.month == selectedMonth.minusMonths(1) }?.expenseMinor ?: 0L
+    // In month scale the chart is a rolling window around one selected bar. In year scale every bar
+    // belongs to the selected period, so the footer reports the year itself and a bar is a drill-down.
+    val selectedValue = when (period.scale) {
+        AnalyticsScale.MONTH -> data.trendValues.firstOrNull { it.month == period.month }?.expenseMinor ?: 0L
+        AnalyticsScale.YEAR -> data.trendValues.sumOf { it.expenseMinor }
+    }
+    val previousValue = when (period.scale) {
+        AnalyticsScale.MONTH ->
+            data.trendValues.firstOrNull { it.month == period.month.minusMonths(1) }?.expenseMinor ?: 0L
+        AnalyticsScale.YEAR -> data.previousTrendExpenseMinor
+    }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        WhfinSectionHeader(title = stringResource(R.string.analytics_year_trend), supportingText = filterName)
+        WhfinSectionHeader(
+            title = when (period.scale) {
+                AnalyticsScale.MONTH -> stringResource(R.string.analytics_year_trend)
+                AnalyticsScale.YEAR -> stringResource(R.string.analytics_year_trend_months, period.year)
+            },
+            supportingText = filterName,
+        )
         if (data.trendFilter is AnalyticsTrendFilter.Category) WhfinChoiceRail {
             item {
                 WhfinFilterPill(
@@ -699,16 +774,17 @@ internal fun YearTrend(
                             label = point.month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale),
                             value = point.expenseMinor,
                             amountDescription = formatMinor(point.expenseMinor, "GEL"),
-                            selected = point.month == selectedMonth,
+                            selected = period.scale == AnalyticsScale.MONTH && point.month == period.month,
                             periodDescription = monthTitle(point.month),
                         )
                     },
                     onBarClick = { index -> data.trendValues.getOrNull(index)?.month?.let(onSelectMonth) },
+                    fitToWidth = period.scale == AnalyticsScale.YEAR,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
-                        Text(monthTitle(selectedMonth), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(periodTitle(period), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         WhfinAmount(
                             formatMinor(selectedValue, "GEL"),
                             symbol = currencySymbol("GEL"),
@@ -717,7 +793,7 @@ internal fun YearTrend(
                         )
                     }
                     Text(
-                        comparisonText(selectedValue, previousValue),
+                        comparisonText(selectedValue, previousValue, period.scale),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -728,7 +804,7 @@ internal fun YearTrend(
                     onClick = {
                         onOpenTransactions(
                             AnalyticsTransactionsRequest(
-                                month = selectedMonth,
+                                period = period,
                                 categoryFilterEnabled = data.trendFilter is AnalyticsTrendFilter.Category,
                                 categoryId = (data.trendFilter as? AnalyticsTrendFilter.Category)?.categoryId,
                                 filterName = filterName,
@@ -809,15 +885,32 @@ internal fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
 }
 
 @Composable
-private fun comparisonText(current: Long, previous: Long): String {
-    if (previous <= 0L) return stringResource(R.string.analytics_no_previous)
+private fun comparisonText(current: Long, previous: Long, scale: AnalyticsScale): String {
+    val month = scale == AnalyticsScale.MONTH
+    if (previous <= 0L) return stringResource(
+        if (month) R.string.analytics_no_previous else R.string.analytics_no_previous_year,
+    )
     val percent = abs(current - previous).toDouble() / previous * 100.0
     val formatted = NumberFormat.getPercentInstance().apply { maximumFractionDigits = 0 }.format(percent / 100.0)
     return when {
-        current > previous -> stringResource(R.string.analytics_more_than_previous, formatted)
-        current < previous -> stringResource(R.string.analytics_less_than_previous, formatted)
-        else -> stringResource(R.string.analytics_same_as_previous)
+        current > previous -> stringResource(
+            if (month) R.string.analytics_more_than_previous else R.string.analytics_more_than_previous_year,
+            formatted,
+        )
+        current < previous -> stringResource(
+            if (month) R.string.analytics_less_than_previous else R.string.analytics_less_than_previous_year,
+            formatted,
+        )
+        else -> stringResource(
+            if (month) R.string.analytics_same_as_previous else R.string.analytics_same_as_previous_year,
+        )
     }
+}
+
+@Composable
+internal fun periodTitle(period: AnalyticsPeriod): String = when (period.scale) {
+    AnalyticsScale.MONTH -> monthTitle(period.month)
+    AnalyticsScale.YEAR -> period.year.toString()
 }
 
 @Composable
@@ -831,7 +924,7 @@ internal fun monthTitle(month: YearMonth): String {
 private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 
 private val previewData = AnalyticsData(
-    selectedMonth = YearMonth.of(2026, 7),
+    period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
     incomeMinor = 730_800,
     expenseMinor = 109_127,
     categoryRangeMonths = 1,
@@ -854,15 +947,39 @@ private val previewData = AnalyticsData(
     hasAnyTransactions = true,
     pace = AnalyticsPace(
         daysElapsed = 20,
-        daysInMonth = 31,
+        daysTotal = 31,
         projectedExpenseMinor = 169_147,
-        previousMonthExpenseMinor = 96_000,
+        previousPeriodExpenseMinor = 96_000,
     ),
     categoryChanges = listOf(
         AnalyticsCategoryChange(1, "Groceries", "ShoppingCart", 0xff4f725f.toInt(), 38_200, 22_400),
         AnalyticsCategoryChange(2, "Eating out", "Restaurant", 0xffc96d4f.toInt(), 27_840, 41_500),
         AnalyticsCategoryChange(3, "Transport", "DirectionsBus", 0xff788a67.toInt(), 18_400, 12_000),
     ),
+)
+
+private val previewYearData = previewData.copy(
+    period = AnalyticsPeriod.year(YearMonth.of(2026, 7)),
+    incomeMinor = 8_411_000,
+    expenseMinor = 7_284_500,
+    categoryExpenseMinor = 7_284_500,
+    pace = AnalyticsPace(
+        daysElapsed = 224,
+        daysTotal = 365,
+        projectedExpenseMinor = 11_870_000,
+        previousPeriodExpenseMinor = 10_240_000,
+    ),
+    previousTrendExpenseMinor = 10_240_000,
+)
+
+private fun previewModel(
+    data: AnalyticsData = previewData,
+    state: AnalyticsUiState = AnalyticsUiState.Content(data),
+) = AnalyticsUiModel(
+    period = data.period,
+    canSelectPrevious = true,
+    canSelectNext = false,
+    state = state,
 )
 
 @Preview(name = "Analytics populated", widthDp = 400, heightDp = 1000, showBackground = true)
@@ -873,7 +990,18 @@ private val previewData = AnalyticsData(
 private fun AnalyticsPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsContent(previewData, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            AnalyticsContent(previewModel(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        }
+    }
+}
+
+@Preview(name = "Analytics year", widthDp = 400, heightDp = 1000, showBackground = true)
+@Preview(name = "Analytics year font 1.5", widthDp = 400, heightDp = 1200, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun AnalyticsYearPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            AnalyticsContent(previewModel(previewYearData), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }
@@ -883,14 +1011,9 @@ private fun AnalyticsPreview() {
 private fun AnalyticsEmptyPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsPeriodState(
-                YearMonth.of(2026, 7),
-                WhfinPaneState.Empty,
-                "No statistics for this period",
-                "Choose another month or import a statement to build a trend.",
-                {},
-                {},
-                {},
+            AnalyticsContent(
+                previewModel(state = AnalyticsUiState.Empty),
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }
@@ -901,14 +1024,9 @@ private fun AnalyticsEmptyPreview() {
 private fun AnalyticsLoadingPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsPeriodState(
-                YearMonth.of(2026, 7),
-                WhfinPaneState.Loading,
-                "Statistics",
-                "Calculating statistics…",
-                {},
-                {},
-                {},
+            AnalyticsContent(
+                previewModel(state = AnalyticsUiState.Loading),
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }
@@ -919,14 +1037,9 @@ private fun AnalyticsLoadingPreview() {
 private fun AnalyticsErrorPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsPeriodState(
-                YearMonth.of(2026, 7),
-                WhfinPaneState.Error,
-                "Statistics could not be calculated",
-                "Your transactions are unchanged. Return and try opening statistics again.",
-                {},
-                {},
-                {},
+            AnalyticsContent(
+                previewModel(state = AnalyticsUiState.Error),
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }

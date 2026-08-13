@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.ui.analytics.AnalyticsCategoryChange
 import dev.whekin.whfin.ui.analytics.AnalyticsData
+import dev.whekin.whfin.ui.analytics.AnalyticsScale
 import kotlin.math.abs
 
 internal sealed interface HomeInsight {
@@ -25,20 +26,22 @@ internal sealed interface HomeInsight {
  * remains the source for every number behind these two short conclusions.
  */
 internal fun deriveHomeInsights(data: AnalyticsData): List<HomeInsight> {
+    // Home speaks about the running month; a year reading belongs on the Statistics screen.
+    if (data.period.scale != AnalyticsScale.MONTH) return emptyList()
     val pace = data.pace ?: return emptyList()
     if (pace.daysElapsed < MIN_DAYS_FOR_PROJECTION || data.expenseMinor <= 0L) return emptyList()
 
     val result = mutableListOf<HomeInsight>()
-    if (isMeaningfulChange(pace.projectedExpenseMinor, pace.previousMonthExpenseMinor)) {
+    if (isMeaningfulChange(pace.projectedExpenseMinor, pace.previousPeriodExpenseMinor)) {
         result += HomeInsight.SpendingPace(
             projectedExpenseMinor = pace.projectedExpenseMinor,
-            previousMonthExpenseMinor = pace.previousMonthExpenseMinor,
+            previousMonthExpenseMinor = pace.previousPeriodExpenseMinor,
         )
     }
 
     data.categoryChanges
         .asSequence()
-        .map { change -> change to projectCategory(change, pace.daysElapsed, pace.daysInMonth) }
+        .map { change -> change to projectCategory(change, pace.daysElapsed, pace.daysTotal) }
         .firstOrNull { (change, projected) ->
             isMeaningfulChange(projected, change.previousExpenseMinor)
         }

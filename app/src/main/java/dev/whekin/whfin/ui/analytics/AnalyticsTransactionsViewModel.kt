@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 
 @Immutable
 internal data class AnalyticsTransactionsRequest(
-    val month: YearMonth,
+    val period: AnalyticsPeriod,
     val categoryFilterEnabled: Boolean,
     val categoryId: Long?,
     val filterName: String,
@@ -65,9 +65,10 @@ internal class AnalyticsTransactionsViewModel(app: Application) : AndroidViewMod
 
     val uiState = request.filterNotNull().flatMapLatest { value ->
         // One day on each side keeps an automatic FX conversion linked to a purchase
-        // that lands on the first or last day of the requested month.
-        val start = value.month.atDay(1).minusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val end = value.month.plusMonths(1).atDay(1).plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        // that lands on the first or last day of the requested period.
+        val start = value.period.start.atDay(1).minusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val end = value.period.end.plusMonths(1).atDay(1).plusDays(1)
+            .atStartOfDay(zoneId).toInstant().toEpochMilli()
         val base = combine(
             db.transactionDao().observeRange(start, end),
             db.merchantDao().observeAll(),
@@ -124,12 +125,17 @@ internal fun filterAnalyticsTransactions(
     val categoryById = categories.associateBy { it.id }
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
     return items.asSequence()
-        .filter { item -> YearMonth.from(item.day) == request.month }
+        .filter { item -> request.period.contains(YearMonth.from(item.day)) }
         .filter { item ->
             val tx = item.tx
+            // Statistics count a foreign row as soon as its own day has a rate, so the ledger behind
+            // that number has to show the same row. Dropping it left the header claiming more than
+            // the list could account for.
+            val valued = tx.currency == "GEL" ||
+                item.fundedByConversionCurrency == "GEL" ||
+                tx.gelValueMinor != null
             !tx.isTransfer && tx.transferGroupId == null && tx.amountMinor < 0L &&
-                tx.source != TxSource.ADJUSTMENT &&
-                (tx.currency == "GEL" || item.fundedByConversionCurrency == "GEL")
+                tx.source != TxSource.ADJUSTMENT && valued
         }
         .filter { item ->
             val transactionAllocations = allocationsByTransaction[item.tx.id].orEmpty()

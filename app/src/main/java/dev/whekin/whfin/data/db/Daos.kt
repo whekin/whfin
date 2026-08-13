@@ -302,6 +302,10 @@ interface TransactionDao {
     )
     fun observeRange(fromMillis: Long, toMillis: Long): Flow<List<TransactionEntity>>
 
+    /** The first recorded day, which is where paging statistics backwards stops being useful. */
+    @Query("SELECT MIN(occurredAt) FROM transactions WHERE isVoided = 0")
+    fun observeEarliestOccurredAt(): Flow<Long?>
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun byId(id: Long): TransactionEntity?
 

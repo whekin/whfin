@@ -45,7 +45,7 @@ class AnalyticsTransactionsFilterTest {
             ),
         )
         val request = AnalyticsTransactionsRequest(
-            month = YearMonth.of(2026, 6),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
             categoryFilterEnabled = true,
             categoryId = food.id,
             filterName = food.name,
@@ -68,7 +68,7 @@ class AnalyticsTransactionsFilterTest {
         )
         val categorized = item(9, LocalDate.of(2026, 6, 9), -900, "GEL", food)
         val request = AnalyticsTransactionsRequest(
-            month = YearMonth.of(2026, 6),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
             categoryFilterEnabled = true,
             categoryId = null,
             filterName = "Uncategorized",
@@ -85,6 +85,49 @@ class AnalyticsTransactionsFilterTest {
         assertEquals(listOf(8L), result.map { it.tx.id })
     }
 
+    @Test
+    fun aValuedForeignRowIsListedBecauseTheHeaderAlreadyCountsIt() {
+        // The header amount comes from the calculator, which counts a foreign row as soon as its
+        // own day has a rate. Dropping the row here made the list add up to less than its own title.
+        val items = listOf(
+            item(1, LocalDate.of(2026, 6, 2), -1_000, "GEL", food),
+            item(2, LocalDate.of(2026, 6, 3), -2_000, "USD", food, gelValueMinor = -5_400),
+            item(3, LocalDate.of(2026, 6, 4), -3_000, "EUR", food),
+        )
+        val request = AnalyticsTransactionsRequest(
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
+            categoryFilterEnabled = true,
+            categoryId = food.id,
+            filterName = food.name,
+            expectedExpenseMinor = 6_400,
+        )
+
+        val result = filterAnalyticsTransactions(items, emptyList(), listOf(food), request)
+
+        assertEquals(listOf(2L, 1L), result.map { it.tx.id })
+    }
+
+    @Test
+    fun aYearDrillDownKeepsEveryMonthOfThatYear() {
+        val items = listOf(
+            item(1, LocalDate.of(2025, 12, 30), -1_000, "GEL", food),
+            item(2, LocalDate.of(2026, 1, 2), -2_000, "GEL", food),
+            item(3, LocalDate.of(2026, 9, 9), -3_000, "GEL", food),
+            item(4, LocalDate.of(2027, 1, 2), -4_000, "GEL", food),
+        )
+        val request = AnalyticsTransactionsRequest(
+            period = AnalyticsPeriod.year(YearMonth.of(2026, 6)),
+            categoryFilterEnabled = true,
+            categoryId = food.id,
+            filterName = food.name,
+            expectedExpenseMinor = 5_000,
+        )
+
+        val result = filterAnalyticsTransactions(items, emptyList(), listOf(food), request)
+
+        assertEquals(listOf(3L, 2L), result.map { it.tx.id })
+    }
+
     private fun item(
         id: Long,
         day: LocalDate,
@@ -93,6 +136,7 @@ class AnalyticsTransactionsFilterTest {
         category: CategoryEntity?,
         fundedByGel: Long? = null,
         source: TxSource = TxSource.STATEMENT,
+        gelValueMinor: Long? = null,
     ): FeedItem {
         val occurredAt = day.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
         return FeedItem(
@@ -105,6 +149,7 @@ class AnalyticsTransactionsFilterTest {
                 categoryId = category?.id,
                 status = TxStatus.CONFIRMED,
                 source = source,
+                gelValueMinor = gelValueMinor,
             ),
             merchant = null,
             category = category,

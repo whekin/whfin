@@ -9,6 +9,7 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
+import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -26,10 +27,22 @@ import kotlinx.coroutines.withContext
 
 internal sealed interface AnalyticsUiState {
     data object Loading : AnalyticsUiState
-    data class Empty(val selectedMonth: YearMonth) : AnalyticsUiState
-    data class Error(val selectedMonth: YearMonth) : AnalyticsUiState
+    data object Empty : AnalyticsUiState
+    data object Error : AnalyticsUiState
     data class Content(val data: AnalyticsData) : AnalyticsUiState
 }
+
+/**
+ * The period and its two arrows are true regardless of what the numbers are doing, so they live
+ * outside the state union: a loading or failing screen still says which period it is about, and its
+ * arrows still work instead of silently doing nothing.
+ */
+internal data class AnalyticsUiModel(
+    val period: AnalyticsPeriod,
+    val canSelectPrevious: Boolean,
+    val canSelectNext: Boolean,
+    val state: AnalyticsUiState,
+)
 
 private data class AnalyticsInputs(
     val transactions: List<TransactionEntity>,
@@ -38,14 +51,14 @@ private data class AnalyticsInputs(
 )
 
 private data class AnalyticsControls(
-    val selectedMonth: YearMonth,
+    val period: AnalyticsPeriod,
     val trendEndMonth: YearMonth,
     val categoryRangeMonths: Int,
     val trendFilter: AnalyticsTrendFilter,
 )
 
-private data class AnalyticsPeriod(
-    val selectedMonth: YearMonth,
+private data class AnalyticsWindow(
+    val period: AnalyticsPeriod,
     val trendEndMonth: YearMonth,
 )
 
@@ -54,9 +67,17 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val zoneId = ZoneId.systemDefault()
     private val initialMonth = YearMonth.now(zoneId)
-    private val period = MutableStateFlow(AnalyticsPeriod(initialMonth, initialMonth))
+    private val window = MutableStateFlow(
+        AnalyticsWindow(AnalyticsPeriod.month(initialMonth), initialMonth),
+    )
     private val categoryRangeMonths = MutableStateFlow(1)
     private val trendFilter = MutableStateFlow<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
+
+    /** Paging back past the first recorded month only produces identical empty screens. */
+    private val earliestMonth: Flow<YearMonth?> = db.transactionDao().observeEarliestOccurredAt()
+        .map { millis ->
+            millis?.let { YearMonth.from(Instant.ofEpochMilli(it).atZone(zoneId)) }
+        }
 
     private val valuation = TransactionValuationRepository(
         db = db,
@@ -72,11 +93,11 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private val transactions: Flow<List<TransactionEntity>> = period.flatMapLatest { value ->
-        val month = value.selectedMonth
-        val yearStart = YearMonth.of(month.year, 1)
-        val rangeStart = minOf(yearStart, month.minusMonths(11), value.trendEndMonth.minusMonths(11))
-        val rangeEnd = maxOf(YearMonth.of(month.year + 1, 1), value.trendEndMonth.plusMonths(1))
+    private val transactions: Flow<List<TransactionEntity>> = window.flatMapLatest { value ->
+        // Twelve months before the period covers both the 1/3/6/12 category rail and the
+        // year-over-year comparison; the trend window can reach further back on its own.
+        val rangeStart = minOf(value.period.start.minusMonths(12), value.trendEndMonth.minusMonths(11))
+        val rangeEnd = maxOf(value.period.end, value.trendEndMonth).plusMonths(1)
         db.transactionDao().observeRange(
             rangeStart.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
             rangeEnd.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
@@ -91,44 +112,78 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         AnalyticsInputs(transactions, categories, allocations)
     }
 
-    private val controls = combine(period, categoryRangeMonths, trendFilter) { value, range, filter ->
-        AnalyticsControls(value.selectedMonth, value.trendEndMonth, range, filter)
+    private val controls = combine(window, categoryRangeMonths, trendFilter) { value, range, filter ->
+        AnalyticsControls(value.period, value.trendEndMonth, range, filter)
     }
 
-    val uiState = combine(inputs, controls) { input, control ->
+    private val calculated: Flow<AnalyticsUiState> = combine(inputs, controls) { input, control ->
         calculateAnalytics(
             transactions = input.transactions,
             categories = input.categories,
             allocations = input.allocations,
-            selectedMonth = control.selectedMonth,
+            period = control.period,
             categoryRangeMonths = control.categoryRangeMonths,
             trendFilter = control.trendFilter,
             zoneId = zoneId,
             trendEndMonth = control.trendEndMonth,
         )
     }.map<AnalyticsData, AnalyticsUiState> { data ->
-        if (data.hasAnyTransactions) AnalyticsUiState.Content(data)
-        else AnalyticsUiState.Empty(data.selectedMonth)
+        if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty
     }.catch {
-        emit(AnalyticsUiState.Error(period.value.selectedMonth))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsUiState.Loading)
-
-    fun previousMonth() {
-        selectMonth(period.value.selectedMonth.minusMonths(1))
+        emit(AnalyticsUiState.Error)
     }
 
-    fun nextMonth() {
-        selectMonth(period.value.selectedMonth.plusMonths(1))
+    val uiState = combine(window, earliestMonth, calculated) { value, earliest, state ->
+        model(value.period, earliest, state)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        model(window.value.period, null, AnalyticsUiState.Loading),
+    )
+
+    private fun model(
+        period: AnalyticsPeriod,
+        earliest: YearMonth?,
+        state: AnalyticsUiState,
+    ) = AnalyticsUiModel(
+        period = period,
+        // Before the first row is known the back arrow stays available: the alternative is a
+        // dead control on a screen that has simply not finished loading.
+        canSelectPrevious = earliest == null || period.previous().end >= earliest,
+        canSelectNext = period.next().start <= YearMonth.now(zoneId),
+        state = state,
+    )
+
+    fun selectPreviousPeriod() {
+        selectPeriod(window.value.period.previous())
     }
 
+    fun selectNextPeriod() {
+        selectPeriod(window.value.period.next())
+    }
+
+    /** A tap on a bar of the year chart is the drill-down from a year into one of its months. */
     fun selectMonth(month: YearMonth) {
-        if (month <= YearMonth.now(zoneId)) {
-            val current = period.value
-            period.value = AnalyticsPeriod(
-                selectedMonth = month,
-                trendEndMonth = trendWindowEndAfterSelecting(current.trendEndMonth, month),
-            )
-        }
+        selectPeriod(AnalyticsPeriod.month(month))
+    }
+
+    fun setScale(scale: AnalyticsScale) {
+        val current = window.value.period
+        if (current.scale == scale) return
+        selectPeriod(current.withScale(scale))
+    }
+
+    private fun selectPeriod(period: AnalyticsPeriod) {
+        val now = YearMonth.now(zoneId)
+        if (period.start > now) return
+        // The chosen period must be reachable, but its anchor month must not run into the future:
+        // switching a past year back to months would otherwise land on a month that cannot exist.
+        val anchor = minOf(period.month, now)
+        val resolved = period.copy(month = anchor)
+        window.value = AnalyticsWindow(
+            period = resolved,
+            trendEndMonth = trendWindowEndAfterSelecting(window.value.trendEndMonth, resolved.month),
+        )
     }
 
     fun setCategoryRange(months: Int) {

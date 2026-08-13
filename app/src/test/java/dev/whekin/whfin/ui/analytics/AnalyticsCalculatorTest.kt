@@ -44,7 +44,7 @@ class AnalyticsCalculatorTest {
             transactions,
             listOf(food, unaccounted),
             listOf(TransactionAllocationEntity(transactionId = 5, amountMinor = -3_000, purpose = AllocationPurpose.LOAN)),
-            YearMonth.of(2026, 7),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
             1,
             AnalyticsTrendFilter.All,
             zone,
@@ -69,7 +69,7 @@ class AnalyticsCalculatorTest {
             transactions,
             listOf(food, transport),
             emptyList(),
-            YearMonth.of(2026, 3),
+            AnalyticsPeriod.month(YearMonth.of(2026, 3)),
             3,
             AnalyticsTrendFilter.Category(food.id),
             zone,
@@ -101,7 +101,7 @@ class AnalyticsCalculatorTest {
             transactions,
             listOf(food),
             emptyList(),
-            YearMonth.of(2026, 7),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
             1,
             AnalyticsTrendFilter.All,
             zone,
@@ -118,7 +118,7 @@ class AnalyticsCalculatorTest {
             listOf(tx(1, -2_360, "USD", LocalDate.of(2026, 7, 10), categoryId = food.id)),
             listOf(food),
             emptyList(),
-            YearMonth.of(2026, 7),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
             1,
             AnalyticsTrendFilter.All,
             zone,
@@ -140,7 +140,7 @@ class AnalyticsCalculatorTest {
             transactions = transactions,
             categories = listOf(food, transport),
             allocations = emptyList(),
-            selectedMonth = YearMonth.of(2026, 7),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
             categoryRangeMonths = 1,
             trendFilter = AnalyticsTrendFilter.All,
             zoneId = zone,
@@ -150,9 +150,9 @@ class AnalyticsCalculatorTest {
         assertEquals(
             AnalyticsPace(
                 daysElapsed = 10,
-                daysInMonth = 31,
+                daysTotal = 31,
                 projectedExpenseMinor = 124_000,
-                previousMonthExpenseMinor = 30_000,
+                previousPeriodExpenseMinor = 30_000,
             ),
             data.pace,
         )
@@ -194,7 +194,7 @@ class AnalyticsCalculatorTest {
             transactions = transactions,
             categories = listOf(food),
             allocations = emptyList(),
-            selectedMonth = YearMonth.of(2026, 7),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
             categoryRangeMonths = 1,
             trendFilter = AnalyticsTrendFilter.All,
             zoneId = zone,
@@ -212,7 +212,7 @@ class AnalyticsCalculatorTest {
             transactions = listOf(tx(1, -10_000, "GEL", LocalDate.of(2026, 6, 3), categoryId = food.id)),
             categories = listOf(food),
             allocations = emptyList(),
-            selectedMonth = YearMonth.of(2026, 6),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
             categoryRangeMonths = 1,
             trendFilter = AnalyticsTrendFilter.All,
             zoneId = zone,
@@ -256,7 +256,7 @@ class AnalyticsCalculatorTest {
         )
 
         val data = calculateAnalytics(
-            transactions, listOf(food), emptyList(), YearMonth.of(2026, 7), 1,
+            transactions, listOf(food), emptyList(), AnalyticsPeriod.month(YearMonth.of(2026, 7)), 1,
             AnalyticsTrendFilter.All, zone,
         )
 
@@ -274,7 +274,7 @@ class AnalyticsCalculatorTest {
         )
 
         val data = calculateAnalytics(
-            transactions, listOf(food), emptyList(), YearMonth.of(2026, 7), 1,
+            transactions, listOf(food), emptyList(), AnalyticsPeriod.month(YearMonth.of(2026, 7)), 1,
             AnalyticsTrendFilter.All, zone,
         )
 
@@ -302,12 +302,86 @@ class AnalyticsCalculatorTest {
         )
 
         val data = calculateAnalytics(
-            transactions, listOf(food, transport), allocations, YearMonth.of(2026, 7), 1,
+            transactions, listOf(food, transport), allocations, AnalyticsPeriod.month(YearMonth.of(2026, 7)), 1,
             AnalyticsTrendFilter.All, zone,
         )
 
         assertEquals(9_000L, data.expenseMinor)
         assertEquals(3_000L, data.categoryValues.single { it.categoryId == food.id }.expenseMinor)
         assertEquals(6_000L, data.categoryValues.single { it.categoryId == transport.id }.expenseMinor)
+    }
+
+    @Test
+    fun aYearTotalsItsOwnTwelveMonthsAndChartsThemInOrder() {
+        val transactions = listOf(
+            tx(1, -5_000, "GEL", LocalDate.of(2025, 11, 4), categoryId = food.id),
+            tx(2, -1_000, "GEL", LocalDate.of(2026, 1, 5), categoryId = food.id),
+            tx(3, -2_000, "GEL", LocalDate.of(2026, 6, 5), categoryId = transport.id),
+            tx(4, 40_000, "GEL", LocalDate.of(2026, 6, 6)),
+            tx(5, -3_000, "GEL", LocalDate.of(2026, 12, 30), categoryId = food.id),
+            tx(6, -9_000, "GEL", LocalDate.of(2027, 1, 2), categoryId = food.id),
+        )
+
+        val data = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food, transport),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.year(YearMonth.of(2026, 6)),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2027, 3, 4),
+        )
+
+        assertEquals(6_000L, data.expenseMinor)
+        assertEquals(40_000L, data.incomeMinor)
+        // The neighbouring years belong to their own periods, never to this one.
+        assertEquals(12, data.trendValues.size)
+        assertEquals(YearMonth.of(2026, 1), data.trendValues.first().month)
+        assertEquals(YearMonth.of(2026, 12), data.trendValues.last().month)
+        assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.map { it.expenseMinor }.filter { it > 0L })
+        assertEquals(5_000L, data.previousTrendExpenseMinor)
+        assertEquals(5_000L, data.spendingAverageMinor)
+        // The rolling 1/3/6/12 window is a month-scale control and must not narrow a year.
+        assertEquals(6_000L, data.categoryExpenseMinor)
+        assertTrue(!data.showCategoryRange)
+    }
+
+    @Test
+    fun theRunningYearProjectsFromTheDayOfYearAndAFinishedYearDoesNot() {
+        val transactions = listOf(
+            tx(1, -60_000, "GEL", LocalDate.of(2025, 5, 5), categoryId = food.id),
+            tx(2, -10_000, "GEL", LocalDate.of(2026, 1, 10), categoryId = food.id),
+            tx(3, -10_000, "GEL", LocalDate.of(2026, 2, 10), categoryId = food.id),
+        )
+
+        val running = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.year(YearMonth.of(2026, 3)),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2026, 3, 22), // day 81 of 365
+        )
+
+        assertEquals(81, running.pace?.daysElapsed)
+        assertEquals(365, running.pace?.daysTotal)
+        assertEquals(20_000L * 365 / 81, running.pace?.projectedExpenseMinor)
+        assertEquals(60_000L, running.pace?.previousPeriodExpenseMinor)
+
+        val finished = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.year(YearMonth.of(2025, 5)),
+            categoryRangeMonths = 1,
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            today = LocalDate.of(2026, 3, 22),
+        )
+
+        assertEquals(null, finished.pace)
     }
 }

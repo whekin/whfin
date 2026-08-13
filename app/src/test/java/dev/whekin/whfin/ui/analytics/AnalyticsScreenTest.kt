@@ -39,14 +39,15 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData.copy(
+                        model = model(contentData.copy(
                             categoryRangeMonths = range,
                             trendFilter = filter,
                             trendFilterName = (filter as? AnalyticsTrendFilter.Category)?.let { "Food" },
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {},
                         onRangeChange = { range = it },
                         onShowAllTrend = { filter = AnalyticsTrendFilter.All },
@@ -58,7 +59,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
         compose.onNodeWithText("3 mo").performClick()
         compose.runOnIdle { assertEquals(3, range) }
 
@@ -75,14 +76,15 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData.copy(
-                            selectedMonth = month,
+                        model = model(contentData.copy(
+                            period = AnalyticsPeriod.month(month),
                             trendFilter = AnalyticsTrendFilter.Category(1),
                             trendFilterName = "Food",
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = { month = it },
                         onRangeChange = {},
                         onShowAllTrend = {},
@@ -94,7 +96,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
         compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
         compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("110.00 ₾")
         compose.waitForIdle()
@@ -102,7 +104,7 @@ class AnalyticsScreenTest {
         compose.waitUntil(timeoutMillis = 1_000) { opened != null }
 
         compose.runOnIdle {
-            assertEquals(YearMonth.of(2026, 6), opened?.month)
+            assertEquals(YearMonth.of(2026, 6), opened?.period?.month)
             assertEquals(true, opened?.categoryFilterEnabled)
             assertEquals(1L, opened?.categoryId)
             assertEquals(11_000L, opened?.expectedExpenseMinor)
@@ -116,10 +118,11 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData,
+                        model = model(contentData),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {},
                         onRangeChange = {},
                         onShowAllTrend = {},
@@ -131,12 +134,12 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(3)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
         compose.onNodeWithTag("analytics-change-2").performClick()
         compose.waitForIdle()
 
         compose.runOnIdle {
-            assertEquals(YearMonth.of(2026, 7), opened?.month)
+            assertEquals(YearMonth.of(2026, 7), opened?.period?.month)
             assertEquals(true, opened?.categoryFilterEnabled)
             assertEquals(2L, opened?.categoryId)
             assertEquals("Transport", opened?.filterName)
@@ -151,10 +154,11 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData,
+                        model = model(contentData),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {},
                         onRangeChange = {},
                         onShowAllTrend = {},
@@ -177,7 +181,7 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ExpenseAnalysisContent(
-                        data = contentData.copy(
+                        model = model(contentData.copy(
                             spendingAverageMinor = 60_000,
                             spendingCategoryValues = listOf(
                                 AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000, 40_000),
@@ -185,10 +189,11 @@ class AnalyticsScreenTest {
                             ),
                             trendFilter = filter,
                             trendFilterName = (filter as? AnalyticsTrendFilter.Category)?.let { "Food" },
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {},
                         onShowAllTrend = { filter = AnalyticsTrendFilter.All },
                         onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
@@ -198,7 +203,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
         compose.onNodeWithText("100.00 ₾ above the previous 3-month average").assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
@@ -216,14 +221,15 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData.copy(
-                            selectedMonth = month,
+                        model = model(contentData.copy(
+                            period = AnalyticsPeriod.month(month),
                             categoryExpenseMinor = category.expenseMinor,
                             categoryValues = listOf(category),
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = { month = it },
                         onRangeChange = {},
                         onShowAllTrend = {},
@@ -235,11 +241,11 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
-        compose.onNodeWithTag("analytics-category-1").assertExists()
         compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithTag("analytics-category-1").assertExists()
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
         compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
         compose.onNodeWithTag("analytics-category-2").assertExists()
         compose.onNodeWithTag("analytics-category-1").assertDoesNotExist()
     }
@@ -256,14 +262,15 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ExpenseAnalysisContent(
-                        data = contentData.copy(
-                            selectedMonth = month,
+                        model = model(contentData.copy(
+                            period = AnalyticsPeriod.month(month),
                             expenseMinor = category.expenseMinor,
                             spendingCategoryValues = listOf(category),
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = { month = it },
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
@@ -273,11 +280,11 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
         compose.onNodeWithText("Food").assertExists()
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(3)
-        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
         compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
         compose.onNodeWithText("Transport").assertExists()
         compose.onNodeWithText("Food").assertDoesNotExist()
     }
@@ -290,13 +297,14 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        data = contentData.copy(
-                            selectedMonth = month,
+                        model = model(contentData.copy(
+                            period = AnalyticsPeriod.month(month),
                             trendValues = trendEndingAt(trendEnd),
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {
                             month = it
                             trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
@@ -311,7 +319,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
         compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
@@ -325,13 +333,14 @@ class AnalyticsScreenTest {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ExpenseAnalysisContent(
-                        data = contentData.copy(
-                            selectedMonth = month,
+                        model = model(contentData.copy(
+                            period = AnalyticsPeriod.month(month),
                             trendValues = trendEndingAt(trendEnd),
-                        ),
+                        )),
                         onBack = {},
-                        onPreviousMonth = {},
-                        onNextMonth = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
                         onSelectMonth = {
                             month = it
                             trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
@@ -344,11 +353,18 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(3)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
         compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
+
+    private fun model(data: AnalyticsData) = AnalyticsUiModel(
+        period = data.period,
+        canSelectPrevious = true,
+        canSelectNext = false,
+        state = AnalyticsUiState.Content(data),
+    )
 
     private fun trendEndingAt(end: YearMonth): List<AnalyticsMonthValue> =
         (11L downTo 0L).map { monthsAgo ->
@@ -364,7 +380,7 @@ class AnalyticsScreenTest {
         }
 
     private val contentData = AnalyticsData(
-        selectedMonth = YearMonth.of(2026, 7),
+        period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
         incomeMinor = 400_000,
         expenseMinor = 80_000,
         categoryRangeMonths = 1,
@@ -385,9 +401,9 @@ class AnalyticsScreenTest {
         hasAnyTransactions = true,
         pace = AnalyticsPace(
             daysElapsed = 20,
-            daysInMonth = 31,
+            daysTotal = 31,
             projectedExpenseMinor = 124_000,
-            previousMonthExpenseMinor = 70_000,
+            previousPeriodExpenseMinor = 70_000,
         ),
         categoryChanges = listOf(
             AnalyticsCategoryChange(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 20_000),

@@ -202,7 +202,7 @@ private fun AnalyticsTransactionsScope(request: AnalyticsTransactionsRequest) {
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        WhfinSectionHeader(title = monthTitle(request.month), supportingText = filterName)
+        WhfinSectionHeader(title = periodTitle(request.period), supportingText = filterName)
         WhfinSectionLabel(androidx.compose.ui.res.stringResource(R.string.analytics_transactions_total))
         Text(
             formatMinor(request.expectedExpenseMinor, "GEL"),
@@ -214,7 +214,7 @@ private fun AnalyticsTransactionsScope(request: AnalyticsTransactionsRequest) {
 }
 
 private val previewRequest = AnalyticsTransactionsRequest(
-    month = java.time.YearMonth.of(2026, 7),
+    period = AnalyticsPeriod.month(java.time.YearMonth.of(2026, 7)),
     categoryFilterEnabled = true,
     categoryId = 1,
     filterName = "Groceries",

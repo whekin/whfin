@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui
 
+import dev.whekin.whfin.ui.analytics.AnalyticsPeriod
 import dev.whekin.whfin.ui.analytics.AnalyticsTransactionsRequest
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
@@ -10,7 +11,7 @@ import org.junit.Test
 class ShellNavigationTest {
 
     private val request = AnalyticsTransactionsRequest(
-        month = YearMonth.of(2026, 7),
+        period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
         categoryFilterEnabled = true,
         categoryId = 4,
         filterName = "Eating out",

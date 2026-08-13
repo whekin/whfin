@@ -54,9 +54,9 @@ internal data class AnalyticsCurrencyValue(
 
 internal data class AnalyticsPace(
     val daysElapsed: Int,
-    val daysInMonth: Int,
+    val daysTotal: Int,
     val projectedExpenseMinor: Long,
-    val previousMonthExpenseMinor: Long,
+    val previousPeriodExpenseMinor: Long,
 )
 
 internal data class AnalyticsCategoryChange(
@@ -72,7 +72,7 @@ internal data class AnalyticsCategoryChange(
 }
 
 internal data class AnalyticsData(
-    val selectedMonth: YearMonth,
+    val period: AnalyticsPeriod,
     val incomeMinor: Long,
     val expenseMinor: Long,
     val categoryRangeMonths: Int,
@@ -91,10 +91,13 @@ internal data class AnalyticsData(
     val hasAnyTransactions: Boolean,
     val pace: AnalyticsPace? = null,
     val categoryChanges: List<AnalyticsCategoryChange> = emptyList(),
-    /** Currencies of the selected month whose day has no quote yet, so they are left out of totals. */
+    /** Currencies of the selected period whose day has no quote yet, so they are left out of totals. */
     val unvaluedCurrencies: Set<String> = emptySet(),
 ) {
     val deltaMinor: Long get() = incomeMinor - expenseMinor
+    val selectedMonth: YearMonth get() = period.month
+    /** A rolling month window is a month-scale idea; a year already is its own window. */
+    val showCategoryRange: Boolean get() = period.scale == AnalyticsScale.MONTH
 }
 
 private data class AnalyticsSlice(
@@ -118,12 +121,12 @@ internal fun calculateAnalytics(
     transactions: List<TransactionEntity>,
     categories: List<CategoryEntity>,
     allocations: List<TransactionAllocationEntity>,
-    selectedMonth: YearMonth,
+    period: AnalyticsPeriod,
     categoryRangeMonths: Int,
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zoneId),
-    trendEndMonth: YearMonth = selectedMonth,
+    trendEndMonth: YearMonth = period.month,
 ): AnalyticsData {
     require(categoryRangeMonths in setOf(1, 3, 6, 12))
     val categoryById = categories.associateBy { it.id }
@@ -183,31 +186,33 @@ internal fun calculateAnalytics(
     // Anything with a booked lari value counts, whatever currency it was spent in.
     val baseSlices = slices.filter { it.gelMinor != null && !it.unaccounted }
     val unvaluedCurrencies = slices
-        .filter { it.gelMinor == null && !it.unaccounted && it.month == selectedMonth }
+        .filter { it.gelMinor == null && !it.unaccounted && period.contains(it.month) }
         .map { it.currency }
         .toSortedSet()
-    val selectedBase = baseSlices.filter { it.month == selectedMonth }
+    val selectedBase = baseSlices.filter { period.contains(it.month) }
     val income = selectedBase.sumOf { it.gelMinor!!.coerceAtLeast(0L) }
     val expenses = -selectedBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    val previousMonth = selectedMonth.minusMonths(1)
-    val previousBase = baseSlices.filter { it.month == previousMonth }
+    val previousPeriod = period.previous()
+    val previousBase = baseSlices.filter { previousPeriod.contains(it.month) }
     val previousExpenses = -previousBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    val comparisonMonths = (1L..3L).map(selectedMonth::minusMonths)
-    val spendingAverage = comparisonMonths.sumOf { comparisonMonth ->
+    val comparisonPeriods = (1..period.comparisonPeriods).map(period::shiftedBack)
+    val spendingAverage = comparisonPeriods.sumOf { comparison ->
         -baseSlices
-            .filter { it.month == comparisonMonth }
+            .filter { comparison.contains(it.month) }
             .sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    } / comparisonMonths.size
-    val pace = if (selectedMonth == YearMonth.from(today)) {
+    } / comparisonPeriods.size
+    val pace = if (period.isCurrent(today)) {
+        val daysElapsed = period.daysElapsed(today)
+        val daysTotal = period.daysTotal(today)
         AnalyticsPace(
-            daysElapsed = today.dayOfMonth,
-            daysInMonth = selectedMonth.lengthOfMonth(),
+            daysElapsed = daysElapsed,
+            daysTotal = daysTotal,
             projectedExpenseMinor = projectCurrentExpenses(
                 selectedBase.filter { it.gelMinor!! < 0L },
-                today.dayOfMonth,
-                selectedMonth.lengthOfMonth(),
+                daysElapsed,
+                daysTotal,
             ),
-            previousMonthExpenseMinor = previousExpenses,
+            previousPeriodExpenseMinor = previousExpenses,
         )
     } else {
         null
@@ -221,9 +226,9 @@ internal fun calculateAnalytics(
         .groupBy { it.categoryId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val averageCategoryExpenses = baseSlices
-        .filter { it.month in comparisonMonths && it.gelMinor!! < 0L }
+        .filter { slice -> comparisonPeriods.any { it.contains(slice.month) } && slice.gelMinor!! < 0L }
         .groupBy { it.categoryId }
-        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonMonths.size }
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonPeriods.size }
     val spendingCategoryValues = currentCategoryExpenses
         .map { (categoryId, expenseMinor) ->
             val category = categoryId?.let(categoryById::get)
@@ -253,7 +258,7 @@ internal fun calculateAnalytics(
                             slice.gelMinor!! < 0L && slice.categoryId == categoryId
                         },
                         it.daysElapsed,
-                        it.daysInMonth,
+                        it.daysTotal,
                     )
                 },
             )
@@ -262,9 +267,13 @@ internal fun calculateAnalytics(
         .sortedByDescending { abs(it.deltaMinor) }
         .take(3)
 
-    val rangeStart = selectedMonth.minusMonths((categoryRangeMonths - 1).toLong())
+    // A year is already a window, so the 1/3/6/12 rail only applies to the month scale.
+    val rangeStart = when (period.scale) {
+        AnalyticsScale.MONTH -> period.month.minusMonths((categoryRangeMonths - 1).toLong())
+        AnalyticsScale.YEAR -> period.start
+    }
     val rangeExpenses = baseSlices.filter {
-        it.gelMinor!! < 0L && it.month >= rangeStart && it.month <= selectedMonth
+        it.gelMinor!! < 0L && it.month >= rangeStart && it.month <= period.end
     }
     val categoryValues = rangeExpenses
         .groupBy { it.categoryId }
@@ -280,37 +289,38 @@ internal fun calculateAnalytics(
         }
         .sortedByDescending { it.expenseMinor }
 
-    val trendValues = (11L downTo 0L).map { monthsAgo ->
-        val month = trendEndMonth.minusMonths(monthsAgo)
+    val matchesTrendFilter: (AnalyticsSlice) -> Boolean = { slice ->
+        when (trendFilter) {
+            AnalyticsTrendFilter.All -> true
+            is AnalyticsTrendFilter.Category -> slice.categoryId == trendFilter.categoryId
+        }
+    }
+    // The month scale reads the last twelve months; the year scale reads its own twelve months,
+    // which is what makes a bar tap a drill-down from the year into that month.
+    val trendMonths = when (period.scale) {
+        AnalyticsScale.MONTH -> (11L downTo 0L).map(trendEndMonth::minusMonths)
+        AnalyticsScale.YEAR -> (1..12).map { YearMonth.of(period.year, it) }
+    }
+    val trendValues = trendMonths.map { month ->
         val expense = -baseSlices
-            .filter {
-                it.month == month && it.gelMinor!! < 0L && when (trendFilter) {
-                    AnalyticsTrendFilter.All -> true
-                    is AnalyticsTrendFilter.Category -> it.categoryId == trendFilter.categoryId
-                }
-            }
+            .filter { it.month == month && it.gelMinor!! < 0L && matchesTrendFilter(it) }
             .sumOf { it.gelMinor!! }
         AnalyticsMonthValue(month, expense)
     }
     val previousTrendExpense = -baseSlices
-        .filter {
-            it.month == selectedMonth.minusMonths(1) && it.gelMinor!! < 0L && when (trendFilter) {
-                AnalyticsTrendFilter.All -> true
-                is AnalyticsTrendFilter.Category -> it.categoryId == trendFilter.categoryId
-            }
-        }
+        .filter { previousPeriod.contains(it.month) && it.gelMinor!! < 0L && matchesTrendFilter(it) }
         .sumOf { it.gelMinor!! }
 
-    val selectedUnaccounted = slices.filter { it.month == selectedMonth && it.unaccounted }
+    val selectedUnaccounted = slices.filter { period.contains(it.month) && it.unaccounted }
     // Only what could not be valued stays a native amount; the rest is already in the totals above.
     val otherCurrencies = slices
-        .filter { it.month == selectedMonth && it.gelMinor == null && !it.unaccounted && it.amountMinor < 0L }
+        .filter { period.contains(it.month) && it.gelMinor == null && !it.unaccounted && it.amountMinor < 0L }
         .groupBy { it.currency }
         .map { (currency, values) -> AnalyticsCurrencyValue(currency, -values.sumOf { it.amountMinor }) }
         .sortedBy { it.currency }
 
     return AnalyticsData(
-        selectedMonth = selectedMonth,
+        period = period,
         incomeMinor = income,
         expenseMinor = expenses,
         categoryRangeMonths = categoryRangeMonths,
@@ -328,7 +338,10 @@ internal fun calculateAnalytics(
         unaccountedNetMinor = selectedUnaccounted.sumOf { it.gelMinor ?: 0L },
         otherCurrencyExpenses = otherCurrencies,
         unvaluedCurrencies = unvaluedCurrencies,
-        pendingCount = slices.filter { it.month == selectedMonth && it.pending }.map { it.transactionId }.distinct().size,
+        pendingCount = slices.filter { period.contains(it.month) && it.pending }
+            .map { it.transactionId }
+            .distinct()
+            .size,
         hasAnyTransactions = slices.isNotEmpty(),
         pace = pace,
         categoryChanges = categoryChanges,
