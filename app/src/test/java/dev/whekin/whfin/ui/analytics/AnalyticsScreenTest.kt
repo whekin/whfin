@@ -32,27 +32,20 @@ class AnalyticsScreenTest {
     val compose = createComposeRule()
 
     @Test
-    fun rangeAndCategorySelectionUpdateAnalyticsControls() {
-        var range by mutableStateOf(1)
-        var filter by mutableStateOf<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
+    fun statisticsShowsTheShapeOfSpendingAndSendsTheItemisingToSpending() {
+        var opened = false
         compose.setContent {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        model = model(contentData.copy(
-                            categoryRangeMonths = range,
-                            trendFilter = filter,
-                            trendFilterName = (filter as? AnalyticsTrendFilter.Category)?.let { "Food" },
-                        )),
+                        model = model(contentData),
                         onBack = {},
                         onPreviousPeriod = {},
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = {},
-                        onRangeChange = { range = it },
-                        onShowAllTrend = { filter = AnalyticsTrendFilter.All },
-                        onShowCategoryTrend = { filter = AnalyticsTrendFilter.Category(it) },
-                        onOpenExpenses = {},
+                        onShowAllTrend = {},
+                        onOpenExpenses = { opened = true },
                         onOpenTransactions = {},
                     )
                 }
@@ -60,12 +53,10 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
-        compose.onNodeWithText("3 mo").performClick()
-        compose.runOnIdle { assertEquals(3, range) }
-
-        compose.onNodeWithTag("analytics-category-1").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
-        compose.onAllNodesWithText("Food").assertCountEquals(2)
+        // The itemised list lives on Spending alone; Statistics must not carry a second one.
+        compose.onNodeWithTag("analytics-category-1").assertDoesNotExist()
+        compose.onNodeWithTag("analytics-open-categories").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(true, opened) }
     }
 
     @Test
@@ -86,9 +77,7 @@ class AnalyticsScreenTest {
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = { month = it },
-                        onRangeChange = {},
                         onShowAllTrend = {},
-                        onShowCategoryTrend = {},
                         onOpenExpenses = {},
                         onOpenTransactions = { opened = it },
                     )
@@ -124,9 +113,7 @@ class AnalyticsScreenTest {
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = {},
-                        onRangeChange = {},
                         onShowAllTrend = {},
-                        onShowCategoryTrend = {},
                         onOpenExpenses = {},
                         onOpenTransactions = { opened = it },
                     )
@@ -160,9 +147,7 @@ class AnalyticsScreenTest {
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = {},
-                        onRangeChange = {},
                         onShowAllTrend = {},
-                        onShowCategoryTrend = {},
                         onOpenExpenses = { opened = true },
                         onOpenTransactions = {},
                     )
@@ -183,7 +168,7 @@ class AnalyticsScreenTest {
                     ExpenseAnalysisContent(
                         model = model(contentData.copy(
                             spendingAverageMinor = 60_000,
-                            spendingCategoryValues = listOf(
+                            categoryValues = listOf(
                                 AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000, 40_000),
                                 AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 35_000),
                             ),
@@ -210,30 +195,19 @@ class AnalyticsScreenTest {
     }
 
     @Test
-    fun lastTwelveMonthsSelectionRefreshesStatisticsCategories() {
+    fun lastTwelveMonthsSelectionMovesTheWholeStatisticsPeriod() {
         var month by mutableStateOf(YearMonth.of(2026, 7))
         compose.setContent {
-            val category = if (month == YearMonth.of(2026, 7)) {
-                AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000)
-            } else {
-                AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000)
-            }
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
-                        model = model(contentData.copy(
-                            period = AnalyticsPeriod.month(month),
-                            categoryExpenseMinor = category.expenseMinor,
-                            categoryValues = listOf(category),
-                        )),
+                        model = model(contentData.copy(period = AnalyticsPeriod.month(month))),
                         onBack = {},
                         onPreviousPeriod = {},
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = { month = it },
-                        onRangeChange = {},
                         onShowAllTrend = {},
-                        onShowCategoryTrend = {},
                         onOpenExpenses = {},
                         onOpenTransactions = {},
                     )
@@ -241,13 +215,12 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
-        compose.onNodeWithTag("analytics-category-1").assertExists()
+        compose.onNodeWithTag("analytics-period-title").assertTextEquals("July 2026")
         compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
         compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
-        compose.onNodeWithTag("analytics-category-2").assertExists()
-        compose.onNodeWithTag("analytics-category-1").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
+        compose.onNodeWithTag("analytics-list").performScrollToIndex(1)
+        compose.onNodeWithTag("analytics-period-title").assertTextEquals("June 2026")
     }
 
     @Test
@@ -265,7 +238,7 @@ class AnalyticsScreenTest {
                         model = model(contentData.copy(
                             period = AnalyticsPeriod.month(month),
                             expenseMinor = category.expenseMinor,
-                            spendingCategoryValues = listOf(category),
+                            categoryValues = listOf(category),
                         )),
                         onBack = {},
                         onPreviousPeriod = {},
@@ -309,9 +282,7 @@ class AnalyticsScreenTest {
                             month = it
                             trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
                         },
-                        onRangeChange = {},
                         onShowAllTrend = {},
-                        onShowCategoryTrend = {},
                         onOpenExpenses = {},
                         onOpenTransactions = {},
                     )
@@ -383,8 +354,6 @@ class AnalyticsScreenTest {
         period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
         incomeMinor = 400_000,
         expenseMinor = 80_000,
-        categoryRangeMonths = 1,
-        categoryExpenseMinor = 80_000,
         categoryValues = listOf(
             AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000),
             AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000),

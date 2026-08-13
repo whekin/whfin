@@ -53,7 +53,6 @@ private data class AnalyticsInputs(
 private data class AnalyticsControls(
     val period: AnalyticsPeriod,
     val trendEndMonth: YearMonth,
-    val categoryRangeMonths: Int,
     val trendFilter: AnalyticsTrendFilter,
 )
 
@@ -70,7 +69,6 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val window = MutableStateFlow(
         AnalyticsWindow(AnalyticsPeriod.month(initialMonth), initialMonth),
     )
-    private val categoryRangeMonths = MutableStateFlow(1)
     private val trendFilter = MutableStateFlow<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
 
     /** Paging back past the first recorded month only produces identical empty screens. */
@@ -112,8 +110,8 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         AnalyticsInputs(transactions, categories, allocations)
     }
 
-    private val controls = combine(window, categoryRangeMonths, trendFilter) { value, range, filter ->
-        AnalyticsControls(value.period, value.trendEndMonth, range, filter)
+    private val controls = combine(window, trendFilter) { value, filter ->
+        AnalyticsControls(value.period, value.trendEndMonth, filter)
     }
 
     private val calculated: Flow<AnalyticsUiState> = combine(inputs, controls) { input, control ->
@@ -122,7 +120,6 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             categories = input.categories,
             allocations = input.allocations,
             period = control.period,
-            categoryRangeMonths = control.categoryRangeMonths,
             trendFilter = control.trendFilter,
             zoneId = zoneId,
             trendEndMonth = control.trendEndMonth,
@@ -184,10 +181,6 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             period = resolved,
             trendEndMonth = trendWindowEndAfterSelecting(window.value.trendEndMonth, resolved.month),
         )
-    }
-
-    fun setCategoryRange(months: Int) {
-        if (months in setOf(1, 3, 6, 12)) categoryRangeMonths.value = months
     }
 
     fun showAllExpensesTrend() {

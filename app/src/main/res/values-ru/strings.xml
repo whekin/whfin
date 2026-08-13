@@ -976,12 +976,7 @@
     <string name="analytics_changes_title">Что изменилось</string>
     <string name="analytics_changes_hint">Самые заметные изменения категорий с прошлого месяца</string>
     <string name="analytics_changes_hint_year">Самые заметные изменения категорий с прошлого года</string>
-    <string name="analytics_categories">Категории расходов</string>
-    <string name="analytics_categories_hint">Нажмите категорию, чтобы увидеть её тренд за год</string>
-    <string name="analytics_range_1">1 мес.</string>
-    <string name="analytics_range_3">3 мес.</string>
-    <string name="analytics_range_6">6 мес.</string>
-    <string name="analytics_range_12">12 мес.</string>
+    <string name="analytics_categories_hint">Доля каждой категории в расходах периода</string>
     <string name="analytics_uncategorized">Без категории</string>
     <string name="analytics_year_trend">За 12 месяцев</string>
     <string name="analytics_year_trend_months">Месяцы %1$d года</string>

@@ -949,12 +949,7 @@
     <string name="analytics_changes_title">What changed</string>
     <string name="analytics_changes_hint">Largest category shifts since last month</string>
     <string name="analytics_changes_hint_year">Largest category shifts since last year</string>
-    <string name="analytics_categories">Expense categories</string>
-    <string name="analytics_categories_hint">Tap a category to see its year trend</string>
-    <string name="analytics_range_1">1 mo</string>
-    <string name="analytics_range_3">3 mo</string>
-    <string name="analytics_range_6">6 mo</string>
-    <string name="analytics_range_12">12 mo</string>
+    <string name="analytics_categories_hint">The share each category took of this period</string>
     <string name="analytics_uncategorized">Uncategorized</string>
     <string name="analytics_year_trend">Last 12 months</string>
     <string name="analytics_year_trend_months">Months of %1$d</string>

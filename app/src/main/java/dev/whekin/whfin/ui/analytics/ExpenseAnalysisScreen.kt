@@ -198,7 +198,7 @@ private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifi
         WhfinThemeTokens.colors.sage,
         MaterialTheme.colorScheme.tertiary,
     )
-    val colored = data.spendingCategoryValues.mapIndexed { index, value ->
+    val colored = data.categoryValues.mapIndexed { index, value ->
         ExpenseRingSlice(
             categoryId = value.categoryId,
             expenseMinor = value.expenseMinor,
@@ -213,7 +213,7 @@ private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifi
     )
     val selectedFilter = data.trendFilter as? AnalyticsTrendFilter.Category
     val selectedValue = selectedFilter?.let { filter ->
-        data.spendingCategoryValues.firstOrNull { it.categoryId == filter.categoryId }
+        data.categoryValues.firstOrNull { it.categoryId == filter.categoryId }
     }
     val selectedIndex = selectedFilter?.let { filter ->
         slices.indexOfFirst { !it.other && it.categoryId == filter.categoryId }.takeIf { it >= 0 }
@@ -232,7 +232,7 @@ private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifi
             title = stringResource(R.string.analytics_expenses_composition),
             supportingText = stringResource(R.string.analytics_expenses_composition_hint),
         )
-        if (data.spendingCategoryValues.isEmpty()) {
+        if (data.categoryValues.isEmpty()) {
             WhfinStatePane(
                 state = WhfinPaneState.Empty,
                 title = stringResource(R.string.analytics_expenses_empty_title),
@@ -291,16 +291,16 @@ private fun ExpenseCategories(
             title = stringResource(R.string.analytics_expenses_by_category),
             supportingText = stringResource(R.string.analytics_expenses_category_hint),
         )
-        if (data.spendingCategoryValues.isNotEmpty()) {
+        if (data.categoryValues.isNotEmpty()) {
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                data.spendingCategoryValues.forEachIndexed { index, value ->
+                data.categoryValues.forEachIndexed { index, value ->
                     SpendingCategoryRow(
                         value = value,
                         scale = data.period.scale,
                         totalMinor = data.expenseMinor,
                         color = value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
                         selected = data.trendFilter == AnalyticsTrendFilter.Category(value.categoryId),
-                        divider = index < data.spendingCategoryValues.lastIndex,
+                        divider = index < data.categoryValues.lastIndex,
                         onClick = { onCategoryClick(value.categoryId) },
                     )
                 }
@@ -404,10 +404,7 @@ private val expensePreviewData = AnalyticsData(
     period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
     incomeMinor = 730_800,
     expenseMinor = 903_600,
-    categoryRangeMonths = 1,
-    categoryExpenseMinor = 903_600,
-    categoryValues = emptyList(),
-    spendingCategoryValues = listOf(
+    categoryValues = listOf(
         AnalyticsCategoryValue(null, null, null, null, 654_700, 300_200),
         AnalyticsCategoryValue(1, "Groceries", "ShoppingCart", 0xff4f725f.toInt(), 101_100, 93_400),
         AnalyticsCategoryValue(2, "Health & Fitness", "MedicalServices", 0xffc96d4f.toInt(), 56_100, 68_000),

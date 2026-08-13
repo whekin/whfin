@@ -75,11 +75,8 @@ internal data class AnalyticsData(
     val period: AnalyticsPeriod,
     val incomeMinor: Long,
     val expenseMinor: Long,
-    val categoryRangeMonths: Int,
-    val categoryExpenseMinor: Long,
+    /** Categories of the selected period, each with its average over the preceding periods. */
     val categoryValues: List<AnalyticsCategoryValue>,
-    /** Selected-month categories with a per-category average over the three preceding months. */
-    val spendingCategoryValues: List<AnalyticsCategoryValue> = emptyList(),
     val spendingAverageMinor: Long = 0L,
     val trendFilter: AnalyticsTrendFilter,
     val trendFilterName: String?,
@@ -96,8 +93,6 @@ internal data class AnalyticsData(
 ) {
     val deltaMinor: Long get() = incomeMinor - expenseMinor
     val selectedMonth: YearMonth get() = period.month
-    /** A rolling month window is a month-scale idea; a year already is its own window. */
-    val showCategoryRange: Boolean get() = period.scale == AnalyticsScale.MONTH
 }
 
 private data class AnalyticsSlice(
@@ -122,13 +117,11 @@ internal fun calculateAnalytics(
     categories: List<CategoryEntity>,
     allocations: List<TransactionAllocationEntity>,
     period: AnalyticsPeriod,
-    categoryRangeMonths: Int,
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zoneId),
     trendEndMonth: YearMonth = period.month,
 ): AnalyticsData {
-    require(categoryRangeMonths in setOf(1, 3, 6, 12))
     val categoryById = categories.associateBy { it.id }
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
     val fundingByPurchase = findConversionFunding(transactions, zoneId)
@@ -229,7 +222,10 @@ internal fun calculateAnalytics(
         .filter { slice -> comparisonPeriods.any { it.contains(slice.month) } && slice.gelMinor!! < 0L }
         .groupBy { it.categoryId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonPeriods.size }
-    val spendingCategoryValues = currentCategoryExpenses
+    // One list of categories, one window: the selected period, each row carrying its own baseline.
+    // Statistics used to hold a second list over a rolling 1/3/6/12-month window, so the same screen
+    // answered two different questions of time without saying which was which.
+    val categoryValues = currentCategoryExpenses
         .map { (categoryId, expenseMinor) ->
             val category = categoryId?.let(categoryById::get)
             AnalyticsCategoryValue(
@@ -267,28 +263,6 @@ internal fun calculateAnalytics(
         .sortedByDescending { abs(it.deltaMinor) }
         .take(3)
 
-    // A year is already a window, so the 1/3/6/12 rail only applies to the month scale.
-    val rangeStart = when (period.scale) {
-        AnalyticsScale.MONTH -> period.month.minusMonths((categoryRangeMonths - 1).toLong())
-        AnalyticsScale.YEAR -> period.start
-    }
-    val rangeExpenses = baseSlices.filter {
-        it.gelMinor!! < 0L && it.month >= rangeStart && it.month <= period.end
-    }
-    val categoryValues = rangeExpenses
-        .groupBy { it.categoryId }
-        .map { (categoryId, values) ->
-            val category = categoryId?.let(categoryById::get)
-            AnalyticsCategoryValue(
-                categoryId = categoryId,
-                name = category?.name,
-                icon = category?.icon,
-                color = category?.color,
-                expenseMinor = -values.sumOf { it.gelMinor!! },
-            )
-        }
-        .sortedByDescending { it.expenseMinor }
-
     val matchesTrendFilter: (AnalyticsSlice) -> Boolean = { slice ->
         when (trendFilter) {
             AnalyticsTrendFilter.All -> true
@@ -323,10 +297,7 @@ internal fun calculateAnalytics(
         period = period,
         incomeMinor = income,
         expenseMinor = expenses,
-        categoryRangeMonths = categoryRangeMonths,
-        categoryExpenseMinor = categoryValues.sumOf { it.expenseMinor },
         categoryValues = categoryValues,
-        spendingCategoryValues = spendingCategoryValues,
         spendingAverageMinor = spendingAverage,
         trendFilter = trendFilter,
         trendFilterName = (trendFilter as? AnalyticsTrendFilter.Category)

@@ -95,9 +95,7 @@ internal fun AnalyticsScreen(
         onNextPeriod = viewModel::selectNextPeriod,
         onScaleChange = viewModel::setScale,
         onSelectMonth = viewModel::selectMonth,
-        onRangeChange = viewModel::setCategoryRange,
         onShowAllTrend = viewModel::showAllExpensesTrend,
-        onShowCategoryTrend = viewModel::showCategoryTrend,
         onOpenExpenses = {
             viewModel.showAllExpensesTrend()
             onOpenExpenses()
@@ -172,11 +170,6 @@ internal fun AnalyticsScaffold(
     }
 }
 
-/** Index of the trend block inside [AnalyticsScaffold], counting its own header and period items. */
-private fun analyticsTrendIndex(data: AnalyticsData) = 4 +
-    (if (data.pace != null) 1 else 0) +
-    (if (data.categoryChanges.isNotEmpty()) 1 else 0)
-
 @Composable
 internal fun AnalyticsContent(
     model: AnalyticsUiModel,
@@ -185,14 +178,11 @@ internal fun AnalyticsContent(
     onNextPeriod: () -> Unit,
     onScaleChange: (AnalyticsScale) -> Unit,
     onSelectMonth: (YearMonth) -> Unit,
-    onRangeChange: (Int) -> Unit,
     onShowAllTrend: () -> Unit,
-    onShowCategoryTrend: (Long?) -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
     AnalyticsScaffold(
         model = model,
         title = stringResource(R.string.analytics_title),
@@ -230,14 +220,7 @@ internal fun AnalyticsContent(
         }
         item(key = "categories") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                CategoryBreakdown(
-                    data = data,
-                    onRangeChange = onRangeChange,
-                    onCategoryClick = { categoryId ->
-                        onShowCategoryTrend(categoryId)
-                        scope.launch { listState.animateScrollToItem(analyticsTrendIndex(data)) }
-                    },
-                )
+                CategoryShape(data = data, onOpenExpenses = onOpenExpenses)
             }
         }
         item(key = "trend") {
@@ -601,12 +584,16 @@ private fun CategoryChangeRow(
     }
 }
 
+/**
+ * The shape of the period's spending, and one way into the screen that itemises it.
+ *
+ * Statistics used to carry a full category list of its own next to Spending's, each over a
+ * different window. Two lists of the same categories can only make a reader wonder which one is
+ * the truth, so the composition question now belongs to Spending alone and Statistics keeps the
+ * bar that answers it at a glance.
+ */
 @Composable
-private fun CategoryBreakdown(
-    data: AnalyticsData,
-    onRangeChange: (Int) -> Unit,
-    onCategoryClick: (Long?) -> Unit,
-) {
+private fun CategoryShape(data: AnalyticsData, onOpenExpenses: () -> Unit) {
     val fallbackColors = listOf(
         WhfinThemeTokens.colors.bottle,
         WhfinThemeTokens.colors.clay,
@@ -616,26 +603,9 @@ private fun CategoryBreakdown(
     )
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
-            title = stringResource(R.string.analytics_categories),
+            title = stringResource(R.string.analytics_expenses_composition),
             supportingText = stringResource(R.string.analytics_categories_hint),
         )
-        // The year already fixes its own window, so the rolling 1/3/6/12 rail belongs to months only.
-        if (data.showCategoryRange) WhfinChoiceRail {
-            items(listOf(1, 3, 6, 12), key = { it }) { months ->
-                WhfinFilterPill(
-                    label = stringResource(
-                        when (months) {
-                            1 -> R.string.analytics_range_1
-                            3 -> R.string.analytics_range_3
-                            6 -> R.string.analytics_range_6
-                            else -> R.string.analytics_range_12
-                        },
-                    ),
-                    selected = data.categoryRangeMonths == months,
-                    onClick = { onRangeChange(months) },
-                )
-            }
-        }
         if (data.categoryValues.isEmpty()) {
             Text(
                 stringResource(R.string.analytics_empty_title),
@@ -643,80 +613,20 @@ private fun CategoryBreakdown(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            val categoryColors = data.categoryValues.mapIndexed { index, value ->
-                value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size]
-            }
             WhfinDistributionBar(
                 data.categoryValues.mapIndexed { index, value ->
-                    WhfinDistributionSegment(value.expenseMinor.toFloat(), categoryColors[index])
+                    WhfinDistributionSegment(
+                        value.expenseMinor.toFloat(),
+                        value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
+                    )
                 },
             )
-            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                data.categoryValues.forEachIndexed { index, value ->
-                    CategoryRow(
-                        value = value,
-                        totalMinor = data.categoryExpenseMinor,
-                        color = categoryColors[index],
-                        selected = data.trendFilter == AnalyticsTrendFilter.Category(value.categoryId),
-                        divider = index < data.categoryValues.lastIndex,
-                        onClick = { onCategoryClick(value.categoryId) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryRow(
-    value: AnalyticsCategoryValue,
-    totalMinor: Long,
-    color: Color,
-    selected: Boolean,
-    divider: Boolean,
-    onClick: () -> Unit,
-) {
-    val percentage = if (totalMinor <= 0L) 0.0 else value.expenseMinor.toDouble() / totalMinor * 100.0
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag("analytics-category-${value.categoryId ?: "none"}"),
-        shape = androidx.compose.ui.graphics.RectangleShape,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .42f) else Color.Transparent,
-    ) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    Modifier.size(38.dp).background(color.copy(alpha = .14f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        CategoryIcons.resolve(value.icon),
-                        contentDescription = null,
-                        tint = color,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(value.name ?: stringResource(R.string.analytics_uncategorized), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        NumberFormat.getPercentInstance().format(percentage / 100.0),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                WhfinAmount(
-                    formatMinor(value.expenseMinor, "GEL"),
-                    symbol = currencySymbol("GEL"),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            if (divider) HorizontalDivider(
-                Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
+            WhfinButton(
+                label = stringResource(R.string.analytics_expenses_by_category),
+                onClick = onOpenExpenses,
+                modifier = Modifier.fillMaxWidth().testTag("analytics-open-categories"),
+                style = WhfinActionStyle.Secondary,
+                leadingIcon = Icons.AutoMirrored.Filled.List,
             )
         }
     }
@@ -927,8 +837,6 @@ private val previewData = AnalyticsData(
     period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
     incomeMinor = 730_800,
     expenseMinor = 109_127,
-    categoryRangeMonths = 1,
-    categoryExpenseMinor = 109_127,
     categoryValues = listOf(
         AnalyticsCategoryValue(1, "Groceries", "ShoppingCart", 0xff4f725f.toInt(), 38_200),
         AnalyticsCategoryValue(2, "Eating out", "Restaurant", 0xffc96d4f.toInt(), 27_840),
@@ -962,7 +870,6 @@ private val previewYearData = previewData.copy(
     period = AnalyticsPeriod.year(YearMonth.of(2026, 7)),
     incomeMinor = 8_411_000,
     expenseMinor = 7_284_500,
-    categoryExpenseMinor = 7_284_500,
     pace = AnalyticsPace(
         daysElapsed = 224,
         daysTotal = 365,
@@ -990,7 +897,7 @@ private fun previewModel(
 private fun AnalyticsPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsContent(previewModel(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            AnalyticsContent(previewModel(), {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }
@@ -1001,7 +908,7 @@ private fun AnalyticsPreview() {
 private fun AnalyticsYearPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AnalyticsContent(previewModel(previewYearData), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            AnalyticsContent(previewModel(previewYearData), {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }
@@ -1013,7 +920,7 @@ private fun AnalyticsEmptyPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             AnalyticsContent(
                 previewModel(state = AnalyticsUiState.Empty),
-                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }
@@ -1026,7 +933,7 @@ private fun AnalyticsLoadingPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             AnalyticsContent(
                 previewModel(state = AnalyticsUiState.Loading),
-                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }
@@ -1039,7 +946,7 @@ private fun AnalyticsErrorPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             AnalyticsContent(
                 previewModel(state = AnalyticsUiState.Error),
-                {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                {}, {}, {}, {}, {}, {}, {}, {},
             )
         }
     }
