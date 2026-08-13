@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Voiding has three causes and the check knows all three. A merged duplicate is not a correction —
+ * Voiding has explicit causes and the check knows each one. A merged duplicate is not a correction —
  * there is no separate operation to undo — but it still owes an explanation, and the row it points
  * at has to be one that still counts.
  */
@@ -81,6 +81,26 @@ class MergedTransactionIntegrityTest {
         val report = DataIntegrityChecker(db).run()
 
         assertEquals(listOf("missing_transaction_correction"), report.issues.map { it.code })
+    }
+
+    @Test
+    fun `a canceled sms row retains money provenance and is healthy`() = runBlocking {
+        db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -2_500,
+                currency = "GEL",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+                externalKey = "sms|payment",
+                isVoided = true,
+                canceledBySmsExternalKey = "sms|cancellation",
+                createdAt = 1,
+            ),
+        )
+
+        assertTrue(DataIntegrityChecker(db).run().isHealthy)
     }
 
     @Test

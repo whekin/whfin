@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "5e3225b3809b43488a31628ec5683e1b",
+    "identityHash": "6145bcba41b977235a2e6a07c7bcfd7a",
     "entities": [
       {
         "tableName": "accounts",
@@ -883,7 +883,7 @@
       },
       {
         "tableName": "transactions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `accountId` INTEGER NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `origAmountMinor` INTEGER, `origCurrency` TEXT, `occurredAt` INTEGER NOT NULL, `postedAt` INTEGER, `merchantId` INTEGER, `rawCounterparty` TEXT, `counterpartyIban` TEXT, `categoryId` INTEGER, `note` TEXT, `status` TEXT NOT NULL, `source` TEXT NOT NULL, `transferGroupId` INTEGER, `isTransfer` INTEGER NOT NULL DEFAULT 0, `balanceAfterMinor` INTEGER, `externalKey` TEXT, `gelValueMinor` INTEGER, `gelRateOn` TEXT, `isVoided` INTEGER NOT NULL DEFAULT 0, `correctionOfTransactionId` INTEGER, `correctionRevokedAt` INTEGER, `mergedIntoTransactionId` INTEGER, `createdAt` INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`merchantId`) REFERENCES `merchants`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`transferGroupId`) REFERENCES `transfer_groups`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `accountId` INTEGER NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `origAmountMinor` INTEGER, `origCurrency` TEXT, `occurredAt` INTEGER NOT NULL, `postedAt` INTEGER, `merchantId` INTEGER, `rawCounterparty` TEXT, `counterpartyIban` TEXT, `categoryId` INTEGER, `note` TEXT, `status` TEXT NOT NULL, `source` TEXT NOT NULL, `transferGroupId` INTEGER, `isTransfer` INTEGER NOT NULL DEFAULT 0, `balanceAfterMinor` INTEGER, `externalKey` TEXT, `gelValueMinor` INTEGER, `gelRateOn` TEXT, `isVoided` INTEGER NOT NULL DEFAULT 0, `correctionOfTransactionId` INTEGER, `correctionRevokedAt` INTEGER, `mergedIntoTransactionId` INTEGER, `canceledBySmsExternalKey` TEXT, `createdAt` INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`merchantId`) REFERENCES `merchants`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`transferGroupId`) REFERENCES `transfer_groups`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1020,6 +1020,11 @@
             "fieldPath": "mergedIntoTransactionId",
             "columnName": "mergedIntoTransactionId",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "canceledBySmsExternalKey",
+            "columnName": "canceledBySmsExternalKey",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "createdAt",
@@ -2251,7 +2256,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5e3225b3809b43488a31628ec5683e1b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6145bcba41b977235a2e6a07c7bcfd7a')"
     ]
   }
 }

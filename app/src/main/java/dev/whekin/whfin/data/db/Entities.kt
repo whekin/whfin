@@ -285,13 +285,14 @@ data class TransactionEntity(
     /**
      * The row this one turned out to be a second copy of.
      *
-     * Voiding has three causes, not two. A user correction withdraws a row and leaves an audit
+     * Voiding has explicit causes. A user correction withdraws a row and leaves an audit
      * record; taking that correction back restores it; and a merge retires a row that was never a
      * separate operation — the same purchase filed twice, once by a message and once by the
-     * statement. Only the merge has no correction to point at, so without this the row is voided
-     * for no stated reason, which is exactly what the integrity check is there to catch.
+     * statement. A bank SMS cancellation likewise carries its own immutable external key below.
      */
     val mergedIntoTransactionId: Long? = null,
+    /** External key of the bank SMS that explicitly canceled this SMS-sourced payment. */
+    val canceledBySmsExternalKey: String? = null,
     @ColumnInfo(defaultValue = "0")
     val createdAt: Long = 0,
 )

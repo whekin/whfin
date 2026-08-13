@@ -74,7 +74,10 @@ class DataIntegrityChecker(
                     transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS) &&
                     // A merged copy states its own reason, and it is not a correction: the row was
                     // never a separate operation, so there is nothing for an audit record to undo.
-                    transaction.mergedIntoTransactionId == null
+                    transaction.mergedIntoTransactionId == null &&
+                    // A cancellation carries the immutable key of the bank message that withdrew
+                    // an SMS row; diagnostics remain device-local and are intentionally not backed up.
+                    transaction.canceledBySmsExternalKey == null
                 ) {
                     val corrections = transactions.filter {
                         it.correctionOfTransactionId == transaction.id && it.correctionRevokedAt == null
@@ -92,6 +95,11 @@ class DataIntegrityChecker(
                     }
                     if (!transaction.isVoided) {
                         add(error("active_merged_transaction", "transactions", transaction.id, "A merged copy must stay out of active balances."))
+                    }
+                }
+                if (transaction.canceledBySmsExternalKey != null) {
+                    if (transaction.source != TxSource.SMS || !transaction.isVoided) {
+                        add(error("invalid_sms_cancellation", "transactions", transaction.id, "SMS cancellation must retire an SMS-sourced transaction."))
                     }
                 }
                 if (transaction.correctionOfTransactionId != null) {

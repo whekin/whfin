@@ -28,10 +28,10 @@ internal object StatementReconciler {
                     candidate.amountMinor == row.amountMinor
             }.singleOrNull()
         }
-        val wanted = MerchantNormalizer.normalize(row.merchantRaw ?: return null)
-        if (wanted.isEmpty()) return null
+        val wanted = row.merchantRaw ?: return null
+        if (MerchantNormalizer.normalize(wanted).isEmpty()) return null
         val sameMerchant = candidates.filter { candidate ->
-            candidate.rawCounterparty?.let(MerchantNormalizer::normalize) == wanted
+            MerchantNormalizer.equivalent(candidate.rawCounterparty, wanted)
         }
         return sameMerchant.filter { it.amountMinor == row.amountMinor }.singleOrNull()
             ?: sameMerchant.singleOrNull()

@@ -75,6 +75,8 @@ enum class SmsDiagnosticReason {
     REJECTED,
     UNRELATED,
     PARSE_FAILURE,
+    /** A cancellation did not identify exactly one prior card payment, so no money was changed. */
+    CANCELLATION_TARGET_NOT_FOUND,
     NO_ACCOUNT,
     MULTIPLE_ACCOUNTS,
     NO_CARD_MAPPING,

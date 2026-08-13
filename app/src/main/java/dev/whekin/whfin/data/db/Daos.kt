@@ -742,23 +742,25 @@ interface SmsDiagnosticDao {
     suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?
 
     /**
-     * The card payment a cancellation retracts: same card, same money, closest in time.
-     * Only an imported row can be withdrawn, so rows without a transaction are ignored.
+     * Possible payments a cancellation could retract. Identity and ambiguity are deliberately
+     * decided by SmsCancellationMatcher, where merchant and all candidates are still visible.
      */
     @Query(
         "SELECT * FROM sms_diagnostics WHERE kind = 'CARD_PAYMENT' AND transactionId IS NOT NULL " +
+            "AND externalKey != :cancellationExternalKey " +
             "AND amountMinor = :amountMinor AND currency = :currency AND cardLast4 = :cardLast4 " +
             "AND occurredAt BETWEEN :fromMillis AND :toMillis " +
-            "ORDER BY ABS(occurredAt - :occurredAt), id LIMIT 1"
+            "ORDER BY ABS(occurredAt - :occurredAt), id"
     )
-    suspend fun matchingCardPayment(
+    suspend fun cancellationCandidates(
+        cancellationExternalKey: String,
         amountMinor: Long,
         currency: String,
         cardLast4: String,
         occurredAt: Long,
         fromMillis: Long,
         toMillis: Long,
-    ): SmsDiagnosticEntity?
+    ): List<SmsDiagnosticEntity>
 
     @Query(
         "SELECT * FROM sms_diagnostics WHERE kind = :kind AND transactionId IS NOT NULL " +

@@ -61,6 +61,16 @@ class StatementReconcilerTest {
     }
 
     @Test
+    fun aStatementMerchantPrefixMatchesTheLongerSmsProcessorName() {
+        val match = StatementReconciler.match(
+            row(merchant = "ANTHROPIC", amountMinor = -6_346),
+            listOf(draft(10, "ANTHROPIC* CLAUDE.AI", -2_400)),
+        )
+
+        assertEquals(10L, match?.id)
+    }
+
+    @Test
     fun betweenTwoDraftsOfTheSameMerchant_theExactAmountWins() {
         val match = StatementReconciler.match(
             row(amountMinor = -1_250),

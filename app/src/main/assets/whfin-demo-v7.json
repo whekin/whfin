@@ -906,6 +906,11 @@
         "externalKey": "demo:opening:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -930,6 +935,11 @@
         "externalKey": "demo:opening:2",
         "gelValueMinor": 12240,
         "gelRateOn": "2025-07-31",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -954,6 +964,11 @@
         "externalKey": "demo:opening:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -978,6 +993,11 @@
         "externalKey": "demo:opening:4",
         "gelValueMinor": 326400,
         "gelRateOn": "2025-07-31",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -1002,6 +1022,11 @@
         "externalKey": "demo:opening:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -1026,6 +1051,11 @@
         "externalKey": "demo:opening:6",
         "gelValueMinor": 44250,
         "gelRateOn": "2025-07-31",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -1050,6 +1080,11 @@
         "externalKey": "demo:opening:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1753959600000
       },
       {
@@ -1074,6 +1109,11 @@
         "externalKey": "demo:salary:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754391600000
       },
       {
@@ -1098,6 +1138,11 @@
         "externalKey": "demo:move:1:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754564400000
       },
       {
@@ -1122,6 +1167,11 @@
         "externalKey": "demo:move:1:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754564400000
       },
       {
@@ -1146,6 +1196,11 @@
         "externalKey": "demo:rent:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754478000000
       },
       {
@@ -1170,6 +1225,11 @@
         "externalKey": "demo:utilities:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754996400000
       },
       {
@@ -1194,6 +1254,11 @@
         "externalKey": "demo:stream:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755255600000
       },
       {
@@ -1218,6 +1283,11 @@
         "externalKey": "demo:hosting:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755342000000
       },
       {
@@ -1242,6 +1312,11 @@
         "externalKey": "demo:move:2:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755514800000
       },
       {
@@ -1266,6 +1341,11 @@
         "externalKey": "demo:move:2:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755514800000
       },
       {
@@ -1290,6 +1370,11 @@
         "externalKey": "demo:groceries:0:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754218800000
       },
       {
@@ -1314,6 +1399,11 @@
         "externalKey": "demo:groceries:0:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754823600000
       },
       {
@@ -1338,6 +1428,11 @@
         "externalKey": "demo:groceries:0:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755428400000
       },
       {
@@ -1362,6 +1457,11 @@
         "externalKey": "demo:groceries:0:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1756033200000
       },
       {
@@ -1386,6 +1486,11 @@
         "externalKey": "demo:eating:0:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754650800000
       },
       {
@@ -1410,6 +1515,11 @@
         "externalKey": "demo:eating:0:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755601200000
       },
       {
@@ -1434,6 +1544,11 @@
         "externalKey": "demo:eating:0:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1756292400000
       },
       {
@@ -1458,6 +1573,11 @@
         "externalKey": "demo:transport:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1754737200000
       },
       {
@@ -1482,6 +1602,11 @@
         "externalKey": "demo:pharmacy:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1755774000000
       },
       {
@@ -1506,6 +1631,11 @@
         "externalKey": "demo:interest:0",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1756378800000
       },
       {
@@ -1530,6 +1660,11 @@
         "externalKey": "demo:salary:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757070000000
       },
       {
@@ -1554,6 +1689,11 @@
         "externalKey": "demo:move:3:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757242800000
       },
       {
@@ -1578,6 +1718,11 @@
         "externalKey": "demo:move:3:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757242800000
       },
       {
@@ -1602,6 +1747,11 @@
         "externalKey": "demo:rent:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757156400000
       },
       {
@@ -1626,6 +1776,11 @@
         "externalKey": "demo:utilities:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757674800000
       },
       {
@@ -1650,6 +1805,11 @@
         "externalKey": "demo:stream:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757934000000
       },
       {
@@ -1674,6 +1834,11 @@
         "externalKey": "demo:hosting:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758020400000
       },
       {
@@ -1698,6 +1863,11 @@
         "externalKey": "demo:move:4:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758193200000
       },
       {
@@ -1722,6 +1892,11 @@
         "externalKey": "demo:move:4:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758193200000
       },
       {
@@ -1746,6 +1921,11 @@
         "externalKey": "demo:groceries:1:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1756897200000
       },
       {
@@ -1770,6 +1950,11 @@
         "externalKey": "demo:groceries:1:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757502000000
       },
       {
@@ -1794,6 +1979,11 @@
         "externalKey": "demo:groceries:1:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758106800000
       },
       {
@@ -1818,6 +2008,11 @@
         "externalKey": "demo:groceries:1:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758711600000
       },
       {
@@ -1842,6 +2037,11 @@
         "externalKey": "demo:eating:1:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757329200000
       },
       {
@@ -1866,6 +2066,11 @@
         "externalKey": "demo:eating:1:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758279600000
       },
       {
@@ -1890,6 +2095,11 @@
         "externalKey": "demo:eating:1:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758970800000
       },
       {
@@ -1914,6 +2124,11 @@
         "externalKey": "demo:transport:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757415600000
       },
       {
@@ -1938,6 +2153,11 @@
         "externalKey": "demo:home:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758538800000
       },
       {
@@ -1962,6 +2182,11 @@
         "externalKey": "demo:move:5:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758366000000
       },
       {
@@ -1986,6 +2211,11 @@
         "externalKey": "demo:move:5:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758366000000
       },
       {
@@ -2010,6 +2240,11 @@
         "externalKey": "demo:cash-groceries:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758798000000
       },
       {
@@ -2034,6 +2269,11 @@
         "externalKey": "demo:cash-eating:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1758970800000
       },
       {
@@ -2058,6 +2298,11 @@
         "externalKey": "demo:interest:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759057200000
       },
       {
@@ -2082,6 +2327,11 @@
         "externalKey": "demo:salary:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759662000000
       },
       {
@@ -2106,6 +2356,11 @@
         "externalKey": "demo:move:6:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759834800000
       },
       {
@@ -2130,6 +2385,11 @@
         "externalKey": "demo:move:6:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759834800000
       },
       {
@@ -2154,6 +2414,11 @@
         "externalKey": "demo:rent:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759748400000
       },
       {
@@ -2178,6 +2443,11 @@
         "externalKey": "demo:utilities:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760266800000
       },
       {
@@ -2202,6 +2472,11 @@
         "externalKey": "demo:stream:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760526000000
       },
       {
@@ -2226,6 +2501,11 @@
         "externalKey": "demo:hosting:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760612400000
       },
       {
@@ -2250,6 +2530,11 @@
         "externalKey": "demo:move:7:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760785200000
       },
       {
@@ -2274,6 +2559,11 @@
         "externalKey": "demo:move:7:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760785200000
       },
       {
@@ -2298,6 +2588,11 @@
         "externalKey": "demo:groceries:2:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759489200000
       },
       {
@@ -2322,6 +2617,11 @@
         "externalKey": "demo:groceries:2:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760094000000
       },
       {
@@ -2346,6 +2646,11 @@
         "externalKey": "demo:groceries:2:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760698800000
       },
       {
@@ -2370,6 +2675,11 @@
         "externalKey": "demo:groceries:2:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1761303600000
       },
       {
@@ -2394,6 +2704,11 @@
         "externalKey": "demo:eating:2:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1759921200000
       },
       {
@@ -2418,6 +2733,11 @@
         "externalKey": "demo:eating:2:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760871600000
       },
       {
@@ -2442,6 +2762,11 @@
         "externalKey": "demo:eating:2:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1761562800000
       },
       {
@@ -2466,6 +2791,11 @@
         "externalKey": "demo:transport:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760007600000
       },
       {
@@ -2490,6 +2820,11 @@
         "externalKey": "demo:pharmacy:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1761044400000
       },
       {
@@ -2514,6 +2849,11 @@
         "externalKey": "demo:tech:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1761217200000
       },
       {
@@ -2538,6 +2878,11 @@
         "externalKey": "demo:interest:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1761649200000
       },
       {
@@ -2562,6 +2907,11 @@
         "externalKey": "demo:salary:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762340400000
       },
       {
@@ -2586,6 +2936,11 @@
         "externalKey": "demo:move:8:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762513200000
       },
       {
@@ -2610,6 +2965,11 @@
         "externalKey": "demo:move:8:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762513200000
       },
       {
@@ -2634,6 +2994,11 @@
         "externalKey": "demo:rent:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762426800000
       },
       {
@@ -2658,6 +3023,11 @@
         "externalKey": "demo:utilities:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762945200000
       },
       {
@@ -2682,6 +3052,11 @@
         "externalKey": "demo:stream:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763204400000
       },
       {
@@ -2706,6 +3081,11 @@
         "externalKey": "demo:hosting:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763290800000
       },
       {
@@ -2730,6 +3110,11 @@
         "externalKey": "demo:move:9:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763463600000
       },
       {
@@ -2754,6 +3139,11 @@
         "externalKey": "demo:move:9:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763463600000
       },
       {
@@ -2778,6 +3168,11 @@
         "externalKey": "demo:groceries:3:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762167600000
       },
       {
@@ -2802,6 +3197,11 @@
         "externalKey": "demo:groceries:3:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762772400000
       },
       {
@@ -2826,6 +3226,11 @@
         "externalKey": "demo:groceries:3:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763377200000
       },
       {
@@ -2850,6 +3255,11 @@
         "externalKey": "demo:groceries:3:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763982000000
       },
       {
@@ -2874,6 +3284,11 @@
         "externalKey": "demo:eating:3:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762599600000
       },
       {
@@ -2898,6 +3313,11 @@
         "externalKey": "demo:eating:3:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763550000000
       },
       {
@@ -2922,6 +3342,11 @@
         "externalKey": "demo:eating:3:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764241200000
       },
       {
@@ -2946,6 +3371,11 @@
         "externalKey": "demo:transport:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1762686000000
       },
       {
@@ -2970,6 +3400,11 @@
         "externalKey": "demo:move:10:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763636400000
       },
       {
@@ -2994,6 +3429,11 @@
         "externalKey": "demo:move:10:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763636400000
       },
       {
@@ -3018,6 +3458,11 @@
         "externalKey": "demo:cash-groceries:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764068400000
       },
       {
@@ -3042,6 +3487,11 @@
         "externalKey": "demo:cash-eating:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764241200000
       },
       {
@@ -3066,6 +3516,11 @@
         "externalKey": "demo:interest:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764327600000
       },
       {
@@ -3090,6 +3545,11 @@
         "externalKey": "demo:side:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1763118000000
       },
       {
@@ -3114,6 +3574,11 @@
         "externalKey": "demo:salary:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764932400000
       },
       {
@@ -3138,6 +3603,11 @@
         "externalKey": "demo:move:11:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765105200000
       },
       {
@@ -3162,6 +3632,11 @@
         "externalKey": "demo:move:11:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765105200000
       },
       {
@@ -3186,6 +3661,11 @@
         "externalKey": "demo:rent:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765018800000
       },
       {
@@ -3210,6 +3690,11 @@
         "externalKey": "demo:utilities:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765537200000
       },
       {
@@ -3234,6 +3719,11 @@
         "externalKey": "demo:stream:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765796400000
       },
       {
@@ -3258,6 +3748,11 @@
         "externalKey": "demo:hosting:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765882800000
       },
       {
@@ -3282,6 +3777,11 @@
         "externalKey": "demo:move:12:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766055600000
       },
       {
@@ -3306,6 +3806,11 @@
         "externalKey": "demo:move:12:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766055600000
       },
       {
@@ -3330,6 +3835,11 @@
         "externalKey": "demo:groceries:4:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1764759600000
       },
       {
@@ -3354,6 +3864,11 @@
         "externalKey": "demo:groceries:4:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765364400000
       },
       {
@@ -3378,6 +3893,11 @@
         "externalKey": "demo:groceries:4:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765969200000
       },
       {
@@ -3402,6 +3922,11 @@
         "externalKey": "demo:groceries:4:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766574000000
       },
       {
@@ -3426,6 +3951,11 @@
         "externalKey": "demo:eating:4:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765191600000
       },
       {
@@ -3450,6 +3980,11 @@
         "externalKey": "demo:eating:4:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766142000000
       },
       {
@@ -3474,6 +4009,11 @@
         "externalKey": "demo:eating:4:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766833200000
       },
       {
@@ -3498,6 +4038,11 @@
         "externalKey": "demo:transport:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1765278000000
       },
       {
@@ -3522,6 +4067,11 @@
         "externalKey": "demo:pharmacy:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766314800000
       },
       {
@@ -3546,6 +4096,11 @@
         "externalKey": "demo:home:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766401200000
       },
       {
@@ -3570,6 +4125,11 @@
         "externalKey": "demo:interest:4",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1766919600000
       },
       {
@@ -3594,6 +4154,11 @@
         "externalKey": "demo:salary:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767610800000
       },
       {
@@ -3618,6 +4183,11 @@
         "externalKey": "demo:move:13:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767783600000
       },
       {
@@ -3642,6 +4212,11 @@
         "externalKey": "demo:move:13:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767783600000
       },
       {
@@ -3666,6 +4241,11 @@
         "externalKey": "demo:rent:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767697200000
       },
       {
@@ -3690,6 +4270,11 @@
         "externalKey": "demo:utilities:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768215600000
       },
       {
@@ -3714,6 +4299,11 @@
         "externalKey": "demo:stream:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768474800000
       },
       {
@@ -3738,6 +4328,11 @@
         "externalKey": "demo:hosting:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768561200000
       },
       {
@@ -3762,6 +4357,11 @@
         "externalKey": "demo:move:14:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768734000000
       },
       {
@@ -3786,6 +4386,11 @@
         "externalKey": "demo:move:14:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768734000000
       },
       {
@@ -3810,6 +4415,11 @@
         "externalKey": "demo:groceries:5:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767438000000
       },
       {
@@ -3834,6 +4444,11 @@
         "externalKey": "demo:groceries:5:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768042800000
       },
       {
@@ -3858,6 +4473,11 @@
         "externalKey": "demo:groceries:5:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768647600000
       },
       {
@@ -3882,6 +4502,11 @@
         "externalKey": "demo:groceries:5:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1769252400000
       },
       {
@@ -3906,6 +4531,11 @@
         "externalKey": "demo:eating:5:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767870000000
       },
       {
@@ -3930,6 +4560,11 @@
         "externalKey": "demo:eating:5:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768820400000
       },
       {
@@ -3954,6 +4589,11 @@
         "externalKey": "demo:eating:5:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1769511600000
       },
       {
@@ -3978,6 +4618,11 @@
         "externalKey": "demo:transport:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1767956400000
       },
       {
@@ -4002,6 +4647,11 @@
         "externalKey": "demo:move:15:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768906800000
       },
       {
@@ -4026,6 +4676,11 @@
         "externalKey": "demo:move:15:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768906800000
       },
       {
@@ -4050,6 +4705,11 @@
         "externalKey": "demo:cash-groceries:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1769338800000
       },
       {
@@ -4074,6 +4734,11 @@
         "externalKey": "demo:cash-eating:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1769511600000
       },
       {
@@ -4098,6 +4763,11 @@
         "externalKey": "demo:interest:5",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1769598000000
       },
       {
@@ -4122,6 +4792,11 @@
         "externalKey": "demo:salary:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770289200000
       },
       {
@@ -4146,6 +4821,11 @@
         "externalKey": "demo:move:16:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770462000000
       },
       {
@@ -4170,6 +4850,11 @@
         "externalKey": "demo:move:16:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770462000000
       },
       {
@@ -4194,6 +4879,11 @@
         "externalKey": "demo:rent:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770375600000
       },
       {
@@ -4218,6 +4908,11 @@
         "externalKey": "demo:utilities:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770894000000
       },
       {
@@ -4242,6 +4937,11 @@
         "externalKey": "demo:stream:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771153200000
       },
       {
@@ -4266,6 +4966,11 @@
         "externalKey": "demo:hosting:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771239600000
       },
       {
@@ -4290,6 +4995,11 @@
         "externalKey": "demo:move:17:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771412400000
       },
       {
@@ -4314,6 +5024,11 @@
         "externalKey": "demo:move:17:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771412400000
       },
       {
@@ -4338,6 +5053,11 @@
         "externalKey": "demo:groceries:6:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770116400000
       },
       {
@@ -4362,6 +5082,11 @@
         "externalKey": "demo:groceries:6:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770721200000
       },
       {
@@ -4386,6 +5111,11 @@
         "externalKey": "demo:groceries:6:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771326000000
       },
       {
@@ -4410,6 +5140,11 @@
         "externalKey": "demo:groceries:6:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771930800000
       },
       {
@@ -4434,6 +5169,11 @@
         "externalKey": "demo:eating:6:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770548400000
       },
       {
@@ -4458,6 +5198,11 @@
         "externalKey": "demo:eating:6:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771498800000
       },
       {
@@ -4482,6 +5227,11 @@
         "externalKey": "demo:eating:6:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772190000000
       },
       {
@@ -4506,6 +5256,11 @@
         "externalKey": "demo:transport:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770634800000
       },
       {
@@ -4530,6 +5285,11 @@
         "externalKey": "demo:pharmacy:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771671600000
       },
       {
@@ -4554,6 +5314,11 @@
         "externalKey": "demo:tech:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1771844400000
       },
       {
@@ -4578,6 +5343,11 @@
         "externalKey": "demo:interest:6",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772276400000
       },
       {
@@ -4602,6 +5372,11 @@
         "externalKey": "demo:salary:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772708400000
       },
       {
@@ -4626,6 +5401,11 @@
         "externalKey": "demo:move:18:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772881200000
       },
       {
@@ -4650,6 +5430,11 @@
         "externalKey": "demo:move:18:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772881200000
       },
       {
@@ -4674,6 +5459,11 @@
         "externalKey": "demo:rent:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772794800000
       },
       {
@@ -4698,6 +5488,11 @@
         "externalKey": "demo:utilities:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773313200000
       },
       {
@@ -4722,6 +5517,11 @@
         "externalKey": "demo:stream:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773572400000
       },
       {
@@ -4746,6 +5546,11 @@
         "externalKey": "demo:hosting:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773658800000
       },
       {
@@ -4770,6 +5575,11 @@
         "externalKey": "demo:move:19:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773831600000
       },
       {
@@ -4794,6 +5604,11 @@
         "externalKey": "demo:move:19:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773831600000
       },
       {
@@ -4818,6 +5633,11 @@
         "externalKey": "demo:groceries:7:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772535600000
       },
       {
@@ -4842,6 +5662,11 @@
         "externalKey": "demo:groceries:7:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773140400000
       },
       {
@@ -4866,6 +5691,11 @@
         "externalKey": "demo:groceries:7:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773745200000
       },
       {
@@ -4890,6 +5720,11 @@
         "externalKey": "demo:groceries:7:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774350000000
       },
       {
@@ -4914,6 +5749,11 @@
         "externalKey": "demo:eating:7:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1772967600000
       },
       {
@@ -4938,6 +5778,11 @@
         "externalKey": "demo:eating:7:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773918000000
       },
       {
@@ -4962,6 +5807,11 @@
         "externalKey": "demo:eating:7:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774609200000
       },
       {
@@ -4986,6 +5836,11 @@
         "externalKey": "demo:transport:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1773054000000
       },
       {
@@ -5010,6 +5865,11 @@
         "externalKey": "demo:home:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774177200000
       },
       {
@@ -5034,6 +5894,11 @@
         "externalKey": "demo:move:20:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774004400000
       },
       {
@@ -5058,6 +5923,11 @@
         "externalKey": "demo:move:20:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774004400000
       },
       {
@@ -5082,6 +5952,11 @@
         "externalKey": "demo:cash-groceries:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774436400000
       },
       {
@@ -5106,6 +5981,11 @@
         "externalKey": "demo:cash-eating:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774609200000
       },
       {
@@ -5130,6 +6010,11 @@
         "externalKey": "demo:interest:7",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1774695600000
       },
       {
@@ -5154,6 +6039,11 @@
         "externalKey": "demo:salary:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775386800000
       },
       {
@@ -5178,6 +6068,11 @@
         "externalKey": "demo:move:21:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775559600000
       },
       {
@@ -5202,6 +6097,11 @@
         "externalKey": "demo:move:21:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775559600000
       },
       {
@@ -5226,6 +6126,11 @@
         "externalKey": "demo:rent:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775473200000
       },
       {
@@ -5250,6 +6155,11 @@
         "externalKey": "demo:utilities:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775991600000
       },
       {
@@ -5274,6 +6184,11 @@
         "externalKey": "demo:stream:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776250800000
       },
       {
@@ -5298,6 +6213,11 @@
         "externalKey": "demo:hosting:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776337200000
       },
       {
@@ -5322,6 +6242,11 @@
         "externalKey": "demo:move:22:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776510000000
       },
       {
@@ -5346,6 +6271,11 @@
         "externalKey": "demo:move:22:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776510000000
       },
       {
@@ -5370,6 +6300,11 @@
         "externalKey": "demo:groceries:8:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775214000000
       },
       {
@@ -5394,6 +6329,11 @@
         "externalKey": "demo:groceries:8:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775818800000
       },
       {
@@ -5418,6 +6358,11 @@
         "externalKey": "demo:groceries:8:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776423600000
       },
       {
@@ -5442,6 +6387,11 @@
         "externalKey": "demo:groceries:8:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1777028400000
       },
       {
@@ -5466,6 +6416,11 @@
         "externalKey": "demo:eating:8:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775646000000
       },
       {
@@ -5490,6 +6445,11 @@
         "externalKey": "demo:eating:8:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776596400000
       },
       {
@@ -5514,6 +6474,11 @@
         "externalKey": "demo:eating:8:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1777287600000
       },
       {
@@ -5538,6 +6503,11 @@
         "externalKey": "demo:transport:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775732400000
       },
       {
@@ -5562,6 +6532,11 @@
         "externalKey": "demo:pharmacy:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776769200000
       },
       {
@@ -5586,6 +6561,11 @@
         "externalKey": "demo:interest:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1777374000000
       },
       {
@@ -5610,6 +6590,11 @@
         "externalKey": "demo:side:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1776164400000
       },
       {
@@ -5634,6 +6619,11 @@
         "externalKey": "demo:salary:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1777978800000
       },
       {
@@ -5658,6 +6648,11 @@
         "externalKey": "demo:move:23:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778151600000
       },
       {
@@ -5682,6 +6677,11 @@
         "externalKey": "demo:move:23:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778151600000
       },
       {
@@ -5706,6 +6706,11 @@
         "externalKey": "demo:rent:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778065200000
       },
       {
@@ -5730,6 +6735,11 @@
         "externalKey": "demo:utilities:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778583600000
       },
       {
@@ -5754,6 +6764,11 @@
         "externalKey": "demo:stream:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778842800000
       },
       {
@@ -5778,6 +6793,11 @@
         "externalKey": "demo:hosting:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778929200000
       },
       {
@@ -5802,6 +6822,11 @@
         "externalKey": "demo:move:24:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779102000000
       },
       {
@@ -5826,6 +6851,11 @@
         "externalKey": "demo:move:24:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779102000000
       },
       {
@@ -5850,6 +6880,11 @@
         "externalKey": "demo:groceries:9:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1777806000000
       },
       {
@@ -5874,6 +6909,11 @@
         "externalKey": "demo:groceries:9:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778410800000
       },
       {
@@ -5898,6 +6938,11 @@
         "externalKey": "demo:groceries:9:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779015600000
       },
       {
@@ -5922,6 +6967,11 @@
         "externalKey": "demo:groceries:9:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779620400000
       },
       {
@@ -5946,6 +6996,11 @@
         "externalKey": "demo:eating:9:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778238000000
       },
       {
@@ -5970,6 +7025,11 @@
         "externalKey": "demo:eating:9:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779188400000
       },
       {
@@ -5994,6 +7054,11 @@
         "externalKey": "demo:eating:9:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779879600000
       },
       {
@@ -6018,6 +7083,11 @@
         "externalKey": "demo:transport:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778324400000
       },
       {
@@ -6042,6 +7112,11 @@
         "externalKey": "demo:move:25:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779274800000
       },
       {
@@ -6066,6 +7141,11 @@
         "externalKey": "demo:move:25:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779274800000
       },
       {
@@ -6090,6 +7170,11 @@
         "externalKey": "demo:cash-groceries:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779706800000
       },
       {
@@ -6114,6 +7199,11 @@
         "externalKey": "demo:cash-eating:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779879600000
       },
       {
@@ -6138,6 +7228,11 @@
         "externalKey": "demo:interest:9",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1779966000000
       },
       {
@@ -6162,6 +7257,11 @@
         "externalKey": "demo:salary:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780657200000
       },
       {
@@ -6186,6 +7286,11 @@
         "externalKey": "demo:move:26:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780830000000
       },
       {
@@ -6210,6 +7315,11 @@
         "externalKey": "demo:move:26:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780830000000
       },
       {
@@ -6234,6 +7344,11 @@
         "externalKey": "demo:rent:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780743600000
       },
       {
@@ -6258,6 +7373,11 @@
         "externalKey": "demo:utilities:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781262000000
       },
       {
@@ -6282,6 +7402,11 @@
         "externalKey": "demo:stream:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781521200000
       },
       {
@@ -6306,6 +7431,11 @@
         "externalKey": "demo:hosting:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781607600000
       },
       {
@@ -6330,6 +7460,11 @@
         "externalKey": "demo:move:27:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781780400000
       },
       {
@@ -6354,6 +7489,11 @@
         "externalKey": "demo:move:27:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781780400000
       },
       {
@@ -6378,6 +7518,11 @@
         "externalKey": "demo:groceries:10:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780484400000
       },
       {
@@ -6402,6 +7547,11 @@
         "externalKey": "demo:groceries:10:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781089200000
       },
       {
@@ -6426,6 +7576,11 @@
         "externalKey": "demo:groceries:10:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781694000000
       },
       {
@@ -6450,6 +7605,11 @@
         "externalKey": "demo:groceries:10:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782298800000
       },
       {
@@ -6474,6 +7634,11 @@
         "externalKey": "demo:eating:10:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1780916400000
       },
       {
@@ -6498,6 +7663,11 @@
         "externalKey": "demo:eating:10:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781866800000
       },
       {
@@ -6522,6 +7692,11 @@
         "externalKey": "demo:eating:10:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782558000000
       },
       {
@@ -6546,6 +7721,11 @@
         "externalKey": "demo:transport:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781002800000
       },
       {
@@ -6570,6 +7750,11 @@
         "externalKey": "demo:pharmacy:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782039600000
       },
       {
@@ -6594,6 +7779,11 @@
         "externalKey": "demo:home:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782126000000
       },
       {
@@ -6618,6 +7808,11 @@
         "externalKey": "demo:tech:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782212400000
       },
       {
@@ -6642,6 +7837,11 @@
         "externalKey": "demo:interest:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782644400000
       },
       {
@@ -6666,6 +7866,11 @@
         "externalKey": "demo:salary:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783249200000
       },
       {
@@ -6690,6 +7895,11 @@
         "externalKey": "demo:move:28:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783422000000
       },
       {
@@ -6714,6 +7924,11 @@
         "externalKey": "demo:move:28:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783422000000
       },
       {
@@ -6738,6 +7953,11 @@
         "externalKey": "demo:rent:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783335600000
       },
       {
@@ -6762,6 +7982,11 @@
         "externalKey": "demo:utilities:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783854000000
       },
       {
@@ -6786,6 +8011,11 @@
         "externalKey": "demo:stream:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784113200000
       },
       {
@@ -6810,6 +8040,11 @@
         "externalKey": "demo:hosting:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784199600000
       },
       {
@@ -6834,6 +8069,11 @@
         "externalKey": "demo:move:29:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784372400000
       },
       {
@@ -6858,6 +8098,11 @@
         "externalKey": "demo:move:29:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784372400000
       },
       {
@@ -6882,6 +8127,11 @@
         "externalKey": "demo:groceries:11:3",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783076400000
       },
       {
@@ -6906,6 +8156,11 @@
         "externalKey": "demo:groceries:11:10",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783681200000
       },
       {
@@ -6930,6 +8185,11 @@
         "externalKey": "demo:groceries:11:17",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784286000000
       },
       {
@@ -6954,6 +8214,11 @@
         "externalKey": "demo:groceries:11:24",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784890800000
       },
       {
@@ -6978,6 +8243,11 @@
         "externalKey": "demo:eating:11:8",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783508400000
       },
       {
@@ -7002,6 +8272,11 @@
         "externalKey": "demo:eating:11:19",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784458800000
       },
       {
@@ -7026,6 +8301,11 @@
         "externalKey": "demo:eating:11:27",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1785150000000
       },
       {
@@ -7050,6 +8330,11 @@
         "externalKey": "demo:transport:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783594800000
       },
       {
@@ -7074,6 +8359,11 @@
         "externalKey": "demo:move:30:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784545200000
       },
       {
@@ -7098,6 +8388,11 @@
         "externalKey": "demo:move:30:in",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784545200000
       },
       {
@@ -7122,6 +8417,11 @@
         "externalKey": "demo:cash-groceries:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1784977200000
       },
       {
@@ -7146,6 +8446,11 @@
         "externalKey": "demo:cash-eating:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1785150000000
       },
       {
@@ -7170,6 +8475,11 @@
         "externalKey": "demo:interest:11",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1785236400000
       },
       {
@@ -7194,6 +8504,11 @@
         "externalKey": "demo:move:31:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757588400000
       },
       {
@@ -7218,6 +8533,11 @@
         "externalKey": "demo:move:31:in",
         "gelValueMinor": 136000,
         "gelRateOn": "2025-09-11",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757588400000
       },
       {
@@ -7242,6 +8562,11 @@
         "externalKey": "demo:move:32:out",
         "gelValueMinor": -122400,
         "gelRateOn": "2025-09-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757761200000
       },
       {
@@ -7266,6 +8591,11 @@
         "externalKey": "demo:move:32:in",
         "gelValueMinor": 122400,
         "gelRateOn": "2025-09-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1757761200000
       },
       {
@@ -7290,6 +8620,11 @@
         "externalKey": "demo:move:33:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768129200000
       },
       {
@@ -7314,6 +8649,11 @@
         "externalKey": "demo:move:33:in",
         "gelValueMinor": 136000,
         "gelRateOn": "2026-01-11",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768129200000
       },
       {
@@ -7338,6 +8678,11 @@
         "externalKey": "demo:move:34:out",
         "gelValueMinor": -122400,
         "gelRateOn": "2026-01-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768302000000
       },
       {
@@ -7362,6 +8707,11 @@
         "externalKey": "demo:move:34:in",
         "gelValueMinor": 122400,
         "gelRateOn": "2026-01-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1768302000000
       },
       {
@@ -7386,6 +8736,11 @@
         "externalKey": "demo:move:35:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778497200000
       },
       {
@@ -7410,6 +8765,11 @@
         "externalKey": "demo:move:35:in",
         "gelValueMinor": 136000,
         "gelRateOn": "2026-05-11",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778497200000
       },
       {
@@ -7434,6 +8794,11 @@
         "externalKey": "demo:move:36:out",
         "gelValueMinor": -122400,
         "gelRateOn": "2026-05-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778670000000
       },
       {
@@ -7458,6 +8823,11 @@
         "externalKey": "demo:move:36:in",
         "gelValueMinor": 122400,
         "gelRateOn": "2026-05-13",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1778670000000
       },
       {
@@ -7482,6 +8852,11 @@
         "externalKey": "demo:usd-buy:0",
         "gelValueMinor": -6664,
         "gelRateOn": "2025-10-19",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1760871600000
       },
       {
@@ -7506,6 +8881,11 @@
         "externalKey": "demo:usd-buy:1",
         "gelValueMinor": -16293,
         "gelRateOn": "2026-02-08",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1770548400000
       },
       {
@@ -7530,6 +8910,11 @@
         "externalKey": "demo:usd-buy:2",
         "gelValueMinor": -8568,
         "gelRateOn": "2026-06-26",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1782471600000
       },
       {
@@ -7554,6 +8939,11 @@
         "externalKey": "demo:move:37:out",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775300400000
       },
       {
@@ -7578,6 +8968,11 @@
         "externalKey": "demo:move:37:in",
         "gelValueMinor": 87025,
         "gelRateOn": "2026-04-04",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775300400000
       },
       {
@@ -7602,6 +8997,11 @@
         "externalKey": "demo:travel:0",
         "gelValueMinor": -35400,
         "gelRateOn": "2026-04-06",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775473200000
       },
       {
@@ -7626,6 +9026,11 @@
         "externalKey": "demo:travel:1",
         "gelValueMinor": -12538,
         "gelRateOn": "2026-04-07",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775559600000
       },
       {
@@ -7650,6 +9055,11 @@
         "externalKey": "demo:travel:2",
         "gelValueMinor": -9381,
         "gelRateOn": "2026-04-08",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775646000000
       },
       {
@@ -7674,6 +9084,11 @@
         "externalKey": "demo:travel:3",
         "gelValueMinor": -7788,
         "gelRateOn": "2026-04-09",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775732400000
       },
       {
@@ -7698,6 +9113,11 @@
         "externalKey": "demo:travel:4",
         "gelValueMinor": -16225,
         "gelRateOn": "2026-04-10",
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1775818800000
       },
       {
@@ -7722,6 +9142,11 @@
         "externalKey": "demo:pending:1",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1785160800000
       },
       {
@@ -7746,6 +9171,11 @@
         "externalKey": "demo:pending:2",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1785171600000
       },
       {
@@ -7770,6 +9200,11 @@
         "externalKey": "demo:shared-dinner",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1783890000000
       },
       {
@@ -7794,6 +9229,11 @@
         "externalKey": "demo:shared-gift",
         "gelValueMinor": null,
         "gelRateOn": null,
+        "isVoided": 0,
+        "correctionOfTransactionId": null,
+        "correctionRevokedAt": null,
+        "mergedIntoTransactionId": null,
+        "canceledBySmsExternalKey": null,
         "createdAt": 1781780400000
       }
     ],

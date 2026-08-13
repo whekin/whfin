@@ -191,7 +191,7 @@ internal object WhfinBackupSchema {
                 "categoryId", "note", "status", "source", "transferGroupId", "isTransfer",
                 "balanceAfterMinor", "externalKey", "gelValueMinor", "gelRateOn", "isVoided",
                 "correctionOfTransactionId", "correctionRevokedAt", "mergedIntoTransactionId",
-                "createdAt",
+                "canceledBySmsExternalKey", "createdAt",
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),

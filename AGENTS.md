@@ -158,6 +158,11 @@ This is a single-context repository with root domain documentation and system-wi
   resolver операции предлагает `Добавить счёт` и создаёт ledger нужной валюты вместе с подтверждением —
   как это давно делает Feed resolver. Группа банка и первый ledger создаются одной транзакцией общим
   `insertBankLedger` (`data/db/BankLedgers.kt`), поэтому Feed и Bank SMS не расходятся в реализации.
+  Merchant identity теперь едина для обоих направлений SMS↔statement: безопасный prefix-match не
+  дублирует `ANTHROPIC* CLAUDE.AI`/`ANTHROPIC` и больше не считает одинаково длинные разные названия
+  совпадением. Cancellation выбирает только однозначную карту+сумму+время+merchant, не удаляет строку,
+  а void-ит SMS-транзакцию с immutable cancellation external key; не найденная/неоднозначная цель
+  становится видимой ошибкой и не меняет деньги.
   Одноэкранный Welcome choice и bank-centric Personal setup реализованы. Clean install до shell показывает
   ровно два действия без permission prompts; выбор Personal переживает process restart до явного
   продолжения, а upgrade существующей установки автоматически пропускает новый gate. Setup показывает

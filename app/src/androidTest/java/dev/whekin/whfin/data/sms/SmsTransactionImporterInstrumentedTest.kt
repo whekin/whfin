@@ -503,6 +503,42 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(1, transactionCount())
     }
 
+    @Test
+    fun cancellation_retiresSmsRowWithoutDeletingItsAuditHistory() = runBlocking {
+        val account = AccountEntity(
+            id = db.accountDao().insert(
+                AccountEntity(
+                    name = "Main GEL",
+                    type = AccountType.BANK,
+                    groupId = groupId,
+                    currency = "GEL",
+                ),
+            ),
+            name = "Main GEL",
+            type = AccountType.BANK,
+            groupId = groupId,
+            currency = "GEL",
+        )
+        db.paymentInstrumentDao().linkForAccount(account, "0001", PaymentInstrumentType.PHYSICAL_CARD)
+        val imported = importer.import(CARD_PAYMENT, RECEIVED_AT)
+        val transactionId = requireNotNull(imported.transactionId)
+
+        val canceled = importer.import(CANCELED_CARD_PAYMENT, RECEIVED_AT + 1_000)
+
+        assertEquals(SmsDiagnosticOutcome.CANCELED, canceled.outcome)
+        assertEquals(transactionId, canceled.transactionId)
+        val transaction = requireNotNull(db.transactionDao().byId(transactionId))
+        assertTrue(transaction.isVoided)
+        assertNotNull(transaction.canceledBySmsExternalKey)
+        assertEquals(1, transactionCount())
+        assertEquals(
+            2,
+            db.openHelper.writableDatabase
+                .query("SELECT COUNT(*) FROM sms_diagnostics WHERE transactionId = ?", arrayOf(transactionId.toString()))
+                .use { cursor -> check(cursor.moveToFirst()); cursor.getInt(0) },
+        )
+    }
+
     private fun transactionCount(): Int = db.openHelper.writableDatabase
         .query("SELECT COUNT(*) FROM transactions")
         .use { cursor ->

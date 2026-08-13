@@ -133,6 +133,11 @@ class Fixture:
             "gelRateOn": None if currency == GEL else datetime.fromtimestamp(
                 when / 1000, timezone.utc,
             ).date().isoformat(),
+            "isVoided": 0,
+            "correctionOfTransactionId": None,
+            "correctionRevokedAt": None,
+            "mergedIntoTransactionId": None,
+            "canceledBySmsExternalKey": None,
             "createdAt": when + 3_600_000,
         })
         return self._tx_id

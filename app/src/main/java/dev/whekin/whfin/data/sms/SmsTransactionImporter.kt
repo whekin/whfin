@@ -321,7 +321,8 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         persist: Boolean,
     ): SmsImportResult {
         val occurredAt = occurredMillis(payment, receivedAt)
-        val original = db.smsDiagnosticDao().matchingCardPayment(
+        val candidates = db.smsDiagnosticDao().cancellationCandidates(
+            cancellationExternalKey = key,
             amountMinor = payment.amountMinor,
             currency = payment.currency,
             cardLast4 = payment.cardLast4,
@@ -329,24 +330,44 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             fromMillis = occurredAt - CANCELLATION_WINDOW_MILLIS,
             toMillis = occurredAt + CANCELLATION_WINDOW_MILLIS,
         )
+        val original = SmsCancellationMatcher.match(payment, occurredAt, candidates)
+        if (original == null) {
+            val diagnostic = diagnosticFor(
+                sms = payment,
+                externalKey = key,
+                outcome = SmsDiagnosticOutcome.ERROR,
+                reason = SmsDiagnosticReason.CANCELLATION_TARGET_NOT_FOUND,
+                receivedAt = receivedAt,
+            )
+            val id = if (persist) persistDiagnostic(diagnostic) else null
+            return SmsImportResult(
+                SmsDiagnosticOutcome.ERROR,
+                diagnosticId = id,
+                reason = SmsDiagnosticReason.CANCELLATION_TARGET_NOT_FOUND,
+            )
+        }
         if (!persist) return SmsImportResult(SmsDiagnosticOutcome.CANCELED)
 
-        original?.transactionId?.let { transactionId ->
+        original.transactionId?.let { transactionId ->
             val transaction = db.transactionDao().byId(transactionId)
             // Reconciliation may have turned the original SMS operation into statement truth while the
             // diagnostic kept pointing at the same row. A later SMS cancellation is evidence, not
             // authority to erase bank-statement truth; its eventual reversal belongs to the next
             // statement. An SMS-sourced row can still be withdrawn here regardless of UI status.
             if (transaction?.source == TxSource.SMS) {
-                db.transactionDao().delete(transactionId)
-                db.smsDiagnosticDao().update(
-                    original.copy(
-                        outcome = SmsDiagnosticOutcome.CANCELED,
-                        transactionId = null,
-                        updatedAt = System.currentTimeMillis(),
+                db.transactionDao().update(
+                    transaction.copy(
+                        isVoided = true,
+                        canceledBySmsExternalKey = key,
                     ),
                 )
             }
+            db.smsDiagnosticDao().update(
+                original.copy(
+                    outcome = SmsDiagnosticOutcome.CANCELED,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
         }
         val diagnostic = diagnosticFor(
             sms = payment,
@@ -354,8 +375,14 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             outcome = SmsDiagnosticOutcome.CANCELED,
             reason = null,
             receivedAt = receivedAt,
+            accountId = original.accountId,
+            transactionId = original.transactionId,
         )
-        return SmsImportResult(SmsDiagnosticOutcome.CANCELED, persistDiagnostic(diagnostic))
+        return SmsImportResult(
+            SmsDiagnosticOutcome.CANCELED,
+            persistDiagnostic(diagnostic),
+            original.transactionId,
+        )
     }
 
     private suspend fun evaluateParsed(

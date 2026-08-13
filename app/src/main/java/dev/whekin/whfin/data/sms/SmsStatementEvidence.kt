@@ -77,8 +77,7 @@ internal class SmsStatementEvidence(
         val incoming = diagnostic.kind in INCOMING_KINDS
         val sameCurrency = diagnostic.currency == ledgerCurrency
         val merchant = diagnostic.counterparty
-            ?.let(MerchantNormalizer::normalize)
-            ?.takeIf(String::isNotEmpty)
+            ?.takeIf { MerchantNormalizer.normalize(it).isNotEmpty() }
         if (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT && merchant == null && !sameCurrency) {
             // Neither the merchant nor a comparable amount: nothing here would be evidence.
             return null
@@ -88,7 +87,7 @@ internal class SmsStatementEvidence(
             val signMatches = if (incoming) transaction.amountMinor > 0 else transaction.amountMinor < 0
             val amountMatches = !sameCurrency || abs(transaction.amountMinor) == abs(amountMinor)
             val merchantMatches = merchant == null ||
-                sameMerchant(transaction.rawCounterparty, merchant)
+                MerchantNormalizer.equivalent(transaction.rawCounterparty, merchant)
             signMatches && amountMatches && when (diagnostic.kind) {
                 // A card payment is identified by where it was made; the statement prints the same
                 // merchant the message did.
@@ -160,20 +159,6 @@ internal class SmsStatementEvidence(
         return decide(sent, diagnostic, exact = true)
     }
 
-    /**
-     * A card prints its merchant differently in each channel: `ANTHROPIC* CLAUDE.AI` in the message,
-     * `ANTHROPIC` on the statement. One being the start of the other is the same shop; requiring
-     * equality left real pairs unmatched, and an unmatched pair is what becomes a duplicate row.
-     */
-    private fun sameMerchant(rawCounterparty: String?, wanted: String): Boolean {
-        val candidate = rawCounterparty?.let(MerchantNormalizer::normalize).orEmpty()
-        if (candidate.isEmpty()) return false
-        if (candidate == wanted) return true
-        val shorter = minOf(candidate, wanted, compareBy(String::length))
-        val longer = maxOf(candidate, wanted, compareBy(String::length))
-        return shorter.length >= MERCHANT_PREFIX_MINIMUM && longer.startsWith(shorter)
-    }
-
     private suspend fun candidatesFor(
         diagnostic: SmsDiagnosticEntity,
         currency: String,
@@ -220,9 +205,6 @@ internal class SmsStatementEvidence(
     }
 
     private companion object {
-        /** Short enough to pair a truncated merchant, long enough not to pair two different shops. */
-        const val MERCHANT_PREFIX_MINIMUM = 5
-
         val INCOMING_KINDS = setOf(
             SmsDiagnosticKind.INCOMING_TRANSFER,
             SmsDiagnosticKind.CASH_DEPOSIT,
