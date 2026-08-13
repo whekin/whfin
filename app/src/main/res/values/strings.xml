@@ -126,8 +126,10 @@
     <string name="account_card_last4_hint">Separate multiple cards with commas</string>
     <string name="account_virtual_card_last4">Virtual card last 4 digits</string>
     <string name="account_card_kind">Card type for this account</string>
+    <string name="account_card_label">Card ••%1$s</string>
     <string name="account_card_physical">Physical</string>
     <string name="account_card_virtual">Virtual</string>
+    <string name="account_card_primary">Primary</string>
     <string name="account_iban_short">Account •%1$s</string>
     <string name="feed_search">Search transactions</string>
     <string name="feed_search_open">Search</string>

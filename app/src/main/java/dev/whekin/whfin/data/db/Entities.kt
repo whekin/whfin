@@ -69,6 +69,7 @@ data class PaymentInstrumentEntity(
     val type: PaymentInstrumentType,
     val last4: String,
     val label: String? = null,
+    val isPrimary: Boolean = false,
     val isArchived: Boolean = false,
 )
 

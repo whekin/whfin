@@ -216,6 +216,14 @@ This is a single-context repository with root domain documentation and system-wi
   обучением Merchant→Category. Есть ручное добавление (FAB → FormSheet: расход/доход, сумма,
   счёт, сегодня/вчера, сетка категорий `ui/components/CategoryGrid`) и корректировка баланса
   (тап по счёту → действия → фактический баланс, дельта → системная Unaccounted).
+  Счета теперь разделяют три прямых действия: название/иконка открывают реквизиты и карты, название
+  валютного ledger — его activity, а точный баланс — корректировку. У карт есть один workspace-level
+  признак `Основная`: её bank container поднимается первым, а grocery-warning использует только её
+  физический GEL-ledger; виртуальная основная карта намеренно выключает physical-card warning.
+  Physical/virtual задаётся отдельно для каждой маски и действительно обновляется в Room. DB v2 хранит
+  `payment_instruments.isPrimary`, имеет data-preserving v1→v2 migration и backward-compatible backup.
+  Проверены mixed-card sheet, physical→virtual persistence, RU/dark/font 1.5, migration и backup на
+  disposable Pixel.
   Выполнен полный visual pass «Тбилисская бухгалтерская книга»: собственная bottle/cream/clay
   палитра светлой и тёмной тем, ledger-композиция ленты, линейные контейнеры вместо card-heavy
   Material-вида, кастомная dock-навигация, обновлённые формы/категории/настройки и launcher icon.

@@ -164,6 +164,9 @@ fun AccountsScreen(
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
     var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
+    var bankDetailsFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
+    var editAccountFor by remember { mutableStateOf<AccountWithBalance?>(null) }
+    var adjustBalanceFor by remember { mutableStateOf<AccountWithBalance?>(null) }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     LaunchedEffect(addRequestKey) {
@@ -289,9 +292,16 @@ fun AccountsScreen(
                                             accounts = groupAccounts,
                                             containerTotals = accountContainerTotals,
                                             onOpenTransactions = { onOpenAccountTransactions(it.account.id) },
-                                            onAccountSettings = { items ->
-                                                items.firstOrNull()?.let { onOpenAccountTransactions(it.account.id) }
+                                            onOpenAccountDetails = { items ->
+                                                val representative = items.firstOrNull { it.account.currency == "GEL" }
+                                                    ?: items.firstOrNull()
+                                                when (representative?.account?.type) {
+                                                    AccountType.BANK, AccountType.SAVINGS -> bankDetailsFor = items
+                                                    null -> Unit
+                                                    else -> editAccountFor = representative
+                                                }
                                             },
+                                            onAdjustBalance = { adjustBalanceFor = it },
                                             onOpenGroupDetails = {
                                                 val seed = groupAccounts.first().account
                                                 val related = when {
@@ -437,6 +447,50 @@ fun AccountsScreen(
             },
         )
     }
+
+    bankDetailsFor?.let { rows ->
+        val representative = rows.firstOrNull { it.account.currency == "GEL" } ?: rows.first()
+        BankMappingSheet(
+            account = representative.account,
+            existingCards = rows.flatMap { it.cardMasks }.distinct(),
+            existingVirtualCards = rows.flatMap { it.virtualCardMasks }.distinct(),
+            existingPrimaryCard = rows.flatMap { it.primaryCardMasks }.firstOrNull(),
+            onDismiss = { bankDetailsFor = null },
+            onConfirm = { iban, physicalCards, virtualCards, primaryCard ->
+                viewModel.updateBankMapping(
+                    rows.map { it.account },
+                    iban,
+                    physicalCards,
+                    virtualCards,
+                    primaryCard,
+                )
+                bankDetailsFor = null
+            },
+        )
+    }
+
+    editAccountFor?.let { item ->
+        EditAccountSheet(
+            account = item.account,
+            initialAddress = item.address,
+            onDismiss = { editAccountFor = null },
+            onConfirm = { name, currency, address, fundRole, bankProduct ->
+                viewModel.editAccount(item.account, name, currency, address, fundRole, bankProduct)
+                editAccountFor = null
+            },
+        )
+    }
+
+    adjustBalanceFor?.let { item ->
+        AdjustBalanceSheet(
+            item = item,
+            onDismiss = { adjustBalanceFor = null },
+            onConfirm = { delta ->
+                viewModel.adjustBalance(item, delta)
+                adjustBalanceFor = null
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -497,7 +551,8 @@ private fun AccountGroupCard(
     accounts: List<AccountWithBalance>,
     containerTotals: Map<String, ConvertedTotal> = emptyMap(),
     onOpenTransactions: (AccountWithBalance) -> Unit,
-    onAccountSettings: (List<AccountWithBalance>) -> Unit,
+    onOpenAccountDetails: (List<AccountWithBalance>) -> Unit,
+    onAdjustBalance: (AccountWithBalance) -> Unit,
     onOpenGroupDetails: () -> Unit,
 ) {
     val containers = orderedAccountContainers(accounts)
@@ -533,7 +588,8 @@ private fun AccountGroupCard(
                     accounts = ibanAccounts,
                     total = containerTotals[accountContainerKey(ibanAccounts.first().account)],
                     onOpenTransactions = onOpenTransactions,
-                    onAccountSettings = onAccountSettings,
+                    onOpenAccountDetails = onOpenAccountDetails,
+                    onAdjustBalance = onAdjustBalance,
                 )
             }
     }
@@ -545,6 +601,8 @@ internal fun orderedAccountContainers(accounts: List<AccountWithBalance>): List<
         .values
         .sortedWith(
             compareBy<List<AccountWithBalance>> { container ->
+                if (container.any { it.primaryCardMasks.isNotEmpty() }) 0 else 1
+            }.thenBy { container ->
                 if (container.any { it.cardMasks.isNotEmpty() }) 0 else 1
             }.thenBy { container ->
                 if (container.any { it.account.bankProduct == BankProduct.CURRENT_ACCOUNT }) 0 else 1
@@ -647,7 +705,8 @@ private fun IbanCard(
     accounts: List<AccountWithBalance>,
     total: ConvertedTotal?,
     onOpenTransactions: (AccountWithBalance) -> Unit,
-    onAccountSettings: (List<AccountWithBalance>) -> Unit,
+    onOpenAccountDetails: (List<AccountWithBalance>) -> Unit,
+    onAdjustBalance: (AccountWithBalance) -> Unit,
 ) {
     val iban = accounts.first().account.iban
     WhfinLedgerGroup {
@@ -658,47 +717,70 @@ private fun IbanCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(38.dp),
+                    onClick = { onOpenAccountDetails(accounts) },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color.Transparent,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(38.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    accountTypeIcon(accounts.first().account.type),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                accounts.first().account.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            val primaryCards = accounts.flatMap { it.primaryCardMasks }.toSet()
+                            val cards = (
+                                accounts.flatMap { it.cardMasks }.map { mask ->
+                                    if (mask in primaryCards) {
+                                        "${stringResource(R.string.account_card_primary)} ••$mask"
+                                    } else {
+                                        "••$mask"
+                                    }
+                                } + accounts.flatMap { it.virtualCardMasks }.map { mask ->
+                                    val type = stringResource(R.string.account_card_virtual)
+                                    if (mask in primaryCards) {
+                                        "${stringResource(R.string.account_card_primary)} · $type ••$mask"
+                                    } else {
+                                        "$type ••$mask"
+                                    }
+                                }
+                            ).distinct()
+                            val metadata = buildList {
+                                if (cards.isNotEmpty()) add(cards.joinToString(" · "))
+                                iban?.let { add(stringResource(R.string.account_iban_short, it.takeLast(4))) }
+                            }
+                            if (metadata.isNotEmpty()) Text(
+                                metadata.joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                            )
+                        }
                         Icon(
-                            accountTypeIcon(accounts.first().account.type),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(19.dp),
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.account_bank_mapping),
                         )
                     }
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        accounts.first().account.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    val cards = (
-                        accounts.flatMap { it.cardMasks }.map { "••$it" } +
-                            accounts.flatMap { it.virtualCardMasks }
-                                .map { "${stringResource(R.string.account_card_virtual)} ••$it" }
-                        ).distinct()
-                    val metadata = buildList {
-                        if (cards.isNotEmpty()) add(cards.joinToString(" · "))
-                        iban?.let { add(stringResource(R.string.account_iban_short, it.takeLast(4))) }
-                    }
-                    if (metadata.isNotEmpty()) Text(
-                        metadata.joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                    )
-                }
-                WhfinIconButton(
-                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.account_transactions_title),
-                    onClick = { onAccountSettings(accounts) },
-                    outlined = false,
-                )
             }
             Column(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
@@ -742,6 +824,7 @@ private fun IbanCard(
                     currencyInTitle = currencyInTitle,
                     sourceName = sourceName,
                     onClick = { onOpenTransactions(item) },
+                    onAdjustBalance = { onAdjustBalance(item) },
                 )
                 if (index != accounts.lastIndex) HorizontalDivider(
                     Modifier.padding(start = 16.dp, end = 16.dp),
@@ -781,9 +864,13 @@ private fun CurrencyAccountRow(
     currencyInTitle: Boolean,
     sourceName: String,
     onClick: () -> Unit,
+    onAdjustBalance: () -> Unit,
 ) {
+    val isFocusedPhysicalCardLedger = item.cardMasks.isNotEmpty() && (
+        !item.primaryCardConfigured || item.primaryCardMasks.any(item.cardMasks::contains)
+    )
     val cardBalanceStatus = if (
-        item.account.currency.equals("GEL", ignoreCase = true) && item.cardMasks.isNotEmpty()
+        item.account.currency.equals("GEL", ignoreCase = true) && isFocusedPhysicalCardLedger
     ) physicalCardBalanceStatus(item.balanceMinor) else PhysicalCardBalanceStatus.Enough
     val balanceColor = when (cardBalanceStatus) {
         PhysicalCardBalanceStatus.Enough -> Color.Unspecified
@@ -814,10 +901,14 @@ private fun CurrencyAccountRow(
         balanceStatusLabel,
     ).joinToString(" · ")
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            Modifier.weight(1f).clickable(onClickLabel = stringResource(R.string.account_transactions_title), onClick = onClick)
+                .padding(end = 8.dp).padding(vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             if (detail.isNotEmpty()) Text(
                 detail,
@@ -825,13 +916,19 @@ private fun CurrencyAccountRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        WhfinAmount(
-            formatMinor(item.balanceMinor, item.account.currency),
-            symbol = currencySymbol(item.account.currency),
-            style = MaterialTheme.typography.titleMedium,
-            color = balanceColor,
-            modifier = Modifier.padding(start = 12.dp),
-        )
+        Surface(
+            onClick = onAdjustBalance,
+            shape = MaterialTheme.shapes.small,
+            color = Color.Transparent,
+        ) {
+            WhfinAmount(
+                formatMinor(item.balanceMinor, item.account.currency),
+                symbol = currencySymbol(item.account.currency),
+                style = MaterialTheme.typography.titleMedium,
+                color = balanceColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+            )
+        }
     }
 }
 
@@ -901,11 +998,13 @@ private fun AccountsContentPreview() {
     val accounts = listOf(
         AccountWithBalance(
             AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "GEL", iban = "GE00CD0000000000000001"),
-            12_500, listOf("0001"), groupName = "Credo",
+            12_500, listOf("0001"), primaryCardMasks = listOf("0001"), primaryCardConfigured = true,
+            groupName = "Credo",
         ),
         AccountWithBalance(
             AccountEntity(id = 2, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "USD", iban = "GE00CD0000000000000001"),
-            2_360, emptyList(), groupName = "Credo",
+            2_360, emptyList(), primaryCardMasks = listOf("0001"), primaryCardConfigured = true,
+            groupName = "Credo",
         ),
         AccountWithBalance(
             AccountEntity(
@@ -943,7 +1042,8 @@ private fun AccountsContentPreview() {
                         name = "Credo",
                         accounts = accounts,
                         onOpenTransactions = {},
-                        onAccountSettings = {},
+                        onOpenAccountDetails = {},
+                        onAdjustBalance = {},
                         onOpenGroupDetails = {},
                     )
                     DebtsSummary(emptyList(), {})

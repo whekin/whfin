@@ -131,6 +131,20 @@ class WhfinBackupInstrumentedTest {
     }
 
     @Test
+    fun restore_acceptsVersion1CardsWithoutPrimaryFlag() = runBlocking {
+        seedEveryTable(source)
+        val version1 = export(source).toString(Charsets.UTF_8)
+            .replace("\"databaseVersion\": $WHFIN_DATABASE_VERSION", "\"databaseVersion\": 1")
+            .replace("        \"isPrimary\": 0,\n", "")
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(version1.toByteArray()))
+
+        val card = target.paymentInstrumentDao().forAccount(1).single()
+        assertEquals("0001", card.last4)
+        assertEquals(false, card.isPrimary)
+    }
+
+    @Test
     fun restore_rejectsCurrentBackupMissingStatementOrigin() = runBlocking {
         seedEveryTable(source)
         val missingOrigin = export(source).toString(Charsets.UTF_8)
@@ -328,7 +342,7 @@ class WhfinBackupInstrumentedTest {
                     "(3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, " +
                     "'FLEXIBLE_RESERVE', 'RESERVE', NULL, 0, 2)",
             )
-            sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0)")
+            sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0, 0)")
             sqlite.execSQL("INSERT INTO instrument_account_links VALUES (1, 1)")
             sqlite.execSQL("INSERT INTO transfer_groups VALUES (1, 'TRANSFER', 'Test transfer', 1000)")
             sqlite.execSQL("INSERT INTO statement_sources VALUES (1, 1, 'ACCOUNT', 1, NULL, 'GE01')")

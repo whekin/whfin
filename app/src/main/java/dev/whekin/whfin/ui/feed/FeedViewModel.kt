@@ -16,6 +16,7 @@ import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.notifications.focusedPhysicalCards
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
@@ -366,8 +367,10 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         db.paymentInstrumentDao().observeLinks(),
     ) { accounts, balances, instruments, links ->
         val balanceByAccount = balances.associate { it.accountId to it.totalMinor }
-        val physicalById = instruments
-            .filter { it.type == PaymentInstrumentType.PHYSICAL_CARD && !it.isArchived }
+        val physicalById = focusedPhysicalCards(
+            instruments,
+            links.mapTo(mutableSetOf()) { it.instrumentId },
+        )
             .associateBy { it.id }
         val cardsByAccount = links.groupBy { it.accountId }.mapValues { (_, accountLinks) ->
             accountLinks.mapNotNull { physicalById[it.instrumentId]?.last4 }.distinct().sorted()

@@ -153,7 +153,7 @@ internal object WhfinBackupSchema {
         ),
         BackupTable(
             "payment_instruments",
-            listOf("id", "groupId", "type", "last4", "label", "isArchived"),
+            listOf("id", "groupId", "type", "last4", "label", "isPrimary", "isArchived"),
             enumColumns = mapOf("type" to setOf("PHYSICAL_CARD", "VIRTUAL_CARD")),
         ),
         BackupTable(
@@ -379,7 +379,7 @@ internal object WhfinBackupCodec {
         }
         val dbVersion = databaseVersion
             ?: throw WhfinBackupException("Missing WHFIN database version.")
-        if (dbVersion != WHFIN_DATABASE_VERSION) {
+        if (dbVersion !in 1..WHFIN_DATABASE_VERSION) {
             throw WhfinBackupException("Unsupported WHFIN database version: $dbVersion.")
         }
         val currency = primaryCurrency
@@ -452,6 +452,10 @@ internal object WhfinBackupCodec {
         }
         endObject()
         val missing = table.columns - row.keys
+        if (table.name == "payment_instruments" && missing == listOf("isPrimary")) {
+            row["isPrimary"] = BackupValue.Integer(0)
+            return row
+        }
         if (missing.isNotEmpty()) {
             throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
         }

@@ -135,8 +135,10 @@
     <string name="account_card_last4_hint">Несколько карт укажи через запятую</string>
     <string name="account_virtual_card_last4">Последние 4 цифры виртуальной карты</string>
     <string name="account_card_kind">Тип карты для этого счёта</string>
+    <string name="account_card_label">Карта ••%1$s</string>
     <string name="account_card_physical">Физическая</string>
     <string name="account_card_virtual">Виртуальная</string>
+    <string name="account_card_primary">Основная</string>
     <string name="account_iban_short">Счёт •%1$s</string>
     <string name="feed_search">Поиск операций</string>
     <string name="feed_search_open">Поиск</string>

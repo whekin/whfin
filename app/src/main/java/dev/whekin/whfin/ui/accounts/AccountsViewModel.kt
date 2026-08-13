@@ -64,6 +64,8 @@ data class AccountWithBalance(
     val balanceMinor: Long,
     val cardMasks: List<String>,
     val virtualCardMasks: List<String> = emptyList(),
+    val primaryCardMasks: List<String> = emptyList(),
+    val primaryCardConfigured: Boolean = false,
     val address: String? = null,
     /** Chain of a watch-only ledger, so the UI can name the network the number came from. */
     val chainId: String? = null,
@@ -147,6 +149,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     ) { list, balances, instruments, links, metadata ->
         val byAccount = balances.associate { it.accountId to it.totalMinor }
         val instrumentsById = instruments.associateBy { it.id }
+        val primaryCardConfigured = links.any { link -> instrumentsById[link.instrumentId]?.isPrimary == true }
         val cardsByAccount = links.groupBy { it.accountId }.mapValues { (_, value) ->
             value.mapNotNull { instrumentsById[it.instrumentId] }
         }
@@ -162,6 +165,10 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 virtualCardMasks = cardsByAccount[it.id].orEmpty()
                     .filter { card -> card.type == PaymentInstrumentType.VIRTUAL_CARD }
                     .map { card -> card.last4 },
+                primaryCardMasks = cardsByAccount[it.id].orEmpty()
+                    .filter(PaymentInstrumentEntity::isPrimary)
+                    .map(PaymentInstrumentEntity::last4),
+                primaryCardConfigured = primaryCardConfigured,
                 address = walletAddress?.address,
                 chainId = walletAddress?.chainId,
                 groupName = it.groupId?.let(groupById::get)?.name,
@@ -466,26 +473,35 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun updateBankMapping(account: AccountEntity, iban: String?, cardMasks: List<String>, virtualCards: List<String>) {
+    fun updateBankMapping(
+        accounts: List<AccountEntity>,
+        iban: String?,
+        cardMasks: List<String>,
+        virtualCards: List<String>,
+        primaryLast4: String?,
+    ) {
         viewModelScope.launch {
             try {
+                require(accounts.isNotEmpty())
                 // One IBAN, its cards and their statement sources describe a single account: applied
                 // apart, a failure halfway leaves cards pointing at an account that never got its
                 // IBAN, and SMS routing then lands the money in the wrong ledger.
                 db.withTransaction {
-                    db.accountDao().update(account.copy(iban = iban))
-                    db.paymentInstrumentDao().replaceForAccount(
-                        account,
+                    val updatedAccounts = accounts.map { account -> account.copy(iban = iban) }
+                    updatedAccounts.forEach { account -> db.accountDao().update(account) }
+                    db.paymentInstrumentDao().replaceForAccounts(
+                        updatedAccounts,
                         cardMasks.map { it to PaymentInstrumentType.PHYSICAL_CARD } +
                             virtualCards.map { it to PaymentInstrumentType.VIRTUAL_CARD },
+                        primaryLast4,
                     )
-                    db.paymentInstrumentDao().forAccount(account.id)
+                    db.paymentInstrumentDao().forAccount(updatedAccounts.first().id)
                         .filter { it.type == PaymentInstrumentType.VIRTUAL_CARD }
                         .forEach { instrument ->
                             if (db.statementSourceDao().forInstrument(instrument.id) == null) {
                                 db.statementSourceDao().insert(
                                     StatementSourceEntity(
-                                        groupId = requireNotNull(account.groupId),
+                                        groupId = requireNotNull(updatedAccounts.first().groupId),
                                         type = StatementSourceType.CARD,
                                         instrumentId = instrument.id,
                                         label = "Virtual card ••••${instrument.last4}",

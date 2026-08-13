@@ -93,3 +93,8 @@ _Avoid_: Account type, deposit type, savings mode
 The contract represented by a bank ledger, such as a Current account, Demand deposit, or Term deposit.
 It describes the bank’s product and never decides whether the owner treats its balance as Available or Reserve.
 _Avoid_: Reserve account, savings purpose, available deposit
+
+**Primary card**:
+The single payment instrument the owner treats as their everyday default across the Personal workspace.
+It may be physical or virtual; when it is physical, its linked GEL ledger owns the grocery balance warning.
+_Avoid_: Main account, default bank, primary ledger

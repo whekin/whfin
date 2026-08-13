@@ -281,15 +281,17 @@ internal fun AccountTransactionsScreen(
         )
         if (bankMapping) BankMappingSheet(
             account = item.account,
-            existingCards = item.cardMasks,
-            existingVirtualCards = item.virtualCardMasks,
+            existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
+            existingVirtualCards = containerRows.flatMap { it.virtualCardMasks }.distinct(),
+            existingPrimaryCard = containerRows.flatMap { it.primaryCardMasks }.firstOrNull(),
             onDismiss = { bankMapping = false },
-            onConfirm = { iban, cards, isVirtual ->
+            onConfirm = { iban, physicalCards, virtualCards, primaryCard ->
                 accountsViewModel.updateBankMapping(
-                    item.account,
+                    containerRows.map { it.account },
                     iban,
-                    if (isVirtual) emptyList() else cards,
-                    if (isVirtual) cards else emptyList(),
+                    physicalCards,
+                    virtualCards,
+                    primaryCard,
                 )
                 bankMapping = false
             },
@@ -527,32 +529,48 @@ private fun AccountTransactionsScope(
                 stringResource(R.string.account_transactions_balance)
             },
         )
-        WhfinAmount(
-            when {
-                !isChain -> formatMinor(balanceMinor, account.currency)
-                onChain != null -> "${formatBaseUnits(onChain.baseUnits, onChain.decimals)} ${account.currency}"
-                else -> "—"
-            },
-            symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
-            style = MaterialTheme.typography.headlineLarge,
-        )
-        if (accountRow != null) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccountActivityAction(
-                    icon = Icons.Default.Edit,
-                    label = stringResource(if (isChain) R.string.crypto_wallet_rename else R.string.account_edit),
-                    onClick = onEdit,
-                    modifier = Modifier.weight(1f),
-                )
-                // Adjusting a watch-only balance would be arguing with the chain, so the action is
-                // absent rather than disabled.
-                if (!isChain) AccountActivityAction(
-                    icon = Icons.Default.Tune,
-                    label = stringResource(R.string.account_adjust_currency, account.currency),
-                    onClick = onAdjust,
-                    modifier = Modifier.weight(1f),
-                )
+        val formattedBalance = when {
+            !isChain -> formatMinor(balanceMinor, account.currency)
+            onChain != null -> "${formatBaseUnits(onChain.baseUnits, onChain.decimals)} ${account.currency}"
+            else -> "—"
+        }
+        if (!isChain && accountRow != null) {
+            Surface(
+                onClick = onAdjust,
+                shape = MaterialTheme.shapes.medium,
+                color = androidx.compose.ui.graphics.Color.Transparent,
+            ) {
+                Row(
+                    Modifier.heightIn(min = 48.dp).padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    WhfinAmount(
+                        formattedBalance,
+                        symbol = currencySymbol(account.currency),
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+                    Icon(
+                        Icons.Default.Tune,
+                        contentDescription = stringResource(R.string.action_adjust_balance),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
+        } else {
+            WhfinAmount(
+                formattedBalance,
+                symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
+                style = MaterialTheme.typography.headlineLarge,
+            )
+        }
+        if (accountRow != null) {
+            AccountActivityAction(
+                icon = Icons.Default.Edit,
+                label = stringResource(if (isChain) R.string.crypto_wallet_rename else R.string.account_edit),
+                onClick = onEdit,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }

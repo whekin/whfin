@@ -14,7 +14,6 @@ import androidx.core.content.ContextCompat
 import dev.whekin.whfin.EXTRA_OPEN_ACCOUNTS
 import dev.whekin.whfin.MainActivity
 import dev.whekin.whfin.R
-import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.WhfinDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -50,8 +49,10 @@ class PhysicalCardBalanceMonitor(
                 db.paymentInstrumentDao().observeLinks(),
             ) { accounts, balances, instruments, links ->
                 val balanceByAccount = balances.associate { it.accountId to it.totalMinor }
-                val physicalIds = instruments
-                    .filter { it.type == PaymentInstrumentType.PHYSICAL_CARD && !it.isArchived }
+                val physicalIds = focusedPhysicalCards(
+                    instruments,
+                    links.mapTo(mutableSetOf()) { it.instrumentId },
+                )
                     .associateBy { it.id }
                 val cardsByAccount = links.groupBy { it.accountId }.mapValues { (_, accountLinks) ->
                     accountLinks.mapNotNull { physicalIds[it.instrumentId]?.last4 }.distinct().sorted()

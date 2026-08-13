@@ -24,12 +24,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
@@ -41,6 +46,7 @@ import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.data.db.FundRole
+import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -374,16 +380,22 @@ fun BankMappingSheet(
     account: AccountEntity,
     existingCards: List<String>,
     existingVirtualCards: List<String>,
+    existingPrimaryCard: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (String?, List<String>, Boolean) -> Unit,
+    onConfirm: (String?, List<String>, List<String>, String?) -> Unit,
 ) {
     var iban by remember { mutableStateOf(account.iban.orEmpty()) }
     var cards by remember(account.id, existingCards, existingVirtualCards) {
         mutableStateOf((existingCards + existingVirtualCards).distinct().joinToString(", "))
     }
-    var isVirtual by remember(account.id, existingCards, existingVirtualCards) {
-        mutableStateOf(existingVirtualCards.isNotEmpty() && existingCards.isEmpty())
+    val cardTypes = remember(account.id, existingCards, existingVirtualCards) {
+        mutableStateMapOf<String, PaymentInstrumentType>().apply {
+            existingCards.forEach { put(it, PaymentInstrumentType.PHYSICAL_CARD) }
+            existingVirtualCards.forEach { put(it, PaymentInstrumentType.VIRTUAL_CARD) }
+        }
     }
+    var primaryCard by remember(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
+    val validCards = parseCardMasks(cards)
 
     FormSheet(
         title = stringResource(R.string.account_bank_mapping),
@@ -393,8 +405,9 @@ fun BankMappingSheet(
         onPrimary = {
             onConfirm(
                 iban.trim().takeIf(String::isNotEmpty),
-                cards.split(',', ' ').map(String::trim).filter { it.length == 4 },
-                isVirtual,
+                validCards.filter { cardTypes[it] != PaymentInstrumentType.VIRTUAL_CARD },
+                validCards.filter { cardTypes[it] == PaymentInstrumentType.VIRTUAL_CARD },
+                primaryCard?.takeIf(validCards::contains),
             )
         },
     ) {
@@ -411,28 +424,95 @@ fun BankMappingSheet(
         )
         WhfinField(
             value = cards,
-            onValueChange = { cards = it.filter { ch -> ch.isDigit() || ch == ',' || ch == ' ' } },
+            onValueChange = { value ->
+                cards = value.filter { ch -> ch.isDigit() || ch == ',' || ch == ' ' }
+                val masks = parseCardMasks(cards)
+                cardTypes.keys.toList().filterNot(masks::contains).forEach(cardTypes::remove)
+                masks.forEach { mask -> cardTypes.putIfAbsent(mask, PaymentInstrumentType.PHYSICAL_CARD) }
+                if (primaryCard !in masks) primaryCard = null
+            },
             label = stringResource(R.string.account_card_last4),
             supportingText = stringResource(R.string.account_card_last4_hint),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.account_card_kind), style = MaterialTheme.typography.labelLarge)
-        WhfinChoiceRail {
-            item {
+        validCards.forEach { mask ->
+            val physicalLabel = stringResource(R.string.account_card_physical)
+            val virtualLabel = stringResource(R.string.account_card_virtual)
+            val primaryLabel = stringResource(R.string.account_card_primary)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                WhfinFieldLabel(stringResource(R.string.account_card_label, mask))
+                WhfinChoiceRail {
+                    item {
+                        WhfinFilterPill(
+                            label = physicalLabel,
+                            selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD,
+                            onClick = {
+                                cardTypes[mask] = PaymentInstrumentType.PHYSICAL_CARD
+                            },
+                            modifier = Modifier.testTag("card-$mask-physical").semantics {
+                                contentDescription = physicalLabel + " ••" + mask
+                                selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD
+                            },
+                        )
+                    }
+                    item {
+                        WhfinFilterPill(
+                            label = virtualLabel,
+                            selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD,
+                            onClick = {
+                                cardTypes[mask] = PaymentInstrumentType.VIRTUAL_CARD
+                            },
+                            modifier = Modifier.testTag("card-$mask-virtual").semantics {
+                                contentDescription = virtualLabel + " ••" + mask
+                                selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD
+                            },
+                        )
+                    }
+                }
                 WhfinFilterPill(
-                label = stringResource(R.string.account_card_physical),
-                selected = !isVirtual,
-                onClick = { isVirtual = false },
-                )
-            }
-            item {
-                WhfinFilterPill(
-                label = stringResource(R.string.account_card_virtual),
-                selected = isVirtual,
-                onClick = { isVirtual = true },
+                    label = primaryLabel,
+                    selected = primaryCard == mask,
+                    onClick = {
+                        primaryCard = mask.takeUnless { primaryCard == mask }
+                    },
+                    modifier = Modifier.testTag("card-$mask-primary").semantics {
+                        contentDescription = primaryLabel + " ••" + mask
+                        selected = primaryCard == mask
+                    },
                 )
             }
         }
+    }
+}
+
+internal fun parseCardMasks(value: String): List<String> = value
+    .split(',', ' ')
+    .map(String::trim)
+    .filter { it.matches(Regex("\\d{4}")) }
+    .distinct()
+
+@Preview(name = "Bank details", widthDp = 400, heightDp = 760, showBackground = true)
+@Preview(name = "Bank details dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Bank details font 1.5", widthDp = 400, heightDp = 980, fontScale = 1.5f, showBackground = true)
+@Preview(name = "Bank details compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Composable
+private fun BankMappingPreview() {
+    WhfinTheme {
+        BankMappingSheet(
+            account = AccountEntity(
+                id = 1,
+                name = "Everyday",
+                type = AccountType.BANK,
+                groupId = 1,
+                currency = "GEL",
+                iban = "GE00CD0000000000000001",
+            ),
+            existingCards = listOf("0001"),
+            existingVirtualCards = listOf("0002"),
+            existingPrimaryCard = "0001",
+            onDismiss = {},
+            onConfirm = { _, _, _, _ -> },
+        )
     }
 }
 

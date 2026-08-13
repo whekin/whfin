@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "exportedAt": "2026-07-31T18:00:00Z",
   "appVersion": "0.2.0-demo (2)",
-  "databaseVersion": 1,
+  "databaseVersion": 2,
   "primaryCurrency": "GEL",
   "tables": {
     "financial_groups": [
@@ -251,6 +251,7 @@
         "type": "PHYSICAL_CARD",
         "last4": "0001",
         "label": "Everyday card",
+        "isPrimary": 1,
         "isArchived": 0
       },
       {
@@ -259,6 +260,7 @@
         "type": "VIRTUAL_CARD",
         "last4": "0002",
         "label": "Online card",
+        "isPrimary": 0,
         "isArchived": 0
       },
       {
@@ -267,6 +269,7 @@
         "type": "PHYSICAL_CARD",
         "last4": "0003",
         "label": "Atlas card",
+        "isPrimary": 0,
         "isArchived": 0
       }
     ],
@@ -9313,7 +9316,9 @@
         "debtValueMinor": 0,
         "closesCase": 0,
         "occurredAt": 1778320800000,
-        "note": null
+        "note": null,
+        "isVoided": 0,
+        "correctionOfEventId": null
       },
       {
         "id": 2,
@@ -9326,7 +9331,9 @@
         "debtValueMinor": 12000,
         "closesCase": 0,
         "occurredAt": 1780480800000,
-        "note": null
+        "note": null,
+        "isVoided": 0,
+        "correctionOfEventId": null
       },
       {
         "id": 3,
@@ -9339,7 +9346,9 @@
         "debtValueMinor": 0,
         "closesCase": 0,
         "occurredAt": 1780740000000,
-        "note": null
+        "note": null,
+        "isVoided": 0,
+        "correctionOfEventId": null
       },
       {
         "id": 4,
@@ -9352,7 +9361,9 @@
         "debtValueMinor": 0,
         "closesCase": 0,
         "occurredAt": 1773568800000,
-        "note": null
+        "note": null,
+        "isVoided": 0,
+        "correctionOfEventId": null
       },
       {
         "id": 5,
@@ -9365,7 +9376,9 @@
         "debtValueMinor": 25000,
         "closesCase": 1,
         "occurredAt": 1775124000000,
-        "note": null
+        "note": null,
+        "isVoided": 0,
+        "correctionOfEventId": null
       }
     ],
     "statement_imports": [

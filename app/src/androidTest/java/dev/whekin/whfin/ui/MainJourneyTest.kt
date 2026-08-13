@@ -52,7 +52,7 @@ class MainJourneyTest {
         val welcome = device.findObject(welcomeAction) ?: return
         welcome.click()
         val skip = device.wait(
-            Until.findObject(By.text(context.getString(R.string.personal_setup_skip_action))),
+            Until.findObject(By.text(context.getString(R.string.personal_setup_skip_bank_action))),
             10_000,
         )
         assertNotNull("personal setup should offer an explicit skip", skip)

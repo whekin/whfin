@@ -136,16 +136,45 @@ interface PaymentInstrumentDao {
     @Update suspend fun update(item: PaymentInstrumentEntity)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun link(item: InstrumentAccountLinkEntity): Long
     @Query("DELETE FROM instrument_account_links WHERE accountId = :accountId") suspend fun unlinkAccount(accountId: Long)
+    @Query("UPDATE payment_instruments SET isPrimary = 0 WHERE isPrimary = 1") suspend fun clearPrimary()
 
     @Transaction
-    suspend fun replaceForAccount(account: AccountEntity, cards: List<Pair<String, PaymentInstrumentType>>) {
-        val groupId = requireNotNull(account.groupId)
-        unlinkAccount(account.id)
+    suspend fun replaceForAccount(
+        account: AccountEntity,
+        cards: List<Pair<String, PaymentInstrumentType>>,
+        primaryLast4: String? = null,
+    ) {
+        replaceForAccounts(listOf(account), cards, primaryLast4)
+    }
+
+    @Transaction
+    suspend fun replaceForAccounts(
+        accounts: List<AccountEntity>,
+        cards: List<Pair<String, PaymentInstrumentType>>,
+        primaryLast4: String? = null,
+    ) {
+        require(accounts.isNotEmpty())
+        val groupId = requireNotNull(accounts.first().groupId)
+        require(accounts.all { it.groupId == groupId })
+        require(primaryLast4 == null || cards.any { it.first == primaryLast4 })
+        val editedPrimary = accounts.any { account -> forAccount(account.id).any { it.isPrimary } }
+        accounts.forEach { account -> unlinkAccount(account.id) }
         cards.distinctBy { it.first }.forEach { (last4, type) ->
             val existing = byLast4(groupId, last4)
-            val instrumentId = existing?.id ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
+            if (existing != null && existing.type != type) update(existing.copy(type = type))
+            val instrumentId = existing?.id
+                ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
+                    .takeIf { it > 0 }
+                ?: requireNotNull(byLast4(groupId, last4)).id
             check(instrumentId > 0)
-            link(InstrumentAccountLinkEntity(instrumentId, account.id))
+            accounts.forEach { account -> link(InstrumentAccountLinkEntity(instrumentId, account.id)) }
+        }
+        if (primaryLast4 != null || editedPrimary) {
+            clearPrimary()
+            primaryLast4?.let { last4 ->
+                val primary = requireNotNull(byLast4(groupId, last4))
+                update(primary.copy(isPrimary = true))
+            }
         }
     }
 
