@@ -183,6 +183,28 @@ internal fun appLockReturnDestination(
 internal fun credoBackDestination(caller: SecondaryDestination?): SecondaryDestination? =
     caller
 
+internal data class SecondaryBackResult(
+    val destination: SecondaryDestination?,
+    val remaining: List<SecondaryDestination>,
+)
+
+internal fun pushSecondaryDestination(
+    current: SecondaryDestination?,
+    backStack: List<SecondaryDestination>,
+    destination: SecondaryDestination,
+): List<SecondaryDestination> = if (current == null || current == destination) {
+    backStack
+} else {
+    backStack + current
+}
+
+internal fun popSecondaryDestination(
+    backStack: List<SecondaryDestination>,
+): SecondaryBackResult = SecondaryBackResult(
+    destination = backStack.lastOrNull(),
+    remaining = if (backStack.isEmpty()) emptyList() else backStack.dropLast(1),
+)
+
 internal fun openCredoSetup(
     enableSmsMonitoring: () -> Unit,
     openCredo: () -> Unit,
@@ -241,6 +263,9 @@ fun MainScreen(
     }
     var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var secondaryBackStack by rememberSaveable {
+        mutableStateOf<List<SecondaryDestination>>(emptyList())
+    }
     var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var credoReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var credoRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
@@ -263,6 +288,11 @@ fun MainScreen(
     fun open(destination: SecondaryDestination) {
         if (secondaryDestination == destination && analyticsTransactions == null) return
         haptics.performHapticFeedback(WhfinHaptics.navigation)
+        secondaryBackStack = pushSecondaryDestination(
+            current = secondaryDestination,
+            backStack = secondaryBackStack,
+            destination = destination,
+        )
         analyticsTransactions = null
         accountTransactionsId = null
         secondaryDestination = destination
@@ -270,6 +300,11 @@ fun MainScreen(
 
     fun openAccountTransactions(accountId: Long) {
         haptics.performHapticFeedback(WhfinHaptics.navigation)
+        secondaryBackStack = pushSecondaryDestination(
+            current = secondaryDestination,
+            backStack = secondaryBackStack,
+            destination = SecondaryDestination.AccountTransactions,
+        )
         analyticsTransactions = null
         accountTransactionsId = accountId
         secondaryDestination = SecondaryDestination.AccountTransactions
@@ -300,34 +335,18 @@ fun MainScreen(
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
             analyticsTransactions != null -> analyticsTransactions = null
-            secondaryDestination == SecondaryDestination.AccountTransactions -> {
-                accountTransactionsId = null
-                secondaryDestination = null
+            secondaryDestination != null -> {
+                val leaving = secondaryDestination
+                val back = popSecondaryDestination(secondaryBackStack)
+                secondaryDestination = back.destination
+                secondaryBackStack = back.remaining
+                if (leaving == SecondaryDestination.AccountTransactions) accountTransactionsId = null
+                if (leaving == SecondaryDestination.AppLock) appLockReturnTo = null
+                if (leaving == SecondaryDestination.CredoSync) {
+                    credoReturnTo = null
+                    credoRoutineSyncRequestKey = 0
+                }
             }
-            secondaryDestination == SecondaryDestination.AnalyticsExpenses -> {
-                secondaryDestination = SecondaryDestination.Analytics
-            }
-            secondaryDestination == SecondaryDestination.AppLock -> {
-                secondaryDestination = appLockReturnDestination(appLockReturnTo)
-                appLockReturnTo = null
-            }
-            secondaryDestination == SecondaryDestination.CredoSync -> {
-                secondaryDestination = credoBackDestination(credoReturnTo)
-                credoReturnTo = null
-                credoRoutineSyncRequestKey = 0
-            }
-            secondaryDestination == SecondaryDestination.Statements ||
-                secondaryDestination == SecondaryDestination.SmsDiagnostics ||
-                secondaryDestination == SecondaryDestination.Backup ||
-                secondaryDestination == SecondaryDestination.Corrections ||
-                secondaryDestination == SecondaryDestination.DataHealth ||
-                secondaryDestination == SecondaryDestination.Privacy ||
-                secondaryDestination == SecondaryDestination.About ||
-                secondaryDestination == SecondaryDestination.Categories ||
-                secondaryDestination == SecondaryDestination.People -> {
-                secondaryDestination = SecondaryDestination.Settings
-            }
-            else -> secondaryDestination = null
         }
     }
     BackHandler(enabled = scene != ShellScene.Primary) { goBack(withHaptic = false) }
@@ -507,6 +526,7 @@ fun MainScreen(
                                 haptics.performHapticFeedback(WhfinHaptics.navigation)
                                 tab = 0
                                 secondaryDestination = null
+                                secondaryBackStack = emptyList()
                             },
                             onRequestHistoryPermission = onRequestSmsHistoryPermission,
                             onOpenSystemSettings = onOpenSystemSettings,
@@ -535,8 +555,7 @@ fun MainScreen(
                             onTimeoutChange = onAppLockTimeoutChange,
                             onPinCreated = { pin, timeout ->
                                 onAppLockPinCreated(pin, timeout)
-                                secondaryDestination = appLockReturnDestination(appLockReturnTo)
-                                appLockReturnTo = null
+                                goBack(withHaptic = false)
                             },
                             onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                             onOpenBiometricSettings = onOpenBiometricSettings,

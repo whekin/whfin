@@ -192,6 +192,9 @@ fun AddTransactionSheet(
     val dirty = amountText.isNotBlank() || destinationAmount.isNotBlank() || categoryId != null || note.isNotBlank() ||
         day != LocalDate.now() || kind != ManualKind.EXPENSE
     val requestClose = { if (dirty) confirmDiscard = true else onDismiss() }
+    val requestDialogDismiss = {
+        if (showAllCategories) showAllCategories = false else requestClose()
+    }
 
     fun save() {
         if (!valid) return
@@ -225,7 +228,13 @@ fun AddTransactionSheet(
         if (editing != null) onUpdate(editing, result) else onSave(result)
     }
 
-    Dialog(onDismissRequest = requestClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(
+        onDismissRequest = requestDialogDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
         WhfinDialogSystemBars()
         DemoWorkspaceFrame {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

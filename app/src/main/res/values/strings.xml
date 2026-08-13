@@ -13,19 +13,12 @@
     <string name="welcome_step_sync_body">Accounts, deposits, and confirmed history arrive together.</string>
     <string name="welcome_step_review_title">Clear up only what is ambiguous</string>
     <string name="welcome_step_review_body">WHFIN reconciles SMS and statements first, then asks about anything left.</string>
-    <string name="welcome_sms_title">Current as money moves</string>
-    <string name="welcome_sms_body">Supported bank SMS appears immediately and waits for your confirmation.</string>
-    <string name="welcome_statement_title">Statements remain the truth</string>
-    <string name="welcome_statement_body">Confirmed history reconciles drafts instead of creating duplicates.</string>
-    <string name="welcome_private_title">Private by default</string>
-    <string name="welcome_private_body">Your ledger stays on this device unless you explicitly export it.</string>
     <string name="welcome_personal_action">Set up my finances</string>
     <string name="welcome_demo_action">Explore demo</string>
     <string name="personal_setup_title">Let’s get everything ready</string>
     <string name="personal_setup_body">This setup is tailored to Credo Bank. WHFIN will listen first, sync the full history, and ask only when it cannot decide safely.</string>
-    <string name="personal_setup_bank_section">SUPPORTED BANK</string>
-    <string name="personal_setup_credo_title">Credo Bank</string>
-    <string name="personal_setup_credo_body">MyCredo statement sync and monitoring for future transaction SMS.</string>
+    <string name="personal_setup_ready_title">Your ledger is ready</string>
+    <string name="personal_setup_ready_body">Credo history and bank SMS are reconciled. You can add cash or another account, or go straight to Home.</string>
     <string name="personal_setup_steps_section">YOUR SETUP</string>
     <string name="personal_setup_connect_title">Connect Credo and sync history</string>
     <string name="personal_setup_recommended">Imports every available account and confirmed operation</string>
@@ -35,13 +28,13 @@
     <string name="personal_setup_sms_body">Start listening before history is synced, so nothing is missed</string>
     <string name="personal_setup_enabled">Enabled</string>
     <string name="personal_setup_permission_needed">Android permission required</string>
-    <string name="personal_setup_cards_title">Find my cards</string>
-    <string name="personal_setup_cards_optional">Optional · link cards once from recent SMS</string>
-    <string name="personal_setup_card_routes_ready">Card routes: %1$d</string>
     <string name="personal_setup_review_title">Resolve anything left</string>
     <string name="personal_setup_review_waiting">WHFIN will compare SMS with the synced history first</string>
     <string name="personal_setup_review_clear">Everything is matched — nothing needs your attention</string>
-    <string name="personal_setup_review_count">%1$d items need a quick decision</string>
+    <plurals name="personal_setup_review_count">
+        <item quantity="one">%1$d item needs a quick decision</item>
+        <item quantity="other">%1$d items need a quick decision</item>
+    </plurals>
     <string name="personal_setup_accounts_section">COMPLETE THE PICTURE · OPTIONAL</string>
     <plurals name="personal_setup_accounts_ready">
         <item quantity="one">%1$d account in WHFIN · add another if anything is missing</item>
@@ -59,7 +52,10 @@
     <string name="personal_setup_later_body">These tools stay available in Settings. Skipping does not disable anything.</string>
     <string name="personal_setup_enable_sms_action">Enable SMS monitoring</string>
     <string name="personal_setup_connect_and_sync_action">Connect Credo and sync all history</string>
-    <string name="personal_setup_review_action">Review %1$d items</string>
+    <plurals name="personal_setup_review_action">
+        <item quantity="one">Review %1$d item</item>
+        <item quantity="other">Review %1$d items</item>
+    </plurals>
     <string name="personal_setup_continue_action">Continue to my finances</string>
     <string name="personal_setup_skip_action">Continue without setup</string>
     <string name="tab_feed">Home</string>

@@ -126,4 +126,48 @@ class ShellNavigationTest {
             credoBackDestination(SecondaryDestination.Settings),
         )
     }
+
+    @Test
+    fun `secondary Back returns through the actual callers`() {
+        var current: SecondaryDestination? = null
+        var stack = emptyList<SecondaryDestination>()
+
+        fun open(destination: SecondaryDestination) {
+            stack = pushSecondaryDestination(current, stack, destination)
+            current = destination
+        }
+
+        open(SecondaryDestination.Settings)
+        open(SecondaryDestination.DataHealth)
+        open(SecondaryDestination.Backup)
+
+        popSecondaryDestination(stack).also { back ->
+            assertEquals(SecondaryDestination.DataHealth, back.destination)
+            current = back.destination
+            stack = back.remaining
+        }
+        popSecondaryDestination(stack).also { back ->
+            assertEquals(SecondaryDestination.Settings, back.destination)
+            current = back.destination
+            stack = back.remaining
+        }
+        popSecondaryDestination(stack).also { back ->
+            assertEquals(null, back.destination)
+            assertTrue(back.remaining.isEmpty())
+        }
+    }
+
+    @Test
+    fun `Back from a screen opened at the shell root returns to the shell root`() {
+        val stack = pushSecondaryDestination(
+            current = null,
+            backStack = emptyList(),
+            destination = SecondaryDestination.Statements,
+        )
+
+        val back = popSecondaryDestination(stack)
+
+        assertEquals(null, back.destination)
+        assertTrue(back.remaining.isEmpty())
+    }
 }

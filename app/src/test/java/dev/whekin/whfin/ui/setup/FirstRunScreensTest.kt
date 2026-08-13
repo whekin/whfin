@@ -61,6 +61,7 @@ class FirstRunScreensTest {
                         bankLedgerCount = 0,
                         hasCredoImport = false,
                         unresolvedSmsCount = 0,
+                        statementReviewCount = 0,
                     ),
                     onConnectCredo = {},
                     onEnableSmsMonitoring = { smsRequested = true },
@@ -92,6 +93,7 @@ class FirstRunScreensTest {
                         smsMonitoringEnabled = true,
                         hasSmsPermission = true,
                         unresolvedSmsCount = 0,
+                        statementReviewCount = 0,
                     ),
                     onConnectCredo = { connected = true },
                     onEnableSmsMonitoring = {},
@@ -122,6 +124,7 @@ class FirstRunScreensTest {
                         smsMonitoringEnabled = true,
                         hasSmsPermission = true,
                         unresolvedSmsCount = 2,
+                        statementReviewCount = 0,
                     ),
                     onConnectCredo = {},
                     onEnableSmsMonitoring = {},
@@ -135,7 +138,40 @@ class FirstRunScreensTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.personal_setup_review_action, 2)).performClick()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.personal_setup_review_action, 2, 2))
+            .performClick()
         compose.runOnIdle { assertTrue(openedBankSms) }
+    }
+
+    @Test
+    fun completedSetupShowsAReadyOutcome() {
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    state = PersonalSetupState(
+                        accountCount = 3,
+                        bankLedgerCount = 2,
+                        hasCredoImport = true,
+                        smsMonitoringEnabled = true,
+                        hasSmsPermission = true,
+                        unresolvedSmsCount = 0,
+                        statementReviewCount = 0,
+                    ),
+                    onConnectCredo = {},
+                    onEnableSmsMonitoring = {},
+                    onOpenBankSms = {},
+                    onImportStatement = {},
+                    onCreateAccount = {},
+                    onRestoreBackup = {},
+                    onContinue = {},
+                    onExit = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.personal_setup_ready_title))
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.personal_setup_continue_action))
+            .assertIsDisplayed()
     }
 }

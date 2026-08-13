@@ -14,19 +14,12 @@
     <string name="welcome_step_sync_body">Счета, депозиты и подтверждённая история загрузятся вместе.</string>
     <string name="welcome_step_review_title">Разобрать только неоднозначное</string>
     <string name="welcome_step_review_body">Сначала WHFIN сам сверит SMS с выписками и спросит лишь о том, что осталось.</string>
-    <string name="welcome_sms_title">Актуально сразу после оплаты</string>
-    <string name="welcome_sms_body">SMS поддерживаемого банка появляется сразу и ждёт вашего подтверждения.</string>
-    <string name="welcome_statement_title">Выписка остаётся истиной</string>
-    <string name="welcome_statement_body">Подтверждённая история сверяет черновики, а не создаёт дубли.</string>
-    <string name="welcome_private_title">Приватно по умолчанию</string>
-    <string name="welcome_private_body">Финансовая книга остаётся на устройстве, пока вы сами её не экспортируете.</string>
     <string name="welcome_personal_action">Настроить мои финансы</string>
     <string name="welcome_demo_action">Посмотреть демо</string>
     <string name="personal_setup_title">Подготовим всё к работе</string>
     <string name="personal_setup_body">Эта настройка сделана для Credo Bank. WHFIN сначала включит SMS, затем загрузит всю историю и спросит только там, где нельзя решить безопасно.</string>
-    <string name="personal_setup_bank_section">ПОДДЕРЖИВАЕМЫЙ БАНК</string>
-    <string name="personal_setup_credo_title">Credo Bank</string>
-    <string name="personal_setup_credo_body">Синхронизация выписок MyCredo и мониторинг будущих SMS об операциях.</string>
+    <string name="personal_setup_ready_title">Финансовая книга готова</string>
+    <string name="personal_setup_ready_body">История Credo и SMS банка сверены. Можно добавить наличные или другой счёт либо сразу перейти на Главную.</string>
     <string name="personal_setup_steps_section">ВАША НАСТРОЙКА</string>
     <string name="personal_setup_connect_title">Подключить Credo и загрузить историю</string>
     <string name="personal_setup_recommended">Загрузит все доступные счета и подтверждённые операции</string>
@@ -36,13 +29,15 @@
     <string name="personal_setup_sms_body">Начать слушать до загрузки истории, чтобы ничего не пропустить</string>
     <string name="personal_setup_enabled">Включён</string>
     <string name="personal_setup_permission_needed">Нужно разрешение Android</string>
-    <string name="personal_setup_cards_title">Найти мои карты</string>
-    <string name="personal_setup_cards_optional">Необязательно · один раз привязать карты по недавним SMS</string>
-    <string name="personal_setup_card_routes_ready">Привязано карт: %1$d</string>
     <string name="personal_setup_review_title">Разобрать то, что осталось</string>
     <string name="personal_setup_review_waiting">Сначала WHFIN сравнит SMS с загруженной историей</string>
     <string name="personal_setup_review_clear">Всё совпало — ничего разбирать не нужно</string>
-    <string name="personal_setup_review_count">Нужно быстро решить: %1$d</string>
+    <plurals name="personal_setup_review_count">
+        <item quantity="one">Нужно быстро решить: %1$d</item>
+        <item quantity="few">Нужно быстро решить: %1$d</item>
+        <item quantity="many">Нужно быстро решить: %1$d</item>
+        <item quantity="other">Нужно быстро решить: %1$d</item>
+    </plurals>
     <string name="personal_setup_accounts_section">ДОПОЛНИТЬ КАРТИНУ · НЕОБЯЗАТЕЛЬНО</string>
     <plurals name="personal_setup_accounts_ready">
         <item quantity="one">В WHFIN %1$d счёт · добавьте ещё, если чего-то не хватает</item>
@@ -62,7 +57,12 @@
     <string name="personal_setup_later_body">Все инструменты останутся в Настройках. Пропуск ничего не отключает.</string>
     <string name="personal_setup_enable_sms_action">Включить мониторинг SMS</string>
     <string name="personal_setup_connect_and_sync_action">Подключить Credo и загрузить всю историю</string>
-    <string name="personal_setup_review_action">Разобрать: %1$d</string>
+    <plurals name="personal_setup_review_action">
+        <item quantity="one">Разобрать: %1$d</item>
+        <item quantity="few">Разобрать: %1$d</item>
+        <item quantity="many">Разобрать: %1$d</item>
+        <item quantity="other">Разобрать: %1$d</item>
+    </plurals>
     <string name="personal_setup_continue_action">Перейти к моим финансам</string>
     <string name="personal_setup_skip_action">Продолжить без настройки</string>
     <string name="tab_feed">Главная</string>

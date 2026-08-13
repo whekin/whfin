@@ -188,6 +188,12 @@ class MainActivity : FragmentActivity() {
                 }
                 val personalUnroutedSmsCount: Int? by personalUnroutedSmsFlow
                     .collectAsState(initial = null)
+                val personalStatementReviewFlow = remember {
+                    (application as WhfinApp).userDb.reconciliationIssueDao().observeOpen()
+                        .map<List<dev.whekin.whfin.data.db.ReconciliationIssueEntity>, Int?> { it.size }
+                }
+                val personalStatementReviewCount: Int? by personalStatementReviewFlow
+                    .collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
                 val effectiveTimeout = savedTimeout
@@ -265,6 +271,7 @@ class MainActivity : FragmentActivity() {
                                     hasSmsPermission = hasSmsPermission,
                                     canRequestSmsPermission = canRequestSmsPermission,
                                     unresolvedSmsCount = personalUnroutedSmsCount,
+                                    statementReviewCount = personalStatementReviewCount,
                                 ),
                                 appVersion = portableAppVersion,
                                 appLockTimeout = effectiveTimeout,

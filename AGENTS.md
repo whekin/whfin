@@ -181,6 +181,12 @@ This is a single-context repository with root domain documentation and system-wi
   следующему незавершённому шагу по живому состоянию, skip остаётся явным. Explore demo устанавливает
   изолированный fixture и открывает заполненную рабочую область. Проверено end-to-end на clean disposable
   Pixel при RU + dark + font 1.5, включая install-r, Back и отсутствие повторного Welcome.
+  Продолжение setup теперь автоматическое, но не безусловное: разрешённые SMS сразу ведут в MyCredo,
+  первый login запускает полную историю, успешный прогон проходит Unrouted SMS и statement-review по
+  живым очередям и заканчивается явным Ready; ошибка счёта остаётся на результате для retry. Back в shell
+  хранит реальных callers вместо жёсткого возврата всех служебных экранов в Settings; проверены gesture
+  цепочки setup → Credo → setup, Accounts → Settings → Statements → Settings → Accounts, root exit и
+  category-step → dirty composer → discard confirmation на disposable Pixel.
   Временный Demo workspace больше не является глобальным switch: Personal Settings показывает тихую
   строку возле About и объясняющий sheet с pinned action, а активный sandbox — постоянную компактную
   полосу `Мои данные` над primary/secondary destinations и полноэкранными composer/category/debt/account

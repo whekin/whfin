@@ -163,7 +163,21 @@ data class PersonalSetupState(
     val hasSmsPermission: Boolean = false,
     val canRequestSmsPermission: Boolean = true,
     val unresolvedSmsCount: Int? = null,
+    val statementReviewCount: Int? = null,
 )
+
+internal val PersonalSetupState.smsReady: Boolean
+    get() = smsMonitoringEnabled && hasSmsPermission
+
+internal val PersonalSetupState.reviewCount: Int?
+    get() = if (unresolvedSmsCount != null && statementReviewCount != null) {
+        unresolvedSmsCount + statementReviewCount
+    } else {
+        null
+    }
+
+internal val PersonalSetupState.ready: Boolean
+    get() = smsReady && hasCredoImport == true && reviewCount == 0
 
 @Composable
 fun PersonalSetupScreen(
@@ -179,8 +193,9 @@ fun PersonalSetupScreen(
 ) {
     BackHandler(onBack = onExit)
     val credoReady = state.hasCredoImport == true
-    val smsReady = state.smsMonitoringEnabled && state.hasSmsPermission
-    val reviewReady = smsReady && credoReady && state.unresolvedSmsCount == 0
+    val smsReady = state.smsReady
+    val reviewCount = state.reviewCount
+    val reviewReady = state.ready
     var otherWaysExpanded by rememberSaveable { mutableStateOf(false) }
 
     Surface(
@@ -197,11 +212,17 @@ fun PersonalSetupScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    stringResource(R.string.personal_setup_title),
+                    stringResource(
+                        if (state.ready) R.string.personal_setup_ready_title
+                        else R.string.personal_setup_title,
+                    ),
                     style = MaterialTheme.typography.headlineLarge,
                 )
                 Text(
-                    stringResource(R.string.personal_setup_body),
+                    stringResource(
+                        if (state.ready) R.string.personal_setup_ready_body
+                        else R.string.personal_setup_body,
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -252,14 +273,18 @@ fun PersonalSetupScreen(
                         )
                         SetupActionRow(
                             title = stringResource(R.string.personal_setup_review_title),
-                            status = when (state.unresolvedSmsCount) {
+                            status = when (reviewCount) {
                                 null -> stringResource(R.string.personal_setup_checking)
                                 0 -> if (smsReady && credoReady) {
                                     stringResource(R.string.personal_setup_review_clear)
                                 } else {
                                     stringResource(R.string.personal_setup_review_waiting)
                                 }
-                                else -> stringResource(R.string.personal_setup_review_count, state.unresolvedSmsCount)
+                                else -> pluralStringResource(
+                                    R.plurals.personal_setup_review_count,
+                                    reviewCount,
+                                    reviewCount,
+                                )
                             },
                             icon = Icons.Default.CheckCircle,
                             completed = reviewReady,
@@ -352,16 +377,17 @@ fun PersonalSetupScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         leadingIcon = Icons.Default.CloudSync,
                     )
-                    state.unresolvedSmsCount == null -> WhfinButton(
+                    reviewCount == null -> WhfinButton(
                         label = stringResource(R.string.personal_setup_checking),
                         onClick = {},
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         enabled = false,
                     )
-                    state.unresolvedSmsCount > 0 -> WhfinButton(
-                        label = stringResource(
-                            R.string.personal_setup_review_action,
-                            state.unresolvedSmsCount,
+                    reviewCount > 0 -> WhfinButton(
+                        label = pluralStringResource(
+                            R.plurals.personal_setup_review_action,
+                            reviewCount,
+                            reviewCount,
                         ),
                         onClick = onOpenBankSms,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -474,6 +500,43 @@ private fun PersonalSetupPreview() {
                     bankLedgerCount = 2,
                     hasCredoImport = false,
                     unresolvedSmsCount = 0,
+                    statementReviewCount = 0,
+                ),
+                onConnectCredo = {},
+                onEnableSmsMonitoring = {},
+                onOpenBankSms = {},
+                onImportStatement = {},
+                onCreateAccount = {},
+                onRestoreBackup = {},
+                onContinue = {},
+                onExit = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Personal setup ready", widthDp = 400, heightDp = 850, showBackground = true)
+@Preview(
+    name = "Personal setup ready RU-scale",
+    widthDp = 400,
+    heightDp = 950,
+    fontScale = 1.5f,
+    locale = "ru",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PersonalSetupReadyPreview() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            PersonalSetupScreen(
+                state = PersonalSetupState(
+                    accountCount = 4,
+                    bankLedgerCount = 3,
+                    hasCredoImport = true,
+                    smsMonitoringEnabled = true,
+                    hasSmsPermission = true,
+                    unresolvedSmsCount = 0,
+                    statementReviewCount = 0,
                 ),
                 onConnectCredo = {},
                 onEnableSmsMonitoring = {},

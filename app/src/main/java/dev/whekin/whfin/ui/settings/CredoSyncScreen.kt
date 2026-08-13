@@ -82,6 +82,23 @@ private const val XLSX_MIME = "application/vnd.openxmlformats-officedocument.spr
 /** Fast enough to feel automatic, slow enough not to poll the inbox for nothing. */
 private const val OTP_INBOX_POLL_MILLIS = 1_000L
 
+internal fun shouldAutoLoadFullHistory(
+    enabled: Boolean,
+    alreadyRequested: Boolean,
+    state: CredoSyncUiState,
+): Boolean = enabled && !alreadyRequested && state.stage == CredoSyncStage.Connected &&
+    !state.hasImportedHistory && state.accounts.isNotEmpty()
+
+internal fun guidedHistoryCompletedSuccessfully(
+    enabled: Boolean,
+    requested: Boolean,
+    wasRunning: Boolean,
+    state: CredoSyncUiState,
+): Boolean = enabled && requested && wasRunning && state.stage == CredoSyncStage.Connected &&
+    !state.resultsAreRetained && state.retryableFailures == 0 &&
+    (state.results.isNotEmpty() || state.unchanged > 0) &&
+    state.results.none { it.errorCode != null || it.detail != null }
+
 private fun hasSmsReadPermission(context: android.content.Context): Boolean =
     ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED
@@ -109,6 +126,10 @@ fun CredoSyncRoute(
     routineSyncRequestKey: Int = 0,
     onRoutineSyncRequestConsumed: () -> Unit = {},
     showCredentialManagement: Boolean = false,
+    /** Guided first run starts the one-off full-history walk as soon as login exposes the accounts. */
+    autoLoadFullHistory: Boolean = false,
+    /** Called only after that guided history pass completes without a failed account. */
+    onGuidedHistoryComplete: (() -> Unit)? = null,
     /**
      * Where the user came from. A sync ends with its result on screen, and reading it is the point;
      * leaving afterwards should not require finding the Back arrow again.
@@ -125,6 +146,8 @@ fun CredoSyncRoute(
     var pendingOriginalExport by remember { mutableStateOf<PendingOriginalExport?>(null) }
     var originalExportOutcome by remember { mutableStateOf<CredoOriginalExportOutcome?>(null) }
     var incomingOtp by remember { mutableStateOf<String?>(null) }
+    var guidedHistoryRequested by rememberSaveable { mutableStateOf(false) }
+    var guidedHistoryWasRunning by rememberSaveable { mutableStateOf(false) }
     // Bumped whenever a challenge is opened, so a resend restarts the inbox watch: the previous
     // attempt's code is still in the inbox and must not be filled in for the new one.
     var otpChallengeKey by remember { mutableIntStateOf(0) }
@@ -169,6 +192,35 @@ fun CredoSyncRoute(
                 otpChallengeKey += 1
                 viewModel.syncLatest()
             }
+        }
+    }
+    LaunchedEffect(
+        autoLoadFullHistory,
+        guidedHistoryRequested,
+        state.stage,
+        state.hasImportedHistory,
+        state.accounts.size,
+    ) {
+        if (shouldAutoLoadFullHistory(autoLoadFullHistory, guidedHistoryRequested, state)) {
+            guidedHistoryRequested = true
+            viewModel.loadHistory()
+        }
+    }
+    LaunchedEffect(state.stage, guidedHistoryRequested) {
+        if (guidedHistoryRequested && state.stage == CredoSyncStage.Syncing) {
+            guidedHistoryWasRunning = true
+        }
+    }
+    val guidedHistorySucceeded = guidedHistoryCompletedSuccessfully(
+        enabled = autoLoadFullHistory,
+        requested = guidedHistoryRequested,
+        wasRunning = guidedHistoryWasRunning,
+        state = state,
+    )
+    LaunchedEffect(guidedHistorySucceeded) {
+        if (guidedHistorySucceeded) {
+            guidedHistoryWasRunning = false
+            onGuidedHistoryComplete?.invoke()
         }
     }
     LaunchedEffect(otpInbox) {

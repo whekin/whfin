@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.setup
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,11 +15,17 @@ import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
-import dev.whekin.whfin.ui.openCredoSetup
 
 internal enum class PersonalSetupPage { Home, CredoSync, BankSms, Statements, Backup, AppLock }
 
 internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
+
+internal fun personalSetupResolutionPage(state: PersonalSetupState): PersonalSetupPage? = when {
+    state.reviewCount == null -> null
+    (state.unresolvedSmsCount ?: 0) > 0 -> PersonalSetupPage.BankSms
+    (state.statementReviewCount ?: 0) > 0 -> PersonalSetupPage.Statements
+    else -> PersonalSetupPage.Home
+}
 
 @Composable
 fun PersonalSetupFlow(
@@ -42,17 +49,60 @@ fun PersonalSetupFlow(
     onExit: () -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(PersonalSetupPage.Home) }
+    var advanceAfterSmsPermission by rememberSaveable { mutableStateOf(false) }
+    var guidedResolutionActive by rememberSaveable { mutableStateOf(false) }
+
+    fun beginSmsSetup() {
+        advanceAfterSmsPermission = true
+        onEnableSmsMonitoring()
+    }
+
+    fun openCredoAfterSms() {
+        if (state.smsReady) {
+            page = PersonalSetupPage.CredoSync
+        } else {
+            beginSmsSetup()
+        }
+    }
+
+    fun continueAfterHistory() {
+        guidedResolutionActive = true
+        personalSetupResolutionPage(state)?.let { page = it }
+    }
+
+    LaunchedEffect(page, advanceAfterSmsPermission, state.smsReady) {
+        if (page == PersonalSetupPage.Home && advanceAfterSmsPermission && state.smsReady) {
+            advanceAfterSmsPermission = false
+            page = PersonalSetupPage.CredoSync
+        }
+    }
+    LaunchedEffect(
+        page,
+        guidedResolutionActive,
+        state.unresolvedSmsCount,
+        state.statementReviewCount,
+    ) {
+        if (!guidedResolutionActive) return@LaunchedEffect
+        val next = personalSetupResolutionPage(state) ?: return@LaunchedEffect
+        val shouldAdvance = when (page) {
+            PersonalSetupPage.CredoSync -> true
+            PersonalSetupPage.Home -> next != PersonalSetupPage.Home
+            PersonalSetupPage.BankSms -> next != PersonalSetupPage.BankSms
+            PersonalSetupPage.Statements -> next == PersonalSetupPage.Home
+            else -> false
+        }
+        if (shouldAdvance) page = next
+    }
+
     when (page) {
         PersonalSetupPage.Home -> PersonalSetupScreen(
             state = state,
-            onConnectCredo = {
-                openCredoSetup(
-                    enableSmsMonitoring = onEnableSmsMonitoring,
-                    openCredo = { page = PersonalSetupPage.CredoSync },
-                )
+            onConnectCredo = ::openCredoAfterSms,
+            onEnableSmsMonitoring = ::beginSmsSetup,
+            onOpenBankSms = {
+                guidedResolutionActive = true
+                personalSetupResolutionPage(state)?.let { page = it }
             },
-            onEnableSmsMonitoring = onEnableSmsMonitoring,
-            onOpenBankSms = { page = PersonalSetupPage.BankSms },
             onImportStatement = { page = PersonalSetupPage.Statements },
             onCreateAccount = { onContinue(1, true) },
             onRestoreBackup = { page = PersonalSetupPage.Backup },
@@ -66,12 +116,17 @@ fun PersonalSetupFlow(
             CredoSyncRoute(
                 appLockEnabled = appLockHasPin && appLockTimeout.enabled,
                 onOpenAppLock = { page = PersonalSetupPage.AppLock },
-                onDone = { page = PersonalSetupPage.Home },
+                autoLoadFullHistory = true,
+                onGuidedHistoryComplete = ::continueAfterHistory,
+                onDone = ::continueAfterHistory,
             )
         }
         PersonalSetupPage.BankSms -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.sms_diagnostics_title),
-            onBack = { page = PersonalSetupPage.Home },
+            onBack = {
+                guidedResolutionActive = false
+                page = PersonalSetupPage.Home
+            },
         ) {
             SmsDiagnosticsRoute(
                 appVersion = appVersion,
@@ -85,12 +140,15 @@ fun PersonalSetupFlow(
                 onOpenFeed = { onContinue(0, false) },
                 onRequestHistoryPermission = onRequestSmsHistoryPermission,
                 onOpenSystemSettings = onOpenSystemSettings,
-                onCardLinked = { page = PersonalSetupPage.Home },
+                onCardLinked = {},
             )
         }
         PersonalSetupPage.Statements -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.statements_title),
-            onBack = { page = PersonalSetupPage.Home },
+            onBack = {
+                guidedResolutionActive = false
+                page = PersonalSetupPage.Home
+            },
         ) {
             BankStatementsScreen()
         }
