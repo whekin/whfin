@@ -89,6 +89,9 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinThemeTokens
+import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
+import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
@@ -779,6 +782,14 @@ private fun CurrencyAccountRow(
     sourceName: String,
     onClick: () -> Unit,
 ) {
+    val cardBalanceStatus = if (
+        item.account.currency.equals("GEL", ignoreCase = true) && item.cardMasks.isNotEmpty()
+    ) physicalCardBalanceStatus(item.balanceMinor) else PhysicalCardBalanceStatus.Enough
+    val balanceColor = when (cardBalanceStatus) {
+        PhysicalCardBalanceStatus.Enough -> Color.Unspecified
+        PhysicalCardBalanceStatus.Low -> WhfinThemeTokens.colors.warning
+        PhysicalCardBalanceStatus.Critical -> MaterialTheme.colorScheme.error
+    }
     // What names this row is what the money is for — "Everyday", "Travel", "Депозит". The currency
     // used to lead it, set in bold, while the amount beside it already carried the same currency in
     // its symbol: the loudest word on the row was the one word it did not need.
@@ -793,9 +804,15 @@ private fun CurrencyAccountRow(
     // The purpose is not repeated beside a named account: the section heading above already says
     // whether this is everyday money or savings, and an account called "Term deposit" does not need
     // "Deposit" under it. It only surfaces as the title of a ledger with no name of its own.
-    val detail = item.account.currency
-        .takeUnless { currencyInTitle || ownName == null }
-        .orEmpty()
+    val balanceStatusLabel = when (cardBalanceStatus) {
+        PhysicalCardBalanceStatus.Enough -> null
+        PhysicalCardBalanceStatus.Low -> stringResource(R.string.low_balance_status_low)
+        PhysicalCardBalanceStatus.Critical -> stringResource(R.string.low_balance_status_critical)
+    }
+    val detail = listOfNotNull(
+        item.account.currency.takeUnless { currencyInTitle || ownName == null },
+        balanceStatusLabel,
+    ).joinToString(" · ")
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -812,6 +829,7 @@ private fun CurrencyAccountRow(
             formatMinor(item.balanceMinor, item.account.currency),
             symbol = currencySymbol(item.account.currency),
             style = MaterialTheme.typography.titleMedium,
+            color = balanceColor,
             modifier = Modifier.padding(start = 12.dp),
         )
     }
@@ -883,7 +901,7 @@ private fun AccountsContentPreview() {
     val accounts = listOf(
         AccountWithBalance(
             AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "GEL", iban = "GE00CD0000000000000001"),
-            500_000, listOf("0001"), groupName = "Credo",
+            12_500, listOf("0001"), groupName = "Credo",
         ),
         AccountWithBalance(
             AccountEntity(id = 2, name = "Everyday", type = AccountType.BANK, groupId = 1, currency = "USD", iban = "GE00CD0000000000000001"),
@@ -896,6 +914,14 @@ private fun AccountsContentPreview() {
                 bankProduct = BankProduct.DEMAND_DEPOSIT,
             ),
             81_500, emptyList(), groupName = "Credo",
+        ),
+        AccountWithBalance(
+            AccountEntity(
+                id = 4, name = "Groceries backup", type = AccountType.BANK, groupId = 1,
+                currency = "GEL", iban = "GE00CD0000000000000003",
+                bankProduct = BankProduct.CURRENT_ACCOUNT,
+            ),
+            9_500, listOf("0002"), groupName = "Credo",
         ),
     )
     WhfinTheme {

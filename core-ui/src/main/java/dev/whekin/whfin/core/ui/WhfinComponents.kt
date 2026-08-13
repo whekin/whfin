@@ -891,6 +891,7 @@ fun WhfinLedgerGroup(
 fun WhfinLedgerRow(
     title: String,
     modifier: Modifier = Modifier,
+    titleMaxLines: Int = 2,
     supportingText: String? = null,
     supportingMaxLines: Int = 2,
     icon: ImageVector? = null,
@@ -920,7 +921,13 @@ fun WhfinLedgerRow(
                 contentAlignment = Alignment.Center,
             ) { Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp)) }
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = titleColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = titleColor,
+                    maxLines = titleMaxLines,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (supportingText != null) Text(
                     supportingText,
                     style = MaterialTheme.typography.bodySmall,

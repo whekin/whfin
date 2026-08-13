@@ -239,6 +239,8 @@ fun MainScreen(
     onDismissSmsPermissionPrompt: () -> Unit,
     onSmsImportEnabledChange: (Boolean) -> Unit,
     onOpenSystemSettings: () -> Unit,
+    hasLowBalanceNotificationPermission: Boolean,
+    onRequestLowBalanceNotificationPermission: () -> Unit,
     appLockTimeout: AppLockTimeout,
     appLockHasPin: Boolean,
     biometricAvailability: BiometricAvailability,
@@ -258,6 +260,7 @@ fun MainScreen(
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
     var tab by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
+    LaunchedEffect(initialTab) { tab = initialTab.coerceIn(0, 1) }
     var accountAddRequestKey by rememberSaveable {
         mutableIntStateOf(if (initialAccountAddRequest) 1 else 0)
     }
@@ -411,6 +414,9 @@ fun MainScreen(
                                 onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
                                 onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
                                 onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
+                                onOpenAccounts = { tab = 1 },
+                                hasLowBalanceNotificationPermission = demoMode || hasLowBalanceNotificationPermission,
+                                onRequestLowBalanceNotificationPermission = onRequestLowBalanceNotificationPermission,
                                 addRequestKey = addRequestKey,
                                 onAddRequestConsumed = { addRequestKey = 0 },
                                 viewModel = feedViewModel,

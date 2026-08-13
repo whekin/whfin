@@ -1042,4 +1042,14 @@
     <string name="sms_batch_card_title">Card ••%1$s needs an account</string>
     <string name="sms_batch_card_body">Linking it once imports %1$d waiting operations</string>
     <string name="sms_batch_card_body_amount">Linking it once imports %1$d waiting operations · %2$s</string>
+    <string name="low_balance_status_low">Low for groceries</string>
+    <string name="low_balance_status_critical">Very low for groceries</string>
+    <string name="low_balance_channel_name">Physical card balance</string>
+    <string name="low_balance_channel_description">Alerts when a physical card’s GEL balance is below 100 ₾</string>
+    <string name="low_balance_notification_title">Physical card balance is low</string>
+    <string name="low_balance_notification_body">%1$s · %2$s has %3$.2f ₾ left. Top it up before groceries.</string>
+    <string name="home_card_balance_low">Top up before buying groceries</string>
+    <string name="home_card_balance_critical">Your next grocery payment may fail</string>
+    <string name="home_card_balance_identity">%1$s · physical card %2$s</string>
+    <string name="home_card_balance_enable_alerts">Tap to enable alerts</string>
 </resources>

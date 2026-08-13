@@ -17,6 +17,8 @@ data class WhfinExtendedColors(
     val sage: Color,
     val clay: Color,
     val oxide: Color,
+    /** A legible amber used for caution before a state becomes an error. */
+    val warning: Color,
     val rule: Color,
     val positive: Color,
     val pending: Color,

@@ -462,6 +462,13 @@ This is a single-context repository with root domain documentation and system-wi
   пометить как FLEXIBLE_RESERVE и свободно переводить туда/обратно без расхода/дохода
 - [x] Accounts visual v2 по одобренному mockup: компактный GEL-first net-worth hero, вторичные валюты
   чипами, плоская структура банк → отдельные IBAN-карточки → ledger rows валют; без card-in-card
+- [x] Grocery floor физической карты: Home сразу под итогом месяца показывает linked GEL-ledger;
+  ниже 150 GEL получает янтарную сумму и явный совет пополнить карту, ниже 100 GEL — красную сумму и
+  предупреждение, что следующая оплата в магазине может не пройти. При первом падении приходит системное
+  уведомление с masked last4. Уведомление не повторяется, пока баланс не восстановится хотя бы до
+  100 GEL; virtual/non-GEL исключены. Permission запрашивается вместе с первым включением SMS, а Home
+  предлагает включить его уже настроенной установке при появлении риска. Проверено на disposable Pixel при light/dark,
+  EN и font scale 1.5; реальный notification опубликован на synthetic 95 GEL.
 - [x] Accounts UX v3: everyday отделены от savings/deposits; имя и назначение IBAN-контейнера
   (`Everyday / Reserve / Deposit`) редактируются явным pencil-action и атомарно применяются ко всем
   его валютным ledgers. Тап по строке валюты открывает отдельную ledger-ленту этого счёта с Back,

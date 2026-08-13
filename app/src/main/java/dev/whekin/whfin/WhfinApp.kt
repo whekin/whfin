@@ -20,11 +20,13 @@ import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.demo.RuntimeModeStore
 import dev.whekin.whfin.data.integrity.DataIntegrityChecker
 import dev.whekin.whfin.data.sms.CredoOtpInbox
+import dev.whekin.whfin.data.notifications.PhysicalCardBalanceMonitor
 
 class WhfinApp : Application() {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val credoOtpInbox = CredoOtpInbox()
+    val physicalCardBalanceMonitor by lazy { PhysicalCardBalanceMonitor(this, userDb, appScope) }
 
     val runtimeModes by lazy { RuntimeModeStore(this) }
     val userDb: WhfinDatabase by lazy { WhfinDatabase.get(this) }
@@ -111,5 +113,6 @@ class WhfinApp : Application() {
             GeorgiaMerchantPreset.applyToUncategorized(userDb)
             refreshIntegrity()
         }
+        physicalCardBalanceMonitor.start()
     }
 }

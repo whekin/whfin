@@ -85,6 +85,7 @@ internal fun appStartupContent(
 }
 
 internal const val EXTRA_RUNTIME_MODE_RESTART = "dev.whekin.whfin.RUNTIME_MODE_RESTART"
+internal const val EXTRA_OPEN_ACCOUNTS = "dev.whekin.whfin.OPEN_ACCOUNTS"
 
 internal fun runtimeModeRestartIntent(componentName: ComponentName): Intent =
     Intent.makeRestartActivityTask(componentName).putExtra(EXTRA_RUNTIME_MODE_RESTART, true)
@@ -92,6 +93,7 @@ internal fun runtimeModeRestartIntent(componentName: ComponentName): Intent =
 class MainActivity : FragmentActivity() {
     private var hasSmsPermission by mutableStateOf(false)
     private var hasSmsHistoryPermission by mutableStateOf(false)
+    private var hasNotificationPermission by mutableStateOf(false)
     private var canRequestSmsPermission by mutableStateOf(true)
     private var canRequestSmsHistoryPermission by mutableStateOf(true)
     private var biometricAvailability by mutableStateOf(BiometricAvailability.Unsupported)
@@ -133,6 +135,7 @@ class MainActivity : FragmentActivity() {
             demoMode = demoMode,
         )
         runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
+        if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
         hasAppLockPin = pinStore.hasPin()
@@ -350,6 +353,8 @@ class MainActivity : FragmentActivity() {
                                     scope.launch { uiPreferences.setSmsImportEnabled(enabled) }
                                 },
                                 onOpenSystemSettings = ::openAppSettings,
+                                hasLowBalanceNotificationPermission = hasNotificationPermission,
+                                onRequestLowBalanceNotificationPermission = ::requestLowBalanceNotificationPermission,
                                 appLockTimeout = effectiveTimeout,
                                 appLockHasPin = hasAppLockPin,
                                 biometricAvailability = biometricAvailability,
@@ -479,6 +484,7 @@ class MainActivity : FragmentActivity() {
         when (requestCode) {
             REQUEST_RECEIVE_SMS -> {
                 refreshSmsPermission()
+                (application as WhfinApp).physicalCardBalanceMonitor.notificationPermissionChanged()
                 canRequestSmsPermission = hasSmsPermission ||
                     shouldShowRequestPermissionRationale(Manifest.permission.RECEIVE_SMS)
             }
@@ -487,15 +493,44 @@ class MainActivity : FragmentActivity() {
                 canRequestSmsHistoryPermission = hasSmsHistoryPermission ||
                     shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
             }
+            REQUEST_NOTIFICATIONS -> {
+                refreshSmsPermission()
+                (application as WhfinApp).physicalCardBalanceMonitor.notificationPermissionChanged()
+            }
         }
     }
 
     private fun requestSmsPermission() {
+        val permissions = buildList {
+            add(Manifest.permission.RECEIVE_SMS)
+            add(Manifest.permission.READ_SMS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         ActivityCompat.requestPermissions(
             this,
-            arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS),
+            permissions.toTypedArray(),
             REQUEST_RECEIVE_SMS,
         )
+    }
+
+    private fun requestLowBalanceNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            refreshSmsPermission()
+            return
+        }
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            REQUEST_NOTIFICATIONS,
+        )
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
     }
 
     private fun requestSmsHistoryPermission() {
@@ -591,10 +626,14 @@ class MainActivity : FragmentActivity() {
             this,
             Manifest.permission.READ_SMS,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        hasNotificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
     private companion object {
         const val REQUEST_RECEIVE_SMS = 1101
         const val REQUEST_READ_SMS = 1102
+        const val REQUEST_NOTIFICATIONS = 1103
     }
 }

@@ -24,6 +24,7 @@ private val Bottle = Color(0xFF244C39)
 private val Sage = Color(0xFFB9C9AE)
 private val Clay = Color(0xFFC86243)
 private val Oxide = Color(0xFF9E3F32)
+private val Warning = Color(0xFF8A6500)
 
 val WhfinLightColorScheme = lightColorScheme(
     primary = Bottle,
@@ -141,6 +142,7 @@ fun WhfinTheme(
             sage = scheme.secondary,
             clay = scheme.tertiary,
             oxide = scheme.error,
+            warning = Color(0xFF8A6500),
             rule = scheme.outlineVariant,
             positive = scheme.primary,
             pending = scheme.tertiary,
@@ -153,12 +155,13 @@ fun WhfinTheme(
             sage = Color(0xFF78906F),
             clay = scheme.tertiary,
             oxide = scheme.error,
+            warning = Color(0xFFF0C45C),
             rule = scheme.outlineVariant,
             positive = scheme.primary,
             pending = scheme.tertiary,
         )
     } else {
-        WhfinExtendedColors(Paper, Ink, Bottle, Sage, Clay, Oxide, scheme.outlineVariant, Bottle, Clay)
+        WhfinExtendedColors(Paper, Ink, Bottle, Sage, Clay, Oxide, Warning, scheme.outlineVariant, Bottle, Clay)
     }
     CompositionLocalProvider(
         LocalWhfinColors provides extended,

@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -149,6 +150,9 @@ import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinThemeTokens
+import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
+import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
@@ -196,6 +200,9 @@ fun FeedScreen(
     onOpenHistory: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
     onOpenCredoSync: () -> Unit = {},
+    onOpenAccounts: () -> Unit = {},
+    hasLowBalanceNotificationPermission: Boolean = true,
+    onRequestLowBalanceNotificationPermission: () -> Unit = {},
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
@@ -212,6 +219,7 @@ fun FeedScreen(
     val rejected by viewModel.rejected.collectAsState()
     val integrityIssues by viewModel.integrityIssues.collectAsState()
     val credoReminder by viewModel.credoSyncReminder.collectAsState()
+    val physicalCardBalances by viewModel.physicalCardBalances.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     // A refused change is never silent: the data stayed as it was, and saying why beats leaving the
     // user to discover later that the row they picked is still there.
@@ -457,6 +465,17 @@ fun FeedScreen(
         ) {
         if (mode == FeedMode.HOME && !selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
+            val lowCardBalances = physicalCardBalances.filter {
+                physicalCardBalanceStatus(it.balanceMinor) != PhysicalCardBalanceStatus.Enough
+            }
+            if (lowCardBalances.isNotEmpty()) item(key = "physical-card-balance") {
+                HomePhysicalCardBalance(
+                    balances = lowCardBalances,
+                    notificationsEnabled = hasLowBalanceNotificationPermission,
+                    onOpenAccounts = onOpenAccounts,
+                    onEnableNotifications = onRequestLowBalanceNotificationPermission,
+                )
+            }
             if (showSmsOnboarding) item(key = "sms-onboarding") {
                 SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
             }
@@ -866,6 +885,73 @@ fun FeedScreen(
             onAddPerson = { name, then -> viewModel.addPerson(name, then) },
             onSave = { shares -> viewModel.saveSplit(item, shares); splitFor = null },
         )
+    }
+}
+
+@Composable
+private fun HomePhysicalCardBalance(
+    balances: List<PhysicalCardHomeBalance>,
+    notificationsEnabled: Boolean,
+    onOpenAccounts: () -> Unit,
+    onEnableNotifications: () -> Unit,
+) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            balances.take(2).forEachIndexed { index, balance ->
+                val status = physicalCardBalanceStatus(balance.balanceMinor)
+                val accent = when (status) {
+                    PhysicalCardBalanceStatus.Critical -> MaterialTheme.colorScheme.error
+                    PhysicalCardBalanceStatus.Low -> WhfinThemeTokens.colors.warning
+                    PhysicalCardBalanceStatus.Enough -> MaterialTheme.colorScheme.onSurface
+                }
+                val title = stringResource(
+                    if (status == PhysicalCardBalanceStatus.Critical) {
+                        R.string.home_card_balance_critical
+                    } else {
+                        R.string.home_card_balance_low
+                    },
+                )
+                val masks = balance.cardLast4s.joinToString(" · ") { "••$it" }
+                val identity = stringResource(
+                    R.string.home_card_balance_identity,
+                    balance.accountName,
+                    masks,
+                )
+                val supporting = if (notificationsEnabled) identity else {
+                    "$identity · ${stringResource(R.string.home_card_balance_enable_alerts)}"
+                }
+                Column(
+                    Modifier.fillMaxWidth().clickable(
+                        onClick = if (notificationsEnabled) onOpenAccounts else onEnableNotifications,
+                    ),
+                ) {
+                    WhfinLedgerRow(
+                        title = title,
+                        titleMaxLines = 3,
+                        supportingText = supporting,
+                        supportingMaxLines = 4,
+                        icon = Icons.Outlined.CreditCard,
+                        iconTint = accent,
+                        markerColor = accent,
+                    )
+                    Box(
+                        Modifier.fillMaxWidth().padding(start = 72.dp, end = 16.dp, bottom = 13.dp),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        WhfinAmount(
+                            text = formatMinor(balance.balanceMinor, "GEL"),
+                            symbol = currencySymbol("GEL"),
+                            color = accent,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    if (index != balances.take(2).lastIndex) HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+            }
+        }
     }
 }
 

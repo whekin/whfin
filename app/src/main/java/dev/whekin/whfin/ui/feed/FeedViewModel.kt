@@ -115,6 +115,13 @@ data class UnroutedOperation(
     val day: LocalDate,
 )
 
+data class PhysicalCardHomeBalance(
+    val accountId: Long,
+    val accountName: String,
+    val balanceMinor: Long,
+    val cardLast4s: List<String>,
+)
+
 /** Одна доля разбивки: сколько потрачено на человека и с каким смыслом. */
 data class SplitShare(
     val personId: Long,
@@ -350,6 +357,34 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
             accountLinks.mapNotNull { byId[it.instrumentId]?.last4 }
         }
     }
+
+    /** Physical-card money the Home screen can judge without opening Accounts. */
+    val physicalCardBalances: StateFlow<List<PhysicalCardHomeBalance>> = combine(
+        accounts,
+        db.transactionDao().observeAccountBalances(),
+        db.paymentInstrumentDao().observeActive(),
+        db.paymentInstrumentDao().observeLinks(),
+    ) { accounts, balances, instruments, links ->
+        val balanceByAccount = balances.associate { it.accountId to it.totalMinor }
+        val physicalById = instruments
+            .filter { it.type == PaymentInstrumentType.PHYSICAL_CARD && !it.isArchived }
+            .associateBy { it.id }
+        val cardsByAccount = links.groupBy { it.accountId }.mapValues { (_, accountLinks) ->
+            accountLinks.mapNotNull { physicalById[it.instrumentId]?.last4 }.distinct().sorted()
+        }
+        accounts.filter { it.currency.equals("GEL", ignoreCase = true) }
+            .mapNotNull { account ->
+                cardsByAccount[account.id]?.takeIf(List<String>::isNotEmpty)?.let { cards ->
+                    PhysicalCardHomeBalance(
+                        accountId = account.id,
+                        accountName = account.name,
+                        balanceMinor = balanceByAccount[account.id] ?: 0L,
+                        cardLast4s = cards,
+                    )
+                }
+            }
+            .sortedBy(PhysicalCardHomeBalance::balanceMinor)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val baseItems: StateFlow<List<FeedItem>> = combine(
         db.transactionDao().observeFeed(limit = 500),
