@@ -27,9 +27,10 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] Personal production/dogfood release: R8/minify + lintVital, постоянный RSA-4096 PKCS12 signing key
   хранится вне репозитория в owner-only config, release build fail-fast проверяет конфигурацию и выдаёт
   подписанный `app-release.apk`. Сертификат и процесс обновления описаны в `docs/release-signing.md`.
-  Чистый signed release проверен Welcome → Demo → Home → composer → restart на disposable Pixel. Сборка
-  `e37dbea` установлена upgrade поверх dogfood release на Samsung S25 (SM-S931B): сертификат APK сверен,
-  Room v1→v2 прошла на месте, процесс отрисовал первый frame, SMS/notification permissions сохранены.
+  Чистый signed release проверен Welcome → Demo → Home → composer → restart на disposable Pixel.
+  Dogfood `0.2.1 (3)` установлен upgrade поверх `0.2.0 (2)` на Samsung S25 (SM-S931B): сертификат APK
+  сверен, исходная дата установки и данные сохранены, процесс запущен, SMS/notification permissions
+  остались выданы. Предыдущий upgrade сборки `e37dbea` также доказал Room v1→v2 на месте.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
