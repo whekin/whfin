@@ -41,6 +41,33 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration2To3_addsEmptyCounterpartyRulesAndKeepsLedger() {
+        helper.createDatabase(TEST_DB, 2).apply {
+            execSQL(
+                "INSERT INTO accounts (id, name, type, currency, isArchived, sortOrder) " +
+                    "VALUES (1, 'Everyday', 'BANK', 'GEL', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO transactions (id, accountId, amountMinor, currency, occurredAt, " +
+                    "postedAt, status, source, isTransfer, isVoided, createdAt) " +
+                    "VALUES (1, 1, -1500, 'GEL', 100, 100, 'CONFIRMED', 'STATEMENT', 0, 0, 100)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB, 3, true, MIGRATION_2_3).use { database ->
+            database.query("SELECT COUNT(*) FROM counterparty_rules").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            database.query("SELECT amountMinor FROM transactions WHERE id = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(-1500, cursor.getInt(0))
+            }
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-test"
     }

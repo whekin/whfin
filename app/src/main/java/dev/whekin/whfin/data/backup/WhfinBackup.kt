@@ -109,6 +109,15 @@ internal data class BackupTable(
      * deleted.
      */
     val enumColumns: Map<String, Set<String>> = emptyMap(),
+    /**
+     * Whether a file written before this table existed is still a valid backup.
+     *
+     * A table that only ever holds rules the user taught WHFIN has an honest reading when absent:
+     * nothing had been taught yet. Refusing such a file would retire the user's own safety copies
+     * the moment a feature is added, which is exactly when they matter most. Tables that carry money
+     * are never optional: an absent one there would silently restore an incomplete ledger.
+     */
+    val optionalOnRestore: Boolean = false,
 )
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
@@ -182,6 +191,11 @@ internal object WhfinBackupSchema {
             "people",
             listOf("id", "name", "role", "color", "isArchived"),
             enumColumns = mapOf("role" to setOf("PARTNER", "FAMILY", "FRIEND", "COLLEAGUE", "OTHER")),
+        ),
+        BackupTable(
+            "counterparty_rules",
+            listOf("id", "iban", "displayName", "categoryId", "personId", "createdAt"),
+            optionalOnRestore = true,
         ),
         BackupTable(
             "transactions",
@@ -435,7 +449,11 @@ internal object WhfinBackupCodec {
         }
         endObject()
         val missing = WhfinBackupSchema.byName.keys - result.keys
-        if (missing.isNotEmpty()) throw WhfinBackupException("Backup is missing tables: ${missing.joinToString()}.")
+        val required = missing.filterNot { WhfinBackupSchema.byName.getValue(it).optionalOnRestore }
+        if (required.isNotEmpty()) {
+            throw WhfinBackupException("Backup is missing tables: ${required.joinToString()}.")
+        }
+        missing.forEach { result[it] = emptyList() }
         return result
     }
 

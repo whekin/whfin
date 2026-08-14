@@ -62,6 +62,15 @@ interface StatementParser {
     val conversionNoteMarkers: List<String>
         get() = emptyList()
 
+    /**
+     * The neutral meaning of one of this bank's own operation labels, or null if it is not one.
+     *
+     * [parse] already answers this for a file it is reading. This asks the same question about a row
+     * imported long ago, whose label survived in its note: without it, a rule added today could only
+     * ever describe statements imported tomorrow.
+     */
+    fun operationFor(rawLabel: String): StatementOperation? = null
+
     /** Structural probe over the same bytes [parse] will read. Must not throw. */
     fun canParse(file: StatementFile): Boolean
 
@@ -77,6 +86,13 @@ object StatementParsers {
     val all: List<StatementParser> = listOf(CredoStatementParser)
 
     val conversionNoteMarkers: List<String> = all.flatMap { it.conversionNoteMarkers }.distinct()
+
+    /**
+     * What any supported bank would call this label. Two banks agreeing on a label but not on its
+     * meaning would be a genuine ambiguity, so a contested label answers null rather than guessing.
+     */
+    fun operationFor(rawLabel: String, parsers: List<StatementParser> = all): StatementOperation? =
+        parsers.mapNotNull { it.operationFor(rawLabel) }.distinct().singleOrNull()
 
     fun parse(file: StatementFile, parsers: List<StatementParser> = all): BankStatement {
         val parser = parsers.firstOrNull { runCatching { it.canParse(file) }.getOrDefault(false) }

@@ -51,12 +51,19 @@ class MainJourneyTest {
         }
         val welcome = device.findObject(welcomeAction) ?: return
         welcome.click()
-        val skip = device.wait(
-            Until.findObject(By.text(context.getString(R.string.personal_setup_skip_bank_action))),
-            10_000,
-        )
-        assertNotNull("personal setup should offer an explicit skip", skip)
-        skip.click()
+        // Setup is a wizard, not one screen: the bank step, then an optional step for anything
+        // outside it, then an explicit hand-off. Stopping after the first leaves the journey
+        // stranded on a screen it never asserts about, looking exactly like a missing tab.
+        setupStep(device, context, R.string.personal_setup_skip_bank_action)
+        setupStep(device, context, R.string.personal_setup_skip_optional_action)
+        setupStep(device, context, R.string.personal_setup_continue_action)
+    }
+
+    private fun setupStep(device: UiDevice, context: android.content.Context, action: Int) {
+        val label = context.getString(action)
+        val step = device.wait(Until.findObject(By.text(label)), 10_000)
+        assertNotNull("personal setup should offer \"$label\"", step)
+        step.click()
     }
 
     /**

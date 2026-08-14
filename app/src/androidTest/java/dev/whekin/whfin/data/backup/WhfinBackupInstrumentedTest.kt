@@ -73,7 +73,7 @@ class WhfinBackupInstrumentedTest {
         val summary = WhfinBackupManager(target).restore(ByteArrayInputStream(original))
         val restored = export(target)
 
-        assertEquals(24, summary.rowCount)
+        assertEquals(25, summary.rowCount)
         assertEquals(original.toString(Charsets.UTF_8), restored.toString(Charsets.UTF_8))
     }
 
@@ -142,6 +142,43 @@ class WhfinBackupInstrumentedTest {
         val card = target.paymentInstrumentDao().forAccount(1).single()
         assertEquals("0001", card.last4)
         assertEquals(false, card.isPrimary)
+    }
+
+    /**
+     * A copy taken before recipient rules existed is still a valid copy: nothing had been taught
+     * yet. Refusing it would retire the user's own safety files the moment a feature is added.
+     */
+    @Test
+    fun restore_acceptsABackupTakenBeforeRecipientRulesExisted() = runBlocking {
+        seedEveryTable(source)
+        val exported = export(source).toString(Charsets.UTF_8)
+        val withoutRules = exported.replace(
+            Regex(""",\s*"counterparty_rules": \[[^]]*]"""),
+            "",
+        )
+        assertEquals(false, withoutRules.contains("counterparty_rules"))
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(withoutRules.toByteArray()))
+
+        assertEquals(emptyList<Long>(), target.counterpartyRuleDao().all().map { it.id })
+        assertEquals("Alice", target.personDao().byId(1)?.name)
+    }
+
+    /** A table that carries money is never optional: an absent one would restore a broken ledger. */
+    @Test
+    fun restore_stillRejectsABackupMissingATableThatCarriesMoney() = runBlocking {
+        seedEveryTable(source)
+        val withoutAllocations = export(source).toString(Charsets.UTF_8).replace(
+            Regex(""",\s*"transaction_allocations": \[[^]]*]"""),
+            "",
+        )
+
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking {
+                WhfinBackupManager(target).restore(ByteArrayInputStream(withoutAllocations.toByteArray()))
+            }
+        }
+        Unit
     }
 
     @Test
@@ -350,6 +387,9 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO merchants VALUES (1, 'nikora', 'Nikora', 1)")
             sqlite.execSQL("INSERT INTO merchant_aliases VALUES (1, 1, 'nikora trade')")
             sqlite.execSQL("INSERT INTO people VALUES (1, 'Alice', 'FRIEND', -456, 0)")
+            sqlite.execSQL(
+                "INSERT INTO counterparty_rules VALUES (1, 'GE00WH0000000000000042', 'Alice', 1, 1, 6000)",
+            )
             // Named columns on purpose: a positional insert breaks on every new column.
             sqlite.execSQL(
                 "INSERT INTO transactions (" +

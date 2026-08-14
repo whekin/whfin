@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.importer
 
 import dev.whekin.whfin.data.categorization.MerchantCategorizer
+import dev.whekin.whfin.data.categorization.OperationCategories
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.ReconciliationIssueEntity
@@ -83,6 +84,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun insert(entry: PlannedRow.Insert, account: AccountEntity, currency: String, now: Long) {
         val row = entry.row
         val merchant = merchantFor(row)
+        val category = merchant?.categoryId ?: counterpartyCategory(row) ?: operationCategory(row)
         db.transactionDao().insert(
             TransactionEntity(
                 accountId = account.id,
@@ -93,7 +95,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 merchantId = merchant?.id,
                 rawCounterparty = row.merchantRaw ?: row.beneficiaryName,
                 counterpartyIban = row.beneficiaryAccount,
-                categoryId = merchant?.categoryId,
+                categoryId = category,
                 note = row.description.takeIf { it != row.merchantRaw },
                 status = TxStatus.CONFIRMED,
                 source = TxSource.STATEMENT,
@@ -118,7 +120,12 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 merchantId = merchant?.id,
                 rawCounterparty = row.merchantRaw,
                 counterpartyIban = row.beneficiaryAccount,
-                categoryId = merchant?.categoryId,
+                // The statement is authoritative about the money, not about what the user decided
+                // this row means: a category already on the draft outlives an import that has none.
+                categoryId = merchant?.categoryId
+                    ?: counterpartyCategory(row)
+                    ?: operationCategory(row)
+                    ?: draft.categoryId,
                 note = row.description.takeIf { it != row.merchantRaw },
                 status = TxStatus.CONFIRMED,
                 source = TxSource.STATEMENT,
@@ -179,6 +186,21 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun resolveMerchant(raw: String): MerchantEntity? {
         return MerchantCategorizer.resolve(db, raw)
     }
+
+    /**
+     * The recipient this account was already identified as. Their name changes spelling between
+     * statements; the account they were paid into does not.
+     */
+    private suspend fun counterpartyCategory(row: StatementRow): Long? = row.beneficiaryAccount
+        ?.takeIf { row.operation != StatementOperation.OWN_TRANSFER }
+        ?.let { db.counterpartyRuleDao().byIban(it)?.categoryId }
+
+    /**
+     * What the bank's own classification of the row already says, when no merchant does better.
+     * A fee names its own category; nobody was paid for it.
+     */
+    private suspend fun operationCategory(row: StatementRow): Long? =
+        OperationCategories.categoryFor(row.operation, db.categoryDao().all())?.id
 
     private suspend fun sourceId(account: AccountEntity): Long {
         db.statementSourceDao().forAccount(account.id)?.let { return it.id }

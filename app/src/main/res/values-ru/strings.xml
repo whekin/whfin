@@ -683,6 +683,13 @@
     <string name="category_intelligence_check_action">Проверить правила</string>
     <string name="category_intelligence_complete_title">Проверять нечего</string>
     <string name="category_intelligence_complete_body">У каждого расхода с распознаваемым мерчантом уже есть категория.</string>
+    <string name="category_intelligence_transfers_title">Переводы людям</string>
+    <string name="category_intelligence_transfers_body">Эти деньги ушли на чей-то счёт, а не в магазин. Строки сгруппированы по счёту получателя, поэтому все написания одного имени — одна строка.</string>
+    <string name="category_intelligence_transfer_unnamed">Получатель без имени</string>
+    <string name="category_intelligence_person_label">Кто это</string>
+    <string name="category_intelligence_person_none">Не указывать</string>
+    <string name="category_intelligence_person_create">Добавить «%1$s»</string>
+    <string name="category_intelligence_category_label">Категория</string>
     <string name="category_intelligence_review_title">Нужно разобрать</string>
     <plurals name="category_intelligence_review_body">
         <item quantity="one">Остался %1$d неизвестный мерчант. Выбери категорию один раз — исправится история и запомнится правило.</item>

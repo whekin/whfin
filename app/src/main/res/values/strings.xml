@@ -662,6 +662,13 @@
     <string name="category_intelligence_check_action">Check local rules</string>
     <string name="category_intelligence_complete_title">Nothing needs review</string>
     <string name="category_intelligence_complete_body">Every expense with a recognizable merchant has a category.</string>
+    <string name="category_intelligence_transfers_title">Transfers to people</string>
+    <string name="category_intelligence_transfers_body">These went to somebody\'s account, not to a shop. They are grouped by the recipient\'s account, so every spelling of one name is a single row.</string>
+    <string name="category_intelligence_transfer_unnamed">Unnamed recipient</string>
+    <string name="category_intelligence_person_label">Who is this</string>
+    <string name="category_intelligence_person_none">Not saying</string>
+    <string name="category_intelligence_person_create">Add %1$s</string>
+    <string name="category_intelligence_category_label">Category</string>
     <string name="category_intelligence_review_title">Needs review</string>
     <plurals name="category_intelligence_review_body">
         <item quantity="one">%1$d merchant is still unknown. Choose once to fix its uncategorized history and remember the choice.</item>

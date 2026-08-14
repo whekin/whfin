@@ -198,11 +198,11 @@ WALLET_USDT_EVM = f.account(10, "USDT", "CRYPTO", EVM_WALLET, "USDT", address=2,
 
 # Cards carry no balance of their own: they point at the thin everyday ledgers.
 f.instruments.append({"id": 1, "groupId": CREDO, "type": "PHYSICAL_CARD", "last4": "0001",
-                      "label": "Everyday card", "isArchived": 0})
+                      "label": "Everyday card", "isPrimary": 1, "isArchived": 0})
 f.instruments.append({"id": 2, "groupId": CREDO, "type": "VIRTUAL_CARD", "last4": "0002",
-                      "label": "Online card", "isArchived": 0})
+                      "label": "Online card", "isPrimary": 0, "isArchived": 0})
 f.instruments.append({"id": 3, "groupId": ATLAS, "type": "PHYSICAL_CARD", "last4": "0003",
-                      "label": "Atlas card", "isArchived": 0})
+                      "label": "Atlas card", "isPrimary": 0, "isArchived": 0})
 for instrument, account in ((1, EVERYDAY_GEL), (1, EVERYDAY_USD), (2, EVERYDAY_GEL),
                             (2, EVERYDAY_USD), (3, ATLAS_GEL), (3, TRAVEL_EUR)):
     f.links.append({"instrumentId": instrument, "accountId": account})
@@ -424,19 +424,24 @@ f.debt_cases.append({"id": 3, "personId": 2, "direction": "THEY_OWE_ME", "origin
                      "closedAt": at(LAST - 3, 2), "note": "Repaired laptop"})
 f.debt_events.append({"id": 1, "debtCaseId": 1, "kind": "OPENED", "actualAmountMinor": None,
                       "actualCurrency": None, "accountId": None, "transactionId": None,
-                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 2, 9), "note": None})
+                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 2, 9), "note": None,
+                      "isVoided": 0, "correctionOfEventId": None})
 f.debt_events.append({"id": 2, "debtCaseId": 1, "kind": "SETTLEMENT", "actualAmountMinor": 12_000,
                       "actualCurrency": GEL, "accountId": CASH_GEL, "transactionId": None,
-                      "debtValueMinor": 12_000, "closesCase": 0, "occurredAt": at(LAST - 1, 3), "note": None})
+                      "debtValueMinor": 12_000, "closesCase": 0, "occurredAt": at(LAST - 1, 3), "note": None,
+                      "isVoided": 0, "correctionOfEventId": None})
 f.debt_events.append({"id": 3, "debtCaseId": 2, "kind": "OPENED", "actualAmountMinor": None,
                       "actualCurrency": None, "accountId": None, "transactionId": None,
-                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 1, 6), "note": None})
+                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 1, 6), "note": None,
+                      "isVoided": 0, "correctionOfEventId": None})
 f.debt_events.append({"id": 4, "debtCaseId": 3, "kind": "OPENED", "actualAmountMinor": None,
                       "actualCurrency": None, "accountId": None, "transactionId": None,
-                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 4, 15), "note": None})
+                      "debtValueMinor": 0, "closesCase": 0, "occurredAt": at(LAST - 4, 15), "note": None,
+                      "isVoided": 0, "correctionOfEventId": None})
 f.debt_events.append({"id": 5, "debtCaseId": 3, "kind": "SETTLEMENT", "actualAmountMinor": 25_000,
                       "actualCurrency": GEL, "accountId": EVERYDAY_GEL, "transactionId": None,
-                      "debtValueMinor": 25_000, "closesCase": 1, "occurredAt": at(LAST - 3, 2), "note": None})
+                      "debtValueMinor": 25_000, "closesCase": 1, "occurredAt": at(LAST - 3, 2), "note": None,
+                      "isVoided": 0, "correctionOfEventId": None})
 
 # --- statement history ---------------------------------------------------
 
@@ -489,6 +494,10 @@ tables = {
     "merchants": f.merchants,
     "merchant_aliases": f.aliases,
     "people": f.people,
+    # The demo teaches nothing: every category in it was decided when the row was written, so
+    # there is no recipient rule to carry. The table is still declared, because a fixture that
+    # omitted it would only ever exercise the compatibility path for older files.
+    "counterparty_rules": [],
     "transactions": sorted(f.transactions, key=lambda row: row["id"]),
     "transaction_allocations": f.allocations,
     "debt_cases": f.debt_cases,

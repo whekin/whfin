@@ -64,6 +64,9 @@ object CredoStatementParser : StatementParser {
     /** Excel serial date -> LocalDate (эпоха 1899-12-30, как в openpyxl). */
     private val excelEpoch = LocalDate.of(1899, 12, 30)
 
+    override fun operationFor(rawLabel: String): StatementOperation? =
+        normalizedOperationMap[normalizedLabel(rawLabel)]
+
     override fun canParse(file: StatementFile): Boolean = runCatching {
         val sheets = file.open().use { XlsxSheetReader().read(it) }.sheets
         sheets.keys.any { normalizedLabel(it) in detailsSheetNames } &&

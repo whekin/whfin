@@ -24,7 +24,7 @@ class StatementParsersTest {
         rows = emptyList(),
     )
 
-    private inner class FakeParser(
+    private open inner class FakeParser(
         provider: String,
         private val accepts: Boolean,
         override val conversionNoteMarkers: List<String> = emptyList(),
@@ -91,6 +91,33 @@ class StatementParsersTest {
 
         assertTrue(markers.containsAll(CredoStatementParser.conversionNoteMarkers))
         assertEquals(markers.distinct(), markers)
+    }
+
+    @Test
+    fun `a label read back from an old row keeps the meaning its adapter gave it`() {
+        assertEquals(
+            StatementOperation.FEE,
+            StatementParsers.operationFor("გადარიცხვის საკომისიო"),
+        )
+    }
+
+    @Test
+    fun `a label no adapter claims stays unknown rather than guessed`() {
+        assertEquals(null, StatementParsers.operationFor("გადახდა - EXAMPLE SHOP 7.14 GEL 09.07.2025"))
+        assertEquals(null, StatementParsers.operationFor(""))
+    }
+
+    @Test
+    fun `two banks disagreeing about one label answer nothing`() {
+        val fee = object : FakeParser("A", accepts = false) {
+            override fun operationFor(rawLabel: String) = StatementOperation.FEE
+        }
+        val interest = object : FakeParser("B", accepts = false) {
+            override fun operationFor(rawLabel: String) = StatementOperation.INTEREST
+        }
+
+        assertEquals(null, StatementParsers.operationFor("contested", listOf(fee, interest)))
+        assertEquals(StatementOperation.FEE, StatementParsers.operationFor("agreed", listOf(fee, fee)))
     }
 
     @Test

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -34,7 +35,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -45,8 +49,11 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.data.db.PersonEntity
+import dev.whekin.whfin.data.db.UncategorizedCounterparty
 import dev.whekin.whfin.data.db.UncategorizedMerchant
 import dev.whekin.whfin.ui.components.CategoryGrid
+import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
@@ -56,6 +63,7 @@ fun CategoryIntelligenceRoute(viewModel: CategoryIntelligenceViewModel = viewMod
         state = state,
         onCheckLocalRules = viewModel::checkLocalRules,
         onAssignCategory = viewModel::assignCategory,
+        onAssignCounterparty = viewModel::assignCounterparty,
     )
 }
 
@@ -64,9 +72,11 @@ fun CategoryIntelligenceScreen(
     state: CategoryIntelligenceState?,
     onCheckLocalRules: () -> Unit,
     onAssignCategory: (Long, Long) -> Unit,
+    onAssignCounterparty: (String, String, Long, Long?, String?) -> Unit = { _, _, _, _, _ -> },
 ) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<UncategorizedMerchant?>(null) }
+    var selectedCounterparty by remember { mutableStateOf<UncategorizedCounterparty?>(null) }
 
     if (state == null) {
         WhfinStatePane(
@@ -112,8 +122,39 @@ fun CategoryIntelligenceScreen(
                 onAction = onCheckLocalRules,
             )
         }
-        if (state.unresolved.isEmpty()) {
+        if (state.counterparties.isNotEmpty()) {
+            item { WhfinSectionLabel(stringResource(R.string.category_intelligence_transfers_title)) }
             item {
+                Text(
+                    stringResource(R.string.category_intelligence_transfers_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(state.counterparties, key = { it.iban + it.currency }) { counterparty ->
+                WhfinLedgerRow(
+                    title = counterparty.displayName
+                        ?: stringResource(R.string.category_intelligence_transfer_unnamed),
+                    supportingText = pluralStringResource(
+                        R.plurals.category_intelligence_transactions,
+                        counterparty.transactionCount,
+                        counterparty.transactionCount,
+                    ),
+                    icon = Icons.Default.SwapHoriz,
+                    trailing = {
+                        Text(
+                            formatMinor(counterparty.totalMinor, counterparty.currency),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { selectedCounterparty = counterparty },
+                    divider = counterparty != state.counterparties.last(),
+                )
+            }
+        }
+        if (state.unresolved.isEmpty()) {
+            if (state.counterparties.isEmpty()) item {
                 WhfinStatePane(
                     state = WhfinPaneState.Empty,
                     title = stringResource(R.string.category_intelligence_complete_title),
@@ -178,6 +219,22 @@ fun CategoryIntelligenceScreen(
                 kind = WhfinNoticeKind.Unavailable,
             )
         }
+    }
+
+    selectedCounterparty?.let { counterparty ->
+        val name = counterparty.displayName
+            ?: stringResource(R.string.category_intelligence_transfer_unnamed)
+        CounterpartyCategorySheet(
+            counterparty = counterparty,
+            name = name,
+            people = state.people,
+            categories = state.categories,
+            onDismiss = { selectedCounterparty = null },
+            onSelect = { category, personId, personName ->
+                onAssignCounterparty(counterparty.iban, name, category.id, personId, personName)
+                selectedCounterparty = null
+            },
+        )
     }
 
     selected?.let { merchant ->
@@ -264,13 +321,107 @@ private fun MerchantCategorySheet(
     }
 }
 
+/**
+ * One recipient account, answered once.
+ *
+ * Naming the person is offered before the category because it is the question the row actually
+ * raises — the bank prints a different spelling of them every month — but it stays optional: a
+ * transfer can be filed without ever deciding who the recipient is.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CounterpartyCategorySheet(
+    counterparty: UncategorizedCounterparty,
+    name: String,
+    people: List<PersonEntity>,
+    categories: List<CategoryEntity>,
+    onDismiss: () -> Unit,
+    onSelect: (CategoryEntity, Long?, String?) -> Unit,
+) {
+    var personId by remember { mutableStateOf<Long?>(null) }
+    var createPerson by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            Modifier.padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(name, style = MaterialTheme.typography.titleLarge)
+            Text(
+                pluralStringResource(
+                    R.plurals.category_intelligence_apply_body,
+                    counterparty.transactionCount,
+                    counterparty.transactionCount,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            WhfinFieldLabel(stringResource(R.string.category_intelligence_person_label))
+            val noneLabel = stringResource(R.string.category_intelligence_person_none)
+            val createLabel = stringResource(R.string.category_intelligence_person_create, name)
+            val alreadyKnown = people.any { it.name.equals(name, ignoreCase = true) }
+            WhfinChoiceRail {
+                item {
+                    WhfinFilterPill(
+                        label = noneLabel,
+                        selected = personId == null && !createPerson,
+                        onClick = {
+                            personId = null
+                            createPerson = false
+                        },
+                    )
+                }
+                if (!alreadyKnown) item {
+                    WhfinFilterPill(
+                        label = createLabel,
+                        selected = createPerson,
+                        onClick = {
+                            createPerson = true
+                            personId = null
+                        },
+                    )
+                }
+                items(people, key = { it.id }) { person ->
+                    WhfinFilterPill(
+                        label = person.name,
+                        selected = personId == person.id,
+                        onClick = {
+                            personId = person.id
+                            createPerson = false
+                        },
+                    )
+                }
+            }
+            WhfinFieldLabel(stringResource(R.string.category_intelligence_category_label))
+            CategoryGrid(
+                categories = categories,
+                selectedId = null,
+                onSelect = { category ->
+                    onSelect(category, personId, name.takeIf { createPerson })
+                },
+                maxHeight = 360.dp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
 private val previewState = CategoryIntelligenceState(
-    coverage = CategoryCoverage(3233, 2074, 11),
+    coverage = CategoryCoverage(400, 250, 4),
     unresolved = listOf(
-        UncategorizedMerchant(1, "MERCURY LTD", 61, 0),
-        UncategorizedMerchant(2, "ADIGENI TSALKA", 29, 0),
-        UncategorizedMerchant(3, "GEO RIDERS", 20, 0),
+        UncategorizedMerchant(1, "EXAMPLE TRADE LTD", 18, 0),
+        UncategorizedMerchant(2, "SAMPLE STATION", 9, 0),
+        UncategorizedMerchant(3, "DEMO RIDERS", 5, 0),
     ),
+    counterparties = listOf(
+        UncategorizedCounterparty("GE00XX0000000000000001", "Example Person", 12, -84000, "GEL", 0),
+        UncategorizedCounterparty("GE00XX0000000000000002", "Sample Recipient", 4, -21000, "GEL", 0),
+    ),
+    people = emptyList(),
     categories = listOf(
         CategoryEntity(1, "Transport", kind = CategoryKind.EXPENSE, icon = "DirectionsBus", color = 0xff5d7f91.toInt()),
         CategoryEntity(2, "Bike", kind = CategoryKind.EXPENSE, icon = "PedalBike", color = 0xff78906f.toInt()),

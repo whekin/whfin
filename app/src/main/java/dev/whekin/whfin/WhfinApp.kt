@@ -3,8 +3,9 @@ package dev.whekin.whfin
 import android.app.Application
 import dev.whekin.whfin.data.db.CategorySeeder
 import dev.whekin.whfin.data.db.WhfinDatabase
-import dev.whekin.whfin.data.categorization.GeorgiaMerchantPreset
+import dev.whekin.whfin.data.categorization.CategoryMaintenance
 import dev.whekin.whfin.data.importer.StatementImporter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,6 +47,24 @@ class WhfinApp : Application() {
      * not on every screen. Screens read the answer; they never sit on the ledger recomputing it.
      */
     val integrityIssues: StateFlow<Int> = _integrityIssues.asStateFlow()
+
+    /**
+     * One piece of startup maintenance, insulated from the others.
+     *
+     * These steps share a coroutine but nothing else. Run as one body, a single failure — a repair
+     * pass tripping over one contradictory row — silently cancels everything after it, so category
+     * seeding and rule backfill would stop running for as long as that row existed, with the app
+     * looking entirely healthy.
+     */
+    private suspend fun startupStep(name: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            Log.e("WHFIN", "Startup step '$name' failed", failure)
+        }
+    }
 
     suspend fun refreshIntegrity() {
         val report = DataIntegrityChecker(userDb).run()
@@ -89,29 +108,33 @@ class WhfinApp : Application() {
             runtimeModes.demoMode = false
         }
         appScope.launch {
-            StatementImporter(userDb).repairTransferGroups()
-            CategorySeeder.seedIfEmpty(
-                userDb,
-                isRussian = Locale.getDefault().language == "ru",
-            )
-            CategorySeeder.applyRenames(userDb)
-            CategorySeeder.ensureCurrentPresets(userDb, Locale.getDefault().language == "ru")
-            val activeAccounts = userDb.accountDao().allActive()
-            if (activeAccounts.none { it.type == AccountType.CASH }) {
-                userDb.accountDao().insert(
-                    AccountEntity(
-                        name = if (Locale.getDefault().language == "ru") "Наличные" else "Cash",
-                        type = AccountType.CASH,
-                        currency = "GEL",
-                        sortOrder = 1000,
-                    ),
-                )
+            val isRussian = Locale.getDefault().language == "ru"
+            startupStep("repairTransferGroups") {
+                StatementImporter(userDb).repairTransferGroups()
             }
-            // Исправляет порядок Cash, созданного ранней dev-версией сидера.
-            activeAccounts.filter { it.type == AccountType.CASH && it.sortOrder == -100 }
-                .forEach { userDb.accountDao().update(it.copy(sortOrder = 1000)) }
-            GeorgiaMerchantPreset.applyToUncategorized(userDb)
-            refreshIntegrity()
+            startupStep("seedCategories") {
+                CategorySeeder.seedIfEmpty(userDb, isRussian = isRussian)
+                CategorySeeder.applyRenames(userDb)
+                CategorySeeder.ensureCurrentPresets(userDb, isRussian)
+            }
+            startupStep("seedCash") {
+                val activeAccounts = userDb.accountDao().allActive()
+                if (activeAccounts.none { it.type == AccountType.CASH }) {
+                    userDb.accountDao().insert(
+                        AccountEntity(
+                            name = if (isRussian) "Наличные" else "Cash",
+                            type = AccountType.CASH,
+                            currency = "GEL",
+                            sortOrder = 1000,
+                        ),
+                    )
+                }
+                // Исправляет порядок Cash, созданного ранней dev-версией сидера.
+                activeAccounts.filter { it.type == AccountType.CASH && it.sortOrder == -100 }
+                    .forEach { userDb.accountDao().update(it.copy(sortOrder = 1000)) }
+            }
+            startupStep("categoryMaintenance") { CategoryMaintenance.run(userDb) }
+            startupStep("refreshIntegrity") { refreshIntegrity() }
         }
         physicalCardBalanceMonitor.start()
     }

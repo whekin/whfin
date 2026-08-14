@@ -7,12 +7,43 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-const val WHFIN_DATABASE_VERSION = 2
+const val WHFIN_DATABASE_VERSION = 3
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
             "ALTER TABLE `payment_instruments` ADD COLUMN `isPrimary` INTEGER NOT NULL DEFAULT 0",
+        )
+    }
+}
+
+/** Adds the transfer-recipient memory. Existing rows are untouched: the table starts empty. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `counterparty_rules` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`iban` TEXT NOT NULL, " +
+                "`displayName` TEXT NOT NULL, " +
+                "`categoryId` INTEGER, " +
+                "`personId` INTEGER, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE SET NULL, " +
+                "FOREIGN KEY(`personId`) REFERENCES `people`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE SET NULL)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_counterparty_rules_iban` " +
+                "ON `counterparty_rules` (`iban`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counterparty_rules_categoryId` " +
+                "ON `counterparty_rules` (`categoryId`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counterparty_rules_personId` " +
+                "ON `counterparty_rules` (`personId`)",
         )
     }
 }
@@ -41,6 +72,7 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         CryptoBalanceEntity::class,
         ExchangeRateEntity::class,
         ExchangeRateHistoryEntity::class,
+        CounterpartyRuleEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
     exportSchema = true,
@@ -61,6 +93,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun statementSourceDao(): StatementSourceDao
     abstract fun smsDiagnosticDao(): SmsDiagnosticDao
     abstract fun exchangeRateDao(): ExchangeRateDao
+    abstract fun counterpartyRuleDao(): CounterpartyRuleDao
 
     companion object {
         const val NAME = "whfin.db"
@@ -77,6 +110,6 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }

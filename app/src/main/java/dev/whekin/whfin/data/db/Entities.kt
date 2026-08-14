@@ -168,6 +168,46 @@ data class MerchantEntity(
     val categoryId: Long? = null,
 )
 
+/**
+ * Кому уходит перевод, узнанный по счёту получателя, а не по написанию его имени.
+ *
+ * Банк печатает одного и того же человека каждый раз иначе — транслитерацией, инициалом, порядком
+ * имени и фамилии. Имя поэтому не может быть ключом памяти: один получатель распадался бы на
+ * несколько «мерчантов», каждый со своей категорией. Счёт получателя стабилен, и именно он связывает
+ * все написания в одну запись.
+ *
+ * [personId] — необязательное имя этого счёта в терминах пользователя. Связь только называет
+ * получателя: доли и долги остаются явным действием, перевод не становится ими сам по себе.
+ */
+@Entity(
+    tableName = "counterparty_rules",
+    foreignKeys = [
+        ForeignKey(
+            entity = CategoryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["categoryId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["personId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [Index(value = ["iban"], unique = true), Index("categoryId"), Index("personId")],
+)
+data class CounterpartyRuleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Счёт получателя как его напечатал банк; единственный стабильный ключ этой памяти. */
+    val iban: String,
+    /** Последнее написание имени — только чтобы строку было по чему узнать. */
+    val displayName: String,
+    val categoryId: Long? = null,
+    val personId: Long? = null,
+    val createdAt: Long,
+)
+
 /** Алиас написания мерчанта (nikora trade jsc -> NIKORA). Pattern хранится нормализованным. */
 @Entity(
     tableName = "merchant_aliases",

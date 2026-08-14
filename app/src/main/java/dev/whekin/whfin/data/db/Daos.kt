@@ -503,6 +503,21 @@ interface TransactionDao {
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE merchantId = :merchantId AND categoryId IS NULL AND isVoided = 0")
     suspend fun categorizeUnassignedForMerchant(merchantId: Long, categoryId: Long)
 
+    /**
+     * Rows whose bank operation label is still readable in their note.
+     *
+     * A row imported before a rule existed keeps no trace of what the bank called it except this
+     * note, so this is the only way an operation-kind rule can reach the history it was written for.
+     */
+    @Query(
+        "SELECT id, note FROM transactions WHERE categoryId IS NULL AND isVoided = 0 " +
+            "AND isTransfer = 0 AND source = 'STATEMENT' AND note IS NOT NULL AND note != ''"
+    )
+    suspend fun uncategorizedStatementNotes(): List<StatementNoteRow>
+
+    @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id AND categoryId IS NULL AND isVoided = 0")
+    suspend fun categorizeIfUnassigned(id: Long, categoryId: Long)
+
     @Query(
         "SELECT COUNT(*) AS totalExpenses, " +
             "COALESCE(SUM(CASE WHEN categoryId IS NOT NULL THEN 1 ELSE 0 END), 0) AS categorizedExpenses, " +
@@ -518,9 +533,39 @@ interface TransactionDao {
             "JOIN merchants m ON m.id = t.merchantId " +
             "WHERE t.amountMinor < 0 AND t.categoryId IS NULL AND t.isTransfer = 0 AND t.isVoided = 0 " +
             "AND t.source != 'ADJUSTMENT' " +
+            // A row that names the recipient's account is answered by recipient, not by the spelling
+            // of their name; listing it here too would ask the same question twice.
+            "AND (t.counterpartyIban IS NULL OR t.counterpartyIban = '') " +
             "GROUP BY m.id, m.displayName ORDER BY transactionCount DESC, latestAt DESC, m.displayName COLLATE NOCASE"
     )
     fun observeUncategorizedMerchants(): Flow<List<UncategorizedMerchant>>
+
+    /**
+     * Uncategorized outgoing transfers, one row per recipient account rather than per spelling of
+     * their name. The most recent spelling represents the group, because that is the one the user
+     * has just seen in the feed.
+     */
+    @Query(
+        "SELECT t.counterpartyIban AS iban, COUNT(*) AS transactionCount, " +
+            "SUM(t.amountMinor) AS totalMinor, MAX(t.occurredAt) AS latestAt, " +
+            "t.currency AS currency, " +
+            "(SELECT r.rawCounterparty FROM transactions r " +
+            "WHERE r.counterpartyIban = t.counterpartyIban AND r.rawCounterparty IS NOT NULL " +
+            "ORDER BY r.occurredAt DESC LIMIT 1) AS displayName " +
+            "FROM transactions t " +
+            "WHERE t.counterpartyIban IS NOT NULL AND t.counterpartyIban != '' " +
+            "AND t.categoryId IS NULL AND t.amountMinor < 0 AND t.isTransfer = 0 " +
+            "AND t.isVoided = 0 AND t.source != 'ADJUSTMENT' " +
+            "GROUP BY t.counterpartyIban, t.currency " +
+            "ORDER BY transactionCount DESC, latestAt DESC"
+    )
+    fun observeUncategorizedCounterparties(): Flow<List<UncategorizedCounterparty>>
+
+    @Query(
+        "UPDATE transactions SET categoryId = :categoryId " +
+            "WHERE counterpartyIban = :iban AND categoryId IS NULL AND isVoided = 0"
+    )
+    suspend fun categorizeUnassignedForCounterparty(iban: String, categoryId: Long)
 
     @Query(
         "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId AND isVoided = 0"
@@ -581,6 +626,20 @@ data class CategoryTotal(
     val txCount: Int,
 )
 
+data class UncategorizedCounterparty(
+    val iban: String,
+    val displayName: String?,
+    val transactionCount: Int,
+    val totalMinor: Long,
+    val currency: String,
+    val latestAt: Long,
+)
+
+data class StatementNoteRow(
+    val id: Long,
+    val note: String,
+)
+
 data class CategoryCoverage(
     val totalExpenses: Int,
     val categorizedExpenses: Int,
@@ -593,6 +652,24 @@ data class UncategorizedMerchant(
     val transactionCount: Int,
     val latestAt: Long,
 )
+
+@Dao
+interface CounterpartyRuleDao {
+    @Query("SELECT * FROM counterparty_rules ORDER BY displayName COLLATE NOCASE")
+    fun observeAll(): Flow<List<CounterpartyRuleEntity>>
+
+    @Query("SELECT * FROM counterparty_rules")
+    suspend fun all(): List<CounterpartyRuleEntity>
+
+    @Query("SELECT * FROM counterparty_rules WHERE iban = :iban")
+    suspend fun byIban(iban: String): CounterpartyRuleEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(rule: CounterpartyRuleEntity): Long
+
+    @Query("DELETE FROM counterparty_rules WHERE iban = :iban")
+    suspend fun deleteByIban(iban: String)
+}
 
 @Dao
 interface PersonDao {
