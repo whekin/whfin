@@ -315,11 +315,11 @@
     <string name="sms_history_scanning">Проверяем сообщения…</string>
     <string name="sms_history_importing">Импортируем распознанные операции…</string>
     <string name="sms_history_preview_title">Готово к импорту</string>
-    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · требуют внимания %4$d · безопасно пропущено %5$d</string>
+    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · нужно действие: %4$d · безопасно пропущено %5$d · ждут выписку: %6$d</string>
     <string name="sms_history_import">Импортировать распознанные</string>
     <string name="sms_history_cancel">Отмена</string>
     <string name="sms_history_complete_title">Недавние сообщения проверены</string>
-    <string name="sms_history_complete_body">Импортировано операций: %1$d · требуют внимания: %2$d</string>
+    <string name="sms_history_complete_body">Импортировано операций: %1$d · нужно действие: %2$d · ждут выписку: %3$d</string>
     <string name="sms_history_error_title">Не удалось проверить сообщения</string>
     <string name="sms_history_error_body">Ничего не изменено. Проверьте доступ к SMS и повторите.</string>
     <string name="sms_history_empty_preview">За последние 90 дней сообщения Credo не найдены.</string>
@@ -328,8 +328,9 @@
     <string name="sms_history_compact_body">Сначала предпросмотр · последние 90 дней · сообщения остаются на устройстве</string>
     <string name="sms_history_permission_compact_body">Отдельный доступ Android · предпросмотр перед импортом</string>
     <string name="sms_diagnostics_attention">НУЖНО ДЕЙСТВИЕ</string>
+    <string name="sms_diagnostics_waiting_statement">ЖДУТ ВЫПИСКУ</string>
     <string name="sms_diagnostics_recent">НЕДАВНЯЯ АКТИВНОСТЬ</string>
-    <string name="sms_reason_statement_covers">Выписка за этот день уже загружена, и подходящей строки в ней нет.</string>
+    <string name="sms_reason_statement_covers">В последней выписке операции пока нет. Следующая синхронизация проверит её снова.</string>
     <string name="sms_covered_warning_title">Выписка за этот день уже загружена</string>
     <string name="sms_covered_warning_body">Привязка создаст новую операцию. Если банк записал те же деньги под другим названием, они окажутся в базе дважды.</string>
     <plurals name="sms_ignored_collapsed">
@@ -350,6 +351,7 @@
     <string name="sms_outcome_ignored">Безопасно пропущено</string>
     <string name="sms_outcome_unrecognized">Формат сообщения не распознан</string>
     <string name="sms_outcome_mapping">Выберите счёт</string>
+    <string name="sms_outcome_waiting_for_statement">Ожидает выписку банка</string>
     <string name="sms_outcome_error">Ошибка импорта</string>
     <string name="sms_kind_card">Оплата картой</string>
     <string name="sms_kind_outgoing">Исходящий перевод</string>

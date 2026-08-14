@@ -9,7 +9,11 @@ import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.WhfinDatabase
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -78,6 +82,41 @@ class SmsCancellationImporterTest {
         val repeated = importer.import(CANCELLATION, RECEIVED_AT + 2_000)
         assertEquals(SmsDiagnosticOutcome.CANCELED, repeated.outcome)
         assertEquals(1, db.transactionDao().allForIntegrity().size)
+    }
+
+    @Test
+    fun `cancellation retires a payment held outside the ledger by statement coverage`() = runBlocking {
+        val account = db.accountDao().bankAccountsByCurrency("GEL").single()
+        db.statementImportDao().insert(
+            StatementImportEntity(
+                accountId = account.id,
+                sourceId = null,
+                fileName = "statement.xlsx",
+                origin = StatementImportOrigin.CREDO_SYNC,
+                periodFrom = LocalDate.of(2026, 4, 1).toEpochDay(),
+                periodTo = LocalDate.of(2026, 4, 30).toEpochDay(),
+                openingBalanceMinor = 0,
+                closingBalanceMinor = 0,
+                totalRows = 0,
+                inserted = 0,
+                duplicates = 0,
+                reconciled = 0,
+                reviewCount = 0,
+                importedAt = 0,
+            ),
+        )
+        val held = importer.import(PAYMENT, RECEIVED_AT)
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, held.outcome)
+        assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, held.reason)
+
+        val canceled = importer.import(CANCELLATION, RECEIVED_AT + 1_000)
+
+        assertEquals(SmsDiagnosticOutcome.CANCELED, canceled.outcome)
+        assertEquals(null, canceled.transactionId)
+        assertEquals(0, db.transactionDao().allForIntegrity().size)
+
+        val olderPaymentVisitedLaterByDescendingInboxScan = importer.import(PAYMENT, RECEIVED_AT)
+        assertEquals(SmsDiagnosticOutcome.CANCELED, olderPaymentVisitedLaterByDescendingInboxScan.outcome)
     }
 
     private companion object {

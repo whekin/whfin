@@ -42,6 +42,51 @@ class SmsDiagnosticsScreenTest {
     val compose = createComposeRule()
 
     @Test
+    fun statementCoveredPayment_doesNotClaimThatItsLinkedAccountIsMissing() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(
+            id = 6,
+            externalKey = "sms|statement-covered",
+            kind = SmsDiagnosticKind.CARD_PAYMENT,
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+            receivedAt = 1_000,
+            amountMinor = -3_582,
+            currency = "GEL",
+            cardLast4 = "0001",
+            counterparty = "Example market",
+            updatedAt = 1_000,
+        )
+        compose.setContent {
+            WhfinTheme {
+                SmsDiagnosticsScreen(
+                    loadState = SmsDiagnosticsLoadState.Content(
+                        SmsDiagnosticsData(diagnostics = listOf(diagnostic)),
+                    ),
+                    scanState = SmsScanState.Idle,
+                    messageState = SmsMessageState.Hidden,
+                    smsImportEnabled = true,
+                    hasReceivePermission = true,
+                    hasHistoryPermission = true,
+                    canRequestHistoryPermission = true,
+                    onScanHistory = {},
+                    onConfirmHistoryImport = {},
+                    onCancelHistoryImport = {},
+                    onResolve = { _, _, _ -> },
+                    onAddCardMapping = { _, _, _ -> },
+                    onViewMessage = {},
+                    onDismissMessage = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_outcome_waiting_for_statement))
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.sms_outcome_mapping)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.sms_diagnostics_empty_title)).assertDoesNotExist()
+    }
+
+    @Test
     fun historyPermission_isExplicitAndDoesNotImportBeforePreview() {
         var requested = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

@@ -13,7 +13,9 @@ import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.PaymentInstrumentEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.sms.HistoricalSms
+import dev.whekin.whfin.data.sms.SmsImportResult
 import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import java.time.Duration
@@ -86,6 +88,7 @@ data class SmsScanSummary(
     val duplicates: Int,
     val needsAttention: Int,
     val ignored: Int,
+    val waitingForStatement: Int = 0,
 )
 
 sealed interface SmsScanState {
@@ -93,7 +96,11 @@ sealed interface SmsScanState {
     data object Scanning : SmsScanState
     data class Preview(val summary: SmsScanSummary) : SmsScanState
     data object Importing : SmsScanState
-    data class Complete(val imported: Int, val needsAttention: Int) : SmsScanState
+    data class Complete(
+        val imported: Int,
+        val needsAttention: Int,
+        val waitingForStatement: Int = 0,
+    ) : SmsScanState
     data object Error : SmsScanState
 }
 
@@ -168,22 +175,27 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val since = Instant.now().minus(Duration.ofDays(90)).toEpochMilli()
                 val messages = historyReader.credoCandidates(since)
-                val outcomes = messages.map { importer.preview(it.body, it.receivedAt).outcome }
+                val results = messages.map { importer.preview(it.body, it.receivedAt) }
                 pendingHistory = messages
                 SmsScanSummary(
                     total = messages.size,
-                    importable = outcomes.count { it == SmsDiagnosticOutcome.IMPORTED },
-                    duplicates = outcomes.count {
-                        it == SmsDiagnosticOutcome.DUPLICATE ||
-                            it == SmsDiagnosticOutcome.ATTACHED
+                    importable = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
+                    duplicates = results.count {
+                        it.outcome == SmsDiagnosticOutcome.DUPLICATE ||
+                            it.outcome == SmsDiagnosticOutcome.ATTACHED ||
+                            it.outcome == SmsDiagnosticOutcome.CANCELED
                     },
-                    needsAttention = outcomes.count {
-                        it == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
-                            it == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
-                            it == SmsDiagnosticOutcome.UNRECOGNIZED ||
-                            it == SmsDiagnosticOutcome.ERROR
+                    needsAttention = results.count {
+                        it.reason != SmsDiagnosticReason.STATEMENT_COVERS_PERIOD &&
+                            (it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
+                                it.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
+                                it.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
+                                it.outcome == SmsDiagnosticOutcome.ERROR)
                     },
-                    ignored = outcomes.count { it == SmsDiagnosticOutcome.IGNORED },
+                    ignored = results.count { it.outcome == SmsDiagnosticOutcome.IGNORED },
+                    waitingForStatement = results.count {
+                        it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
+                    },
                 )
             }.fold(
                 onSuccess = { _scanState.value = SmsScanState.Preview(it) },
@@ -201,19 +213,19 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             _scanState.value = SmsScanState.Importing
             runCatching {
-                val results = messages.map { importer.import(it.body, it.receivedAt) }
+                val results = messages.sortedBy(HistoricalSms::receivedAt).map {
+                    importer.import(it.body, it.receivedAt)
+                }
                 // A card learned from the last message of a batch also places the first: the whole
                 // batch is re-read against the statements once it has landed.
-                val resolved = importer.attachUnroutedToStatements()
-                val needsAttention = results.count {
-                    it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
-                        it.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
-                        it.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
-                        it.outcome == SmsDiagnosticOutcome.ERROR
-                }
+                importer.attachUnroutedToStatements()
+                val finalDiagnostics = results.mapNotNull(SmsImportResult::diagnosticId)
+                    .distinct()
+                    .mapNotNull { db.smsDiagnosticDao().byId(it) }
                 SmsScanState.Complete(
-                    imported = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
-                    needsAttention = (needsAttention - resolved).coerceAtLeast(0),
+                    imported = finalDiagnostics.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
+                    needsAttention = finalDiagnostics.count(SmsDiagnosticEntity::needsUserAction),
+                    waitingForStatement = finalDiagnostics.count(SmsDiagnosticEntity::awaitsStatement),
                 )
             }.fold(
                 onSuccess = { _scanState.value = it },

@@ -302,11 +302,11 @@
     <string name="sms_history_scanning">Checking messages…</string>
     <string name="sms_history_importing">Importing recognized operations…</string>
     <string name="sms_history_preview_title">Ready to import</string>
-    <string name="sms_history_preview_body">%1$d found · %2$d new · %3$d already present · %4$d need attention · %5$d safely ignored</string>
+    <string name="sms_history_preview_body">%1$d found · %2$d new · %3$d already present · %4$d need action · %5$d safely ignored · %6$d waiting for statement</string>
     <string name="sms_history_import">Import recognized</string>
     <string name="sms_history_cancel">Cancel</string>
     <string name="sms_history_complete_title">Recent messages checked</string>
-    <string name="sms_history_complete_body">%1$d transactions imported · %2$d need attention</string>
+    <string name="sms_history_complete_body">%1$d transactions imported · %2$d need action · %3$d waiting for statement</string>
     <string name="sms_history_error_title">Couldn’t check messages</string>
     <string name="sms_history_error_body">Nothing was changed. Check SMS access and try again.</string>
     <string name="sms_history_empty_preview">No Credo messages were found in the last 90 days.</string>
@@ -315,8 +315,9 @@
     <string name="sms_history_compact_body">Dry run first · last 90 days · messages stay on this device</string>
     <string name="sms_history_permission_compact_body">Optional Android access · dry run before any import</string>
     <string name="sms_diagnostics_attention">NEEDS ACTION</string>
+    <string name="sms_diagnostics_waiting_statement">WAITING FOR STATEMENT</string>
     <string name="sms_diagnostics_recent">RECENT ACTIVITY</string>
-    <string name="sms_reason_statement_covers">The statement for this day is already loaded and holds no matching row.</string>
+    <string name="sms_reason_statement_covers">Not in the latest statement yet. The next sync will check again.</string>
     <string name="sms_covered_warning_title">The statement already covers this day</string>
     <string name="sms_covered_warning_body">Linking this message writes a new operation. If the bank filed the same money under another name, the ledger will hold it twice.</string>
     <plurals name="sms_ignored_collapsed">
@@ -335,6 +336,7 @@
     <string name="sms_outcome_ignored">Ignored safely</string>
     <string name="sms_outcome_unrecognized">Message format not recognized</string>
     <string name="sms_outcome_mapping">Choose an account</string>
+    <string name="sms_outcome_waiting_for_statement">Waiting for bank statement</string>
     <string name="sms_outcome_error">Import problem</string>
     <string name="sms_kind_card">Card payment</string>
     <string name="sms_kind_outgoing">Outgoing transfer</string>

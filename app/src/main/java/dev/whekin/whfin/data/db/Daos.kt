@@ -775,7 +775,8 @@ interface SmsDiagnosticDao {
      * decided by SmsCancellationMatcher, where merchant and all candidates are still visible.
      */
     @Query(
-        "SELECT * FROM sms_diagnostics WHERE kind = 'CARD_PAYMENT' AND transactionId IS NOT NULL " +
+        "SELECT * FROM sms_diagnostics WHERE kind = 'CARD_PAYMENT' " +
+            "AND (transactionId IS NOT NULL OR reason = 'STATEMENT_COVERS_PERIOD') " +
             "AND externalKey != :cancellationExternalKey " +
             "AND amountMinor = :amountMinor AND currency = :currency AND cardLast4 = :cardLast4 " +
             "AND occurredAt BETWEEN :fromMillis AND :toMillis " +

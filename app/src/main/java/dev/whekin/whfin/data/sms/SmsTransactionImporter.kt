@@ -362,13 +362,14 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                     ),
                 )
             }
-            db.smsDiagnosticDao().update(
-                original.copy(
-                    outcome = SmsDiagnosticOutcome.CANCELED,
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
         }
+        db.smsDiagnosticDao().update(
+            original.copy(
+                outcome = SmsDiagnosticOutcome.CANCELED,
+                reason = null,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
         val diagnostic = diagnosticFor(
             sms = payment,
             externalKey = key,
@@ -391,6 +392,15 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         receivedAt: Long,
         persist: Boolean,
     ): SmsImportResult {
+        db.smsDiagnosticDao().byExternalKey(key)?.takeIf {
+            it.outcome == SmsDiagnosticOutcome.CANCELED
+        }?.let { canceled ->
+            return SmsImportResult(
+                outcome = SmsDiagnosticOutcome.CANCELED,
+                diagnosticId = canceled.id.takeIf { persist },
+                transactionId = canceled.transactionId,
+            )
+        }
         db.transactionDao().byExternalKey(key)?.let { existing ->
             val diagnostic = diagnosticFor(
                 sms = sms,

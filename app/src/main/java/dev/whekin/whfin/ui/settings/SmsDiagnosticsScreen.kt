@@ -297,14 +297,17 @@ internal fun SmsDiagnosticsScreen(
                 )
             }
             is SmsDiagnosticsLoadState.Content -> {
-                val attention = loadState.data.diagnostics.filter(SmsDiagnosticEntity::needsAttention)
+                val attention = loadState.data.diagnostics.filter(SmsDiagnosticEntity::needsUserAction)
+                val waiting = loadState.data.diagnostics.filter(SmsDiagnosticEntity::awaitsStatement)
                 // Codes and notices outnumber operations several times over. They are kept — a
                 // message WHFIN decided to skip is worth being able to check — but folded into one
                 // line, so what actually moved money is not buried under them.
-                val handled = loadState.data.diagnostics.filterNot(SmsDiagnosticEntity::needsAttention)
+                val handled = loadState.data.diagnostics.filterNot {
+                    it.needsUserAction() || it.awaitsStatement()
+                }
                 val ignored = handled.filter { it.outcome == SmsDiagnosticOutcome.IGNORED }
                 val recent = handled - ignored.toSet()
-                if (attention.isEmpty() && recent.isEmpty()) {
+                if (loadState.data.diagnostics.isEmpty()) {
                     item("empty") {
                         WhfinStatePane(
                             WhfinPaneState.Empty,
@@ -333,6 +336,25 @@ internal fun SmsDiagnosticsScreen(
                     item("attention-group") {
                         DiagnosticGroup(
                             items = attention,
+                            onResolve = { selectedDiagnosticId = it.id },
+                            onOpenFeed = onOpenFeed,
+                            onViewMessage = onViewMessage,
+                            onShareProblem = { diagnostic ->
+                                onDismissShareMessage()
+                                shareDiagnosticId = diagnostic.id
+                                shareText = SmsProblemReport.redacted(appVersion, diagnostic)
+                                shareIncludesOriginal = false
+                            },
+                        )
+                    }
+                }
+                if (waiting.isNotEmpty()) {
+                    item("waiting-label") {
+                        WhfinSectionLabel(stringResource(R.string.sms_diagnostics_waiting_statement))
+                    }
+                    item("waiting-group") {
+                        DiagnosticGroup(
+                            items = waiting,
                             onResolve = { selectedDiagnosticId = it.id },
                             onOpenFeed = onOpenFeed,
                             onViewMessage = onViewMessage,
@@ -773,6 +795,7 @@ private fun HistoryControl(
                 state.summary.duplicates,
                 state.summary.needsAttention,
                 state.summary.ignored,
+                state.summary.waitingForStatement,
             ),
             icon = Icons.Default.CheckCircle,
             kind = WhfinNoticeKind.Info,
@@ -785,7 +808,12 @@ private fun HistoryControl(
         )
         is SmsScanState.Complete -> WhfinNotice(
             title = stringResource(R.string.sms_history_complete_title),
-            body = stringResource(R.string.sms_history_complete_body, state.imported, state.needsAttention),
+            body = stringResource(
+                R.string.sms_history_complete_body,
+                state.imported,
+                state.needsAttention,
+                state.waitingForStatement,
+            ),
             icon = Icons.Default.CheckCircle,
             kind = if (state.needsAttention > 0) WhfinNoticeKind.Attention else WhfinNoticeKind.Info,
             actionLabel = stringResource(R.string.sms_history_action),
@@ -876,7 +904,7 @@ private fun DiagnosticGroup(
                 onShareProblem = { onShareProblem(item) },
                 onResolve = when {
                     canResolve -> { { onResolve(item) } }
-                    grouped && item.needsAttention() -> onOpenFeed
+                    grouped && item.needsUserAction() -> onOpenFeed
                     else -> null
                 },
                 resolveContentDescription = if (grouped) {
@@ -927,7 +955,7 @@ private fun DiagnosticRow(
         supportingMaxLines = if (heldByStatement) 5 else 3,
         icon = presentation.icon,
         iconTint = presentation.color(),
-        markerColor = if (item.needsAttention()) presentation.color() else null,
+        markerColor = if (item.needsUserAction()) presentation.color() else null,
         trailing = {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 WhfinIconButton(
@@ -1049,7 +1077,12 @@ private data class DiagnosticPresentation(
 )
 
 @Composable
-private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresentation = when (item.outcome) {
+private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresentation {
+    if (item.awaitsStatement()) return DiagnosticPresentation(
+        R.string.sms_outcome_waiting_for_statement,
+        Icons.Default.History,
+    ) { MaterialTheme.colorScheme.onSurfaceVariant }
+    return when (item.outcome) {
     SmsDiagnosticOutcome.IMPORTED -> DiagnosticPresentation(
         R.string.sms_outcome_imported, Icons.Default.CheckCircle,
     ) { MaterialTheme.colorScheme.primary }
@@ -1076,9 +1109,13 @@ private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresent
     SmsDiagnosticOutcome.ERROR -> DiagnosticPresentation(
         R.string.sms_outcome_error, Icons.Default.ErrorOutline,
     ) { MaterialTheme.colorScheme.error }
+    }
 }
 
-private fun SmsDiagnosticEntity.needsAttention(): Boolean = when (outcome) {
+internal fun SmsDiagnosticEntity.awaitsStatement(): Boolean =
+    reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
+
+internal fun SmsDiagnosticEntity.needsUserAction(): Boolean = !awaitsStatement() && when (outcome) {
     SmsDiagnosticOutcome.NEEDS_CARD_MAPPING,
     SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
     SmsDiagnosticOutcome.UNRECOGNIZED,
@@ -1317,6 +1354,19 @@ private val previewDiagnostics = listOf(
         receivedAt = 1_752_800_000_000,
         updatedAt = 1_752_800_000_000,
     ),
+    SmsDiagnosticEntity(
+        id = 4,
+        externalKey = "preview-4",
+        kind = SmsDiagnosticKind.CARD_PAYMENT,
+        outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+        reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+        receivedAt = 1_752_700_000_000,
+        amountMinor = 3560,
+        currency = "GEL",
+        cardLast4 = "2533",
+        counterparty = "Example market",
+        updatedAt = 1_752_700_000_000,
+    ),
 )
 
 @Preview(name = "Bank SMS light", widthDp = 400, heightDp = 850, showBackground = true)
@@ -1360,7 +1410,7 @@ private fun SmsDiagnosticsPreview() {
                         ),
                     ),
                 ),
-                scanState = SmsScanState.Preview(SmsScanSummary(12, 5, 4, 1, 2)),
+                scanState = SmsScanState.Preview(SmsScanSummary(12, 5, 4, 1, 2, 1)),
                 messageState = SmsMessageState.Hidden,
                 smsImportEnabled = true,
                 hasReceivePermission = true,

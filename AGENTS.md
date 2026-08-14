@@ -174,7 +174,12 @@ This is a single-context repository with root domain documentation and system-wi
   дублирует `ANTHROPIC* CLAUDE.AI`/`ANTHROPIC` и больше не считает одинаково длинные разные названия
   совпадением. Cancellation выбирает только однозначную карту+сумму+время+merchant, не удаляет строку,
   а void-ит SMS-транзакцию с immutable cancellation external key; не найденная/неоднозначная цель
-  становится видимой ошибкой и не меняет деньги.
+  становится видимой ошибкой и не меняет деньги. Исторический scan теперь обрабатывает сообщения
+  хронологически и идемпотентно: cancellation может погасить payment, который правило покрытия выписки
+  удержало вне ledger, а повторный проход не воскрешает его. `STATEMENT_COVERS_PERIOD` больше не
+  маскируется под `Choose an account`: это отдельный спокойный блок ожидания следующей выписки и
+  отдельное число в итоге scan, не пользовательская ошибка routing. Regression закреплён двумя
+  red→green Robolectric-тестами и 25 SMS instrumentation-тестами на disposable Pixel.
   Одноэкранный Welcome choice и bank-centric Personal setup реализованы. Clean install до shell показывает
   ровно два действия без permission prompts; выбор Personal переживает process restart до явного
   продолжения, а upgrade существующей установки автоматически пропускает новый gate. Setup показывает
