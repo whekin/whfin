@@ -667,6 +667,50 @@
     <string name="settings_catalog_section">Категории и люди</string>
     <string name="categories_title">Категории</string>
     <string name="categories_settings_summary">Названия, порядок, иконки и цвета</string>
+    <string name="category_intelligence_title">Умные категории</string>
+    <string name="category_intelligence_loading">Считаем покрытие категориями…</string>
+    <string name="category_intelligence_error">Локальная проверка не завершилась. Ничего не изменено — можно попробовать ещё раз.</string>
+    <string name="category_intelligence_settings_summary">Покрытие, автоматические правила и проверка</string>
+    <string name="category_intelligence_percent">Разобрано %1$d%%</string>
+    <string name="category_intelligence_coverage">Категория есть у %1$d из %2$d расходов</string>
+    <string name="category_intelligence_no_expenses">Расходов пока нет</string>
+    <string name="category_intelligence_no_expenses_body">Покрытие появится после первого расхода.</string>
+    <string name="category_intelligence_local_title">Локальный анализ</string>
+    <string name="category_intelligence_local_body">Запомненные решения и надёжные офлайн-правила срабатывают, когда SMS или выписка Credo создаёт операцию.</string>
+    <string name="category_intelligence_checking">Проверяем неизвестных мерчантов по локальным правилам…</string>
+    <string name="category_intelligence_no_matches">Всё, что умеют распознавать текущие локальные правила, уже разобрано.</string>
+    <string name="category_intelligence_matches">Локальные правила распознали ещё мерчантов: %1$d.</string>
+    <string name="category_intelligence_check_action">Проверить правила</string>
+    <string name="category_intelligence_complete_title">Проверять нечего</string>
+    <string name="category_intelligence_complete_body">У каждого расхода с распознаваемым мерчантом уже есть категория.</string>
+    <string name="category_intelligence_review_title">Нужно разобрать</string>
+    <plurals name="category_intelligence_review_body">
+        <item quantity="one">Остался %1$d неизвестный мерчант. Выбери категорию один раз — исправится история и запомнится правило.</item>
+        <item quantity="few">Осталось %1$d неизвестных мерчанта. Самые частые идут первыми; один выбор исправляет историю и запоминает правило.</item>
+        <item quantity="many">Осталось %1$d неизвестных мерчантов. Самые частые идут первыми; один выбор исправляет историю и запоминает правило.</item>
+        <item quantity="other">Осталось %1$d неизвестного мерчанта. Самые частые идут первыми; один выбор исправляет историю и запоминает правило.</item>
+    </plurals>
+    <string name="category_intelligence_search">Найти мерчанта</string>
+    <string name="category_intelligence_search_empty">Неизвестных мерчантов с таким названием нет.</string>
+    <plurals name="category_intelligence_transactions">
+        <item quantity="one">%1$d операция без категории</item>
+        <item quantity="few">%1$d операции без категории</item>
+        <item quantity="many">%1$d операций без категории</item>
+        <item quantity="other">%1$d операции без категории</item>
+    </plurals>
+    <plurals name="category_intelligence_apply_body">
+        <item quantity="one">Категория применится к этой операции и запомнится для будущих импортов.</item>
+        <item quantity="few">Категория применится ко всем %1$d операциям без категории и запомнится для будущих импортов.</item>
+        <item quantity="many">Категория применится ко всем %1$d операциям без категории и запомнится для будущих импортов.</item>
+        <item quantity="other">Категория применится ко всем %1$d операциям без категории и запомнится для будущих импортов.</item>
+    </plurals>
+    <string name="category_intelligence_without_merchant_title">Нечего запоминать</string>
+    <plurals name="category_intelligence_without_merchant_body">
+        <item quantity="one">У %1$d расхода нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
+        <item quantity="few">У %1$d расходов нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
+        <item quantity="many">У %1$d расходов нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
+        <item quantity="other">У %1$d расхода нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
+    </plurals>
     <string name="categories_system_hint">Системная категория, управляется автоматически</string>
     <string name="categories_edit_title">Изменить категорию</string>
     <string name="categories_move_up">Выше</string>

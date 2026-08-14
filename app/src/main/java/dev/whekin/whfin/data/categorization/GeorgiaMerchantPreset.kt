@@ -19,6 +19,7 @@ object GeorgiaMerchantPreset {
         DELIVERY("DeliveryDining"),
         SUBSCRIPTIONS("Subscriptions"),
         UTILITIES("Bolt"),
+        BIKE("PedalBike"),
         SALARY("Payments", CategoryKind.INCOME),
     }
 
@@ -32,7 +33,7 @@ object GeorgiaMerchantPreset {
         )),
         Rule(Target.TRANSPORT, listOf(
             "bus_tbilisi", "metro_tbilisi", "rope_tbilisi", "bolttaxi", "yandex.go",
-            "go.yandex", "yandex.scooter",
+            "go.yandex", "yandex.scooter", "jetshr", "jet shr",
         )),
         Rule(Target.HEALTH, listOf(
             "aversi", "psp ", "psp n", "gpc ", "caucasus medicine", "medula", "ns dent",
@@ -45,10 +46,15 @@ object GeorgiaMerchantPreset {
         Rule(Target.HOME, listOf("gorgia", "domino", "jysk")),
         Rule(Target.TECH, listOf("zoommer", "zoomer georgia", "scroll")),
         Rule(Target.DELIVERY, listOf("wolt georgia", "yandex.deliver", "onex.ge")),
-        Rule(Target.SUBSCRIPTIONS, listOf("google one", "google habitnow", "netcup", "chatgpt", "claude")),
+        Rule(Target.SUBSCRIPTIONS, listOf(
+            "google one", "google habitnow", "google smart launcher", "google youtube",
+            "netcup", "chatgpt", "claude", "openai", "anthropic", "songsterr", "spotify",
+        )),
         Rule(Target.UTILITIES, listOf(
             "თელმიკო", "სოკარ გაზი", "თბილსერვის", "მაგთი - მაგთი", "მაგთი - ოპტიკური",
+            "mysilknetapp", "salerequest.silknet",
         )),
+        Rule(Target.BIKE, listOf("bike24")),
         Rule(Target.SALARY, listOf("shps unotron", "შპს უნოტრონ")),
     )
 

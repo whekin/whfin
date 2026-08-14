@@ -60,6 +60,16 @@ This is a single-context repository with root domain documentation and system-wi
   известные мерчанты категоризируются автоматически, неизвестные не затрагиваются
   Разделители в ключах preset теперь канонизируются, поэтому Yandex Go/Go, YANDEX*GO и Yandex.Go
   стабильно попадают в Transport при изменениях пунктуации процессинга.
+- [x] Умные категории без backend: Settings показывает покрытие по активным расходам, запускает
+  повторную проверку надёжных локальных правил и группирует остаток по мерчанту (частые первыми).
+  Один выбор категории атомарно исправляет всю неразмеченную историю мерчанта и сохраняет
+  Merchant→Category для будущего; расходы без merchant identity объясняются отдельно. SMS и Credo
+  statement import используют общий `MerchantCategorizer`, поэтому пользовательская память имеет
+  приоритет, а известные `GeorgiaMerchantPreset` мерчанты получают категорию при создании операции.
+  Добавлены безопасные правила для Jet scooter, Silknet, Bike24 и явных app/subscription descriptors;
+  широкие GOOGLE/PAYPAL/VIP PAY намеренно не угадываются. Экран проверен на disposable Pixel 9 Pro:
+  EN/light/font 1.0 и RU/dark/font 1.5; unit/Room/Compose tests покрывают показ покрытия, обучение,
+  backfill истории и Settings navigation.
 - [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/

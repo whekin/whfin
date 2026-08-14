@@ -1,5 +1,6 @@
 package dev.whekin.whfin.data.importer
 
+import dev.whekin.whfin.data.categorization.MerchantCategorizer
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.ReconciliationIssueEntity
@@ -176,14 +177,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 ?.let { resolveMerchant(it) }
 
     private suspend fun resolveMerchant(raw: String): MerchantEntity? {
-        val key = MerchantNormalizer.normalize(raw)
-        if (key.isEmpty()) return null
-        db.merchantDao().resolve(key)?.let { return it }
-        val id = db.merchantDao().insert(
-            MerchantEntity(normalizedKey = key, displayName = MerchantNormalizer.displayName(raw)),
-        )
-        // A concurrent insert is ignored rather than failing, so the winner is read back.
-        return if (id > 0) db.merchantDao().byKey(key) else db.merchantDao().resolve(key)
+        return MerchantCategorizer.resolve(db, raw)
     }
 
     private suspend fun sourceId(account: AccountEntity): Long {

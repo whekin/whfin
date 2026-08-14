@@ -299,3 +299,17 @@ Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: Feed, Accounts, 
 dark EN, plus Accounts in light RU at font scale 1.5 — serif digits are wider than sans, and neither the
 two-column summary nor the currency rows truncate. `:app:testDebugUnitTest` passes; five dark screenshot
 references were regenerated for the warm palette and the chart.
+
+## Category intelligence center (2026-08-14)
+
+Settings owns one understandable control surface for categorization rather than scattering diagnostics
+through transaction activity. Its dominant block reports transaction coverage, because ten unknown
+merchants with one purchase each matter less than one merchant responsible for sixty purchases. A local
+check is the single automatic action. Everything it cannot resolve safely remains grouped by merchant,
+most frequent first; choosing a category explains before the write that it will update uncategorized
+history and remember the choice for future SMS and Credo imports. Expenses with no merchant identity are
+counted but kept separate because they cannot produce a merchant rule.
+
+The screen uses one tonal coverage container, one actionable notice, and flat ledger rows for review.
+Unknown or ambiguous descriptors never receive a guessed category merely to improve the percentage.
+Verified on a disposable Pixel 9 Pro API 36.1 AVD in EN/light/font 1.0 and RU/dark/font 1.5.

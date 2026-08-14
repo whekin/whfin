@@ -34,6 +34,38 @@ class SettingsScreenTest {
     val compose = createComposeRule()
 
     @Test
+    fun categoryIntelligence_isAVisibleSettingsDestination() {
+        var opened = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsScreen(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    onOpenCategoryIntelligence = { opened = true },
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.category_intelligence_title))
+            .performScrollTo()
+            .performClick()
+        assertTrue(opened)
+    }
+
+    @Test
     fun permissionAction_isShownAndClickable_whenPermissionIsUnavailable() {
         var clicked = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

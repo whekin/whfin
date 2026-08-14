@@ -57,6 +57,7 @@ import dev.whekin.whfin.ui.settings.AppLockScreen
 import dev.whekin.whfin.ui.settings.PrivacyRoute
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.CategoriesRoute
+import dev.whekin.whfin.ui.settings.CategoryIntelligenceRoute
 import dev.whekin.whfin.ui.settings.PeopleRoute
 import dev.whekin.whfin.ui.settings.CorrectionsScreen
 import dev.whekin.whfin.ui.settings.DataHealthRoute
@@ -95,7 +96,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, People }
+internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, People }
 
 internal enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -116,6 +117,7 @@ internal enum class ShellScene(val depth: Int) {
     Privacy(2),
     About(2),
     Categories(2),
+    CategoryIntelligence(2),
     People(2),
 }
 
@@ -162,6 +164,7 @@ internal fun shellTargetFor(
             SecondaryDestination.Privacy -> ShellScene.Privacy
             SecondaryDestination.About -> ShellScene.About
             SecondaryDestination.Categories -> ShellScene.Categories
+            SecondaryDestination.CategoryIntelligence -> ShellScene.CategoryIntelligence
             SecondaryDestination.People -> ShellScene.People
             SecondaryDestination.AccountTransactions -> ShellScene.AccountTransactions
         },
@@ -494,6 +497,7 @@ fun MainScreen(
                             onOpenPrivacy = { open(SecondaryDestination.Privacy) },
                             onOpenAbout = { open(SecondaryDestination.About) },
                             onOpenCategories = { open(SecondaryDestination.Categories) },
+                            onOpenCategoryIntelligence = { open(SecondaryDestination.CategoryIntelligence) },
                             onOpenPeople = { open(SecondaryDestination.People) },
                             appVersion = appVersion,
                             demoMode = demoMode,
@@ -608,6 +612,10 @@ fun MainScreen(
                         title = stringResource(R.string.categories_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { CategoriesRoute() }
+                    ShellScene.CategoryIntelligence -> SecondaryPage(
+                        title = stringResource(R.string.category_intelligence_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) { CategoryIntelligenceRoute() }
                     ShellScene.People -> SecondaryPage(
                         title = stringResource(R.string.people_title),
                         onBack = { goBack(withHaptic = true) },

@@ -504,6 +504,25 @@ interface TransactionDao {
     suspend fun categorizeUnassignedForMerchant(merchantId: Long, categoryId: Long)
 
     @Query(
+        "SELECT COUNT(*) AS totalExpenses, " +
+            "COALESCE(SUM(CASE WHEN categoryId IS NOT NULL THEN 1 ELSE 0 END), 0) AS categorizedExpenses, " +
+            "COALESCE(SUM(CASE WHEN categoryId IS NULL AND merchantId IS NULL THEN 1 ELSE 0 END), 0) AS withoutMerchant " +
+            "FROM transactions WHERE amountMinor < 0 AND isTransfer = 0 AND isVoided = 0 " +
+            "AND source != 'ADJUSTMENT'"
+    )
+    fun observeCategoryCoverage(): Flow<CategoryCoverage>
+
+    @Query(
+        "SELECT m.id AS merchantId, m.displayName AS displayName, COUNT(*) AS transactionCount, " +
+            "MAX(t.occurredAt) AS latestAt FROM transactions t " +
+            "JOIN merchants m ON m.id = t.merchantId " +
+            "WHERE t.amountMinor < 0 AND t.categoryId IS NULL AND t.isTransfer = 0 AND t.isVoided = 0 " +
+            "AND t.source != 'ADJUSTMENT' " +
+            "GROUP BY m.id, m.displayName ORDER BY transactionCount DESC, latestAt DESC, m.displayName COLLATE NOCASE"
+    )
+    fun observeUncategorizedMerchants(): Flow<List<UncategorizedMerchant>>
+
+    @Query(
         "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId AND isVoided = 0"
     )
     suspend fun sumByAccount(accountId: Long): Long
@@ -560,6 +579,19 @@ data class CategoryTotal(
     val categoryId: Long?,
     val totalMinor: Long,
     val txCount: Int,
+)
+
+data class CategoryCoverage(
+    val totalExpenses: Int,
+    val categorizedExpenses: Int,
+    val withoutMerchant: Int,
+)
+
+data class UncategorizedMerchant(
+    val merchantId: Long,
+    val displayName: String,
+    val transactionCount: Int,
+    val latestAt: Long,
 )
 
 @Dao

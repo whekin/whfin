@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Science
@@ -90,6 +91,7 @@ fun SettingsScreen(
     appVersion: String,
     onOpenCredoSync: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
+    onOpenCategoryIntelligence: () -> Unit = {},
     onOpenPeople: () -> Unit = {},
     demoMode: Boolean = false,
     developerMode: Boolean = false,
@@ -187,9 +189,18 @@ fun SettingsScreen(
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
                 title = stringResource(R.string.categories_title),
+                supportingText = stringResource(R.string.categories_settings_summary),
                 icon = Icons.Default.Category,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenCategories,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.category_intelligence_title),
+                supportingText = stringResource(R.string.category_intelligence_settings_summary),
+                icon = Icons.Default.AutoAwesome,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenCategoryIntelligence,
                 divider = true,
             )
             WhfinLedgerRow(

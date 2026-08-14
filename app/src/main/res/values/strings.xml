@@ -646,6 +646,42 @@
     <string name="settings_catalog_section">Categories &amp; people</string>
     <string name="categories_title">Categories</string>
     <string name="categories_settings_summary">Rename, reorder, icons and colors</string>
+    <string name="category_intelligence_title">Category intelligence</string>
+    <string name="category_intelligence_loading">Calculating category coverage…</string>
+    <string name="category_intelligence_error">The local check did not finish. Nothing was changed; you can try again.</string>
+    <string name="category_intelligence_settings_summary">Coverage, automatic rules and review</string>
+    <string name="category_intelligence_percent">%1$d%% categorized</string>
+    <string name="category_intelligence_coverage">%1$d of %2$d expenses have a category</string>
+    <string name="category_intelligence_no_expenses">No expenses yet</string>
+    <string name="category_intelligence_no_expenses_body">Coverage will appear after the first expense.</string>
+    <string name="category_intelligence_local_title">Local intelligence</string>
+    <string name="category_intelligence_local_body">Remembered choices and safe offline rules run whenever SMS or a Credo statement creates a transaction.</string>
+    <string name="category_intelligence_checking">Checking every unknown merchant against local rules…</string>
+    <string name="category_intelligence_no_matches">Everything recognized by the current local rules is already categorized.</string>
+    <string name="category_intelligence_matches">Local rules recognized %1$d more merchants.</string>
+    <string name="category_intelligence_check_action">Check local rules</string>
+    <string name="category_intelligence_complete_title">Nothing needs review</string>
+    <string name="category_intelligence_complete_body">Every expense with a recognizable merchant has a category.</string>
+    <string name="category_intelligence_review_title">Needs review</string>
+    <plurals name="category_intelligence_review_body">
+        <item quantity="one">%1$d merchant is still unknown. Choose once to fix its uncategorized history and remember the choice.</item>
+        <item quantity="other">%1$d merchants are still unknown. The most frequent are first; choose once to fix their uncategorized history and remember the choice.</item>
+    </plurals>
+    <string name="category_intelligence_search">Find a merchant</string>
+    <string name="category_intelligence_search_empty">No unknown merchants match this search.</string>
+    <plurals name="category_intelligence_transactions">
+        <item quantity="one">%1$d uncategorized transaction</item>
+        <item quantity="other">%1$d uncategorized transactions</item>
+    </plurals>
+    <plurals name="category_intelligence_apply_body">
+        <item quantity="one">This will categorize this transaction and remember the choice for future imports.</item>
+        <item quantity="other">This will categorize all %1$d uncategorized transactions and remember the choice for future imports.</item>
+    </plurals>
+    <string name="category_intelligence_without_merchant_title">No merchant to learn</string>
+    <plurals name="category_intelligence_without_merchant_body">
+        <item quantity="one">%1$d expense has no merchant identity. It can still be categorized from transaction history, but cannot create a merchant rule.</item>
+        <item quantity="other">%1$d expenses have no merchant identity. They can still be categorized from transaction history, but cannot create merchant rules.</item>
+    </plurals>
     <string name="categories_system_hint">System category, managed automatically</string>
     <string name="categories_edit_title">Edit category</string>
     <string name="categories_move_up">Move up</string>
