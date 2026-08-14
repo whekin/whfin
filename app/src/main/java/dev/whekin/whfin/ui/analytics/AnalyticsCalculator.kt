@@ -25,19 +25,6 @@ internal data class AnalyticsMonthValue(
     val expenseMinor: Long,
 )
 
-/**
- * Keeps a selected month inside the current rolling twelve-month window without needlessly
- * re-anchoring that window. This lets a user move back and then return through the same chart.
- */
-internal fun trendWindowEndAfterSelecting(currentEnd: YearMonth, selectedMonth: YearMonth): YearMonth {
-    val currentStart = currentEnd.minusMonths(11)
-    return when {
-        selectedMonth > currentEnd -> selectedMonth
-        selectedMonth < currentStart -> selectedMonth.plusMonths(11)
-        else -> currentEnd
-    }
-}
-
 internal data class AnalyticsCategoryValue(
     val categoryId: Long?,
     val name: String?,
@@ -120,7 +107,6 @@ internal fun calculateAnalytics(
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zoneId),
-    trendEndMonth: YearMonth = period.month,
 ): AnalyticsData {
     val categoryById = categories.associateBy { it.id }
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
@@ -269,12 +255,9 @@ internal fun calculateAnalytics(
             is AnalyticsTrendFilter.Category -> slice.categoryId == trendFilter.categoryId
         }
     }
-    // The month scale reads the last twelve months; the year scale reads its own twelve months,
-    // which is what makes a bar tap a drill-down from the year into that month.
-    val trendMonths = when (period.scale) {
-        AnalyticsScale.MONTH -> (11L downTo 0L).map(trendEndMonth::minusMonths)
-        AnalyticsScale.YEAR -> (1..12).map { YearMonth.of(period.year, it) }
-    }
+    // A fixed calendar year lets all twelve bars stay visible and makes 2024/2025 comparisons
+    // spatially stable: January never changes position merely because another month was selected.
+    val trendMonths = (1..12).map { YearMonth.of(period.year, it) }
     val trendValues = trendMonths.map { month ->
         val expense = -baseSlices
             .filter { it.month == month && it.gelMinor!! < 0L && matchesTrendFilter(it) }

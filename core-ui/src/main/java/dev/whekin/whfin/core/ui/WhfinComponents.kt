@@ -537,9 +537,9 @@ data class WhfinMonthlyBar(
 /**
  * A compact, selectable period comparison with accessible 48 dp month targets.
  *
- * A rolling window scrolls, because it has no last bar and a selected one worth centring. A closed
- * period — a calendar year — is one shape the reader is meant to take in at once, so [fitToWidth]
- * divides the available width instead of asking the reader to scroll a year they can already name.
+ * A closed period — especially a calendar year — is one shape the reader is meant to take in at
+ * once, so [fitToWidth] divides the available width instead of asking the reader to scroll a year
+ * they can already name. Screens using that dense mode must also provide arrow navigation.
  */
 @Composable
 fun WhfinMonthlyBarChart(

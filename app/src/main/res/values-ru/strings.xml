@@ -973,6 +973,8 @@
     <string name="analytics_open">Открыть статистику по месяцам</string>
     <string name="analytics_scale_month">Месяц</string>
     <string name="analytics_scale_year">Год</string>
+    <string name="analytics_view_year_total">Итог за %1$d год</string>
+    <string name="analytics_choose_month_hint">Выберите месяц ниже</string>
     <string name="analytics_previous_period">Предыдущий период</string>
     <string name="analytics_next_period">Следующий период</string>
     <string name="analytics_month_result">Итог месяца</string>

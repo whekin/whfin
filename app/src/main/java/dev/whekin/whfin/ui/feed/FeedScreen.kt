@@ -188,6 +188,20 @@ private sealed interface FeedTimelineEntry {
 
 enum class FeedMode { HOME, HISTORY }
 
+internal data class TransactionPresentationAmount(val minor: Long, val currency: String)
+
+/**
+ * A foreign card SMS knows the purchase amount before it knows the account charge. The ledger keeps
+ * that charge at zero until the statement supplies bank truth; presentation must not turn the known
+ * purchase into a fictional 0 GEL operation in the meantime.
+ */
+internal fun transactionPresentationAmount(tx: TransactionEntity): TransactionPresentationAmount =
+    if (tx.amountMinor == 0L && tx.origAmountMinor != null && tx.origCurrency != null) {
+        TransactionPresentationAmount(tx.origAmountMinor, tx.origCurrency)
+    } else {
+        TransactionPresentationAmount(tx.amountMinor, tx.currency)
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
@@ -1017,6 +1031,7 @@ private fun TransactionDetailsContent(
     onConfirm: (() -> Unit)? = null,
 ) {
     val tx = item.tx
+    val presentationAmount = transactionPresentationAmount(tx)
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
     var showBankDetails by remember(tx.id) { mutableStateOf(false) }
     var actionMenuExpanded by remember(tx.id) { mutableStateOf(false) }
@@ -1082,8 +1097,8 @@ private fun TransactionDetailsContent(
                 ) {
                     Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 2)
                     WhfinAmount(
-                        formatMinor(tx.amountMinor, tx.currency),
-                        symbol = currencySymbol(tx.currency),
+                        formatMinor(presentationAmount.minor, presentationAmount.currency),
+                        symbol = currencySymbol(presentationAmount.currency),
                         style = MaterialTheme.typography.headlineLarge,
                     )
                     if (item.destinationAmountMinor != null && item.destinationCurrency != null) {

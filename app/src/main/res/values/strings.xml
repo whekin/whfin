@@ -944,6 +944,8 @@
     <string name="analytics_open">Open monthly statistics</string>
     <string name="analytics_scale_month">Month</string>
     <string name="analytics_scale_year">Year</string>
+    <string name="analytics_view_year_total">View %1$d total</string>
+    <string name="analytics_choose_month_hint">Select a month below</string>
     <string name="analytics_previous_period">Previous period</string>
     <string name="analytics_next_period">Next period</string>
     <string name="analytics_month_result">Month result</string>

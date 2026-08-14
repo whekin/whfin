@@ -200,6 +200,21 @@ internal fun AnalyticsContent(
                 PeriodResult(data, onOpenExpenses)
             }
         }
+        item(key = "trend") {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
+                    .testTag("analytics-trend"),
+            ) {
+                PeriodTrend(
+                    data = data,
+                    onSelectMonth = onSelectMonth,
+                    onShowAllTrend = onShowAllTrend,
+                    onOpenTransactions = onOpenTransactions,
+                )
+            }
+        }
         data.pace?.let { pace ->
             item(key = "pace") {
                 Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
@@ -221,21 +236,6 @@ internal fun AnalyticsContent(
         item(key = "categories") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                 CategoryShape(data = data, onOpenExpenses = onOpenExpenses)
-            }
-        }
-        item(key = "trend") {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
-                    .testTag("analytics-trend"),
-            ) {
-                PeriodTrend(
-                    data = data,
-                    onSelectMonth = onSelectMonth,
-                    onShowAllTrend = onShowAllTrend,
-                    onOpenTransactions = onOpenTransactions,
-                )
             }
         }
         if (data.unaccountedNetMinor != 0L) item(key = "unaccounted") {
@@ -297,20 +297,29 @@ private fun PeriodResult(
         }
         // Итог месяца закрывается бухгалтерской двойной чертой, как и блок месяца в ленте.
         WhfinTotalRule()
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        val metrics: @Composable (Modifier, Modifier) -> Unit = { incomeModifier, expenseModifier ->
             AnalyticsMetric(
                 stringResource(R.string.summary_income),
                 formatMinor(data.incomeMinor, "GEL"),
                 MaterialTheme.colorScheme.primary,
-                Modifier.weight(1f),
+                incomeModifier,
             )
             AnalyticsMetric(
                 stringResource(R.string.summary_expenses),
                 formatMinor(data.expenseMinor, "GEL"),
                 MaterialTheme.colorScheme.tertiary,
-                Modifier.weight(1f),
+                expenseModifier,
                 onClick = onOpenExpenses,
             )
+        }
+        if (data.period.scale == AnalyticsScale.YEAR) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                metrics(Modifier.fillMaxWidth(), Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                metrics(Modifier.weight(1f), Modifier.weight(1f))
+            }
         }
         if (data.pendingCount > 0) Text(
             stringResource(R.string.analytics_pending, data.pendingCount),
@@ -330,22 +339,7 @@ internal fun PeriodSelector(
     onScaleChange: (AnalyticsScale) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        WhfinChoiceRail {
-            items(AnalyticsScale.entries.toList(), key = { it.name }) { scale ->
-                WhfinFilterPill(
-                    label = stringResource(
-                        when (scale) {
-                            AnalyticsScale.MONTH -> R.string.analytics_scale_month
-                            AnalyticsScale.YEAR -> R.string.analytics_scale_year
-                        },
-                    ),
-                    selected = period.scale == scale,
-                    onClick = { onScaleChange(scale) },
-                    modifier = Modifier.testTag("analytics-scale-${scale.name.lowercase(Locale.ROOT)}"),
-                )
-            }
-        }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             WhfinIconButton(
                 Icons.Default.ChevronLeft,
@@ -366,6 +360,32 @@ internal fun PeriodSelector(
                 onNextPeriod,
                 outlined = false,
                 enabled = canSelectNext,
+            )
+        }
+        if (period.scale == AnalyticsScale.MONTH) {
+            Surface(
+                onClick = { onScaleChange(AnalyticsScale.YEAR) },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .heightIn(min = 48.dp)
+                    .testTag("analytics-view-year"),
+                shape = MaterialTheme.shapes.small,
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.analytics_view_year_total, period.year),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        } else {
+            Text(
+                stringResource(R.string.analytics_choose_month_hint),
+                modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -653,15 +673,13 @@ internal fun PeriodTrend(
     }
     val previousValue = when (period.scale) {
         AnalyticsScale.MONTH ->
-            data.trendValues.firstOrNull { it.month == period.month.minusMonths(1) }?.expenseMinor ?: 0L
+            data.trendValues.firstOrNull { it.month == period.month.minusMonths(1) }?.expenseMinor
+                ?: data.previousTrendExpenseMinor
         AnalyticsScale.YEAR -> data.previousTrendExpenseMinor
     }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
-            title = when (period.scale) {
-                AnalyticsScale.MONTH -> stringResource(R.string.analytics_year_trend)
-                AnalyticsScale.YEAR -> stringResource(R.string.analytics_year_trend_months, period.year)
-            },
+            title = stringResource(R.string.analytics_year_trend_months, period.year),
             supportingText = filterName,
         )
         if (data.trendFilter is AnalyticsTrendFilter.Category) WhfinChoiceRail {
@@ -689,7 +707,7 @@ internal fun PeriodTrend(
                         )
                     },
                     onBarClick = { index -> data.trendValues.getOrNull(index)?.month?.let(onSelectMonth) },
-                    fitToWidth = period.scale == AnalyticsScale.YEAR,
+                    fitToWidth = true,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {

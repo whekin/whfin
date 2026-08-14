@@ -52,13 +52,11 @@ private data class AnalyticsInputs(
 
 private data class AnalyticsControls(
     val period: AnalyticsPeriod,
-    val trendEndMonth: YearMonth,
     val trendFilter: AnalyticsTrendFilter,
 )
 
 private data class AnalyticsWindow(
     val period: AnalyticsPeriod,
-    val trendEndMonth: YearMonth,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -67,7 +65,7 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val zoneId = ZoneId.systemDefault()
     private val initialMonth = YearMonth.now(zoneId)
     private val window = MutableStateFlow(
-        AnalyticsWindow(AnalyticsPeriod.month(initialMonth), initialMonth),
+        AnalyticsWindow(AnalyticsPeriod.month(initialMonth)),
     )
     private val trendFilter = MutableStateFlow<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
 
@@ -92,10 +90,11 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val transactions: Flow<List<TransactionEntity>> = window.flatMapLatest { value ->
-        // Twelve months before the period covers both the 1/3/6/12 category rail and the
-        // year-over-year comparison; the trend window can reach further back on its own.
-        val rangeStart = minOf(value.period.start.minusMonths(12), value.trendEndMonth.minusMonths(11))
-        val rangeEnd = maxOf(value.period.end, value.trendEndMonth).plusMonths(1)
+        // The selected period needs its baselines; the chart always needs the complete named year.
+        val chartStart = YearMonth.of(value.period.year, 1)
+        val chartEnd = YearMonth.of(value.period.year, 12)
+        val rangeStart = minOf(value.period.start.minusMonths(12), chartStart)
+        val rangeEnd = maxOf(value.period.end, chartEnd).plusMonths(1)
         db.transactionDao().observeRange(
             rangeStart.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
             rangeEnd.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
@@ -111,7 +110,7 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val controls = combine(window, trendFilter) { value, filter ->
-        AnalyticsControls(value.period, value.trendEndMonth, filter)
+        AnalyticsControls(value.period, filter)
     }
 
     private val calculated: Flow<AnalyticsUiState> = combine(inputs, controls) { input, control ->
@@ -122,7 +121,6 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             period = control.period,
             trendFilter = control.trendFilter,
             zoneId = zoneId,
-            trendEndMonth = control.trendEndMonth,
         )
     }.map<AnalyticsData, AnalyticsUiState> { data ->
         if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty
@@ -177,10 +175,7 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         // switching a past year back to months would otherwise land on a month that cannot exist.
         val anchor = minOf(period.month, now)
         val resolved = period.copy(month = anchor)
-        window.value = AnalyticsWindow(
-            period = resolved,
-            trendEndMonth = trendWindowEndAfterSelecting(window.value.trendEndMonth, resolved.month),
-        )
+        window.value = AnalyticsWindow(period = resolved)
     }
 
     fun showAllExpensesTrend() {

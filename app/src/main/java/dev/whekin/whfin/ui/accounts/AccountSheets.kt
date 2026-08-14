@@ -16,7 +16,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -24,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -388,11 +389,13 @@ fun BankMappingSheet(
     var cards by remember(account.id, existingCards, existingVirtualCards) {
         mutableStateOf((existingCards + existingVirtualCards).distinct().joinToString(", "))
     }
-    val cardTypes = remember(account.id, existingCards, existingVirtualCards) {
-        mutableStateMapOf<String, PaymentInstrumentType>().apply {
-            existingCards.forEach { put(it, PaymentInstrumentType.PHYSICAL_CARD) }
-            existingVirtualCards.forEach { put(it, PaymentInstrumentType.VIRTUAL_CARD) }
-        }
+    var cardTypes by remember(account.id, existingCards, existingVirtualCards) {
+        mutableStateOf(
+            buildMap {
+                existingCards.forEach { put(it, PaymentInstrumentType.PHYSICAL_CARD) }
+                existingVirtualCards.forEach { put(it, PaymentInstrumentType.VIRTUAL_CARD) }
+            },
+        )
     }
     var primaryCard by remember(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
     val validCards = parseCardMasks(cards)
@@ -427,8 +430,9 @@ fun BankMappingSheet(
             onValueChange = { value ->
                 cards = value.filter { ch -> ch.isDigit() || ch == ',' || ch == ' ' }
                 val masks = parseCardMasks(cards)
-                cardTypes.keys.toList().filterNot(masks::contains).forEach(cardTypes::remove)
-                masks.forEach { mask -> cardTypes.putIfAbsent(mask, PaymentInstrumentType.PHYSICAL_CARD) }
+                cardTypes = masks.associateWith { mask ->
+                    cardTypes[mask] ?: PaymentInstrumentType.PHYSICAL_CARD
+                }
                 if (primaryCard !in masks) primaryCard = null
             },
             label = stringResource(R.string.account_card_last4),
@@ -439,47 +443,58 @@ fun BankMappingSheet(
             val physicalLabel = stringResource(R.string.account_card_physical)
             val virtualLabel = stringResource(R.string.account_card_virtual)
             val primaryLabel = stringResource(R.string.account_card_primary)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                WhfinFieldLabel(stringResource(R.string.account_card_label, mask))
-                WhfinChoiceRail {
-                    item {
+            WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            stringResource(R.string.account_card_label, mask),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        WhfinFilterPill(
+                            label = primaryLabel,
+                            selected = primaryCard == mask,
+                            onClick = { primaryCard = mask.takeUnless { primaryCard == mask } },
+                            leadingIcon = if (primaryCard == mask) Icons.Default.Star else Icons.Outlined.StarOutline,
+                            modifier = Modifier.testTag("card-$mask-primary").semantics {
+                                contentDescription = primaryLabel + " ••" + mask
+                                selected = primaryCard == mask
+                            },
+                        )
+                    }
+                    WhfinFieldLabel(stringResource(R.string.account_card_kind))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         WhfinFilterPill(
                             label = physicalLabel,
                             selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD,
-                            onClick = {
-                                cardTypes[mask] = PaymentInstrumentType.PHYSICAL_CARD
-                            },
-                            modifier = Modifier.testTag("card-$mask-physical").semantics {
+                            onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.PHYSICAL_CARD) },
+                            modifier = Modifier.weight(1f).testTag("card-$mask-physical").semantics {
                                 contentDescription = physicalLabel + " ••" + mask
                                 selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD
                             },
                         )
-                    }
-                    item {
                         WhfinFilterPill(
                             label = virtualLabel,
                             selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD,
-                            onClick = {
-                                cardTypes[mask] = PaymentInstrumentType.VIRTUAL_CARD
-                            },
-                            modifier = Modifier.testTag("card-$mask-virtual").semantics {
+                            onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.VIRTUAL_CARD) },
+                            modifier = Modifier.weight(1f).testTag("card-$mask-virtual").semantics {
                                 contentDescription = virtualLabel + " ••" + mask
                                 selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD
                             },
                         )
                     }
                 }
-                WhfinFilterPill(
-                    label = primaryLabel,
-                    selected = primaryCard == mask,
-                    onClick = {
-                        primaryCard = mask.takeUnless { primaryCard == mask }
-                    },
-                    modifier = Modifier.testTag("card-$mask-primary").semantics {
-                        contentDescription = primaryLabel + " ••" + mask
-                        selected = primaryCard == mask
-                    },
-                )
             }
         }
     }

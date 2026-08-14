@@ -183,6 +183,9 @@ internal fun appLockReturnDestination(
 internal fun credoBackDestination(caller: SecondaryDestination?): SecondaryDestination? =
     caller
 
+/** Bottom destinations are peers, but Android Back still returns from Accounts to the Home root. */
+internal fun primaryTabAfterBack(currentTab: Int): Int? = 0.takeIf { currentTab != 0 }
+
 internal data class SecondaryBackResult(
     val destination: SecondaryDestination?,
     val remaining: List<SecondaryDestination>,
@@ -352,7 +355,10 @@ fun MainScreen(
             }
         }
     }
-    BackHandler(enabled = scene != ShellScene.Primary) { goBack(withHaptic = false) }
+    BackHandler(enabled = scene != ShellScene.Primary || primaryTabAfterBack(tab) != null) {
+        val homeTab = primaryTabAfterBack(tab)
+        if (scene == ShellScene.Primary && homeTab != null) tab = homeTab else goBack(withHaptic = false)
+    }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         DemoWorkspaceProvider(

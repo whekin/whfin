@@ -60,7 +60,7 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinDonutChart`: a restrained, non-interactive proportional summary for category composition. The
   adjacent ledger rows own selection and navigation so tiny arcs never become inaccessible touch targets;
   the ring exposes one complete accessibility description and may dim non-selected segments.
-- `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. Every month owns a 48 dp target, the selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. The chart may scroll horizontally to preserve those targets on compact screens.
+- `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. The selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. Rolling ranges preserve 48 dp targets and may scroll. A named calendar year is the deliberate dense exception: all twelve bars fit at once, keep a tall tap region, and the screen must also expose previous/next period arrows for accessible navigation.
 
 Interactive surfaces own their click semantics: use the clickable `Surface` overload or clip the indication to the same shape before `clickable`. Circular controls must never produce square pressed states. Full-bleed ledger rows use an edge-to-edge rectangular pressed state while their content and dividers remain on the shared horizontal rail.
 

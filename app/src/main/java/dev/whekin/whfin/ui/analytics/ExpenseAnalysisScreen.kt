@@ -414,8 +414,8 @@ private val expensePreviewData = AnalyticsData(
     spendingAverageMinor = 549_100,
     trendFilter = AnalyticsTrendFilter.All,
     trendFilterName = null,
-    trendValues = (0L..11L).map { index ->
-        AnalyticsMonthValue(YearMonth.of(2025, 8).plusMonths(index), listOf(510, 430, 390, 620, 470, 520, 490, 550, 610, 590, 640, 904)[index.toInt()] * 1_000L)
+    trendValues = (1..12).map { month ->
+        AnalyticsMonthValue(YearMonth.of(2026, month), listOf(510, 430, 390, 620, 470, 520, 490, 904, 0, 0, 0, 0)[month - 1] * 1_000L)
     },
     previousTrendExpenseMinor = 640_000,
     unaccountedNetMinor = 0,

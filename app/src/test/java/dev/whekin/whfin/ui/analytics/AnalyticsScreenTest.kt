@@ -85,9 +85,9 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
-        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
-        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("110.00 ₾")
+        compose.onNodeWithTag("analytics-trend").performScrollTo()
+        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
+        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
         compose.waitForIdle()
         compose.onNodeWithTag("analytics-view-transactions").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(timeoutMillis = 1_000) { opened != null }
@@ -96,7 +96,7 @@ class AnalyticsScreenTest {
             assertEquals(YearMonth.of(2026, 6), opened?.period?.month)
             assertEquals(true, opened?.categoryFilterEnabled)
             assertEquals(1L, opened?.categoryId)
-            assertEquals(11_000L, opened?.expectedExpenseMinor)
+            assertEquals(6_000L, opened?.expectedExpenseMinor)
         }
     }
 
@@ -160,6 +160,31 @@ class AnalyticsScreenTest {
     }
 
     @Test
+    fun monthHeaderOffersItsYearTotalWithoutASegmentedModeSwitch() {
+        var scale: AnalyticsScale? = null
+        compose.setContent {
+            WhfinTheme {
+                AnalyticsContent(
+                    model = model(contentData),
+                    onBack = {},
+                    onPreviousPeriod = {},
+                    onNextPeriod = {},
+                    onScaleChange = { scale = it },
+                    onSelectMonth = {},
+                    onShowAllTrend = {},
+                    onOpenExpenses = {},
+                    onOpenTransactions = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("analytics-view-year").performClick()
+        compose.runOnIdle { assertEquals(AnalyticsScale.YEAR, scale) }
+        compose.onNodeWithTag("analytics-scale-month").assertDoesNotExist()
+        compose.onNodeWithTag("analytics-scale-year").assertDoesNotExist()
+    }
+
+    @Test
     fun focusedSpendingSelectsCategoryAndShowsItsComparison() {
         var filter by mutableStateOf<AnalyticsTrendFilter>(AnalyticsTrendFilter.All)
         compose.setContent {
@@ -216,8 +241,8 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("analytics-period-title").assertTextEquals("July 2026")
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
-        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("analytics-trend").performScrollTo()
+        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
         compose.onNodeWithTag("analytics-list").performScrollToIndex(1)
         compose.onNodeWithTag("analytics-period-title").assertTextEquals("June 2026")
@@ -256,7 +281,7 @@ class AnalyticsScreenTest {
         compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
         compose.onNodeWithText("Food").assertExists()
         compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
-        compose.onNodeWithTag("whfin-monthly-bar-10").performClick()
+        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
         compose.onNodeWithText("Transport").assertExists()
         compose.onNodeWithText("Food").assertDoesNotExist()
@@ -265,23 +290,19 @@ class AnalyticsScreenTest {
     @Test
     fun statisticsKeepsLaterTrendMonthReachableAfterSelectingEarlierMonth() {
         var month by mutableStateOf(YearMonth.of(2026, 8))
-        var trendEnd by mutableStateOf(YearMonth.of(2026, 8))
         compose.setContent {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AnalyticsContent(
                         model = model(contentData.copy(
                             period = AnalyticsPeriod.month(month),
-                            trendValues = trendEndingAt(trendEnd),
+                            trendValues = trendForYear(2026),
                         )),
                         onBack = {},
                         onPreviousPeriod = {},
                         onNextPeriod = {},
                         onScaleChange = {},
-                        onSelectMonth = {
-                            month = it
-                            trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
-                        },
+                        onSelectMonth = { month = it },
                         onShowAllTrend = {},
                         onOpenExpenses = {},
                         onOpenTransactions = {},
@@ -290,7 +311,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(6)
+        compose.onNodeWithTag("analytics-trend").performScrollTo()
         compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
@@ -299,23 +320,19 @@ class AnalyticsScreenTest {
     @Test
     fun spendingKeepsLaterTrendMonthReachableAfterSelectingEarlierMonth() {
         var month by mutableStateOf(YearMonth.of(2026, 8))
-        var trendEnd by mutableStateOf(YearMonth.of(2026, 8))
         compose.setContent {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ExpenseAnalysisContent(
                         model = model(contentData.copy(
                             period = AnalyticsPeriod.month(month),
-                            trendValues = trendEndingAt(trendEnd),
+                            trendValues = trendForYear(2026),
                         )),
                         onBack = {},
                         onPreviousPeriod = {},
                         onNextPeriod = {},
                         onScaleChange = {},
-                        onSelectMonth = {
-                            month = it
-                            trendEnd = trendWindowEndAfterSelecting(trendEnd, it)
-                        },
+                        onSelectMonth = { month = it },
                         onShowAllTrend = {},
                         onShowCategoryTrend = {},
                         onOpenTransactions = {},
@@ -337,9 +354,9 @@ class AnalyticsScreenTest {
         state = AnalyticsUiState.Content(data),
     )
 
-    private fun trendEndingAt(end: YearMonth): List<AnalyticsMonthValue> =
-        (11L downTo 0L).map { monthsAgo ->
-            val month = end.minusMonths(monthsAgo)
+    private fun trendForYear(year: Int): List<AnalyticsMonthValue> =
+        (1..12).map { monthNumber ->
+            val month = YearMonth.of(year, monthNumber)
             AnalyticsMonthValue(
                 month = month,
                 expenseMinor = when (month) {
@@ -360,8 +377,8 @@ class AnalyticsScreenTest {
         ),
         trendFilter = AnalyticsTrendFilter.All,
         trendFilterName = null,
-        trendValues = (0L..11L).map {
-            AnalyticsMonthValue(YearMonth.of(2025, 8).plusMonths(it), (it + 1) * 1_000L)
+        trendValues = (1..12).map {
+            AnalyticsMonthValue(YearMonth.of(2026, it), it * 1_000L)
         },
         previousTrendExpenseMinor = 6_000,
         unaccountedNetMinor = 0,

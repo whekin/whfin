@@ -16,6 +16,7 @@ import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
 import org.junit.Rule
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -26,6 +27,48 @@ import org.robolectric.annotation.Config
 class TransactionDetailsSheetTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @Test
+    fun foreignCardPaymentUsesKnownOriginalAmountUntilBankChargeArrives() {
+        val transaction = TransactionEntity(
+                id = 10,
+                accountId = 1,
+                amountMinor = 0,
+                currency = "GEL",
+                origAmountMinor = 762,
+                origCurrency = "EUR",
+                occurredAt = 1_000,
+                status = TxStatus.CONFIRMED,
+                source = TxSource.SMS,
+            )
+        val amount = transactionPresentationAmount(transaction)
+
+        assertEquals(762L, amount.minor)
+        assertEquals("EUR", amount.currency)
+
+        compose.setContent {
+            WhfinTheme {
+                TransactionDetailsSheet(
+                    item = FeedItem(
+                        tx = transaction,
+                        merchant = null,
+                        category = null,
+                        account = null,
+                        cardHint = null,
+                        day = LocalDate.of(2026, 8, 13),
+                    ),
+                    onDismiss = {},
+                    onChangeCategory = null,
+                    onDelete = null,
+                    onEdit = null,
+                    onDebt = null,
+                    onClearDebt = null,
+                )
+            }
+        }
+        compose.onNode(hasText("7.62 €", substring = true)).assertIsDisplayed()
+        compose.onNode(hasText("0.00 ₾", substring = true)).assertDoesNotExist()
+    }
 
     @Test
     fun smsTransactionShowsProvenanceWithoutAStatusTask() {

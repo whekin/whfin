@@ -170,4 +170,10 @@ class ShellNavigationTest {
         assertEquals(null, back.destination)
         assertTrue(back.remaining.isEmpty())
     }
+
+    @Test
+    fun `Back from Accounts opened by the low balance warning returns to Home`() {
+        assertEquals(0, primaryTabAfterBack(currentTab = 1))
+        assertEquals(null, primaryTabAfterBack(currentTab = 0))
+    }
 }

@@ -21,17 +21,6 @@ class AnalyticsCalculatorTest {
     private val unaccounted = CategoryEntity(3, "Unaccounted", kind = CategoryKind.EXPENSE, icon = "Category", color = 0, isSystem = true)
 
     @Test
-    fun trendWindowStaysPutWhileSelectingMonthsAlreadyInsideIt() {
-        val august = YearMonth.of(2026, 8)
-
-        val afterJuly = trendWindowEndAfterSelecting(august, YearMonth.of(2026, 7))
-        val afterReturning = trendWindowEndAfterSelecting(afterJuly, august)
-
-        assertEquals(august, afterJuly)
-        assertEquals(august, afterReturning)
-    }
-
-    @Test
     fun excludesTransfersDebtsAndAdjustmentsFromMonthTotals() {
         val transactions = listOf(
             tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id, status = TxStatus.PENDING),
@@ -75,8 +64,10 @@ class AnalyticsCalculatorTest {
 
         // Only March: the categories of a screen must answer the same period as its own total.
         assertEquals(4_500L, data.categoryValues.sumOf { it.expenseMinor })
-        assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.takeLast(3).map { it.expenseMinor })
-        assertTrue(data.trendValues.dropLast(3).all { it.expenseMinor == 0L })
+        assertEquals(YearMonth.of(2026, 1), data.trendValues.first().month)
+        assertEquals(YearMonth.of(2026, 12), data.trendValues.last().month)
+        assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.take(3).map { it.expenseMinor })
+        assertTrue(data.trendValues.drop(3).all { it.expenseMinor == 0L })
         assertEquals(1_000L, data.spendingAverageMinor)
         assertEquals(
             3_000L,
