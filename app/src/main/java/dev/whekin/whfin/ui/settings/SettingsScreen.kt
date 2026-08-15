@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Restore
@@ -92,6 +93,7 @@ fun SettingsScreen(
     onOpenCredoSync: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onOpenCategoryIntelligence: () -> Unit = {},
+    onOpenIncomeSources: () -> Unit = {},
     onOpenPeople: () -> Unit = {},
     demoMode: Boolean = false,
     developerMode: Boolean = false,
@@ -201,6 +203,14 @@ fun SettingsScreen(
                 icon = Icons.Default.AutoAwesome,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenCategoryIntelligence,
+                divider = true,
+            )
+            WhfinLedgerRow(
+                title = stringResource(R.string.income_sources_title),
+                supportingText = stringResource(R.string.income_sources_settings_summary),
+                icon = Icons.Default.SouthWest,
+                trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = onOpenIncomeSources,
                 divider = true,
             )
             WhfinLedgerRow(

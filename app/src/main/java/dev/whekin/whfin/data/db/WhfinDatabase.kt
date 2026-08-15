@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-const val WHFIN_DATABASE_VERSION = 3
+const val WHFIN_DATABASE_VERSION = 4
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -48,6 +48,31 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/** Adds the declared entry point of money. Existing rows are untouched: the table starts empty. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `income_sources` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`label` TEXT NOT NULL, " +
+                "`amountMinor` INTEGER NOT NULL, " +
+                "`currency` TEXT NOT NULL, " +
+                "`accountId` INTEGER, " +
+                "`expectedDayFrom` INTEGER NOT NULL, " +
+                "`expectedDayTo` INTEGER NOT NULL, " +
+                "`startedOn` INTEGER NOT NULL, " +
+                "`endedOn` INTEGER, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE SET NULL)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_income_sources_accountId` " +
+                "ON `income_sources` (`accountId`)",
+        )
+    }
+}
+
 @Database(
     entities = [
         AccountEntity::class,
@@ -73,6 +98,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         ExchangeRateEntity::class,
         ExchangeRateHistoryEntity::class,
         CounterpartyRuleEntity::class,
+        IncomeSourceEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
     exportSchema = true,
@@ -94,6 +120,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun smsDiagnosticDao(): SmsDiagnosticDao
     abstract fun exchangeRateDao(): ExchangeRateDao
     abstract fun counterpartyRuleDao(): CounterpartyRuleDao
+    abstract fun incomeSourceDao(): IncomeSourceDao
 
     companion object {
         const val NAME = "whfin.db"
@@ -110,6 +137,6 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     }
 }

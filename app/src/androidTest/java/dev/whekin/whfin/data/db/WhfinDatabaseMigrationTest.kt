@@ -68,6 +68,28 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration3To4_addsEmptyIncomeSourcesAndKeepsRules() {
+        helper.createDatabase(TEST_DB, 3).apply {
+            execSQL(
+                "INSERT INTO counterparty_rules (id, iban, displayName, categoryId, personId, createdAt) " +
+                    "VALUES (1, 'GE00WH0000000000000042', 'Example Person', NULL, NULL, 100)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_3_4).use { database ->
+            database.query("SELECT COUNT(*) FROM income_sources").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+            database.query("SELECT displayName FROM counterparty_rules WHERE id = 1").use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals("Example Person", cursor.getString(0))
+            }
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-test"
     }

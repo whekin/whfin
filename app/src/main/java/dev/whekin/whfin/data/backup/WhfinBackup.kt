@@ -198,6 +198,14 @@ internal object WhfinBackupSchema {
             optionalOnRestore = true,
         ),
         BackupTable(
+            "income_sources",
+            listOf(
+                "id", "label", "amountMinor", "currency", "accountId",
+                "expectedDayFrom", "expectedDayTo", "startedOn", "endedOn", "createdAt",
+            ),
+            optionalOnRestore = true,
+        ),
+        BackupTable(
             "transactions",
             listOf(
                 "id", "accountId", "amountMinor", "currency", "origAmountMinor", "origCurrency",

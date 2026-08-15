@@ -606,6 +606,13 @@ interface TransactionDao {
     )
     suspend fun categorizeUnassignedForCounterparty(iban: String, categoryId: Long)
 
+    /** Money that arrived in a window, for comparing a declared income against what actually came. */
+    @Query(
+        "SELECT * FROM transactions WHERE amountMinor > 0 AND isTransfer = 0 AND isVoided = 0 " +
+            "AND occurredAt >= :fromMillis AND occurredAt < :toMillis"
+    )
+    fun observeIncomeBetween(fromMillis: Long, toMillis: Long): Flow<List<TransactionEntity>>
+
     @Query(
         "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId AND isVoided = 0"
     )
@@ -708,6 +715,21 @@ interface CounterpartyRuleDao {
 
     @Query("DELETE FROM counterparty_rules WHERE iban = :iban")
     suspend fun deleteByIban(iban: String)
+}
+
+@Dao
+interface IncomeSourceDao {
+    @Query("SELECT * FROM income_sources ORDER BY endedOn IS NOT NULL, startedOn DESC, id DESC")
+    fun observeAll(): Flow<List<IncomeSourceEntity>>
+
+    @Query("SELECT * FROM income_sources WHERE endedOn IS NULL ORDER BY startedOn DESC")
+    suspend fun active(): List<IncomeSourceEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(source: IncomeSourceEntity): Long
+
+    @Query("DELETE FROM income_sources WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Dao

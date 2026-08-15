@@ -498,6 +498,9 @@ tables = {
     # there is no recipient rule to carry. The table is still declared, because a fixture that
     # omitted it would only ever exercise the compatibility path for older files.
     "counterparty_rules": [],
+    # The demo declares no entry point: its income is already recorded row by row, and a
+    # declaration would only restate it.
+    "income_sources": [],
     "transactions": sorted(f.transactions, key=lambda row: row["id"]),
     "transaction_allocations": f.allocations,
     "debt_cases": f.debt_cases,
