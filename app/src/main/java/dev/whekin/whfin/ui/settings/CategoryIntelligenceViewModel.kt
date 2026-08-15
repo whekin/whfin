@@ -31,8 +31,11 @@ data class CategoryIntelligenceState(
     val coverage: CategoryCoverage,
     val unresolved: List<UncategorizedMerchant>,
     val counterparties: List<UncategorizedCounterparty> = emptyList(),
+    val incomeCoverage: CategoryCoverage = CategoryCoverage(0, 0, 0),
+    val incomeSenders: List<UncategorizedCounterparty> = emptyList(),
     val people: List<PersonEntity> = emptyList(),
     val categories: List<CategoryEntity>,
+    val incomeCategories: List<CategoryEntity> = emptyList(),
     val isChecking: Boolean = false,
     val lastCheckMatches: Int? = null,
     val operationFailed: Boolean = false,
@@ -42,24 +45,46 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val operation = MutableStateFlow(CategoryIntelligenceOperation())
 
-    private val ledger = combine(
+    private data class Spending(
+        val coverage: CategoryCoverage,
+        val merchants: List<UncategorizedMerchant>,
+        val counterparties: List<UncategorizedCounterparty>,
+    )
+
+    private data class Earning(
+        val coverage: CategoryCoverage,
+        val senders: List<UncategorizedCounterparty>,
+    )
+
+    private val spending = combine(
         db.transactionDao().observeCategoryCoverage(),
         db.transactionDao().observeUncategorizedMerchants(),
         db.transactionDao().observeUncategorizedCounterparties(),
-    ) { coverage, merchants, counterparties -> Triple(coverage, merchants, counterparties) }
+        ::Spending,
+    )
+
+    private val earning = combine(
+        db.transactionDao().observeIncomeCoverage(),
+        db.transactionDao().observeUncategorizedIncomeCounterparties(),
+        ::Earning,
+    )
 
     val state: StateFlow<CategoryIntelligenceState?> = combine(
-        ledger,
+        spending,
+        earning,
         db.categoryDao().observeAll(),
         db.personDao().observeActive(),
         operation,
-    ) { (coverage, merchants, counterparties), categories, people, operation ->
+    ) { spending, earning, categories, people, operation ->
         CategoryIntelligenceState(
-            coverage = coverage,
-            unresolved = merchants,
-            counterparties = counterparties,
+            coverage = spending.coverage,
+            unresolved = spending.merchants,
+            counterparties = spending.counterparties,
+            incomeCoverage = earning.coverage,
+            incomeSenders = earning.senders,
             people = people,
             categories = categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem },
+            incomeCategories = categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem },
             isChecking = operation.isChecking,
             lastCheckMatches = operation.lastCheckMatches,
             operationFailed = operation.failed,

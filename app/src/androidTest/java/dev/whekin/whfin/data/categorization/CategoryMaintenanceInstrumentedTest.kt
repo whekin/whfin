@@ -56,7 +56,7 @@ class CategoryMaintenanceInstrumentedTest {
         CategoryEntity(name = name, kind = CategoryKind.EXPENSE, icon = icon, color = 0),
     )
 
-    private suspend fun expense(
+    private suspend fun entry(
         note: String? = null,
         merchantId: Long? = null,
         iban: String? = null,
@@ -84,7 +84,7 @@ class CategoryMaintenanceInstrumentedTest {
 
     @Test
     fun feeAlreadyImported_getsItsCategoryFromTheLabelTheBankLeftInTheNote() = runBlocking {
-        val fee = expense(note = "გადარიცხვის საკომისიო")
+        val fee = entry(note = "გადარიცხვის საკომისიო")
 
         val result = CategoryMaintenance.run(db)
 
@@ -94,7 +94,7 @@ class CategoryMaintenanceInstrumentedTest {
 
     @Test
     fun cardPaymentNote_isNeverMistakenForAnOperationLabel() = runBlocking {
-        val payment = expense(note = "გადახდა - EXAMPLE SHOP 7.14 GEL 09.07.2025")
+        val payment = entry(note = "გადახდა - EXAMPLE SHOP 7.14 GEL 09.07.2025")
 
         CategoryMaintenance.run(db)
 
@@ -103,7 +103,7 @@ class CategoryMaintenanceInstrumentedTest {
 
     @Test
     fun aCategoryTheUserChose_isNeverRevisited() = runBlocking {
-        val fee = expense(note = "გადარიცხვის საკომისიო")
+        val fee = entry(note = "გადარიცხვის საკომისიო")
         db.transactionDao().categorizeIfUnassigned(fee, rentId)
 
         CategoryMaintenance.run(db)
@@ -116,8 +116,8 @@ class CategoryMaintenanceInstrumentedTest {
         val merchantId = db.merchantDao().insert(
             MerchantEntity(normalizedKey = "jetshr", displayName = "jetshr"),
         )
-        val first = expense(merchantId = merchantId)
-        val second = expense(merchantId = merchantId)
+        val first = entry(merchantId = merchantId)
+        val second = entry(merchantId = merchantId)
 
         val result = CategoryMaintenance.run(db)
 
@@ -130,8 +130,8 @@ class CategoryMaintenanceInstrumentedTest {
     @Test
     fun namedRecipient_catchesEverySpellingOfTheSameAccount() = runBlocking {
         val iban = "GE00WH0000000000000042"
-        val early = expense(iban = iban)
-        val late = expense(iban = iban)
+        val early = entry(iban = iban)
+        val late = entry(iban = iban)
         db.counterpartyRuleDao().upsert(
             CounterpartyRuleEntity(
                 iban = iban,
@@ -150,7 +150,7 @@ class CategoryMaintenanceInstrumentedTest {
     @Test
     fun recipientWithoutACategory_leavesTheirTransfersAlone() = runBlocking {
         val iban = "GE00WH0000000000000043"
-        val transfer = expense(iban = iban)
+        val transfer = entry(iban = iban)
         db.counterpartyRuleDao().upsert(
             CounterpartyRuleEntity(iban = iban, displayName = "Example Person", createdAt = 1_000),
         )
@@ -161,11 +161,54 @@ class CategoryMaintenanceInstrumentedTest {
     }
 
     @Test
+    fun depositInterestAlreadyImported_landsInIncomeWithoutBeingAsked() = runBlocking {
+        val interestId = db.categoryDao().insert(
+            CategoryEntity(name = "Interest", kind = CategoryKind.INCOME, icon = "Percent", color = 0),
+        )
+        val paid = entry(note = "საპროცენტო სარგებლის გადახდა", amountMinor = 597)
+
+        CategoryMaintenance.run(db)
+
+        assertEquals(interestId, categoryOf(paid))
+    }
+
+    /**
+     * Credo names the destination ledger on a cash deposit, and that ledger is the user's own. Asked
+     * about as a counterparty it would invite a rule about themselves.
+     */
+    @Test
+    fun anOwnAccountIsNeverOfferedAsACounterparty() = runBlocking {
+        val ownIban = "GE00WH0000000000000099"
+        db.accountDao().insert(
+            AccountEntity(name = "Credo GEL", type = AccountType.BANK, currency = "GEL", iban = ownIban),
+        )
+        entry(iban = ownIban, rawCounterparty = "Example Owner", amountMinor = 230_000)
+        entry(iban = "GE00WH0000000000000100", rawCounterparty = "Example Payer", amountMinor = 700_000)
+
+        val senders = db.transactionDao().observeUncategorizedIncomeCounterparties().first()
+
+        assertEquals(listOf("GE00WH0000000000000100"), senders.map { it.iban })
+    }
+
+    @Test
+    fun incomeAndSpendingAreCountedApart() = runBlocking {
+        entry(rawCounterparty = "Example Shop")
+        entry(iban = "GE00WH0000000000000101", rawCounterparty = "Example Payer", amountMinor = 700_000)
+
+        val spending = db.transactionDao().observeCategoryCoverage().first()
+        val income = db.transactionDao().observeIncomeCoverage().first()
+
+        assertEquals(1, spending.totalExpenses)
+        assertEquals(1, income.totalExpenses)
+        assertEquals(0, income.categorizedExpenses)
+    }
+
+    @Test
     fun aTransferIsAskedAboutByRecipient_notOnceMoreByNameSpelling() = runBlocking {
         val merchantId = db.merchantDao().insert(
             MerchantEntity(normalizedKey = "example person", displayName = "Example Person"),
         )
-        expense(
+        entry(
             merchantId = merchantId,
             iban = "GE00WH0000000000000044",
             rawCounterparty = "Example Person",

@@ -21,11 +21,25 @@ class GeorgiaMerchantPresetTest {
         assertEquals(groceries, GeorgiaMerchantPreset.categoryFor("libre", categories))
     }
 
-    @Test fun `Tbilisi transit and salary are recognized`() {
+    @Test fun `Tbilisi transit is recognized`() {
         assertEquals(transport, GeorgiaMerchantPreset.categoryFor("bus_tbilisi", categories))
         assertEquals(transport, GeorgiaMerchantPreset.categoryFor("yandex go", categories))
         assertEquals(transport, GeorgiaMerchantPreset.categoryFor("yandex*go taxi", categories))
-        assertEquals(salary, GeorgiaMerchantPreset.categoryFor("შპს უნოტრონ", categories))
+    }
+
+    /**
+     * Who pays a given person cannot be read off a company name. One Georgian LLC paying out a
+     * currency conversion every month was indistinguishable from an employer paying a salary until
+     * its own ledger was read, so the preset stays out of income entirely.
+     */
+    @Test fun `no company is assumed to be an employer`() {
+        assertNull(GeorgiaMerchantPreset.categoryFor("შპს უნოტრონ", categories))
+        assertNull(GeorgiaMerchantPreset.categoryFor("shps unotron", categories))
+        assertEquals(
+            emptyList<CategoryEntity>(),
+            categories.filter { it.kind == CategoryKind.INCOME }
+                .filter { income -> GeorgiaMerchantPreset.categoryFor(income.name.lowercase(), categories) != null },
+        )
     }
 
     @Test fun `unknown merchant stays unclassified`() {

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -77,6 +78,7 @@ fun CategoryIntelligenceScreen(
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<UncategorizedMerchant?>(null) }
     var selectedCounterparty by remember { mutableStateOf<UncategorizedCounterparty?>(null) }
+    var selectedSender by remember { mutableStateOf<UncategorizedCounterparty?>(null) }
 
     if (state == null) {
         WhfinStatePane(
@@ -121,6 +123,40 @@ fun CategoryIntelligenceScreen(
                 actionLabel = stringResource(R.string.category_intelligence_check_action),
                 onAction = onCheckLocalRules,
             )
+        }
+        if (state.incomeSenders.isNotEmpty()) {
+            item { WhfinSectionLabel(stringResource(R.string.category_intelligence_income_title)) }
+            item {
+                Text(
+                    stringResource(
+                        R.string.category_intelligence_income_body,
+                        state.incomeCoverage.totalExpenses - state.incomeCoverage.categorizedExpenses,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(state.incomeSenders, key = { "in:" + it.iban + it.currency }) { sender ->
+                WhfinLedgerRow(
+                    title = sender.displayName
+                        ?: stringResource(R.string.category_intelligence_transfer_unnamed),
+                    supportingText = pluralStringResource(
+                        R.plurals.category_intelligence_transactions,
+                        sender.transactionCount,
+                        sender.transactionCount,
+                    ),
+                    icon = Icons.Default.SouthWest,
+                    trailing = {
+                        Text(
+                            formatMinor(sender.totalMinor, sender.currency),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { selectedSender = sender },
+                    divider = sender != state.incomeSenders.last(),
+                )
+            }
         }
         if (state.counterparties.isNotEmpty()) {
             item { WhfinSectionLabel(stringResource(R.string.category_intelligence_transfers_title)) }
@@ -219,6 +255,25 @@ fun CategoryIntelligenceScreen(
                 kind = WhfinNoticeKind.Unavailable,
             )
         }
+    }
+
+    selectedSender?.let { sender ->
+        val name = sender.displayName
+            ?: stringResource(R.string.category_intelligence_transfer_unnamed)
+        CounterpartyCategorySheet(
+            counterparty = sender,
+            name = name,
+            // Naming a person is a question about who benefited from a payment; money arriving
+            // asks nothing of the kind, so the sheet stays a category choice.
+            people = emptyList(),
+            categories = state.incomeCategories,
+            onDismiss = { selectedSender = null },
+            onSelect = { category, _, _ ->
+                onAssignCounterparty(sender.iban, name, category.id, null, null)
+                selectedSender = null
+            },
+            askWhoItIs = false,
+        )
     }
 
     selectedCounterparty?.let { counterparty ->
@@ -337,6 +392,7 @@ private fun CounterpartyCategorySheet(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
     onSelect: (CategoryEntity, Long?, String?) -> Unit,
+    askWhoItIs: Boolean = true,
 ) {
     var personId by remember { mutableStateOf<Long?>(null) }
     var createPerson by remember { mutableStateOf(false) }
@@ -360,6 +416,7 @@ private fun CounterpartyCategorySheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (askWhoItIs) {
             WhfinFieldLabel(stringResource(R.string.category_intelligence_person_label))
             val noneLabel = stringResource(R.string.category_intelligence_person_none)
             val createLabel = stringResource(R.string.category_intelligence_person_create, name)
@@ -395,6 +452,7 @@ private fun CounterpartyCategorySheet(
                         },
                     )
                 }
+            }
             }
             WhfinFieldLabel(stringResource(R.string.category_intelligence_category_label))
             CategoryGrid(

@@ -6,24 +6,28 @@ import dev.whekin.whfin.data.statement.StatementOperation
 
 /**
  * Categories that follow from what the bank says an operation *is*, before anything is known about
- * who was paid.
+ * who paid or was paid.
  *
- * This is deliberately narrow. A bank fee is the bank's own charge, so no merchant identity could
- * ever describe it better, and every bank has fees. A bill payment is the opposite case: Credo files
- * a mobile top-up, an electricity bill, an insurance premium and a parking fine under one operation,
- * so guessing a category from it would be inventing an answer the statement never gave.
+ * This is deliberately narrow. A bank fee is the bank's own charge and deposit interest is the
+ * bank's own payment: no counterparty identity could describe either better, and every bank has
+ * both. A bill payment is the opposite case — Credo files a mobile top-up, an electricity bill, an
+ * insurance premium and a parking fine under one operation, so a category chosen from it would be
+ * invented rather than read. Money arriving as cash or a transfer is left alone for the same
+ * reason: whether it is income or the user's own money coming back is not something the operation
+ * label can answer.
  */
 object OperationCategories {
 
-    private const val BANK_FEE_ICON = "AccountBalance"
+    private data class Target(val icon: String, val kind: CategoryKind)
 
-    private fun iconFor(operation: StatementOperation): String? = when (operation) {
-        StatementOperation.FEE -> BANK_FEE_ICON
+    private fun targetFor(operation: StatementOperation): Target? = when (operation) {
+        StatementOperation.FEE -> Target("AccountBalance", CategoryKind.EXPENSE)
+        StatementOperation.INTEREST -> Target("Percent", CategoryKind.INCOME)
         else -> null
     }
 
     fun categoryFor(operation: StatementOperation, categories: List<CategoryEntity>): CategoryEntity? {
-        val icon = iconFor(operation) ?: return null
-        return categories.firstOrNull { it.icon == icon && it.kind == CategoryKind.EXPENSE }
+        val target = targetFor(operation) ?: return null
+        return categories.firstOrNull { it.icon == target.icon && it.kind == target.kind }
     }
 }

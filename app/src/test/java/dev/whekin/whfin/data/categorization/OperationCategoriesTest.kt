@@ -17,6 +17,13 @@ class OperationCategoriesTest {
         icon = "AccountBalance",
         color = 0xFF90A4AE.toInt(),
     )
+    private val interest = CategoryEntity(
+        id = 11,
+        name = "Interest",
+        kind = CategoryKind.INCOME,
+        icon = "Percent",
+        color = 0xFF78906F.toInt(),
+    )
     private val groceries = CategoryEntity(
         id = 8,
         name = "Groceries",
@@ -46,12 +53,35 @@ class OperationCategoriesTest {
     }
 
     @Test
-    fun `no operation other than a fee claims a category`() {
+    fun `deposit interest is the bank paying, and lands in income`() {
+        assertEquals(
+            interest,
+            OperationCategories.categoryFor(StatementOperation.INTEREST, listOf(bankFees, interest)),
+        )
+    }
+
+    @Test
+    fun `money merely arriving is never assumed to be income`() {
+        // Cash at a counter and an incoming transfer look identical to a salary here. Whether they
+        // are new money or the user's own money coming back is not a question the label can answer.
+        listOf(
+            StatementOperation.CASH_DEPOSIT,
+            StatementOperation.TRANSFER_IN,
+        ).forEach { operation ->
+            assertNull(
+                "$operation must not be guessed",
+                OperationCategories.categoryFor(operation, listOf(groceries, bankFees, interest)),
+            )
+        }
+    }
+
+    @Test
+    fun `only a fee and deposit interest claim a category`() {
         val claimed = StatementOperation.entries.filter {
-            OperationCategories.categoryFor(it, listOf(groceries, bankFees)) != null
+            OperationCategories.categoryFor(it, listOf(groceries, bankFees, interest)) != null
         }
 
-        assertEquals(listOf(StatementOperation.FEE), claimed)
+        assertEquals(listOf(StatementOperation.FEE, StatementOperation.INTEREST), claimed)
     }
 
     @Test

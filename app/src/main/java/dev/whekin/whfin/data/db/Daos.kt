@@ -544,6 +544,10 @@ interface TransactionDao {
      * Uncategorized outgoing transfers, one row per recipient account rather than per spelling of
      * their name. The most recent spelling represents the group, because that is the one the user
      * has just seen in the feed.
+     *
+     * An account the user owns is never a counterparty. Credo prints the destination account on a
+     * cash deposit, which is the user's own ledger: grouped as a recipient it would invite a rule
+     * about themselves.
      */
     @Query(
         "SELECT t.counterpartyIban AS iban, COUNT(*) AS transactionCount, " +
@@ -554,12 +558,47 @@ interface TransactionDao {
             "ORDER BY r.occurredAt DESC LIMIT 1) AS displayName " +
             "FROM transactions t " +
             "WHERE t.counterpartyIban IS NOT NULL AND t.counterpartyIban != '' " +
+            "AND t.counterpartyIban NOT IN (SELECT iban FROM accounts WHERE iban IS NOT NULL) " +
             "AND t.categoryId IS NULL AND t.amountMinor < 0 AND t.isTransfer = 0 " +
             "AND t.isVoided = 0 AND t.source != 'ADJUSTMENT' " +
             "GROUP BY t.counterpartyIban, t.currency " +
             "ORDER BY transactionCount DESC, latestAt DESC"
     )
     fun observeUncategorizedCounterparties(): Flow<List<UncategorizedCounterparty>>
+
+    /**
+     * The same question asked of money coming in.
+     *
+     * Income is where most of the value in a ledger enters, and it arrives from far fewer parties
+     * than expenses go to, so naming a sender once settles a lot at a time. Rows the bank could not
+     * attribute to anyone — cash at a terminal, deposit interest — carry no account and are absent
+     * here on purpose: their meaning comes from the operation, not from a counterparty.
+     */
+    @Query(
+        "SELECT t.counterpartyIban AS iban, COUNT(*) AS transactionCount, " +
+            "SUM(t.amountMinor) AS totalMinor, MAX(t.occurredAt) AS latestAt, " +
+            "t.currency AS currency, " +
+            "(SELECT r.rawCounterparty FROM transactions r " +
+            "WHERE r.counterpartyIban = t.counterpartyIban AND r.rawCounterparty IS NOT NULL " +
+            "ORDER BY r.occurredAt DESC LIMIT 1) AS displayName " +
+            "FROM transactions t " +
+            "WHERE t.counterpartyIban IS NOT NULL AND t.counterpartyIban != '' " +
+            "AND t.counterpartyIban NOT IN (SELECT iban FROM accounts WHERE iban IS NOT NULL) " +
+            "AND t.categoryId IS NULL AND t.amountMinor > 0 AND t.isTransfer = 0 " +
+            "AND t.isVoided = 0 AND t.source != 'ADJUSTMENT' " +
+            "GROUP BY t.counterpartyIban, t.currency " +
+            "ORDER BY totalMinor DESC, latestAt DESC"
+    )
+    fun observeUncategorizedIncomeCounterparties(): Flow<List<UncategorizedCounterparty>>
+
+    @Query(
+        "SELECT COUNT(*) AS totalExpenses, " +
+            "COALESCE(SUM(CASE WHEN categoryId IS NOT NULL THEN 1 ELSE 0 END), 0) AS categorizedExpenses, " +
+            "0 AS withoutMerchant " +
+            "FROM transactions WHERE amountMinor > 0 AND isTransfer = 0 AND isVoided = 0 " +
+            "AND source != 'ADJUSTMENT'"
+    )
+    fun observeIncomeCoverage(): Flow<CategoryCoverage>
 
     @Query(
         "UPDATE transactions SET categoryId = :categoryId " +

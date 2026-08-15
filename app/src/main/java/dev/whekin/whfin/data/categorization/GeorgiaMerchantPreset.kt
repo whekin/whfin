@@ -7,6 +7,11 @@ import dev.whekin.whfin.data.db.WhfinDatabase
 /**
  * Small, reviewable offline preset for common Georgian merchants.
  * User-learned Merchant.categoryId always wins: this only fills null categories.
+ *
+ * Every rule here has to be true for anyone who shops in Georgia. A counterparty that is only
+ * meaningful to one person does not belong: an exchange office paying out a conversion looked
+ * exactly like an employer paying a salary until its own ledger was read, and shipping that guess
+ * would have taught every install the same wrong thing.
  */
 object GeorgiaMerchantPreset {
     private enum class Target(val icon: String, val kind: CategoryKind = CategoryKind.EXPENSE) {
@@ -20,7 +25,6 @@ object GeorgiaMerchantPreset {
         SUBSCRIPTIONS("Subscriptions"),
         UTILITIES("Bolt"),
         BIKE("PedalBike"),
-        SALARY("Payments", CategoryKind.INCOME),
     }
 
     private data class Rule(val target: Target, val tokens: List<String>)
@@ -55,7 +59,6 @@ object GeorgiaMerchantPreset {
             "mysilknetapp", "salerequest.silknet",
         )),
         Rule(Target.BIKE, listOf("bike24")),
-        Rule(Target.SALARY, listOf("shps unotron", "შპს უნოტრონ")),
     )
 
     fun categoryFor(normalizedKey: String, categories: List<CategoryEntity>): CategoryEntity? {

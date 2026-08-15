@@ -662,6 +662,8 @@
     <string name="category_intelligence_check_action">Check local rules</string>
     <string name="category_intelligence_complete_title">Nothing needs review</string>
     <string name="category_intelligence_complete_body">Every expense with a recognizable merchant has a category.</string>
+    <string name="category_intelligence_income_title">Money coming in</string>
+    <string name="category_intelligence_income_body">%1$d incoming operations have no category. Naming a sender once settles every arrival from them, past and future.</string>
     <string name="category_intelligence_transfers_title">Transfers to people</string>
     <string name="category_intelligence_transfers_body">These went to somebody\'s account, not to a shop. They are grouped by the recipient\'s account, so every spelling of one name is a single row.</string>
     <string name="category_intelligence_transfer_unnamed">Unnamed recipient</string>

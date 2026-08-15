@@ -683,6 +683,8 @@
     <string name="category_intelligence_check_action">Проверить правила</string>
     <string name="category_intelligence_complete_title">Проверять нечего</string>
     <string name="category_intelligence_complete_body">У каждого расхода с распознаваемым мерчантом уже есть категория.</string>
+    <string name="category_intelligence_income_title">Приходы</string>
+    <string name="category_intelligence_income_body">%1$d приходов без категории. Один раз назвав отправителя, вы разметите все поступления от него — и прошлые, и будущие.</string>
     <string name="category_intelligence_transfers_title">Переводы людям</string>
     <string name="category_intelligence_transfers_body">Эти деньги ушли на чей-то счёт, а не в магазин. Строки сгруппированы по счёту получателя, поэтому все написания одного имени — одна строка.</string>
     <string name="category_intelligence_transfer_unnamed">Получатель без имени</string>
