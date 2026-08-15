@@ -12,12 +12,14 @@ import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.IncomeSourceEntity
 import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.data.income.IncomeExpectations
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -30,11 +32,15 @@ data class IncomeSourcesState(
     val isReadingChain: Boolean = false,
 )
 
-class IncomeSourcesViewModel(
-    app: Application,
-    private val transfers: CryptoTransferProvider = HttpCryptoTransferProvider({ CryptoEndpoints() }),
-) : AndroidViewModel(app) {
+/**
+ * Takes only an [Application]: the default factory finds a view model's constructor by reflection,
+ * and a second parameter — even one with a Kotlin default — leaves no `(Application)` constructor
+ * for it to find. The chain reader is therefore built here rather than injected; it is exercised
+ * directly by its own tests.
+ */
+class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
+    private val transfers: CryptoTransferProvider = HttpCryptoTransferProvider({ CryptoEndpoints() })
     private val zone: ZoneId = ZoneId.systemDefault()
 
     private val today = LocalDate.now(zone)
@@ -96,33 +102,38 @@ class IncomeSourcesViewModel(
         readingChain.value = true
         viewModelScope.launch {
             try {
-                val sources = db.incomeSourceDao().active()
-                val results = mutableMapOf<Long, ChainRead>()
-                sources.forEach { source ->
-                    val accountId = source.accountId ?: return@forEach
-                    val account = db.accountDao().byId(accountId) ?: return@forEach
-                    val addressId = account.walletAddressId ?: return@forEach
-                    val address = db.cryptoDao().addressById(addressId) ?: return@forEach
-                    val network = CryptoNetwork.byChainId(address.chainId) ?: return@forEach
-                    val asset = account.cryptoAssetId?.let { db.cryptoDao().assetById(it) }
-                    results[source.id] = runCatching {
-                        val transfers = transfers.incoming(network, address.address, monthStart)
-                            .filter { it.occurredAt in monthStart until monthEnd }
-                            .filter { transfer ->
-                                asset == null || transfer.symbol.equals(asset.symbol, ignoreCase = true)
-                            }
-                        ChainRead(
-                            receivedMinor = transfers.sumOf { toMinor(it.baseUnits, it.decimals) },
-                            count = transfers.size,
-                            failed = false,
-                        )
-                    }.getOrElse { ChainRead(0L, 0, failed = true) }
-                }
-                chainReads.value = results
+                // Reading a chain blocks on a socket, and this scope runs on the main thread.
+                chainReads.value = withContext(Dispatchers.IO) { readChain() }
             } finally {
                 readingChain.value = false
             }
         }
+    }
+
+    private suspend fun readChain(): Map<Long, ChainRead> {
+        val sources = db.incomeSourceDao().active()
+        val results = mutableMapOf<Long, ChainRead>()
+        sources.forEach { source ->
+            val accountId = source.accountId ?: return@forEach
+            val account = db.accountDao().byId(accountId) ?: return@forEach
+            val addressId = account.walletAddressId ?: return@forEach
+            val address = db.cryptoDao().addressById(addressId) ?: return@forEach
+            val network = CryptoNetwork.byChainId(address.chainId) ?: return@forEach
+            val asset = account.cryptoAssetId?.let { db.cryptoDao().assetById(it) }
+            results[source.id] = runCatching {
+                val received = transfers.incoming(network, address.address, monthStart)
+                    .filter { it.occurredAt in monthStart until monthEnd }
+                    .filter { transfer ->
+                        asset == null || transfer.symbol.equals(asset.symbol, ignoreCase = true)
+                    }
+                ChainRead(
+                    receivedMinor = received.sumOf { toMinor(it.baseUnits, it.decimals) },
+                    count = received.size,
+                    failed = false,
+                )
+            }.getOrElse { ChainRead(0L, 0, failed = true) }
+        }
+        return results
     }
 
     /**
