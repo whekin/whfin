@@ -803,6 +803,13 @@ This is a single-context repository with root domain documentation and system-wi
   намеренно остаётся мгновенным и не требует разблокировки; сам виджет не показывает баланс.
   App lock не считать шифрованием Room DB; будущие банковские токены получают отдельное key management
 - [~] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
+  Известный разрыв до появления второго банка: `TransferPairing` работает внутри одной банковской
+  группы, а `isOwnMovement` знает только «между своими счетами Credo». Перевод Credo→TBC уйдёт
+  расходом в одном банке и придёт доходом в другом, тихо удвоив обе стороны. Чинится сверкой
+  `beneficiaryAccount` со своими IBAN, но делать это надо вместе с TBC-адаптером: под то же правило
+  попадают внесения наличных в кассу, где Credo печатает счёт назначения (23 строки на 82 243 лари),
+  и они перестанут быть доходом — что верно только когда доход считается в точке входа, то есть
+  после чтения крипты.
   Bank-neutral граница выделена: `data/statement` содержит `BankProfile`, `StatementOperation`,
   `BankStatement`/`StatementRow`, `StatementFile`, `StatementParser` и реестр `StatementParsers`;
   Credo стал первым adapter (`data/statement/credo`) и больше не упоминается в `StatementImporter`.
