@@ -115,6 +115,63 @@ class StatementImporterInstrumentedTest {
         rows = rows.toList(),
     )
 
+    /**
+     * An account whose history reaches its own opening starts from nothing. A zero anchor is filed
+     * as an adjustment, so it reads in the ledger as a balance the user corrected by hand.
+     */
+    @Test
+    fun anOpeningBalanceOfZero_leavesNoRowBehind() = runBlocking {
+        // An account opened inside this period holds nothing before its first row.
+        importStatement(
+            periodFrom = LocalDate.of(2026, 1, 1),
+            periodTo = LocalDate.of(2026, 1, 31),
+            opening = "0.00",
+            closing = "0.00",
+            rows = emptyList(),
+        )
+
+        val account = db.accountDao().allActive().single { it.iban == SyntheticCredoWorkbook.IBAN }
+        assertNull(db.transactionDao().openingAnchor(account.id))
+        assertEquals(
+            emptyList<String>(),
+            db.transactionDao().allForIntegrity()
+                .filter { it.source == TxSource.ADJUSTMENT }
+                .map { it.externalKey.orEmpty() },
+        )
+    }
+
+    @Test
+    fun anOpeningBalanceThatBecomesZero_removesTheAnchorItHadWritten() = runBlocking {
+        importStatement(
+            periodFrom = LocalDate.of(2026, 1, 1),
+            periodTo = LocalDate.of(2026, 1, 31),
+            opening = "100.00",
+            closing = "92.86",
+            rows = listOf(cardPayment),
+        )
+        val account = db.accountDao().allActive().single { it.iban == SyntheticCredoWorkbook.IBAN }
+        assertNotNull(db.transactionDao().openingAnchor(account.id))
+
+        // Older history arrives and shows the account genuinely started from nothing.
+        importStatement(
+            periodFrom = LocalDate.of(2025, 12, 1),
+            periodTo = LocalDate.of(2025, 12, 31),
+            opening = "0.00",
+            closing = "100.00",
+            rows = listOf(
+                Row(
+                    date = LocalDate.of(2025, 12, 15),
+                    operation = "სხვა ბანკიდან ჩარიცხვა",
+                    credit = "100.00",
+                    balance = "100.00",
+                    description = "Opening deposit",
+                ),
+            ),
+        )
+
+        assertNull(db.transactionDao().openingAnchor(account.id))
+    }
+
     @Test
     fun aPreview_saysExactlyWhatTheImportWillDo() = runBlocking {
         val bytes = workbook(cardPayment, conversion, incoming)

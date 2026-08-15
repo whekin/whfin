@@ -5,11 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.categorization.CategoryCatalog
 import dev.whekin.whfin.data.categorization.CategoryMaintenance
+import dev.whekin.whfin.data.categorization.CategoryPacks
+import dev.whekin.whfin.data.categorization.CategoryProposals
 import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.CounterpartyRuleEntity
+import dev.whekin.whfin.data.db.MerchantEntity
+import dev.whekin.whfin.data.db.MerchantUsage
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.UncategorizedCounterparty
 import dev.whekin.whfin.data.db.UncategorizedMerchant
@@ -36,6 +41,8 @@ data class CategoryIntelligenceState(
     val people: List<PersonEntity> = emptyList(),
     val categories: List<CategoryEntity>,
     val incomeCategories: List<CategoryEntity> = emptyList(),
+    val proposals: List<CategoryProposals.Proposal> = emptyList(),
+    val packs: List<CategoryPacks.Pack> = emptyList(),
     val isChecking: Boolean = false,
     val lastCheckMatches: Int? = null,
     val operationFailed: Boolean = false,
@@ -56,6 +63,17 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         val senders: List<UncategorizedCounterparty>,
     )
 
+    private data class Earned(
+        val merchants: List<MerchantEntity>,
+        val usage: List<MerchantUsage>,
+    )
+
+    private val earned = combine(
+        db.merchantDao().observeAll(),
+        db.transactionDao().observeMerchantUsage(),
+        ::Earned,
+    )
+
     private val spending = combine(
         db.transactionDao().observeCategoryCoverage(),
         db.transactionDao().observeUncategorizedMerchants(),
@@ -69,13 +87,29 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         ::Earning,
     )
 
+    private data class Library(
+        val earned: Earned,
+        val categories: List<CategoryEntity>,
+        val people: List<PersonEntity>,
+    )
+
+    // Combined in two steps because the typed builder stops at five flows.
+    private val library = combine(
+        earned,
+        db.categoryDao().observeAll(),
+        db.personDao().observeActive(),
+        ::Library,
+    )
+
     val state: StateFlow<CategoryIntelligenceState?> = combine(
         spending,
         earning,
-        db.categoryDao().observeAll(),
-        db.personDao().observeActive(),
+        library,
         operation,
-    ) { spending, earning, categories, people, operation ->
+    ) { spending, earning, library, operation ->
+        val earned = library.earned
+        val categories = library.categories
+        val people = library.people
         CategoryIntelligenceState(
             coverage = spending.coverage,
             unresolved = spending.merchants,
@@ -85,6 +119,17 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
             people = people,
             categories = categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem },
             incomeCategories = categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem },
+            proposals = CategoryProposals.from(
+                merchants = earned.merchants,
+                usageByMerchantId = earned.usage.associate { it.merchantId to it.transactionCount },
+                existing = categories,
+            ),
+            packs = CategoryPacks.all.filter { pack ->
+                // A pack whose categories all exist has nothing left to offer.
+                CategoryPacks.definitions(pack).any { definition ->
+                    categories.none { it.icon == definition.icon && it.kind == definition.kind }
+                }
+            },
             isChecking = operation.isChecking,
             lastCheckMatches = operation.lastCheckMatches,
             operationFailed = operation.failed,
@@ -105,6 +150,49 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /**
+     * Creates the categories the user accepted, then lets the local rules fill them.
+     *
+     * The backfill is the point: a proposal was made because recognized merchants were waiting for
+     * this category, so accepting it should file that history immediately rather than leave the
+     * user to press a second button for the result they just asked for.
+     */
+    fun createCategories(definitions: List<CategoryCatalog.Definition>) {
+        if (definitions.isEmpty()) return
+        val isRussian = java.util.Locale.getDefault().language == "ru"
+        viewModelScope.launch {
+            try {
+                db.withTransaction {
+                    val existing = db.categoryDao().all()
+                    var order = (existing.maxOfOrNull { it.sortOrder } ?: 0) + 1
+                    definitions.forEach { definition ->
+                        val alreadyThere = existing.any {
+                            it.icon == definition.icon && it.kind == definition.kind
+                        }
+                        if (alreadyThere) return@forEach
+                        db.categoryDao().insert(
+                            CategoryEntity(
+                                name = definition.name(isRussian),
+                                kind = definition.kind,
+                                icon = definition.icon,
+                                color = definition.color.toInt(),
+                                sortOrder = order++,
+                            ),
+                        )
+                    }
+                }
+                CategoryMaintenance.run(db)
+                operation.value = operation.value.copy(failed = false)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                operation.value = operation.value.copy(failed = true)
+            }
+        }
+    }
+
+    fun addPack(pack: CategoryPacks.Pack) = createCategories(CategoryPacks.definitions(pack))
 
     fun assignCategory(merchantId: Long, categoryId: Long) {
         mutate {

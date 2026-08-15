@@ -6,6 +6,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.categorization.CategoryCatalog
+import dev.whekin.whfin.data.categorization.CategoryPacks
+import dev.whekin.whfin.data.categorization.CategoryProposals
 import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
@@ -182,6 +185,59 @@ class CategoryIntelligenceScreenTest {
             Assignment(recipient.iban, "Example Person", 7L, null, "Example Person"),
             assignment,
         )
+    }
+
+    @Test
+    fun aProposalShowsTheHistoryThatEarnedIt_andCreatesOnlyWhatWasAccepted() {
+        var created: List<String>? = null
+        val bike = CategoryCatalog.all.single { it.icon == "PedalBike" }
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        categories = listOf(transport),
+                        proposals = listOf(CategoryProposals.Proposal(bike, transactionCount = 18)),
+                    ),
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onCreateCategories = { created = it.map { definition -> definition.icon } },
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            context.resources.getQuantityString(R.plurals.category_proposals_evidence, 18, 18),
+        ).assertIsDisplayed()
+        compose.onNodeWithText(bike.en).performClick()
+
+        assertEquals(listOf("PedalBike"), created)
+    }
+
+    @Test
+    fun anInterestPackIsOfferedButNeverAddsItself() {
+        var added: String? = null
+        val outdoor = CategoryPacks.all.single { it.id == "outdoor" }
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        categories = listOf(transport),
+                        packs = listOf(outdoor),
+                    ),
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onAddPack = { added = it.id },
+                )
+            }
+        }
+
+        assertEquals(null, added)
+        compose.onNodeWithText(outdoor.en).performClick()
+        assertEquals("outdoor", added)
     }
 
     private data class Assignment(

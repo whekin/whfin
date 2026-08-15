@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Search
@@ -47,6 +48,10 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinActionStyle
+import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.data.categorization.CategoryCatalog
+import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
@@ -65,6 +70,8 @@ fun CategoryIntelligenceRoute(viewModel: CategoryIntelligenceViewModel = viewMod
         onCheckLocalRules = viewModel::checkLocalRules,
         onAssignCategory = viewModel::assignCategory,
         onAssignCounterparty = viewModel::assignCounterparty,
+        onCreateCategories = viewModel::createCategories,
+        onAddPack = viewModel::addPack,
     )
 }
 
@@ -74,6 +81,8 @@ fun CategoryIntelligenceScreen(
     onCheckLocalRules: () -> Unit,
     onAssignCategory: (Long, Long) -> Unit,
     onAssignCounterparty: (String, String, Long, Long?, String?) -> Unit = { _, _, _, _, _ -> },
+    onCreateCategories: (List<CategoryCatalog.Definition>) -> Unit = {},
+    onAddPack: (CategoryPacks.Pack) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<UncategorizedMerchant?>(null) }
@@ -123,6 +132,59 @@ fun CategoryIntelligenceScreen(
                 actionLabel = stringResource(R.string.category_intelligence_check_action),
                 onAction = onCheckLocalRules,
             )
+        }
+        if (state.proposals.isNotEmpty()) {
+            item { WhfinSectionLabel(stringResource(R.string.category_proposals_title)) }
+            item {
+                Text(
+                    stringResource(R.string.category_proposals_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(state.proposals, key = { "new:" + it.definition.icon }) { proposal ->
+                val isRussian = java.util.Locale.getDefault().language == "ru"
+                WhfinLedgerRow(
+                    title = proposal.definition.name(isRussian),
+                    supportingText = pluralStringResource(
+                        R.plurals.category_proposals_evidence,
+                        proposal.transactionCount,
+                        proposal.transactionCount,
+                    ),
+                    icon = Icons.Default.Add,
+                    onClick = { onCreateCategories(listOf(proposal.definition)) },
+                    divider = proposal != state.proposals.last(),
+                )
+            }
+            item {
+                WhfinButton(
+                    label = stringResource(R.string.category_proposals_accept_all),
+                    onClick = { onCreateCategories(state.proposals.map { it.definition }) },
+                    style = WhfinActionStyle.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        if (state.packs.isNotEmpty()) {
+            item { WhfinSectionLabel(stringResource(R.string.category_packs_title)) }
+            item {
+                Text(
+                    stringResource(R.string.category_packs_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            items(state.packs, key = { "pack:" + it.id }) { pack ->
+                val isRussian = java.util.Locale.getDefault().language == "ru"
+                WhfinLedgerRow(
+                    title = pack.name(isRussian),
+                    supportingText = CategoryPacks.definitions(pack)
+                        .joinToString(" · ") { it.name(isRussian) },
+                    icon = Icons.Default.Add,
+                    onClick = { onAddPack(pack) },
+                    divider = pack != state.packs.last(),
+                )
+            }
         }
         if (state.incomeSenders.isNotEmpty()) {
             item { WhfinSectionLabel(stringResource(R.string.category_intelligence_income_title)) }

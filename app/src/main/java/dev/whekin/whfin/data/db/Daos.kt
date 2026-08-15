@@ -606,6 +606,14 @@ interface TransactionDao {
     )
     suspend fun categorizeUnassignedForCounterparty(iban: String, categoryId: Long)
 
+    /** How much of the ledger each merchant accounts for; the evidence behind a category proposal. */
+    @Query(
+        "SELECT merchantId AS merchantId, COUNT(*) AS transactionCount FROM transactions " +
+            "WHERE merchantId IS NOT NULL AND isVoided = 0 AND isTransfer = 0 " +
+            "AND source != 'ADJUSTMENT' GROUP BY merchantId"
+    )
+    fun observeMerchantUsage(): Flow<List<MerchantUsage>>
+
     /** Money that arrived in a window, for comparing a declared income against what actually came. */
     @Query(
         "SELECT * FROM transactions WHERE amountMinor > 0 AND isTransfer = 0 AND isVoided = 0 " +
@@ -670,6 +678,11 @@ data class CategoryTotal(
     val categoryId: Long?,
     val totalMinor: Long,
     val txCount: Int,
+)
+
+data class MerchantUsage(
+    val merchantId: Long,
+    val transactionCount: Int,
 )
 
 data class UncategorizedCounterparty(

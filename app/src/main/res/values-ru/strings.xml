@@ -1172,4 +1172,15 @@
     <string name="income_sources_recheck">Проверить в блокчейне</string>
     <string name="income_sources_reading">Читаю…</string>
     <string name="income_sources_unreadable">объявлено %1$s · сейчас не удалось прочитать блокчейн</string>
+    <string name="category_proposals_title">Категории, которые заслужила история</string>
+    <string name="category_proposals_body">Узнанные мерчанты уже их ждут. Добавите — история разметится сразу.</string>
+    <plurals name="category_proposals_evidence">
+        <item quantity="one">сюда попадёт %1$d операция</item>
+        <item quantity="few">сюда попадут %1$d операции</item>
+        <item quantity="many">сюда попадёт %1$d операций</item>
+        <item quantity="other">сюда попадёт %1$d операций</item>
+    </plurals>
+    <string name="category_proposals_accept_all">Добавить все</string>
+    <string name="category_packs_title">Добавить по интересам</string>
+    <string name="category_packs_body">То, чего история о вас пока не знает. Ничего не добавится, пока не выберете.</string>
 </resources>

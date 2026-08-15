@@ -32,6 +32,13 @@ internal class OpeningAnchor(private val db: WhfinDatabase, private val zone: Zo
         val earliest = listOfNotNull(fromThisFile, fromHistory).minByOrNull(Snapshot::date) ?: return
 
         val existing = db.transactionDao().openingAnchor(account.id)
+        // An account whose history reaches its own opening starts from nothing, and nothing needs no
+        // row. Writing one leaves a zero-amount entry filed as an adjustment, which reads in the
+        // ledger as a balance the user corrected by hand — a thing they never did.
+        if (earliest.amountMinor == 0L) {
+            existing?.let { db.transactionDao().delete(it.id) }
+            return
+        }
         val replacement = TransactionEntity(
             id = existing?.id ?: 0,
             accountId = account.id,

@@ -61,6 +61,17 @@ object GeorgiaMerchantPreset {
         Rule(Target.BIKE, listOf("bike24")),
     )
 
+    /**
+     * Which category this merchant belongs in, named by icon rather than by a row that may not
+     * exist yet. A ledger can be asked what categories it has earned before it has any.
+     */
+    fun iconFor(normalizedKey: String): String? {
+        val comparableKey = comparable(normalizedKey)
+        return rules.firstOrNull { rule ->
+            rule.tokens.any { token -> comparableKey.contains(comparable(token)) }
+        }?.target?.icon
+    }
+
     fun categoryFor(normalizedKey: String, categories: List<CategoryEntity>): CategoryEntity? {
         // Statement processors change punctuation more often than merchant names. Treat dots,
         // underscores, asterisks and repeated whitespace as the same separator, so Yandex.Go,

@@ -1133,4 +1133,13 @@
     <string name="income_sources_recheck">Check the chain</string>
     <string name="income_sources_reading">Reading…</string>
     <string name="income_sources_unreadable">%1$s declared · the chain could not be read just now</string>
+    <string name="category_proposals_title">Categories your history earned</string>
+    <string name="category_proposals_body">Recognized merchants are already waiting for these. Adding one files its history straight away.</string>
+    <plurals name="category_proposals_evidence">
+        <item quantity="one">%1$d transaction would go here</item>
+        <item quantity="other">%1$d transactions would go here</item>
+    </plurals>
+    <string name="category_proposals_accept_all">Add all of them</string>
+    <string name="category_packs_title">Add by interest</string>
+    <string name="category_packs_body">Things a ledger cannot know about you yet. Nothing is added unless you pick it.</string>
 </resources>

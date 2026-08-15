@@ -3,7 +3,11 @@ package dev.whekin.whfin.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Backpack
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.HealthAndSafety
+import androidx.compose.material.icons.outlined.Luggage
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Chair
 import androidx.compose.material.icons.outlined.DeliveryDining
@@ -62,6 +66,10 @@ object CategoryIcons {
         "VolunteerActivism" to Icons.Outlined.VolunteerActivism,
         "Favorite" to Icons.Outlined.FavoriteBorder,
         "CardGiftcard" to Icons.Outlined.CardGiftcard,
+        "HealthAndSafety" to Icons.Outlined.HealthAndSafety,
+        "Backpack" to Icons.Outlined.Backpack,
+        "AcUnit" to Icons.Outlined.AcUnit,
+        "Luggage" to Icons.Outlined.Luggage,
         "HelpOutline" to Icons.AutoMirrored.Outlined.Help,
     )
 
