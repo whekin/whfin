@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.analytics
 
+import dev.whekin.whfin.data.categorization.CategoryTree
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
@@ -90,6 +91,14 @@ private data class AnalyticsSlice(
     /** Value in GEL booked at the rate of this row's own day; null while the day is unpriced. */
     val gelMinor: Long?,
     val categoryId: Long?,
+    /**
+     * The category this row is *reported* under: its parent when it has one.
+     *
+     * Kept beside [categoryId] rather than replacing it, because the two answer different questions.
+     * Totals and shares are asked of the group, so that a hobby split into parts, service and lifts
+     * still reads as one line. Drilling into a row is asked of the leaf the user actually chose.
+     */
+    val groupId: Long?,
     val unaccounted: Boolean,
     val pending: Boolean,
 )
@@ -109,6 +118,7 @@ internal fun calculateAnalytics(
     today: LocalDate = LocalDate.now(zoneId),
 ): AnalyticsData {
     val categoryById = categories.associateBy { it.id }
+    val tree = CategoryTree(categories)
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
     val fundingByPurchase = findConversionFunding(transactions, zoneId)
     val slices = transactions
@@ -154,6 +164,7 @@ internal fun calculateAnalytics(
                     // The funded path already restated the purchase in the lari the bank charged.
                     gelMinor = if (currency == BASE_CURRENCY) amount else gelForPart(amount),
                     categoryId = categoryId,
+                    groupId = tree.rollupId(categoryId),
                     unaccounted = transaction.source == TxSource.ADJUSTMENT ||
                         categoryId?.let(categoryById::get)?.isSystem == true,
                     pending = transaction.status == TxStatus.PENDING,
@@ -198,15 +209,15 @@ internal fun calculateAnalytics(
     }
     val currentCategoryExpenses = selectedBase
         .filter { it.gelMinor!! < 0L }
-        .groupBy { it.categoryId }
+        .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val previousCategoryExpenses = previousBase
         .filter { it.gelMinor!! < 0L }
-        .groupBy { it.categoryId }
+        .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val averageCategoryExpenses = baseSlices
         .filter { slice -> comparisonPeriods.any { it.contains(slice.month) } && slice.gelMinor!! < 0L }
-        .groupBy { it.categoryId }
+        .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonPeriods.size }
     // One list of categories, one window: the selected period, each row carrying its own baseline.
     // Statistics used to hold a second list over a rolling 1/3/6/12-month window, so the same screen
@@ -237,7 +248,7 @@ internal fun calculateAnalytics(
                 projectedExpenseMinor = pace?.let {
                     projectCurrentExpenses(
                         selectedBase.filter { slice ->
-                            slice.gelMinor!! < 0L && slice.categoryId == categoryId
+                            slice.gelMinor!! < 0L && slice.groupId == categoryId
                         },
                         it.daysElapsed,
                         it.daysTotal,
@@ -252,7 +263,10 @@ internal fun calculateAnalytics(
     val matchesTrendFilter: (AnalyticsSlice) -> Boolean = { slice ->
         when (trendFilter) {
             AnalyticsTrendFilter.All -> true
-            is AnalyticsTrendFilter.Category -> slice.categoryId == trendFilter.categoryId
+            // Selecting a group follows its children in: a hobby's trend is the hobby, not one
+            // of the buckets it was split into.
+            is AnalyticsTrendFilter.Category ->
+                slice.groupId == trendFilter.categoryId || slice.categoryId == trendFilter.categoryId
         }
     }
     // A fixed calendar year lets all twelve bars stay visible and makes 2024/2025 comparisons

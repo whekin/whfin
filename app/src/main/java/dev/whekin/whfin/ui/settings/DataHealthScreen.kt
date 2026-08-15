@@ -137,6 +137,8 @@ internal fun integrityFamilyLabel(code: String): Int = when {
     code.contains("merged") -> R.string.data_health_family_merges
     code == "duplicate_statement_row" -> R.string.data_health_family_duplicates
     code.contains("correction") -> R.string.data_health_family_corrections
+    code.startsWith("category") || code == "orphan_category_parent" ->
+        R.string.data_health_family_categories
     code.contains("transfer_group") -> R.string.data_health_family_transfers
     code.contains("debt") -> R.string.data_health_family_debts
     else -> R.string.data_health_family_links

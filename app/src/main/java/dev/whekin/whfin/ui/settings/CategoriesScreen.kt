@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,7 +37,10 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -55,6 +59,7 @@ fun CategoriesRoute(viewModel: CategoriesViewModel = viewModel()) {
         rows = rows,
         onCreate = viewModel::create,
         onUpdate = viewModel::update,
+        onSetParent = viewModel::setParent,
         onMove = viewModel::move,
         onDelete = viewModel::delete,
     )
@@ -65,6 +70,7 @@ fun CategoriesScreen(
     rows: List<CategoryRow>?,
     onCreate: (String, CategoryKind, String, Int) -> Unit,
     onUpdate: (CategoryEntity, String, String, Int) -> Unit,
+    onSetParent: (CategoryEntity, Long?) -> Unit = { _, _ -> },
     onMove: (CategoryEntity, Int) -> Unit,
     onDelete: (CategoryEntity) -> Unit,
 ) {
@@ -105,6 +111,9 @@ fun CategoriesScreen(
                         } else null,
                         onClick = if (system) null else { { editing = row } },
                         divider = true,
+                        // A child is offset rather than re-labelled: the group is directly above it,
+                        // so repeating its name on every row would only make the list wordier.
+                        modifier = if (row.isChild) Modifier.padding(start = 24.dp) else Modifier,
                     )
                 }
                 WhfinLedgerRow(
@@ -131,6 +140,7 @@ fun CategoriesScreen(
                     editing = null
                 },
                 onMove = { delta -> onMove(current.category, delta) },
+                onSetParent = { parentId -> onSetParent(current.category, parentId) },
                 onDelete = {
                     onDelete(current.category)
                     editing = null
@@ -159,12 +169,17 @@ private fun EditCategorySheet(
     onSave: (String, String, Int) -> Unit,
     onMove: (Int) -> Unit,
     onDelete: () -> Unit,
+    onSetParent: (Long?) -> Unit = {},
 ) {
     var name by remember { mutableStateOf(row.category.name) }
     var icon by remember { mutableStateOf(row.category.icon) }
     var color by remember { mutableIntStateOf(row.category.color) }
     var confirmDelete by remember { mutableStateOf(false) }
     val index = siblings.indexOfFirst { it.category.id == row.category.id }
+    // Only a category that is not itself a group can join one, and it cannot join itself.
+    val groups = if (row.isGroup) emptyList() else siblings
+        .filter { !it.category.isSystem && it.category.parentId == null && it.category.id != row.category.id }
+    val ownGroupLabel = stringResource(R.string.categories_group_none)
 
     WhfinFormSheet(
         title = stringResource(R.string.categories_edit_title),
@@ -180,6 +195,25 @@ private fun EditCategorySheet(
             modifier = Modifier.fillMaxWidth(),
         )
         CategoryAppearancePicker(icon, color, { icon = it }, { color = it })
+        if (groups.isNotEmpty()) {
+            WhfinFieldLabel(stringResource(R.string.categories_group_label))
+            WhfinChoiceRail {
+                item {
+                    WhfinFilterPill(
+                        label = ownGroupLabel,
+                        selected = row.category.parentId == null,
+                        onClick = { onSetParent(null) },
+                    )
+                }
+                items(groups, key = { it.category.id }) { candidate ->
+                    WhfinFilterPill(
+                        label = candidate.category.name,
+                        selected = row.category.parentId == candidate.category.id,
+                        onClick = { onSetParent(candidate.category.id) },
+                    )
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             WhfinButton(
                 label = stringResource(R.string.categories_move_up),

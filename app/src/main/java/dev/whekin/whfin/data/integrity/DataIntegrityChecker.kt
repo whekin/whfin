@@ -40,6 +40,26 @@ class DataIntegrityChecker(
             val byTransaction = transactions.associateBy { it.id }
             val allocations = db.transactionAllocationDao().allForIntegrity().groupBy { it.transactionId }
 
+            // Categories nest exactly one level, and only within their own kind. Nothing in the app
+            // can build anything else, but a restored file can carry it, and a deeper chain would
+            // report the same money under a group the user never sees.
+            val categories = db.categoryDao().all()
+            val categoryById = categories.associateBy { it.id }
+            categories.mapNotNull { child -> child.parentId?.let { child to it } }
+                .forEach { (child, parentId) ->
+                    val parent = categoryById[parentId]
+                    when {
+                        parent == null ->
+                            add(error("orphan_category_parent", "categories", child.id, "Category points to a missing group."))
+                        parent.id == child.id ->
+                            add(error("category_own_parent", "categories", child.id, "Category is its own group."))
+                        parent.parentId != null ->
+                            add(error("category_nested_too_deep", "categories", child.id, "Category groups are one level deep."))
+                        parent.kind != child.kind ->
+                            add(error("category_kind_mismatch", "categories", child.id, "Category and its group disagree about income or expense."))
+                    }
+                }
+
             allocations.forEach { (transactionId, rows) ->
                 val transaction = byTransaction[transactionId]
                 if (transaction == null) {

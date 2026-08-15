@@ -462,6 +462,7 @@
     <string name="data_health_family_corrections">A correction disagrees with what it hides</string>
     <string name="data_health_family_merges">A merged copy does not point at a live row</string>
     <string name="data_health_family_duplicates">One operation is recorded twice</string>
+    <string name="data_health_family_categories">Category groups</string>
     <string name="data_health_family_transfers">A transfer lost one of its legs</string>
     <string name="data_health_family_debts">A debt does not match its events</string>
     <string name="data_health_family_links">A record points at something missing</string>
@@ -691,6 +692,8 @@
         <item quantity="one">%1$d expense has no merchant identity. It can still be categorized from transaction history, but cannot create a merchant rule.</item>
         <item quantity="other">%1$d expenses have no merchant identity. They can still be categorized from transaction history, but cannot create merchant rules.</item>
     </plurals>
+    <string name="categories_group_label">Group</string>
+    <string name="categories_group_none">Its own line</string>
     <string name="categories_system_hint">System category, managed automatically</string>
     <string name="categories_edit_title">Edit category</string>
     <string name="categories_move_up">Move up</string>

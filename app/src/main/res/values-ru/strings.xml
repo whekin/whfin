@@ -479,6 +479,7 @@
     <string name="data_health_family_corrections">Исправление расходится с тем, что скрывает</string>
     <string name="data_health_family_merges">Объединённая копия не указывает на живую строку</string>
     <string name="data_health_family_duplicates">Одна операция записана дважды</string>
+    <string name="data_health_family_categories">Группы категорий</string>
     <string name="data_health_family_transfers">У перевода потеряна одна нога</string>
     <string name="data_health_family_debts">Долг не сходится со своими событиями</string>
     <string name="data_health_family_links">Запись ссылается на отсутствующее</string>
@@ -720,6 +721,8 @@
         <item quantity="many">У %1$d расходов нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
         <item quantity="other">У %1$d расхода нет мерчанта. Категорию можно выбрать в истории операций, но создать правило для мерчанта не получится.</item>
     </plurals>
+    <string name="categories_group_label">Группа</string>
+    <string name="categories_group_none">Отдельная строка</string>
     <string name="categories_system_hint">Системная категория, управляется автоматически</string>
     <string name="categories_edit_title">Изменить категорию</string>
     <string name="categories_move_up">Выше</string>

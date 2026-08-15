@@ -206,6 +206,87 @@ class AnalyticsCalculatorTest {
         assertEquals(null, data.pace)
     }
 
+    /**
+     * A hobby split into buckets is still one hobby on the statistics screen. The split exists so
+     * that "I bought a fork" and "I rode more" stop cancelling each other out inside one number,
+     * not so that the hobby disappears from the list into three small slices.
+     */
+    @Test
+    fun aGroupIsOneLineOnTheList_andItsTrendFollowsEveryBucketIn() {
+        val bike = CategoryEntity(10, "Bike", kind = CategoryKind.EXPENSE, icon = "PedalBike", color = 0)
+        val parts = bike.copy(id = 11, name = "Parts", parentId = bike.id)
+        val lifts = bike.copy(id = 12, name = "Lifts", parentId = bike.id)
+        val categories = listOf(food, bike, parts, lifts)
+        val transactions = listOf(
+            tx(1, -132_000, "GEL", LocalDate.of(2026, 7, 4), categoryId = parts.id),
+            tx(2, -1_500, "GEL", LocalDate.of(2026, 7, 5), categoryId = lifts.id),
+            tx(3, -3_000, "GEL", LocalDate.of(2026, 7, 6), categoryId = bike.id),
+            tx(4, -20_000, "GEL", LocalDate.of(2026, 7, 7), categoryId = food.id),
+        )
+
+        val grouped = calculateAnalytics(
+            transactions,
+            categories,
+            emptyList(),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            AnalyticsTrendFilter.All,
+            zone,
+        )
+
+        // One row for the whole hobby, holding its own rows and both buckets.
+        assertEquals(
+            listOf("Bike" to 136_500L, "Food" to 20_000L),
+            grouped.categoryValues.map { it.name to it.expenseMinor },
+        )
+
+        val trend = calculateAnalytics(
+            transactions,
+            categories,
+            emptyList(),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            AnalyticsTrendFilter.Category(bike.id),
+            zone,
+        )
+
+        assertEquals(
+            136_500L,
+            trend.trendValues.single { it.month == YearMonth.of(2026, 7) }.expenseMinor,
+        )
+    }
+
+    /** Grouping changes how a total is reported, never what the money adds up to. */
+    @Test
+    fun groupingLeavesTheTotalUntouched() {
+        val bike = CategoryEntity(10, "Bike", kind = CategoryKind.EXPENSE, icon = "PedalBike", color = 0)
+        val parts = bike.copy(id = 11, name = "Parts", parentId = bike.id)
+        val transactions = listOf(
+            tx(1, -132_000, "GEL", LocalDate.of(2026, 7, 4), categoryId = parts.id),
+            tx(2, -20_000, "GEL", LocalDate.of(2026, 7, 7), categoryId = food.id),
+        )
+        val flat = calculateAnalytics(
+            transactions,
+            listOf(food, bike, parts.copy(parentId = null)),
+            emptyList(),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            AnalyticsTrendFilter.All,
+            zone,
+        )
+        val nested = calculateAnalytics(
+            transactions,
+            listOf(food, bike, parts),
+            emptyList(),
+            AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            AnalyticsTrendFilter.All,
+            zone,
+        )
+
+        assertEquals(flat.expenseMinor, nested.expenseMinor)
+        assertEquals(
+            flat.categoryValues.sumOf { it.expenseMinor },
+            nested.categoryValues.sumOf { it.expenseMinor },
+        )
+    }
+
     private fun tx(
         id: Long,
         amount: Long,
