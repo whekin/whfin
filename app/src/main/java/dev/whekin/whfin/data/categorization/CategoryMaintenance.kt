@@ -2,6 +2,8 @@ package dev.whekin.whfin.data.categorization
 
 import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.statement.StatementParsers
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Everything WHFIN can categorize on its own, without asking the user anything.
@@ -21,11 +23,17 @@ object CategoryMaintenance {
         val total: Int get() = merchantsMatched + operationsMatched + counterpartiesMatched
     }
 
-    suspend fun run(db: WhfinDatabase): Result = Result(
-        merchantsMatched = GeorgiaMerchantPreset.applyToUncategorized(db),
-        operationsMatched = applyOperationKinds(db),
-        counterpartiesMatched = applyCounterpartyRules(db),
-    )
+    /**
+     * Always off the main thread: this walks a whole ledger, and a synced one holds years.
+     * Every caller is a screen or a startup step, and none of them should have to remember.
+     */
+    suspend fun run(db: WhfinDatabase): Result = withContext(Dispatchers.IO) {
+        Result(
+            merchantsMatched = GeorgiaMerchantPreset.applyToUncategorized(db),
+            operationsMatched = applyOperationKinds(db),
+            counterpartiesMatched = applyCounterpartyRules(db),
+        )
+    }
 
     /**
      * Recipients the user has already named. A transfer imported after the rule was written is
@@ -50,13 +58,28 @@ object CategoryMaintenance {
      */
     private suspend fun applyOperationKinds(db: WhfinDatabase): Int {
         val categories = db.categoryDao().all()
-        var changed = 0
+        // The same label repeats across years of statements, so the answer is decided once per
+        // label and written once per category rather than once per row.
+        val operationByLabel = mutableMapOf<String, Long?>()
+        val rowsByCategory = mutableMapOf<Long, MutableList<Long>>()
         db.transactionDao().uncategorizedStatementNotes().forEach { row ->
-            val operation = StatementParsers.operationFor(row.note) ?: return@forEach
-            val category = OperationCategories.categoryFor(operation, categories) ?: return@forEach
-            db.transactionDao().categorizeIfUnassigned(row.id, category.id)
-            changed++
+            val categoryId = operationByLabel.getOrPut(row.note) {
+                StatementParsers.operationFor(row.note)
+                    ?.let { OperationCategories.categoryFor(it, categories) }
+                    ?.id
+            } ?: return@forEach
+            rowsByCategory.getOrPut(categoryId) { mutableListOf() } += row.id
+        }
+        var changed = 0
+        rowsByCategory.forEach { (categoryId, ids) ->
+            ids.chunked(SQLITE_VARIABLE_LIMIT).forEach { chunk ->
+                db.transactionDao().categorizeIfUnassigned(chunk, categoryId)
+                changed += chunk.size
+            }
         }
         return changed
     }
+
+    /** SQLite refuses a statement with too many bound values, so long lists are written in parts. */
+    private const val SQLITE_VARIABLE_LIMIT = 900
 }

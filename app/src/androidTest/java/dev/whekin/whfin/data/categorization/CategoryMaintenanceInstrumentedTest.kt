@@ -92,6 +92,17 @@ class CategoryMaintenanceInstrumentedTest {
         assertEquals(1, result.operationsMatched)
     }
 
+    /** Years of statements repeat the same label; the answer is written per category, not per row. */
+    @Test
+    fun manyRowsSharingOneLabel_areAllFiled() = runBlocking {
+        val fees = (1..250).map { entry(note = "გადარიცხვის საკომისიო", amountMinor = -100) }
+
+        val result = CategoryMaintenance.run(db)
+
+        assertEquals(fees.size, result.operationsMatched)
+        fees.forEach { assertEquals(bankFeesId, categoryOf(it)) }
+    }
+
     @Test
     fun cardPaymentNote_isNeverMistakenForAnOperationLabel() = runBlocking {
         val payment = entry(note = "გადახდა - EXAMPLE SHOP 7.14 GEL 09.07.2025")

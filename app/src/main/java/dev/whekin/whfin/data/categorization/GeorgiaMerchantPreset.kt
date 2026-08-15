@@ -62,24 +62,32 @@ object GeorgiaMerchantPreset {
     )
 
     /**
+     * The rules with their tokens already canonicalized.
+     *
+     * Doing it per lookup meant re-running a regular expression over every token for every merchant
+     * — tens of thousands of them for one pass over a synced ledger. The tokens are constants; they
+     * are normalized once, when the class is first touched.
+     */
+    private val comparableRules: List<Pair<Target, List<String>>> =
+        rules.map { rule -> rule.target to rule.tokens.map(::comparable) }
+
+    /**
      * Which category this merchant belongs in, named by icon rather than by a row that may not
      * exist yet. A ledger can be asked what categories it has earned before it has any.
      */
     fun iconFor(normalizedKey: String): String? {
         val comparableKey = comparable(normalizedKey)
-        return rules.firstOrNull { rule ->
-            rule.tokens.any { token -> comparableKey.contains(comparable(token)) }
-        }?.target?.icon
+        return comparableRules.firstOrNull { (_, tokens) ->
+            tokens.any { token -> comparableKey.contains(token) }
+        }?.first?.icon
     }
 
     fun categoryFor(normalizedKey: String, categories: List<CategoryEntity>): CategoryEntity? {
         // Statement processors change punctuation more often than merchant names. Treat dots,
         // underscores, asterisks and repeated whitespace as the same separator, so Yandex.Go,
         // YANDEX*GO and Yandex Go remain one offline rule without broad fuzzy matching.
-        val comparableKey = comparable(normalizedKey)
-        val target = rules.firstOrNull { rule ->
-            rule.tokens.any { token -> comparableKey.contains(comparable(token)) }
-        }?.target ?: return null
+        val icon = iconFor(normalizedKey) ?: return null
+        val target = comparableRules.first { it.first.icon == icon }.first
         return categories.firstOrNull { it.icon == target.icon && it.kind == target.kind }
     }
 

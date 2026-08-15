@@ -18,10 +18,12 @@ import dev.whekin.whfin.data.db.MerchantUsage
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.UncategorizedCounterparty
 import dev.whekin.whfin.data.db.UncategorizedMerchant
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -134,7 +136,12 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
             lastCheckMatches = operation.lastCheckMatches,
             operationFailed = operation.failed,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }
+        // Reading proposals walks every merchant in the ledger, and these flows re-emit on every
+        // write the maintenance pass makes. Computed where the collector runs, that is the main
+        // thread rebuilding the screen's state thousands of times while the pass is still going.
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun checkLocalRules() {
         if (operation.value.isChecking) return

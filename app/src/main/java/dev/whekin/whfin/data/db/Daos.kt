@@ -518,6 +518,18 @@ interface TransactionDao {
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id AND categoryId IS NULL AND isVoided = 0")
     suspend fun categorizeIfUnassigned(id: Long, categoryId: Long)
 
+    /**
+     * The same decision applied to every row it covers, in one statement.
+     *
+     * A freshly synced ledger holds years of rows, and filing them one at a time means one database
+     * round trip each — enough to hold a screen still for seconds while the work crawls through.
+     */
+    @Query(
+        "UPDATE transactions SET categoryId = :categoryId " +
+            "WHERE id IN (:ids) AND categoryId IS NULL AND isVoided = 0"
+    )
+    suspend fun categorizeIfUnassigned(ids: List<Long>, categoryId: Long)
+
     @Query(
         "SELECT COUNT(*) AS totalExpenses, " +
             "COALESCE(SUM(CASE WHEN categoryId IS NOT NULL THEN 1 ELSE 0 END), 0) AS categorizedExpenses, " +
