@@ -1169,4 +1169,7 @@
     <string name="income_sources_past">Раньше</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
     <string name="income_sources_settings_summary">Объявите, куда приходит зарплата — тогда всё после неё читается как движение</string>
+    <string name="income_sources_recheck">Проверить в блокчейне</string>
+    <string name="income_sources_reading">Читаю…</string>
+    <string name="income_sources_unreadable">объявлено %1$s · сейчас не удалось прочитать блокчейн</string>
 </resources>

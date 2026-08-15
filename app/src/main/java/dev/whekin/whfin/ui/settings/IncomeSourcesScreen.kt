@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,11 +56,13 @@ import java.time.YearMonth
 @Composable
 fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(Unit) { viewModel.refreshFromChain() }
     IncomeSourcesScreen(
         state = state,
         onSave = viewModel::save,
         onEnd = viewModel::end,
         onDelete = viewModel::delete,
+        onRefresh = viewModel::refreshFromChain,
     )
 }
 
@@ -69,6 +72,7 @@ fun IncomeSourcesScreen(
     onSave: (IncomeSourceEntity?, String, Long, String, Long?, Int, Int) -> Unit,
     onEnd: (IncomeSourceEntity) -> Unit,
     onDelete: (IncomeSourceEntity) -> Unit,
+    onRefresh: () -> Unit = {},
 ) {
     var editing by remember { mutableStateOf<IncomeSourceEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -96,6 +100,10 @@ fun IncomeSourcesScreen(
             body = stringResource(R.string.income_sources_explainer_body),
             icon = Icons.Default.SouthWest,
             kind = WhfinNoticeKind.Info,
+            actionLabel = stringResource(
+                if (state.isReadingChain) R.string.income_sources_reading else R.string.income_sources_recheck,
+            ),
+            onAction = onRefresh,
         )
 
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -173,6 +181,7 @@ private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?):
     )
     return when {
         account == null -> stringResource(R.string.income_sources_no_account, declared)
+        expectation.unreadable -> stringResource(R.string.income_sources_unreadable, declared)
         expectation.arrived -> stringResource(
             R.string.income_sources_arrived,
             declared,
@@ -323,6 +332,6 @@ private val previewState = IncomeSourcesState(
 @Composable
 private fun IncomeSourcesPreview() {
     WhfinTheme {
-        IncomeSourcesScreen(previewState, { _, _, _, _, _, _, _ -> }, {}, {})
+        IncomeSourcesScreen(previewState, { _, _, _, _, _, _, _ -> }, {}, {}, {})
     }
 }

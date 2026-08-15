@@ -1130,4 +1130,7 @@
     <string name="income_sources_past">Earlier</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
     <string name="income_sources_settings_summary">Declare where your pay lands so arrivals after it read as movement</string>
+    <string name="income_sources_recheck">Check the chain</string>
+    <string name="income_sources_reading">Reading…</string>
+    <string name="income_sources_unreadable">%1$s declared · the chain could not be read just now</string>
 </resources>

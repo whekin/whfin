@@ -7,24 +7,33 @@ import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Minimal POST transport so the chain adapters can be tested against a local server. */
+/** Minimal transport so the chain adapters can be tested against a local server. */
 interface CryptoHttpTransport {
     fun post(url: String, body: String): String
+
+    /** Some chain reads are plain queries; Tron lists an address's transfers over GET. */
+    fun get(url: String): String
 }
 
 class UrlConnectionCryptoTransport : CryptoHttpTransport {
-    override fun post(url: String, body: String): String {
+    override fun post(url: String, body: String): String = request(url, body)
+
+    override fun get(url: String): String = request(url, body = null)
+
+    private fun request(url: String, body: String?): String {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
+            requestMethod = if (body == null) "GET" else "POST"
             connectTimeout = 15_000
             readTimeout = 30_000
-            doOutput = true
+            doOutput = body != null
             useCaches = false
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Type", "application/json")
+            if (body != null) setRequestProperty("Content-Type", "application/json")
         }
         return try {
-            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            body?.let { payload ->
+                connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            }
             val status = connection.responseCode
             val response = (if (status in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader(Charsets.UTF_8)

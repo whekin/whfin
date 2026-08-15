@@ -25,6 +25,13 @@ data class IncomeExpectation(
     val receivedCount: Int,
     /** True once the month has moved past the window and nothing arrived. */
     val overdue: Boolean,
+    /**
+     * Whether the answer came from a chain read that failed.
+     *
+     * Kept apart from "nothing arrived", because the two look identical in a total and mean opposite
+     * things: one says you were not paid, the other says we could not look.
+     */
+    val unreadable: Boolean = false,
 ) {
     val arrived: Boolean get() = receivedCount > 0
 }

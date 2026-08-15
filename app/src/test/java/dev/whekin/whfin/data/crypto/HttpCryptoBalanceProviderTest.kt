@@ -27,6 +27,11 @@ class HttpCryptoBalanceProviderTest {
             calls += url to body
             return responder(url, body)
         }
+
+        override fun get(url: String): String {
+            calls += url to ""
+            return responder(url, "")
+        }
     }
 
     private fun provider(endpoints: CryptoEndpoints = CryptoEndpoints()) =
