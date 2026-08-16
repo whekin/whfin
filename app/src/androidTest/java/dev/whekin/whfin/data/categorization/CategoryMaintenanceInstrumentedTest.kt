@@ -103,6 +103,20 @@ class CategoryMaintenanceInstrumentedTest {
         fees.forEach { assertEquals(bankFeesId, categoryOf(it)) }
     }
 
+    /**
+     * The bank said a bill was paid, which is less than which bill — but more than nothing, and the
+     * row used to be left blank as if the statement had said nothing at all.
+     */
+    @Test
+    fun aBillTheBankNamed_isFiledWithoutGuessingWhichBill() = runBlocking {
+        val billsId = category("Bills & charges", "ReceiptLong")
+        val bill = entry(note = "გადახდები")
+
+        CategoryMaintenance.run(db)
+
+        assertEquals(billsId, categoryOf(bill))
+    }
+
     @Test
     fun cardPaymentNote_isNeverMistakenForAnOperationLabel() = runBlocking {
         val payment = entry(note = "გადახდა - EXAMPLE SHOP 7.14 GEL 09.07.2025")

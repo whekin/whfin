@@ -689,6 +689,7 @@
     <string name="category_setup_title">Categories from your own spending</string>
     <string name="category_setup_body">WHFIN read the history it just imported and recognized these. Add the ones that fit — every transaction already behind them gets categorized at once.</string>
     <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
+    <string name="category_setup_packs_only">Nothing new came out of the history WHFIN just read. These are interests a ledger cannot know about on its own — add the ones that are yours.</string>
     <string name="category_setup_skip">Not now</string>
     <string name="category_rules_section">Decisions</string>
     <string name="category_rules_title">Named recipients</string>

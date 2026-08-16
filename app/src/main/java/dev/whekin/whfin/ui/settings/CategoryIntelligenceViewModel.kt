@@ -222,22 +222,29 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 db.withTransaction {
-                    val existing = db.categoryDao().all()
-                    var order = (existing.maxOfOrNull { it.sortOrder } ?: 0) + 1
+                    val present = db.categoryDao().all().toMutableList()
+                    var order = (present.maxOfOrNull { it.sortOrder } ?: 0) + 1
                     definitions.forEach { definition ->
-                        val alreadyThere = existing.any {
+                        val alreadyThere = present.any {
                             it.icon == definition.icon && it.kind == definition.kind
                         }
                         if (alreadyThere) return@forEach
-                        db.categoryDao().insert(
-                            CategoryEntity(
-                                name = definition.name(isRussian),
-                                kind = definition.kind,
-                                icon = definition.icon,
-                                color = definition.color.toInt(),
-                                sortOrder = order++,
-                            ),
+                        // A parent named by the pack may have been created a moment ago in this same
+                        // transaction, so the list grows as we go rather than being read once.
+                        val parent = definition.parentIcon?.let { icon ->
+                            present.firstOrNull { it.icon == icon && it.kind == definition.kind }
+                        }
+                        val category = CategoryEntity(
+                            name = definition.name(isRussian),
+                            kind = definition.kind,
+                            icon = definition.icon,
+                            color = definition.color.toInt(),
+                            sortOrder = order++,
+                            // A parent that is itself a child would make two levels, which the tree
+                            // does not have. Landing at the top level is the honest fallback.
+                            parentId = parent?.takeIf { it.parentId == null }?.id,
                         )
+                        present += category.copy(id = db.categoryDao().insert(category))
                     }
                 }
                 CategoryMaintenance.run(db)

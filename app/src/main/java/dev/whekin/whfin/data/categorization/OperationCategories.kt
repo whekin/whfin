@@ -10,11 +10,14 @@ import dev.whekin.whfin.data.statement.StatementOperation
  *
  * This is deliberately narrow. A bank fee is the bank's own charge and deposit interest is the
  * bank's own payment: no counterparty identity could describe either better, and every bank has
- * both. A bill payment is the opposite case — Credo files a mobile top-up, an electricity bill, an
- * insurance premium and a parking fine under one operation, so a category chosen from it would be
- * invented rather than read. Money arriving as cash or a transfer is left alone for the same
- * reason: whether it is income or the user's own money coming back is not something the operation
- * label can answer.
+ * both. Money arriving as cash or a transfer is left alone: whether it is income or the user's own
+ * money coming back is not something the operation label can answer.
+ *
+ * A bill payment sits between those. Credo files a mobile top-up, an electricity bill, an insurance
+ * premium and a parking fine under one operation, so naming any of those would be inventing detail
+ * the statement does not carry — but "a bill was paid" is exactly what it does carry, and leaving
+ * the row blank claims less than the bank actually said. It is filed under one category named for
+ * the operation itself, which the user can split later if the distinction turns out to matter.
  */
 object OperationCategories {
 
@@ -23,6 +26,7 @@ object OperationCategories {
     private fun targetFor(operation: StatementOperation): Target? = when (operation) {
         StatementOperation.FEE -> Target("AccountBalance", CategoryKind.EXPENSE)
         StatementOperation.INTEREST -> Target("Percent", CategoryKind.INCOME)
+        StatementOperation.BILL_PAYMENT -> Target("ReceiptLong", CategoryKind.EXPENSE)
         else -> null
     }
 

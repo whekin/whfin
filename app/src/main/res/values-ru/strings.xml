@@ -716,6 +716,7 @@
     <string name="category_setup_title">Категории из ваших же трат</string>
     <string name="category_setup_body">WHFIN прочитал только что загруженную историю и узнал вот это. Добавьте подходящие — все операции, которые за ними стоят, разметятся сразу.</string>
     <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
+    <string name="category_setup_packs_only">Из прочитанной истории ничего нового не вышло. Ниже — увлечения, о которых выписка знать не может; добавьте свои.</string>
     <string name="category_setup_skip">Не сейчас</string>
     <string name="category_rules_section">Решения</string>
     <string name="category_rules_title">Названные получатели</string>

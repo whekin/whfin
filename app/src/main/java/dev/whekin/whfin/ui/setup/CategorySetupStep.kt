@@ -32,6 +32,7 @@ import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.data.categorization.CategoryCatalog
+import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.categorization.CategoryProposals
 import dev.whekin.whfin.ui.settings.CategoryIntelligenceViewModel
 
@@ -52,7 +53,9 @@ internal fun CategorySetupStep(
     val state by viewModel.state.collectAsState()
     CategorySetupStep(
         proposals = state?.proposals.orEmpty(),
+        packs = state?.packs.orEmpty(),
         onAccept = viewModel::createCategories,
+        onAddPack = viewModel::addPack,
         onContinue = onContinue,
         onBack = onBack,
     )
@@ -61,7 +64,9 @@ internal fun CategorySetupStep(
 @Composable
 internal fun CategorySetupStep(
     proposals: List<CategoryProposals.Proposal>,
+    packs: List<CategoryPacks.Pack> = emptyList(),
     onAccept: (List<CategoryCatalog.Definition>) -> Unit,
+    onAddPack: (CategoryPacks.Pack) -> Unit = {},
     onContinue: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -87,7 +92,8 @@ internal fun CategorySetupStep(
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    if (proposals.isEmpty()) stringResource(R.string.category_setup_none)
+                    if (proposals.isEmpty() && packs.isEmpty()) stringResource(R.string.category_setup_none)
+                    else if (proposals.isEmpty()) stringResource(R.string.category_setup_packs_only)
                     else stringResource(R.string.category_setup_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -110,6 +116,29 @@ internal fun CategorySetupStep(
                         }
                     }
                 }
+                // The other half of a clean install. History can only propose what it has already
+                // seen, so an interest that never reached a card statement — or one whose merchants
+                // no rule recognizes — would otherwise have to be typed in by hand afterwards.
+                if (packs.isNotEmpty()) {
+                    WhfinSectionLabel(stringResource(R.string.category_packs_title))
+                    Text(
+                        stringResource(R.string.category_packs_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Column(Modifier.fillMaxWidth()) {
+                        packs.forEach { pack ->
+                            WhfinLedgerRow(
+                                title = pack.name(isRussian),
+                                supportingText = CategoryPacks.definitions(pack)
+                                    .joinToString(" · ") { it.name(isRussian) },
+                                icon = Icons.Default.Add,
+                                onClick = { onAddPack(pack) },
+                                divider = pack != packs.last(),
+                            )
+                        }
+                    }
+                }
             }
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
@@ -125,7 +154,7 @@ internal fun CategorySetupStep(
                     )
                 }
                 WhfinButton(
-                    label = if (proposals.isEmpty()) {
+                    label = if (proposals.isEmpty() && packs.isEmpty()) {
                         stringResource(R.string.personal_setup_continue_action)
                     } else {
                         stringResource(R.string.category_setup_skip)
@@ -133,8 +162,8 @@ internal fun CategorySetupStep(
                     onClick = onContinue,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(if (proposals.isEmpty()) Modifier.padding(top = 8.dp) else Modifier),
-                    style = if (proposals.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
+                        .then(if (proposals.isEmpty() && packs.isEmpty()) Modifier.padding(top = 8.dp) else Modifier),
+                    style = if (proposals.isEmpty() && packs.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
                 )
             }
         }

@@ -30,6 +30,18 @@ import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Celebration
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.Diversity3
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.Handyman
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Router
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.Vaccines
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -70,6 +82,18 @@ object CategoryIcons {
         "Backpack" to Icons.Outlined.Backpack,
         "AcUnit" to Icons.Outlined.AcUnit,
         "Luggage" to Icons.Outlined.Luggage,
+        "ReceiptLong" to Icons.Outlined.ReceiptLong,
+        "Handyman" to Icons.Outlined.Handyman,
+        "Key" to Icons.Outlined.Key,
+        "ContentCut" to Icons.Outlined.ContentCut,
+        "Celebration" to Icons.Outlined.Celebration,
+        "ShoppingBag" to Icons.Outlined.ShoppingBag,
+        "Gavel" to Icons.Outlined.Gavel,
+        "Router" to Icons.Outlined.Router,
+        "Vaccines" to Icons.Outlined.Vaccines,
+        "FitnessCenter" to Icons.Outlined.FitnessCenter,
+        "MusicNote" to Icons.Outlined.MusicNote,
+        "Diversity3" to Icons.Outlined.Diversity3,
         "HelpOutline" to Icons.AutoMirrored.Outlined.Help,
     )
 

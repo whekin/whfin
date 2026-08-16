@@ -88,11 +88,34 @@ class CategoryProposalsTest {
 
     @Test
     fun `the base a fresh ledger starts with stays small and universal`() {
-        assertEquals(9, CategoryCatalog.base.size)
+        assertEquals(10, CategoryCatalog.base.size)
         assertTrue(
             "everything in the base must be in the catalog",
             CategoryCatalog.base.all { it in CategoryCatalog.all },
         )
+    }
+
+    /**
+     * The base may only grow for categories nothing else can produce.
+     *
+     * Anything the user could be asked about waits to be earned — from history, or from a pack they
+     * pick. The exceptions are the ones the bank fills by itself: no evidence for them ever arrives
+     * unless the category is already there to receive it.
+     */
+    @Test
+    fun `the base only grows for categories the bank fills by itself`() {
+        val filledByTheBank = setOf("AccountBalance", "Percent", "ReceiptLong")
+        val universal = setOf(
+            "ShoppingCart", "Restaurant", "DirectionsBus", "Home", "Bolt", "MedicalServices",
+            "Payments",
+        )
+
+        CategoryCatalog.base.forEach { definition ->
+            assertTrue(
+                "${definition.en} is in the base without being universal or bank-filled",
+                definition.icon in filledByTheBank || definition.icon in universal,
+            )
+        }
     }
 
     /** A pack that names an icon the catalog lost would silently create fewer categories. */

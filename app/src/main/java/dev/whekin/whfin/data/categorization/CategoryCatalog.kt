@@ -25,6 +25,15 @@ object CategoryCatalog {
         val color: Long,
         /** Present on a fresh ledger before anything is known about the person. */
         val base: Boolean = false,
+        /**
+         * The category this one belongs inside, named by icon because ids do not exist yet.
+         *
+         * A pack is the one place the shape of a group is known in advance — it exists precisely to
+         * describe a whole interest — so losing it at creation would leave the user rebuilding by
+         * hand what was already written down. Categories proposed from history stay flat: they are
+         * found one merchant at a time and cannot know what they are part of.
+         */
+        val parentIcon: String? = null,
     ) {
         fun name(isRussian: Boolean): String = if (isRussian) ru else en
     }
@@ -37,6 +46,9 @@ object CategoryCatalog {
         Definition("Utilities", "Коммуналка", CategoryKind.EXPENSE, "Bolt", 0xFF26A69A, base = true),
         Definition("Health", "Здоровье", CategoryKind.EXPENSE, "MedicalServices", 0xFFEF5350, base = true),
         Definition("Bank fees", "Комиссии банка", CategoryKind.EXPENSE, "AccountBalance", 0xFF90A4AE, base = true),
+        // Base because the bank fills it by itself: a fresh ledger files every bill payment here
+        // from the first import, and a category the automation needs cannot be optional.
+        Definition("Bills & charges", "Счета и платежи", CategoryKind.EXPENSE, "ReceiptLong", 0xFF8D9440, base = true),
         Definition("Salary", "Зарплата", CategoryKind.INCOME, "Payments", 0xFF66BB6A, base = true),
         Definition("Interest", "Проценты", CategoryKind.INCOME, "Percent", 0xFF26C6DA, base = true),
 
@@ -46,11 +58,22 @@ object CategoryCatalog {
         Definition("Home", "Дом", CategoryKind.EXPENSE, "Chair", 0xFF9CCC65),
         Definition("Goods", "Заказы", CategoryKind.EXPENSE, "LocalShipping", 0xFF78909C),
         Definition("Insurance", "Страховка", CategoryKind.EXPENSE, "HealthAndSafety", 0xFF5C8A8A),
+        Definition("Personal care", "Уход за собой", CategoryKind.EXPENSE, "ContentCut", 0xFFB07A9E),
+        Definition("Entertainment", "Развлечения", CategoryKind.EXPENSE, "Celebration", 0xFFE0846A),
+        Definition("Shopping", "Покупки", CategoryKind.EXPENSE, "ShoppingBag", 0xFF7C93B8),
+        Definition("Legal", "Документы", CategoryKind.EXPENSE, "Gavel", 0xFF8C7B6B),
+        Definition("Internet", "Интернет", CategoryKind.EXPENSE, "Router", 0xFF4DA3A3),
+        Definition("Dentist", "Стоматология", CategoryKind.EXPENSE, "Vaccines", 0xFFE0736F, parentIcon = "MedicalServices"),
+        Definition("Fitness", "Спортзал", CategoryKind.EXPENSE, "FitnessCenter", 0xFFCC7A66, parentIcon = "MedicalServices"),
         Definition("Bike", "Велосипед", CategoryKind.EXPENSE, "PedalBike", 0xFF66BB6A),
-        Definition("Lifts and shuttles", "Заброски", CategoryKind.EXPENSE, "Terrain", 0xFF8D6E63),
+        Definition("Lifts and shuttles", "Заброски", CategoryKind.EXPENSE, "Terrain", 0xFF8D6E63, parentIcon = "PedalBike"),
+        Definition("Bike service", "Сервис вела", CategoryKind.EXPENSE, "Handyman", 0xFF7E9E6A, parentIcon = "PedalBike"),
+        Definition("Bike rental", "Аренда вела", CategoryKind.EXPENSE, "Key", 0xFF8FA86F, parentIcon = "PedalBike"),
         Definition("Gear", "Снаряга", CategoryKind.EXPENSE, "Backpack", 0xFF6D806F),
         Definition("Snowboard", "Сноуборд", CategoryKind.EXPENSE, "AcUnit", 0xFF5D7F91),
         Definition("Travel", "Поездки", CategoryKind.EXPENSE, "Luggage", 0xFF9A6A55),
+        Definition("Music", "Музыка", CategoryKind.EXPENSE, "MusicNote", 0xFF9B7BB8),
+        Definition("Volunteering", "Волонтёрство", CategoryKind.EXPENSE, "Diversity3", 0xFF6FA08A),
         Definition("Family help", "Помощь близким", CategoryKind.EXPENSE, "VolunteerActivism", 0xFFD16D5A),
         Definition("Relationships", "Отношения", CategoryKind.EXPENSE, "Favorite", 0xFFC96A78),
         Definition("Gifts", "Подарки", CategoryKind.EXPENSE, "CardGiftcard", 0xFFE0A246),
@@ -83,7 +106,16 @@ object CategoryPacks {
             id = "outdoor",
             en = "Outdoor and sport",
             ru = "Аутдор и спорт",
-            icons = listOf("PedalBike", "Terrain", "Backpack", "AcUnit", "Luggage"),
+            icons = listOf(
+                "PedalBike", "Terrain", "Handyman", "Key",
+                "Backpack", "AcUnit", "Luggage",
+            ),
+        ),
+        Pack(
+            id = "everyday",
+            en = "Everyday life",
+            ru = "Повседневное",
+            icons = listOf("ContentCut", "Celebration", "ShoppingBag"),
         ),
         Pack(
             id = "household",
@@ -95,11 +127,36 @@ object CategoryPacks {
             id = "online",
             en = "Online life",
             ru = "Онлайн",
-            icons = listOf("Subscriptions", "Devices", "LocalShipping", "DeliveryDining"),
+            icons = listOf("Subscriptions", "Devices", "LocalShipping", "DeliveryDining", "Router"),
+        ),
+        Pack(
+            id = "paperwork",
+            en = "Living abroad",
+            ru = "Жизнь за границей",
+            icons = listOf("Gavel", "HealthAndSafety"),
+        ),
+        Pack(
+            id = "wellbeing",
+            en = "Health in detail",
+            ru = "Здоровье подробнее",
+            icons = listOf("Vaccines", "FitnessCenter"),
+        ),
+        Pack(
+            id = "hobbies",
+            en = "Other interests",
+            ru = "Другие увлечения",
+            icons = listOf("MusicNote", "Diversity3"),
         ),
     )
 
-    fun definitions(pack: Pack): List<CategoryCatalog.Definition> = pack.icons.mapNotNull { icon ->
-        CategoryCatalog.all.firstOrNull { it.icon == icon }
-    }
+    /**
+     * A pack's categories, parents always ahead of their children.
+     *
+     * Creation resolves a parent by looking it up among categories that already exist, so a child
+     * written first would silently land at the top level and the group would be lost in exactly the
+     * case packs exist to serve.
+     */
+    fun definitions(pack: Pack): List<CategoryCatalog.Definition> = pack.icons
+        .mapNotNull { icon -> CategoryCatalog.all.firstOrNull { it.icon == icon } }
+        .sortedBy { it.parentIcon != null }
 }
