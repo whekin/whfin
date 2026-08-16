@@ -379,11 +379,19 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }.joinToString(" · ")
     }
 
+    /**
+     * @param openingMinor what the account already holds, if the person said so.
+     *
+     * It is recorded exactly as a statement's opening balance is — an adjustment row marked as a
+     * transfer, so the money counts towards the balance without ever reading as income earned this
+     * month. Money that existed before WHFIN did is not a thing that happened in it.
+     */
     fun addAccount(
         name: String,
         type: AccountType,
         currency: String,
         bankProvider: String? = null,
+        openingMinor: Long? = null,
     ) {
         viewModelScope.launch {
             db.withTransaction {
@@ -405,12 +413,19 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                             FinancialGroupEntity(name = provider, type = FinancialGroupType.BANK, provider = provider),
                         )
                 } else null
-                db.accountDao().insert(
+                val accountId = db.accountDao().insert(
                     AccountEntity(
                         name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
                         fundRole = if (type == AccountType.SAVINGS) FundRole.RESERVE else FundRole.AVAILABLE,
                     ),
                 )
+                openingMinor?.takeIf { it != 0L }?.let { amount ->
+                    transactionMutations.createOpeningBalance(
+                        accountId = accountId,
+                        amountMinor = amount,
+                        occurredAt = System.currentTimeMillis(),
+                    )
+                }
             }
         }
     }

@@ -424,6 +424,34 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
             id
         }
 
+    /**
+     * What an account already held when the person added it by hand.
+     *
+     * Shaped exactly like a statement's opening balance rather than like a correction the user made:
+     * it counts towards the balance but is marked as a transfer, so money that existed before WHFIN
+     * did never turns up as income earned this month. Written once, at creation; everything
+     * afterwards is an ordinary adjustment.
+     */
+    suspend fun createOpeningBalance(accountId: Long, amountMinor: Long, occurredAt: Long): Long =
+        db.withTransaction {
+            requireNonZero(amountMinor)
+            val account = account(accountId)
+            val id = db.transactionDao().insert(
+                TransactionEntity(
+                    accountId = account.id,
+                    amountMinor = amountMinor,
+                    currency = account.currency,
+                    occurredAt = occurredAt,
+                    status = TxStatus.CONFIRMED,
+                    source = TxSource.ADJUSTMENT,
+                    isTransfer = true,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+            check(id > 0)
+            id
+        }
+
     suspend fun keepReviewDraft(transactionId: Long) = db.withTransaction {
         val row = transaction(transactionId)
         if (row.source !in setOf(TxSource.SMS, TxSource.MANUAL)) {

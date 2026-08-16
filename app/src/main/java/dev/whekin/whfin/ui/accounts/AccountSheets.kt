@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
@@ -49,6 +50,7 @@ import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.ui.components.FormSheet
+import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -69,6 +71,7 @@ fun AddAccountSheet(
         type: AccountType,
         currency: String,
         bankProvider: String?,
+        openingMinor: Long?,
     ) -> Unit,
     onConfirmWallet: (name: String?, network: CryptoNetwork, address: String) -> Unit = { _, _, _ -> },
     // Наличные — единственный тип, который заводится только руками: банк приходит из выписки или
@@ -82,6 +85,7 @@ fun AddAccountSheet(
     var address by remember { mutableStateOf("") }
     var customBank by remember { mutableStateOf(false) }
     var customCashName by remember { mutableStateOf(false) }
+    var opening by remember { mutableStateOf("") }
     var bankProvider by remember { mutableStateOf<String?>(null) }
 
     val addressCheck = if (type == AccountType.CRYPTO && address.isNotBlank()) {
@@ -106,7 +110,7 @@ fun AddAccountSheet(
             if (type == AccountType.CRYPTO) {
                 onConfirmWallet(name.trim().takeIf(String::isNotEmpty), network, address.trim())
             } else {
-                onConfirm(name.ifBlank { "Cash" }, type, currency, bankProvider)
+                onConfirm(name.ifBlank { "Cash" }, type, currency, bankProvider, parseToMinor(opening))
             }
         },
     ) {
@@ -203,6 +207,17 @@ fun AddAccountSheet(
                 currency = currency,
                 onChange = { currency = it },
                 quick = quickCurrencies,
+            )
+            // What is already in the pocket is not income: it is the position the ledger starts from,
+            // recorded exactly the way a statement's opening balance is. Leaving it blank starts at
+            // zero, which is what an account nobody has counted yet honestly holds.
+            WhfinField(
+                value = opening,
+                onValueChange = { opening = it.filter { char -> char.isDigit() || char == '.' || char == ',' } },
+                label = stringResource(R.string.account_opening_amount),
+                supportingText = stringResource(R.string.account_opening_amount_hint),
+                keyboardType = KeyboardType.Decimal,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -421,7 +436,7 @@ private fun EditDemandDepositPreview() {
 @Composable
 private fun AddCryptoPreview() {
     WhfinTheme {
-        AddAccountSheet({}, {}, { _, _, _, _ -> }, initialType = AccountType.CRYPTO)
+        AddAccountSheet({}, {}, { _, _, _, _, _ -> }, initialType = AccountType.CRYPTO)
     }
 }
 
@@ -431,7 +446,7 @@ private fun AddCryptoPreview() {
 @Composable
 private fun AddCashPreview() {
     WhfinTheme {
-        AddAccountSheet({}, {}, { _, _, _, _ -> }, initialType = AccountType.CASH)
+        AddAccountSheet({}, {}, { _, _, _, _, _ -> }, initialType = AccountType.CASH)
     }
 }
 

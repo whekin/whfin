@@ -32,6 +32,7 @@ class AddAccountSheetTest {
         val name: String,
         val type: AccountType,
         val currency: String,
+        val openingMinor: Long? = null,
     )
 
     private data class SavedWallet(
@@ -52,7 +53,7 @@ class AddAccountSheetTest {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, _ -> onSave(Saved(name, type, currency)) },
+                    onConfirm = { name, type, currency, _, opening -> onSave(Saved(name, type, currency, opening)) },
                     onConfirmWallet = { name, network, address ->
                         onSaveWallet(SavedWallet(name, network, address))
                     },
@@ -91,6 +92,28 @@ class AddAccountSheetTest {
         assertEquals(context.getString(R.string.cash_name_preset_pocket), saved?.name)
     }
 
+    /** What is already in the pocket is stated once, at creation, instead of adjusted afterwards. */
+    @Test
+    fun cashCanStateWhatItAlreadyHolds() {
+        var saved: Saved? = null
+        show(AccountType.CASH, onSave = { saved = it })
+
+        type(R.string.account_opening_amount, "300.50")
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+
+        assertEquals(30050L, saved?.openingMinor)
+    }
+
+    @Test
+    fun anUncountedAccountStartsAtNothing() {
+        var saved: Saved? = null
+        show(AccountType.CASH, onSave = { saved = it })
+
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+
+        assertNull(saved?.openingMinor)
+    }
+
     /** The keyboard is for the pile that is genuinely something else, and only for that one. */
     @Test
     fun typingIsOfferedOnlyWhenTheListDoesNotAnswer() {
@@ -112,7 +135,7 @@ class AddAccountSheetTest {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, _ -> saved = Saved(name, type, currency) },
+                    onConfirm = { name, type, currency, _, opening -> saved = Saved(name, type, currency, opening) },
                 )
             }
         }

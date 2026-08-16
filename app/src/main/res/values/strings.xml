@@ -109,6 +109,8 @@
     <string name="account_restored">Account restored</string>
     <string name="account_name">Name</string>
     <string name="cash_name_optional_hint">Optional — for example Pocket money or Rainy day.</string>
+    <string name="account_opening_amount">Amount now</string>
+    <string name="account_opening_amount_hint">Optional — what the account holds today. Not income: it is the balance the ledger starts from.</string>
     <string name="cash_name_preset_plain">Cash</string>
     <string name="cash_name_preset_pocket">Pocket money</string>
     <string name="cash_name_preset_home">At home</string>

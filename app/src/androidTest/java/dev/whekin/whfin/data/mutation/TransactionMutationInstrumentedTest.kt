@@ -56,6 +56,23 @@ class TransactionMutationInstrumentedTest {
         db.close()
     }
 
+    /**
+     * The money in the pocket when the account was added counts, but it was never earned in WHFIN.
+     * Marked as a transfer, it reaches the balance without ever reading as this month's income.
+     */
+    @Test
+    fun openingBalance_countsWithoutBeingIncome() = runBlocking {
+        val id = mutations.createOpeningBalance(accountId, 30_050, occurredAt = 1_000)
+
+        val row = db.transactionDao().byId(id)!!
+        assertEquals(30_050, row.amountMinor)
+        assertEquals("GEL", row.currency)
+        assertEquals(TxSource.ADJUSTMENT, row.source)
+        assertEquals(TxStatus.CONFIRMED, row.status)
+        assertTrue("an opening balance is not income", row.isTransfer)
+        assertEquals(30_050, db.transactionDao().sumByAccount(accountId))
+    }
+
     @Test
     fun delete_neverRemovesStatementRows() = runBlocking {
         val manualId = mutations.createManual(

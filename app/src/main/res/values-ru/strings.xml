@@ -118,6 +118,8 @@
     <string name="account_restored">Счёт восстановлен</string>
     <string name="account_name">Название</string>
     <string name="cash_name_optional_hint">Необязательно — например Карманные деньги или На чёрный день.</string>
+    <string name="account_opening_amount">Сумма сейчас</string>
+    <string name="account_opening_amount_hint">Необязательно — сколько на счёте сегодня. Это не доход, а баланс, с которого начинается учёт.</string>
     <string name="cash_name_preset_plain">Наличные</string>
     <string name="cash_name_preset_pocket">Карманные деньги</string>
     <string name="cash_name_preset_home">Дома</string>
