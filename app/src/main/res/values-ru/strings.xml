@@ -723,6 +723,7 @@
     <string name="category_rules_dismissed">Не спрашивать</string>
     <string name="category_rules_dismissed_body">WHFIN не спрашивает про этот счёт. Выберите категорию, если переводы на него всё же нужно размечать.</string>
     <string name="category_rules_change_label">Размечать переводы как</string>
+    <string name="category_rules_actions">Действия с правилом</string>
     <string name="category_rules_delete">Удалить правило</string>
     <string name="category_rules_delete_title">Удалить правило?</string>
     <string name="category_rules_delete_body_plain">Получатель снова появится в вопросах. Операции не изменятся.</string>

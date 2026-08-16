@@ -696,6 +696,7 @@
     <string name="category_rules_dismissed">Not asking</string>
     <string name="category_rules_dismissed_body">WHFIN does not ask about this account. Choose a category to start filing transfers to it.</string>
     <string name="category_rules_change_label">File transfers as</string>
+    <string name="category_rules_actions">Rule actions</string>
     <string name="category_rules_delete">Delete rule</string>
     <string name="category_rules_delete_title">Delete this rule?</string>
     <string name="category_rules_delete_body_plain">The recipient will be asked about again. No transaction changes.</string>

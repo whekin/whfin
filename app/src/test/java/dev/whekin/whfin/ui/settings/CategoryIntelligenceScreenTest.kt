@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -415,6 +416,10 @@ class CategoryIntelligenceScreenTest {
         }
 
         compose.onNodeWithText("Example Person").performClick()
+        // Deleting is rare and destructive, so it lives behind the overflow rather than as the
+        // largest button on a sheet whose purpose is changing the category.
+        compose.onNodeWithContentDescription(context.getString(R.string.category_rules_actions))
+            .performClick()
         compose.onNodeWithText(context.getString(R.string.category_rules_delete)).performClick()
         compose.onNodeWithText(
             context.resources.getQuantityString(R.plurals.category_rules_delete_body, 12, 12),
