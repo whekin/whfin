@@ -60,11 +60,34 @@ interface AccountDao {
     @Query("SELECT COUNT(*) FROM accounts WHERE groupId = :groupId")
     suspend fun countInGroup(groupId: Long): Int
 
+    /**
+     * The ledger a card spends from in one currency.
+     *
+     * A card belongs to an account, not to a currency: the same plastic pays in GEL, USD and EUR,
+     * and the bank simply debits the matching ledger of the same IBAN. The stored links are
+     * therefore read as "this card belongs to this IBAN", and the currency only chooses among that
+     * IBAN's ledgers.
+     *
+     * Reading only the stored rows made the link a snapshot of the ledgers that happened to exist
+     * when it was written: a currency ledger created by a later statement was never joined to it, so
+     * a card that paid in GEL every day could not route a single message in dollars. Resolving
+     * through the IBAN fixes that for databases already in that state, without a repair pass.
+     *
+     * The direct rows still count on their own, because a ledger created from SMS has no IBAN yet
+     * and its only connection to the card is the link itself.
+     */
     @Query(
         "SELECT a.* FROM accounts a " +
             "JOIN instrument_account_links l ON l.accountId = a.id " +
             "JOIN payment_instruments i ON i.id = l.instrumentId " +
-            "WHERE i.last4 = :last4 AND a.currency = :currency AND a.isArchived = 0"
+            "WHERE i.last4 = :last4 AND a.currency = :currency AND a.isArchived = 0 " +
+            "UNION " +
+            "SELECT a.* FROM accounts a WHERE a.currency = :currency AND a.isArchived = 0 " +
+            "AND a.iban IS NOT NULL AND a.iban IN (" +
+            "SELECT sibling.iban FROM accounts sibling " +
+            "JOIN instrument_account_links sl ON sl.accountId = sibling.id " +
+            "JOIN payment_instruments si ON si.id = sl.instrumentId " +
+            "WHERE si.last4 = :last4 AND sibling.iban IS NOT NULL)"
     )
     suspend fun byCardAndCurrency(last4: String, currency: String): List<AccountEntity>
 

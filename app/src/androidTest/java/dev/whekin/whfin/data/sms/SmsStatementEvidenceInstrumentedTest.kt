@@ -136,6 +136,38 @@ class SmsStatementEvidenceInstrumentedTest {
         assertEquals(1, transactionCount())
     }
 
+    /**
+     * The card is multi-currency, so the link is to the account, not to one of its ledgers.
+     *
+     * The dollar ledger of the same IBAN arrived with a later statement, long after the card had
+     * been linked through the lari one. Read as a fixed set of ledgers, the link could not place a
+     * single purchase in dollars; read as "this card belongs to this IBAN", the currency simply
+     * picks the ledger the bank actually debited.
+     */
+    @Test
+    fun aCurrencyLedgerAddedAfterTheCardWasLinked_isStillTheCardsAccount() = runBlocking {
+        val gel = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        statementRow(gel, amountMinor = -1_234, balanceAfterMinor = 56_789)
+        importer.learnCardsFrom(listOf(CARD_PAYMENT))
+        assertEquals(gel, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+
+        val usd = ledger("Everyday USD", "USD", IBAN_ONE)
+
+        assertEquals(usd, db.accountDao().byCardAndCurrency("0001", "USD").single().id)
+    }
+
+    /** Another account's ledger is not reachable just because it shares a currency. */
+    @Test
+    fun aLedgerOfAnotherAccount_isNeverReachedThroughTheCard() = runBlocking {
+        val gel = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        statementRow(gel, amountMinor = -1_234, balanceAfterMinor = 56_789)
+        importer.learnCardsFrom(listOf(CARD_PAYMENT))
+
+        ledger("Other USD", "USD", IBAN_TWO)
+
+        assertTrue(db.accountDao().byCardAndCurrency("0001", "USD").isEmpty())
+    }
+
     /** A card already pointing at a ledger of that currency has nothing left to learn. */
     @Test
     fun aCardAlreadyLinked_isNotReExaminedAgainstTheStatements() = runBlocking {
