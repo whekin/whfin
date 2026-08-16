@@ -25,11 +25,13 @@ object CategoryProposals {
 
     /**
      * @param usageByMerchantId how many transactions each merchant accounts for.
+     * @param operationEvidence rows the bank itself classified, counted per category icon.
      */
     fun from(
         merchants: List<MerchantEntity>,
         usageByMerchantId: Map<Long, Int>,
         existing: List<CategoryEntity>,
+        operationEvidence: Map<Pair<String, CategoryKind>, Int> = emptyMap(),
         minimumTransactions: Int = 1,
     ): List<Proposal> {
         val present = existing.map { it.icon to it.kind }.toSet()
@@ -40,6 +42,16 @@ object CategoryProposals {
             val key = icon to CategoryKind.EXPENSE
             if (key in present) return@forEach
             evidence[key] = (evidence[key] ?: 0) + (usageByMerchantId[merchant.id] ?: 0)
+        }
+
+        // A category the bank fills by itself is seeded on a fresh ledger, but never appears on one
+        // that already exists — re-seeding the base would resurrect whatever the user deleted. So it
+        // is offered the same way as any other: the unfiled rows are the evidence, and accepting is
+        // what creates it. Without this, shipping such a rule would silently do nothing for anyone
+        // who installed WHFIN before it.
+        operationEvidence.forEach { (key, count) ->
+            if (key in present) return@forEach
+            evidence[key] = (evidence[key] ?: 0) + count
         }
 
         return evidence

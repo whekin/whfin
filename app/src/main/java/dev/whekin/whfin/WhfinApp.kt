@@ -114,7 +114,6 @@ class WhfinApp : Application() {
             }
             startupStep("seedCategories") {
                 CategorySeeder.seedIfEmpty(userDb, isRussian = isRussian)
-                CategorySeeder.applyRenames(userDb)
             }
             startupStep("seedCash") {
                 val activeAccounts = userDb.accountDao().allActive()

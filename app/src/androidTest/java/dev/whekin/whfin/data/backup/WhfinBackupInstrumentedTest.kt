@@ -130,61 +130,9 @@ class WhfinBackupInstrumentedTest {
         }
     }
 
+    /** Every table is mandatory: an absent one would restore a ledger that is quietly incomplete. */
     @Test
-    fun restore_acceptsVersion1CardsWithoutPrimaryFlag() = runBlocking {
-        seedEveryTable(source)
-        val version1 = export(source).toString(Charsets.UTF_8)
-            .replace("\"databaseVersion\": $WHFIN_DATABASE_VERSION", "\"databaseVersion\": 1")
-            .replace("        \"isPrimary\": 0,\n", "")
-
-        WhfinBackupManager(target).restore(ByteArrayInputStream(version1.toByteArray()))
-
-        val card = target.paymentInstrumentDao().forAccount(1).single()
-        assertEquals("0001", card.last4)
-        assertEquals(false, card.isPrimary)
-    }
-
-    /**
-     * A copy taken before recipient rules existed is still a valid copy: nothing had been taught
-     * yet. Refusing it would retire the user's own safety files the moment a feature is added.
-     */
-    @Test
-    fun restore_acceptsABackupTakenBeforeRecipientRulesExisted() = runBlocking {
-        seedEveryTable(source)
-        val exported = export(source).toString(Charsets.UTF_8)
-        val withoutRules = exported.replace(
-            Regex(""",\s*"counterparty_rules": \[[^]]*]"""),
-            "",
-        )
-        assertEquals(false, withoutRules.contains("counterparty_rules"))
-
-        WhfinBackupManager(target).restore(ByteArrayInputStream(withoutRules.toByteArray()))
-
-        assertEquals(emptyList<Long>(), target.counterpartyRuleDao().all().map { it.id })
-        assertEquals("Alice", target.personDao().byId(1)?.name)
-    }
-
-    /**
-     * The same reasoning one column down. A copy taken last week describes a complete ledger; a
-     * column added since does not make it incomplete, it makes it silent about a decision nobody
-     * could have made yet. The user's existing safety copies have to keep opening.
-     */
-    @Test
-    fun restore_acceptsARuleWrittenBeforeDismissalExisted() = runBlocking {
-        seedEveryTable(source)
-        val withoutDismissal = export(source).toString(Charsets.UTF_8)
-            .replace("        \"dismissedAt\": null,\n", "")
-        assertEquals(false, withoutDismissal.contains("dismissedAt"))
-
-        WhfinBackupManager(target).restore(ByteArrayInputStream(withoutDismissal.toByteArray()))
-
-        val rule = target.counterpartyRuleDao().all().single()
-        assertEquals(null, rule.dismissedAt)
-    }
-
-    /** A table that carries money is never optional: an absent one would restore a broken ledger. */
-    @Test
-    fun restore_stillRejectsABackupMissingATableThatCarriesMoney() = runBlocking {
+    fun restore_rejectsABackupMissingATable() = runBlocking {
         seedEveryTable(source)
         val withoutAllocations = export(source).toString(Charsets.UTF_8).replace(
             Regex(""",\s*"transaction_allocations": \[[^]]*]"""),

@@ -109,24 +109,6 @@ internal data class BackupTable(
      * deleted.
      */
     val enumColumns: Map<String, Set<String>> = emptyMap(),
-    /**
-     * Whether a file written before this table existed is still a valid backup.
-     *
-     * A table that only ever holds rules the user taught WHFIN has an honest reading when absent:
-     * nothing had been taught yet. Refusing such a file would retire the user's own safety copies
-     * the moment a feature is added, which is exactly when they matter most. Tables that carry money
-     * are never optional: an absent one there would silently restore an incomplete ledger.
-     */
-    val optionalOnRestore: Boolean = false,
-    /**
-     * Columns added after this table shipped, and what they mean in a file written without them.
-     *
-     * Same reasoning as [optionalOnRestore], one column down: a backup taken last week describes a
-     * complete ledger, and a column added since does not make it incomplete — it makes it silent
-     * about something that had no value then. A default is only honest where absence has one exact
-     * reading, so every entry here has to state it. Columns carrying money are never listed.
-     */
-    val defaultsOnRestore: Map<String, BackupValue?> = emptyMap(),
 )
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
@@ -173,8 +155,6 @@ internal object WhfinBackupSchema {
             "payment_instruments",
             listOf("id", "groupId", "type", "last4", "label", "isPrimary", "isArchived"),
             enumColumns = mapOf("type" to setOf("PHYSICAL_CARD", "VIRTUAL_CARD")),
-            // Written before any card could be marked primary: none of them was.
-            defaultsOnRestore = mapOf("isPrimary" to BackupValue.Integer(0)),
         ),
         BackupTable(
             "instrument_account_links",
@@ -206,9 +186,6 @@ internal object WhfinBackupSchema {
         BackupTable(
             "counterparty_rules",
             listOf("id", "iban", "displayName", "categoryId", "personId", "dismissedAt", "createdAt"),
-            optionalOnRestore = true,
-            // Written before a question could be dismissed: none of them was.
-            defaultsOnRestore = mapOf("dismissedAt" to null),
         ),
         BackupTable(
             "income_sources",
@@ -216,7 +193,6 @@ internal object WhfinBackupSchema {
                 "id", "label", "amountMinor", "currency", "accountId",
                 "expectedDayFrom", "expectedDayTo", "startedOn", "endedOn", "createdAt",
             ),
-            optionalOnRestore = true,
         ),
         BackupTable(
             "transactions",
@@ -470,11 +446,9 @@ internal object WhfinBackupCodec {
         }
         endObject()
         val missing = WhfinBackupSchema.byName.keys - result.keys
-        val required = missing.filterNot { WhfinBackupSchema.byName.getValue(it).optionalOnRestore }
-        if (required.isNotEmpty()) {
-            throw WhfinBackupException("Backup is missing tables: ${required.joinToString()}.")
+        if (missing.isNotEmpty()) {
+            throw WhfinBackupException("Backup is missing tables: ${missing.joinToString()}.")
         }
-        missing.forEach { result[it] = emptyList() }
         return result
     }
 
@@ -491,12 +465,8 @@ internal object WhfinBackupCodec {
         }
         endObject()
         val missing = table.columns - row.keys
-        missing.filter { it in table.defaultsOnRestore }.forEach { column ->
-            row[column] = table.defaultsOnRestore.getValue(column)
-        }
-        val unanswered = missing - table.defaultsOnRestore.keys
-        if (unanswered.isNotEmpty()) {
-            throw WhfinBackupException("Missing columns in ${table.name}: ${unanswered.joinToString()}.")
+        if (missing.isNotEmpty()) {
+            throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
         }
         return row
     }

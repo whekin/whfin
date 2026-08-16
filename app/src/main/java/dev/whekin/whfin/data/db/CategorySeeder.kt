@@ -17,13 +17,6 @@ object CategorySeeder {
 
     const val UNACCOUNTED = "unaccounted"
 
-    /** Точечные переименования пресетов на существующих базах (имена = данные пользователя). */
-    suspend fun applyRenames(db: WhfinDatabase) {
-        db.categoryDao().rename("Goods from abroad", "Goods")
-        db.categoryDao().rename("Заказы из-за границы", "Заказы")
-        db.categoryDao().rename("Family & giving", "Family help")
-        db.categoryDao().rename("Близкие и помощь", "Помощь близким")
-    }
 
     suspend fun seedIfEmpty(db: WhfinDatabase, isRussian: Boolean) {
         val dao = db.categoryDao()

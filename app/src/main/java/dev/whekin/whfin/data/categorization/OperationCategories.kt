@@ -34,4 +34,8 @@ object OperationCategories {
         val target = targetFor(operation) ?: return null
         return categories.firstOrNull { it.icon == target.icon && it.kind == target.kind }
     }
+
+    /** Which category this operation belongs in, named by icon so it can be asked for before it exists. */
+    fun targetOf(operation: StatementOperation): Pair<String, CategoryKind>? =
+        targetFor(operation)?.let { it.icon to it.kind }
 }

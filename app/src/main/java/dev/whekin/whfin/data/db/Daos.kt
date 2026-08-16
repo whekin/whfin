@@ -296,9 +296,6 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE id = :id AND isSystem = 0")
     suspend fun delete(id: Long)
-
-    @Query("UPDATE categories SET name = :newName WHERE name = :oldName AND isSystem = 0")
-    suspend fun rename(oldName: String, newName: String)
 }
 
 @Dao
@@ -538,6 +535,19 @@ interface TransactionDao {
     )
     suspend fun uncategorizedStatementNotes(): List<StatementNoteRow>
 
+    /**
+     * The same rows, counted per label rather than listed.
+     *
+     * A screen only needs to know how much history a rule would explain, and years of statements
+     * repeat a handful of labels — grouping keeps that a few rows instead of thousands.
+     */
+    @Query(
+        "SELECT note AS note, COUNT(*) AS transactionCount FROM transactions " +
+            "WHERE categoryId IS NULL AND isVoided = 0 AND isTransfer = 0 AND source = 'STATEMENT' " +
+            "AND note IS NOT NULL AND note != '' GROUP BY note"
+    )
+    fun observeUncategorizedStatementNotes(): Flow<List<StatementNoteCount>>
+
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE id = :id AND categoryId IS NULL AND isVoided = 0")
     suspend fun categorizeIfUnassigned(id: Long, categoryId: Long)
 
@@ -768,6 +778,11 @@ data class UncategorizedCounterparty(
 
 data class CounterpartyUsage(
     val iban: String,
+    val transactionCount: Int,
+)
+
+data class StatementNoteCount(
+    val note: String,
     val transactionCount: Int,
 )
 

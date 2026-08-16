@@ -86,6 +86,46 @@ class CategoryProposalsTest {
         assertEquals(listOf(unusedBike.id), unused.map { it.id })
     }
 
+    /**
+     * A category the bank fills by itself is seeded only on a fresh ledger, because re-seeding the
+     * base into an existing one would resurrect whatever the user deleted. Without an offer, an
+     * install made before the rule shipped would never get the category and the rule would silently
+     * do nothing there — which is exactly what happened when bill payments started being filed.
+     */
+    @Test
+    fun `a category the bank fills is offered to a ledger that predates the rule`() {
+        val proposals = CategoryProposals.from(
+            merchants = emptyList(),
+            usageByMerchantId = emptyMap(),
+            existing = emptyList(),
+            operationEvidence = mapOf(("ReceiptLong" to CategoryKind.EXPENSE) to 37),
+        )
+
+        assertEquals(1, proposals.size)
+        assertEquals("ReceiptLong", proposals.single().definition.icon)
+        assertEquals(37, proposals.single().transactionCount)
+    }
+
+    @Test
+    fun `a category that already exists is never offered again`() {
+        val bills = CategoryEntity(
+            id = 8,
+            name = "Bills & charges",
+            kind = CategoryKind.EXPENSE,
+            icon = "ReceiptLong",
+            color = 0,
+        )
+
+        val proposals = CategoryProposals.from(
+            merchants = emptyList(),
+            usageByMerchantId = emptyMap(),
+            existing = listOf(bills),
+            operationEvidence = mapOf(("ReceiptLong" to CategoryKind.EXPENSE) to 37),
+        )
+
+        assertEquals(emptyList<CategoryProposals.Proposal>(), proposals)
+    }
+
     @Test
     fun `the base a fresh ledger starts with stays small and universal`() {
         assertEquals(10, CategoryCatalog.base.size)
