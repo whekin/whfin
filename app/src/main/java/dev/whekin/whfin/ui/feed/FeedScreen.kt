@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
@@ -210,6 +211,9 @@ fun FeedScreen(
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
     showCredoSyncReminder: Boolean = true,
+    showSetupInvitation: Boolean = false,
+    onResumeSetup: () -> Unit = {},
+    onDismissSetupInvitation: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
@@ -479,6 +483,9 @@ fun FeedScreen(
         ) {
         if (mode == FeedMode.HOME && !selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
+            if (showSetupInvitation) item(key = "setup-invitation") {
+                SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
+            }
             val lowCardBalances = physicalCardBalances.filter {
                 physicalCardBalanceStatus(it.balanceMinor) != PhysicalCardBalanceStatus.Enough
             }
@@ -2370,6 +2377,29 @@ private fun SummaryValue(
             color = color,
         )
     }
+}
+
+/**
+ * The way back into a setup that was walked past.
+ *
+ * Skipping is allowed, so this offers rather than nags: it is the quietest notice kind, it withdraws
+ * on its own as soon as a bank exists, and refusing it here is permanent — an offer that cannot be
+ * turned off for good is a demand.
+ */
+@Composable
+internal fun SetupInvitationCard(onResume: () -> Unit, onDismiss: () -> Unit) {
+    WhfinNotice(
+        title = stringResource(R.string.home_setup_invitation_title),
+        body = stringResource(R.string.home_setup_invitation_body),
+        icon = Icons.Default.AccountBalance,
+        kind = WhfinNoticeKind.Info,
+        actionLabel = stringResource(R.string.home_setup_invitation_action),
+        onAction = onResume,
+        dismissIcon = Icons.Default.Close,
+        dismissContentDescription = stringResource(R.string.home_setup_invitation_dismiss),
+        onDismiss = onDismiss,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+    )
 }
 
 @Composable

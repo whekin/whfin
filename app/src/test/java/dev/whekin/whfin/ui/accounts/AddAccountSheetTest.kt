@@ -81,6 +81,30 @@ class AddAccountSheetTest {
     }
 
     @Test
+    fun cashIsNamedByChoosingRatherThanTyping() {
+        var saved: Saved? = null
+        show(AccountType.CASH, onSave = { saved = it })
+
+        tap(context.getString(R.string.cash_name_preset_pocket))
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+
+        assertEquals(context.getString(R.string.cash_name_preset_pocket), saved?.name)
+    }
+
+    /** The keyboard is for the pile that is genuinely something else, and only for that one. */
+    @Test
+    fun typingIsOfferedOnlyWhenTheListDoesNotAnswer() {
+        show(AccountType.CASH)
+        val field = context.getString(R.string.account_name)
+
+        compose.onNodeWithContentDescription(field).assertDoesNotExist()
+
+        tap(context.getString(R.string.cash_name_preset_custom))
+
+        compose.onNodeWithContentDescription(field).assertExists()
+    }
+
+    @Test
     fun theFormOpensOnCashBecauseBankAndWalletArriveOtherWays() {
         var saved: Saved? = null
         compose.setContent {

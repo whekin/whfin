@@ -38,6 +38,19 @@ class RuntimeModeStoreTest {
         assertFalse("adoption must not send an existing user into setup", store.personalSetupPending)
     }
 
+    /** Refusing the setup offer has to outlive the launch that refused it. */
+    @Test
+    fun aRefusedSetupOfferStaysRefused() {
+        store().personalSetupInvitationDismissed = true
+
+        assertTrue(store().personalSetupInvitationDismissed)
+    }
+
+    @Test
+    fun theSetupOfferStandsUntilItIsRefused() {
+        assertFalse(store().personalSetupInvitationDismissed)
+    }
+
     @Test
     fun anExplicitChoiceIsNeverOverwrittenByAdoption() {
         val store = store()

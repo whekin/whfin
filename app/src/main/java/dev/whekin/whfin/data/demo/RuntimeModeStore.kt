@@ -43,6 +43,19 @@ class RuntimeModeStore(context: Context) {
         )
     }
 
+    /**
+     * A standing refusal of the setup offer Home makes to a workspace with no bank behind it.
+     *
+     * Skipping setup is a legitimate answer and the offer must be refusable for good, not just for
+     * this launch. It sits here rather than in the backed-up preferences because it describes this
+     * installation's first run, not the ledger: a restore onto a fresh device should ask again.
+     */
+    var personalSetupInvitationDismissed: Boolean
+        get() = preferences.getBoolean(KEY_SETUP_INVITATION_DISMISSED, false)
+        set(value) {
+            check(preferences.edit().putBoolean(KEY_SETUP_INVITATION_DISMISSED, value).commit())
+        }
+
     var demoMode: Boolean
         get() = preferences.getBoolean(KEY_DEMO_MODE, false)
         set(value) {
@@ -68,5 +81,6 @@ class RuntimeModeStore(context: Context) {
         const val KEY_DEMO_FIXTURE_VERSION = "demo_fixture_version"
         const val KEY_WELCOME_COMPLETED = "welcome_completed"
         const val KEY_PERSONAL_SETUP_PENDING = "personal_setup_pending"
+        const val KEY_SETUP_INVITATION_DISMISSED = "personal_setup_invitation_dismissed"
     }
 }

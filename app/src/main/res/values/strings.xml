@@ -56,6 +56,10 @@
     <string name="dock_add">New</string>
     <string name="feed_empty">No transactions yet.\nImport a bank statement to get started.</string>
     <string name="home_empty_title">Your financial picture will appear here</string>
+    <string name="home_setup_invitation_title">Connect your bank</string>
+    <string name="home_setup_invitation_body">No bank account here yet. Setup connects Credo, reads your history and files what it can by itself.</string>
+    <string name="home_setup_invitation_action">Set up</string>
+    <string name="home_setup_invitation_dismiss">Don’t offer setup again</string>
     <string name="home_integrity_title">A background check found something to recheck</string>
     <plurals name="home_integrity_body">
         <item quantity="one">One bookkeeping link may be wrong. Your accounts stay available; review it when convenient.</item>
@@ -105,6 +109,10 @@
     <string name="account_restored">Account restored</string>
     <string name="account_name">Name</string>
     <string name="cash_name_optional_hint">Optional — for example Pocket money or Rainy day.</string>
+    <string name="cash_name_preset_plain">Cash</string>
+    <string name="cash_name_preset_pocket">Pocket money</string>
+    <string name="cash_name_preset_home">At home</string>
+    <string name="cash_name_preset_custom">Own name</string>
     <string name="account_name_in_bank">Account name</string>
     <string name="account_bank_provider">Bank</string>
     <string name="account_bank_other">Other</string>

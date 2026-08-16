@@ -58,6 +58,54 @@ class MainActivityStartupTest {
         )
     }
 
+    private fun setupInvitation(
+        welcomeCompleted: Boolean = true,
+        personalSetupPending: Boolean = false,
+        demoMode: Boolean = false,
+        dismissed: Boolean = false,
+        bankLedgerCount: Int? = 0,
+        statementImportCount: Int? = 0,
+    ) = showSetupInvitation(
+        welcomeCompleted = welcomeCompleted,
+        personalSetupPending = personalSetupPending,
+        demoMode = demoMode,
+        dismissed = dismissed,
+        bankLedgerCount = bankLedgerCount,
+        statementImportCount = statementImportCount,
+    )
+
+    @Test
+    fun aWorkspaceWithNoBankIsOfferedTheSetupItWalkedPast() {
+        assertTrue(setupInvitation())
+    }
+
+    /** The offer withdraws itself the moment a bank exists, however it got there. */
+    @Test
+    fun aConnectedBankWithdrawsTheOffer() {
+        assertFalse(setupInvitation(bankLedgerCount = 1))
+        assertFalse(setupInvitation(statementImportCount = 1))
+    }
+
+    /** A ledger that has not loaded is not an empty one, so the offer waits instead of flashing. */
+    @Test
+    fun aLoadingLedgerIsNotAnEmptyOne() {
+        assertFalse(setupInvitation(bankLedgerCount = null))
+        assertFalse(setupInvitation(statementImportCount = null))
+    }
+
+    @Test
+    fun theOfferCanBeRefusedForGood() {
+        assertFalse(setupInvitation(dismissed = true))
+    }
+
+    /** Nothing offers setup over somebody else's synthetic data, or over setup already running. */
+    @Test
+    fun demoAndAnOpenSetupNeverSeeTheOffer() {
+        assertFalse(setupInvitation(demoMode = true))
+        assertFalse(setupInvitation(personalSetupPending = true))
+        assertFalse(setupInvitation(welcomeCompleted = false))
+    }
+
     @Test
     fun loadingPreferencesNeverShowsLockGate() {
         assertEquals(AppStartupContent.Loading, appStartupContent(null, hasPin = true, sessionLocked = true))

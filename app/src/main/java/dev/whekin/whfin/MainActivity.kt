@@ -71,6 +71,28 @@ internal fun initialAppEntry(
     else -> AppEntry.Main
 }
 
+/**
+ * Whether Home should offer the setup the user walked past.
+ *
+ * This deliberately does not remember that they skipped. Skipping is a legitimate answer, and a
+ * stored "they skipped" would keep offering a wizard to somebody who has since connected a bank by
+ * hand. The evidence is the ledger itself: a personal workspace with no bank account and no
+ * statement behind it is one where setup never happened, whichever route led there — and the offer
+ * withdraws itself the moment a bank arrives, with nobody having to dismiss it.
+ *
+ * A null count is a ledger that has not loaded yet, not an empty one; the offer waits rather than
+ * flashing over data that is about to appear.
+ */
+internal fun showSetupInvitation(
+    welcomeCompleted: Boolean,
+    personalSetupPending: Boolean,
+    demoMode: Boolean,
+    dismissed: Boolean,
+    bankLedgerCount: Int?,
+    statementImportCount: Int?,
+): Boolean = welcomeCompleted && !personalSetupPending && !demoMode && !dismissed &&
+    bankLedgerCount == 0 && statementImportCount == 0
+
 internal fun appStartupContent(
     savedTimeout: AppLockTimeout?,
     hasPin: Boolean,
@@ -105,6 +127,12 @@ class MainActivity : FragmentActivity() {
     private var runtimeModeProblem by mutableStateOf<String?>(null)
     private var runtimeModeRestart by mutableStateOf(false)
     private var appEntry by mutableStateOf(AppEntry.Main)
+    private var welcomeCompleted by mutableStateOf(false)
+    private var personalSetupPending by mutableStateOf(false)
+    private var setupInvitationDismissed by mutableStateOf(false)
+    // Setup reached from Home is a visit, not the first run: leaving it goes back to the workspace
+    // that is already there, and must not strand the pending flag that reopens setup on every launch.
+    private var setupResumedFromHome by mutableStateOf(false)
     private var mainInitialTab by mutableIntStateOf(0)
     private var mainOpenAccountAdd by mutableStateOf(false)
     private var runtimeModeRestarting = false
@@ -129,9 +157,12 @@ class MainActivity : FragmentActivity() {
         demoMode = app.isDemoMode
         developerMode = app.runtimeModes.developerMode
         app.runtimeModes.adoptExistingInstallation(app.hadExistingUserData)
+        welcomeCompleted = app.runtimeModes.welcomeCompleted
+        personalSetupPending = app.runtimeModes.personalSetupPending
+        setupInvitationDismissed = app.runtimeModes.personalSetupInvitationDismissed
         appEntry = initialAppEntry(
-            welcomeCompleted = app.runtimeModes.welcomeCompleted,
-            personalSetupPending = app.runtimeModes.personalSetupPending,
+            welcomeCompleted = welcomeCompleted,
+            personalSetupPending = personalSetupPending,
             demoMode = demoMode,
         )
         runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
@@ -253,6 +284,8 @@ class MainActivity : FragmentActivity() {
                             problem = runtimeModeProblem,
                             onSetUpPersonal = {
                                 app.runtimeModes.completeWelcomeChoice(personalSetupPending = true)
+                                welcomeCompleted = true
+                                personalSetupPending = true
                                 appEntry = AppEntry.PersonalSetup
                             },
                             onExploreDemo = ::enterDemoFromWelcome,
@@ -302,11 +335,13 @@ class MainActivity : FragmentActivity() {
                                 onOpenBiometricSettings = ::openBiometricSettings,
                                 onContinue = { initialTab, openAccountAdd ->
                                     app.runtimeModes.personalSetupPending = false
+                                    personalSetupPending = false
+                                    setupResumedFromHome = false
                                     mainInitialTab = initialTab
                                     mainOpenAccountAdd = openAccountAdd
                                     appEntry = AppEntry.Main
                                 },
-                                onExit = ::finish,
+                                onExit = { if (setupResumedFromHome) leaveResumedSetup() else finish() },
                             )
                         }
                         AppEntry.Main -> mainState.SaveableStateProvider("main") {
@@ -335,6 +370,30 @@ class MainActivity : FragmentActivity() {
                                         uiPreferences.setWidgetOpenAppButtonEnabled(enabled)
                                         WhfinWidget().updateAll(applicationContext)
                                     }
+                                },
+                                showSetupInvitation = showSetupInvitation(
+                                    welcomeCompleted = welcomeCompleted,
+                                    personalSetupPending = personalSetupPending,
+                                    demoMode = demoMode,
+                                    dismissed = setupInvitationDismissed,
+                                    bankLedgerCount = personalAccounts?.count {
+                                        it.type == AccountType.BANK || it.type == AccountType.SAVINGS
+                                    },
+                                    statementImportCount = statementImports?.size,
+                                ),
+                                onResumeSetup = {
+                                    // The earlier pass ended on its last step, and restoring that
+                                    // would answer "connect your bank" with "your ledger is ready".
+                                    // A setup entered again starts where setup starts.
+                                    mainState.removeState("personal-setup")
+                                    app.runtimeModes.personalSetupPending = true
+                                    personalSetupPending = true
+                                    setupResumedFromHome = true
+                                    appEntry = AppEntry.PersonalSetup
+                                },
+                                onDismissSetupInvitation = {
+                                    app.runtimeModes.personalSetupInvitationDismissed = true
+                                    setupInvitationDismissed = true
                                 },
                                 smsImportEnabled = smsImportEnabled == true,
                                 hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,
@@ -383,6 +442,14 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    /** Returns to the workspace the setup was reached from, leaving nothing pending behind it. */
+    private fun leaveResumedSetup() {
+        (application as WhfinApp).runtimeModes.personalSetupPending = false
+        personalSetupPending = false
+        setupResumedFromHome = false
+        appEntry = AppEntry.Main
     }
 
     private fun enterDemoFromWelcome() {

@@ -59,6 +59,10 @@
     <string name="dock_add">Новая</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
+    <string name="home_setup_invitation_title">Подключи банк</string>
+    <string name="home_setup_invitation_body">Банковского счёта пока нет. Настройка подключит Credo, прочитает историю и разметит то, что сможет сама.</string>
+    <string name="home_setup_invitation_action">Настроить</string>
+    <string name="home_setup_invitation_dismiss">Больше не предлагать настройку</string>
     <string name="home_integrity_title">Фоновая проверка нашла, что стоит перепроверить</string>
     <plurals name="home_integrity_body">
         <item quantity="one">%1$d бухгалтерская связь может быть неверной. Счета доступны — можно посмотреть позже.</item>
@@ -114,6 +118,10 @@
     <string name="account_restored">Счёт восстановлен</string>
     <string name="account_name">Название</string>
     <string name="cash_name_optional_hint">Необязательно — например Карманные деньги или На чёрный день.</string>
+    <string name="cash_name_preset_plain">Наличные</string>
+    <string name="cash_name_preset_pocket">Карманные деньги</string>
+    <string name="cash_name_preset_home">Дома</string>
+    <string name="cash_name_preset_custom">Своё имя</string>
     <string name="account_name_in_bank">Название счёта</string>
     <string name="account_bank_provider">Банк</string>
     <string name="account_bank_other">Другой</string>

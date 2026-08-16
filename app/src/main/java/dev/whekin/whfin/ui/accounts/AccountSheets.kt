@@ -81,6 +81,7 @@ fun AddAccountSheet(
     var type by remember { mutableStateOf(initialType) }
     var address by remember { mutableStateOf("") }
     var customBank by remember { mutableStateOf(false) }
+    var customCashName by remember { mutableStateOf(false) }
     var bankProvider by remember { mutableStateOf<String?>(null) }
 
     val addressCheck = if (type == AccountType.CRYPTO && address.isNotBlank()) {
@@ -114,6 +115,9 @@ fun AddAccountSheet(
             onSelect = {
                 type = it
                 currency = "GEL"
+                // A bank's name is not a cash pile's name; switching type must not carry it across.
+                name = ""
+                customCashName = false
             },
         )
         if (type == AccountType.BANK) {
@@ -177,25 +181,80 @@ fun AddAccountSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            WhfinField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(
-                    if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name,
-                ),
-                supportingText = if (type == AccountType.CASH) {
-                    stringResource(R.string.cash_name_optional_hint)
-                } else {
-                    null
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (type == AccountType.CASH) {
+                CashNameSelector(
+                    name = name,
+                    custom = customCashName,
+                    onSelect = { preset -> customCashName = false; name = preset },
+                    onCustom = { customCashName = true; name = "" },
+                    onNameChange = { name = it },
+                )
+            } else {
+                WhfinField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = stringResource(
+                        if (type == AccountType.BANK) R.string.account_name_in_bank else R.string.account_name,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             CurrencySelector(
                 currency = currency,
                 onChange = { currency = it },
                 quick = quickCurrencies,
             )
         }
+    }
+}
+
+/**
+ * Naming cash by choosing rather than by typing.
+ *
+ * A cash pile is one of a handful of things — the money on you, the money at home — and the ledger
+ * holds one per currency, so there is nothing here a keyboard answers better than a list. The plain
+ * option stores no name at all: the seeded placeholder already reads as "Cash" in whichever language
+ * the app is in, and a typed-out "Cash" would freeze that choice in one language forever. Typing
+ * stays available for the pile that is genuinely something else.
+ */
+@Composable
+private fun CashNameSelector(
+    name: String,
+    custom: Boolean,
+    onSelect: (String) -> Unit,
+    onCustom: () -> Unit,
+    onNameChange: (String) -> Unit,
+) {
+    val presets = listOf(
+        "" to stringResource(R.string.cash_name_preset_plain),
+        stringResource(R.string.cash_name_preset_pocket) to stringResource(R.string.cash_name_preset_pocket),
+        stringResource(R.string.cash_name_preset_home) to stringResource(R.string.cash_name_preset_home),
+    )
+    WhfinFieldLabel(stringResource(R.string.account_name))
+    WhfinChoiceRail {
+        items(presets, key = { it.second }) { (value, label) ->
+            WhfinFilterPill(
+                label = label,
+                selected = !custom && name == value,
+                onClick = { onSelect(value) },
+            )
+        }
+        item {
+            WhfinFilterPill(
+                label = stringResource(R.string.cash_name_preset_custom),
+                selected = custom,
+                onClick = onCustom,
+            )
+        }
+    }
+    if (custom) {
+        WhfinField(
+            value = name,
+            onValueChange = onNameChange,
+            label = stringResource(R.string.account_name),
+            supportingText = stringResource(R.string.cash_name_optional_hint),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
