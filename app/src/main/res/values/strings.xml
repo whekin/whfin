@@ -667,7 +667,50 @@
     <string name="category_intelligence_income_body">%1$d incoming operations have no category. Naming a sender once settles every arrival from them, past and future.</string>
     <string name="category_intelligence_transfers_title">Transfers to people</string>
     <string name="category_intelligence_transfers_body">These went to somebody\'s account, not to a shop. They are grouped by the recipient\'s account, so every spelling of one name is a single row.</string>
+    <string name="category_intelligence_income_body_short">These arrived from somebody\'s account. Naming a sender settles every arrival from them, past and future.</string>
     <string name="category_intelligence_transfer_unnamed">Unnamed recipient</string>
+    <string name="category_intelligence_queues_title">Left to answer</string>
+    <string name="category_intelligence_once_title">Seen once</string>
+    <string name="category_intelligence_once_body">One transfer is not a pattern. A rule here would apply to a payment that may never repeat — these are usually better answered on the transaction itself.</string>
+    <string name="category_intelligence_not_a_rule">These are unrelated</string>
+    <string name="category_intelligence_not_a_rule_body">Stops WHFIN asking about this account. Nothing is categorized, and single transactions can still be categorized in the feed.</string>
+    <plurals name="category_queue_merchants">
+        <item quantity="one">%1$d merchant</item>
+        <item quantity="other">%1$d merchants</item>
+    </plurals>
+    <plurals name="category_queue_recipients">
+        <item quantity="one">%1$d recipient</item>
+        <item quantity="other">%1$d recipients</item>
+    </plurals>
+    <plurals name="category_queue_senders">
+        <item quantity="one">%1$d sender</item>
+        <item quantity="other">%1$d senders</item>
+    </plurals>
+    <string name="category_setup_title">Categories from your own spending</string>
+    <string name="category_setup_body">WHFIN read the history it just imported and recognized these. Add the ones that fit — every transaction already behind them gets categorized at once.</string>
+    <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
+    <string name="category_setup_skip">Not now</string>
+    <string name="category_rules_section">Decisions</string>
+    <string name="category_rules_title">Named recipients</string>
+    <string name="category_rules_body">What WHFIN was told about these accounts. Choosing another category moves the transfers this rule filed; deleting it makes the recipient an open question again.</string>
+    <string name="category_rules_dismissed">Not asking</string>
+    <string name="category_rules_dismissed_body">WHFIN does not ask about this account. Choose a category to start filing transfers to it.</string>
+    <string name="category_rules_change_label">File transfers as</string>
+    <string name="category_rules_delete">Delete rule</string>
+    <string name="category_rules_delete_title">Delete this rule?</string>
+    <string name="category_rules_delete_body_plain">The recipient will be asked about again. No transaction changes.</string>
+    <plurals name="category_rules_applies">
+        <item quantity="one">%1$d transfer to this account</item>
+        <item quantity="other">%1$d transfers to this account</item>
+    </plurals>
+    <plurals name="category_rules_count">
+        <item quantity="one">%1$d rule</item>
+        <item quantity="other">%1$d rules</item>
+    </plurals>
+    <plurals name="category_rules_delete_body">
+        <item quantity="one">The category this rule set will be removed from %1$d transaction, and the recipient will be asked about again.</item>
+        <item quantity="other">The category this rule set will be removed from up to %1$d transactions, and the recipient will be asked about again.</item>
+    </plurals>
     <string name="category_intelligence_person_label">Who is this</string>
     <string name="category_intelligence_person_none">Not saying</string>
     <string name="category_intelligence_person_create">Add %1$s</string>

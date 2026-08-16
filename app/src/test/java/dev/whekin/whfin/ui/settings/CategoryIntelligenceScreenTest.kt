@@ -1,6 +1,9 @@
 package dev.whekin.whfin.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -46,14 +49,19 @@ class CategoryIntelligenceScreenTest {
         latestAt = 0,
     )
 
+    /**
+     * The screen leads with the result and the size of what is left, not with the rows themselves.
+     * A queue of hundreds cannot be the first thing on a screen that also has to show anything else.
+     */
     @Test
-    fun coverageAndUnknownMerchant_areExplainedTogether() {
+    fun coverageAndTheSizeOfEachQueue_areShownWithoutTheQueuesThemselves() {
         compose.setContent {
             WhfinTheme {
                 CategoryIntelligenceScreen(
                     state = CategoryIntelligenceState(
                         coverage = CategoryCoverage(100, 64, 3),
                         unresolved = listOf(merchant),
+                        counterparties = listOf(recipient),
                         categories = listOf(transport),
                     ),
                     onCheckLocalRules = {},
@@ -64,10 +72,40 @@ class CategoryIntelligenceScreenTest {
 
         compose.onNodeWithText(context.getString(R.string.category_intelligence_percent, 64))
             .assertIsDisplayed()
-        compose.onNodeWithText("EXAMPLE TRADE LTD").assertIsDisplayed()
         compose.onNodeWithText(
-            context.resources.getQuantityString(R.plurals.category_intelligence_transactions, 61, 61),
+            context.resources.getQuantityString(R.plurals.category_queue_merchants, 1, 1),
         ).assertIsDisplayed()
+        val recipients = context.resources.getQuantityString(R.plurals.category_queue_recipients, 1, 1)
+        compose.onNode(hasScrollAction(), useUnmergedTree = false).performScrollToNode(hasText(recipients))
+        compose.onNodeWithText(recipients).assertIsDisplayed()
+        compose.onNodeWithText("EXAMPLE TRADE LTD").assertDoesNotExist()
+        compose.onNodeWithText("Example Person").assertDoesNotExist()
+    }
+
+    @Test
+    fun openingAQueue_asksTheShellToNavigate() {
+        var opened: CategoryQueue? = null
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = listOf(merchant),
+                        categories = listOf(transport),
+                    ),
+                    onOpenQueue = { opened = it },
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            context.getString(R.string.category_intelligence_review_title),
+            ignoreCase = true,
+        ).performClick()
+
+        assertEquals(CategoryQueue.Merchants, opened)
     }
 
     @Test
@@ -81,6 +119,7 @@ class CategoryIntelligenceScreenTest {
                         unresolved = listOf(merchant),
                         categories = listOf(transport),
                     ),
+                    queue = CategoryQueue.Merchants,
                     onCheckLocalRules = {},
                     onAssignCategory = { merchantId, categoryId -> assignment = merchantId to categoryId },
                 )
@@ -107,18 +146,15 @@ class CategoryIntelligenceScreenTest {
                         counterparties = listOf(recipient),
                         categories = listOf(transport),
                     ),
+                    queue = CategoryQueue.Transfers,
                     onCheckLocalRules = {},
                     onAssignCategory = { _, _ -> },
                 )
             }
         }
 
-        // The section label is set in caps by the design system, so the assertion reads the words.
-        compose.onNodeWithText(
-            context.getString(R.string.category_intelligence_transfers_title),
-            ignoreCase = true,
-        ).assertIsDisplayed()
         compose.onNodeWithText("Example Person").assertIsDisplayed()
+        compose.onNodeWithText("EXAMPLE TRADE LTD").assertDoesNotExist()
         compose.onNodeWithText(
             context.resources.getQuantityString(R.plurals.category_intelligence_transactions, 12, 12),
         ).assertIsDisplayed()
@@ -136,6 +172,7 @@ class CategoryIntelligenceScreenTest {
                         counterparties = listOf(recipient),
                         categories = listOf(transport),
                     ),
+                    queue = CategoryQueue.Transfers,
                     onCheckLocalRules = {},
                     onAssignCategory = { _, _ -> },
                     onAssignCounterparty = { iban, name, categoryId, personId, personName ->
@@ -166,6 +203,7 @@ class CategoryIntelligenceScreenTest {
                         counterparties = listOf(recipient),
                         categories = listOf(transport),
                     ),
+                    queue = CategoryQueue.Transfers,
                     onCheckLocalRules = {},
                     onAssignCategory = { _, _ -> },
                     onAssignCounterparty = { iban, name, categoryId, personId, personName ->
@@ -238,6 +276,153 @@ class CategoryIntelligenceScreenTest {
         assertEquals(null, added)
         compose.onNodeWithText(outdoor.en).performClick()
         assertEquals("outdoor", added)
+    }
+
+    /**
+     * The answer for most recipients: nothing in common, so no rule. It has to be reachable without
+     * choosing a category, because choosing one would be the wrong answer recorded permanently.
+     */
+    @Test
+    fun aRecipientWithNothingInCommon_canBeRefusedWithoutChoosingACategory() {
+        var dismissed: Pair<String, String>? = null
+        var assigned = false
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        counterparties = listOf(recipient),
+                        categories = listOf(transport),
+                    ),
+                    queue = CategoryQueue.Transfers,
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onAssignCounterparty = { _, _, _, _, _ -> assigned = true },
+                    onDismissCounterparty = { iban, name -> dismissed = iban to name },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Example Person").performClick()
+        compose.onNodeWithText(context.getString(R.string.category_intelligence_not_a_rule))
+            .performClick()
+
+        assertEquals(recipient.iban to "Example Person", dismissed)
+        assertEquals(false, assigned)
+    }
+
+    /** Recipients seen once are kept below the ones that repeat, not mixed in with them. */
+    @Test
+    fun aRecipientSeenOnce_isSeparatedFromTheOnesThatRepeat() {
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        counterparties = listOf(recipient),
+                        counterpartiesOnce = listOf(
+                            recipient.copy(
+                                iban = "GE00WH0000000000000043",
+                                displayName = "One Off",
+                                transactionCount = 1,
+                            ),
+                        ),
+                        categories = listOf(transport),
+                    ),
+                    queue = CategoryQueue.Transfers,
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            context.getString(R.string.category_intelligence_once_title),
+            ignoreCase = true,
+        ).assertIsDisplayed()
+        compose.onNodeWithText("One Off").assertIsDisplayed()
+    }
+
+    /**
+     * The gap that made a wrong rule permanent: it could be written, but never read back or changed.
+     */
+    @Test
+    fun aRuleAlreadyWritten_canBeFoundAndCorrected() {
+        var corrected: Pair<Long, Long>? = null
+        val rule = CounterpartyRuleView(
+            id = 3,
+            iban = recipient.iban,
+            displayName = "Example Person",
+            categoryId = 99,
+            categoryName = "Groceries",
+            personName = null,
+            transactionCount = 12,
+            isDismissed = false,
+        )
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        rules = listOf(rule),
+                        categories = listOf(transport),
+                    ),
+                    queue = CategoryQueue.Rules,
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onUpdateRule = { changed, categoryId -> corrected = changed.id to categoryId },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Example Person").performClick()
+        compose.onNodeWithText("Transport").performClick()
+
+        assertEquals(3L to 7L, corrected)
+    }
+
+    @Test
+    fun deletingARule_saysHowMuchHistoryItWouldUnlabel() {
+        var deleted = false
+        val rule = CounterpartyRuleView(
+            id = 3,
+            iban = recipient.iban,
+            displayName = "Example Person",
+            categoryId = 99,
+            categoryName = "Groceries",
+            personName = null,
+            transactionCount = 12,
+            isDismissed = false,
+        )
+        compose.setContent {
+            WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        rules = listOf(rule),
+                        categories = listOf(transport),
+                    ),
+                    queue = CategoryQueue.Rules,
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onDeleteRule = { deleted = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Example Person").performClick()
+        compose.onNodeWithText(context.getString(R.string.category_rules_delete)).performClick()
+        compose.onNodeWithText(
+            context.resources.getQuantityString(R.plurals.category_rules_delete_body, 12, 12),
+        ).assertIsDisplayed()
+        assertEquals(false, deleted)
+
+        compose.onNodeWithText(context.getString(R.string.action_delete)).performClick()
+        assertEquals(true, deleted)
     }
 
     private data class Assignment(

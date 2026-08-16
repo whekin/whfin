@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-const val WHFIN_DATABASE_VERSION = 4
+const val WHFIN_DATABASE_VERSION = 5
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -70,6 +70,16 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
             "CREATE INDEX IF NOT EXISTS `index_income_sources_accountId` " +
                 "ON `income_sources` (`accountId`)",
         )
+    }
+}
+
+/**
+ * Записывает отказ отвечать про контрагента. Существующие правила остаются действующими:
+ * пустой [CounterpartyRuleEntity.dismissedAt] означает ровно то, что и раньше — вопрос не закрыт.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `counterparty_rules` ADD COLUMN `dismissedAt` INTEGER")
     }
 }
 
@@ -137,6 +147,6 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     }
 }

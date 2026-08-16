@@ -90,6 +90,35 @@ class WhfinDatabaseMigrationTest {
         }
     }
 
+    /**
+     * A rule written before dismissal existed has not been dismissed — it has been answered. The
+     * new column must arrive empty, or every existing rule would read as a refusal to answer.
+     */
+    @Test
+    fun migration4To5_addsDismissalWithoutRetiringExistingRules() {
+        helper.createDatabase(TEST_DB, 4).apply {
+            execSQL(
+                "INSERT INTO categories (id, name, kind, icon, color, sortOrder, isSystem) " +
+                    "VALUES (1, 'Rent', 'EXPENSE', 'Home', 0, 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO counterparty_rules (id, iban, displayName, categoryId, personId, createdAt) " +
+                    "VALUES (1, 'GE00WH0000000000000042', 'Example Person', 1, NULL, 100)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(TEST_DB, 5, true, MIGRATION_4_5).use { database ->
+            database.query(
+                "SELECT categoryId, dismissedAt FROM counterparty_rules WHERE id = 1",
+            ).use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+                assertEquals(true, cursor.isNull(1))
+            }
+        }
+    }
+
     private companion object {
         const val TEST_DB = "whfin-migration-test"
     }

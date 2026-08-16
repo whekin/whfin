@@ -560,6 +560,10 @@ interface TransactionDao {
      * An account the user owns is never a counterparty. Credo prints the destination account on a
      * cash deposit, which is the user's own ledger: grouped as a recipient it would invite a rule
      * about themselves.
+     *
+     * A recipient the user has already answered about is absent whatever the answer was. Naming them
+     * and refusing to name them are both decisions, and a decided question that keeps coming back is
+     * indistinguishable from one that was never asked.
      */
     @Query(
         "SELECT t.counterpartyIban AS iban, COUNT(*) AS transactionCount, " +
@@ -571,6 +575,8 @@ interface TransactionDao {
             "FROM transactions t " +
             "WHERE t.counterpartyIban IS NOT NULL AND t.counterpartyIban != '' " +
             "AND t.counterpartyIban NOT IN (SELECT iban FROM accounts WHERE iban IS NOT NULL) " +
+            "AND t.counterpartyIban NOT IN (SELECT iban FROM counterparty_rules " +
+            "WHERE categoryId IS NOT NULL OR dismissedAt IS NOT NULL) " +
             "AND t.categoryId IS NULL AND t.amountMinor < 0 AND t.isTransfer = 0 " +
             "AND t.isVoided = 0 AND t.source != 'ADJUSTMENT' " +
             "GROUP BY t.counterpartyIban, t.currency " +
@@ -596,6 +602,8 @@ interface TransactionDao {
             "FROM transactions t " +
             "WHERE t.counterpartyIban IS NOT NULL AND t.counterpartyIban != '' " +
             "AND t.counterpartyIban NOT IN (SELECT iban FROM accounts WHERE iban IS NOT NULL) " +
+            "AND t.counterpartyIban NOT IN (SELECT iban FROM counterparty_rules " +
+            "WHERE categoryId IS NOT NULL OR dismissedAt IS NOT NULL) " +
             "AND t.categoryId IS NULL AND t.amountMinor > 0 AND t.isTransfer = 0 " +
             "AND t.isVoided = 0 AND t.source != 'ADJUSTMENT' " +
             "GROUP BY t.counterpartyIban, t.currency " +
@@ -617,6 +625,35 @@ interface TransactionDao {
             "WHERE counterpartyIban = :iban AND categoryId IS NULL AND isVoided = 0"
     )
     suspend fun categorizeUnassignedForCounterparty(iban: String, categoryId: Long)
+
+    /**
+     * Moves the rows a rule filed under one category to another, and only those.
+     *
+     * Correcting a rule has to reach the history it already wrote, or the fix would apply to future
+     * transfers while leaving every past one wrong. Matching on the category the rule used to name
+     * is what keeps that safe: a row the user categorized by hand carries something else and is not
+     * touched.
+     */
+    @Query(
+        "UPDATE transactions SET categoryId = :toCategoryId " +
+            "WHERE counterpartyIban = :iban AND categoryId = :fromCategoryId AND isVoided = 0"
+    )
+    suspend fun recategorizeForCounterparty(iban: String, fromCategoryId: Long, toCategoryId: Long)
+
+    /** The inverse of a rule: without this, deleting one would leave its history behind unexplained. */
+    @Query(
+        "UPDATE transactions SET categoryId = NULL " +
+            "WHERE counterpartyIban = :iban AND categoryId = :categoryId AND isVoided = 0"
+    )
+    suspend fun clearCategoryForCounterparty(iban: String, categoryId: Long)
+
+    /** How much history a counterparty rule speaks for, so a rule can be shown with its evidence. */
+    @Query(
+        "SELECT counterpartyIban AS iban, COUNT(*) AS transactionCount " +
+            "FROM transactions WHERE counterpartyIban IS NOT NULL AND isVoided = 0 " +
+            "GROUP BY counterpartyIban"
+    )
+    fun observeCounterpartyUsage(): Flow<List<CounterpartyUsage>>
 
     /** How much of the ledger each merchant accounts for; the evidence behind a category proposal. */
     @Query(
@@ -706,6 +743,11 @@ data class UncategorizedCounterparty(
     val latestAt: Long,
 )
 
+data class CounterpartyUsage(
+    val iban: String,
+    val transactionCount: Int,
+)
+
 data class StatementNoteRow(
     val id: Long,
     val note: String,
@@ -740,6 +782,9 @@ interface CounterpartyRuleDao {
 
     @Query("DELETE FROM counterparty_rules WHERE iban = :iban")
     suspend fun deleteByIban(iban: String)
+
+    @Query("DELETE FROM counterparty_rules WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Dao

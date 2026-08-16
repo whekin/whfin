@@ -118,6 +118,15 @@ internal data class BackupTable(
      * are never optional: an absent one there would silently restore an incomplete ledger.
      */
     val optionalOnRestore: Boolean = false,
+    /**
+     * Columns added after this table shipped, and what they mean in a file written without them.
+     *
+     * Same reasoning as [optionalOnRestore], one column down: a backup taken last week describes a
+     * complete ledger, and a column added since does not make it incomplete — it makes it silent
+     * about something that had no value then. A default is only honest where absence has one exact
+     * reading, so every entry here has to state it. Columns carrying money are never listed.
+     */
+    val defaultsOnRestore: Map<String, BackupValue?> = emptyMap(),
 )
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
@@ -164,6 +173,8 @@ internal object WhfinBackupSchema {
             "payment_instruments",
             listOf("id", "groupId", "type", "last4", "label", "isPrimary", "isArchived"),
             enumColumns = mapOf("type" to setOf("PHYSICAL_CARD", "VIRTUAL_CARD")),
+            // Written before any card could be marked primary: none of them was.
+            defaultsOnRestore = mapOf("isPrimary" to BackupValue.Integer(0)),
         ),
         BackupTable(
             "instrument_account_links",
@@ -194,8 +205,10 @@ internal object WhfinBackupSchema {
         ),
         BackupTable(
             "counterparty_rules",
-            listOf("id", "iban", "displayName", "categoryId", "personId", "createdAt"),
+            listOf("id", "iban", "displayName", "categoryId", "personId", "dismissedAt", "createdAt"),
             optionalOnRestore = true,
+            // Written before a question could be dismissed: none of them was.
+            defaultsOnRestore = mapOf("dismissedAt" to null),
         ),
         BackupTable(
             "income_sources",
@@ -478,12 +491,12 @@ internal object WhfinBackupCodec {
         }
         endObject()
         val missing = table.columns - row.keys
-        if (table.name == "payment_instruments" && missing == listOf("isPrimary")) {
-            row["isPrimary"] = BackupValue.Integer(0)
-            return row
+        missing.filter { it in table.defaultsOnRestore }.forEach { column ->
+            row[column] = table.defaultsOnRestore.getValue(column)
         }
-        if (missing.isNotEmpty()) {
-            throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
+        val unanswered = missing - table.defaultsOnRestore.keys
+        if (unanswered.isNotEmpty()) {
+            throw WhfinBackupException("Missing columns in ${table.name}: ${unanswered.joinToString()}.")
         }
         return row
     }

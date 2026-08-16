@@ -164,6 +164,24 @@ class WhfinBackupInstrumentedTest {
         assertEquals("Alice", target.personDao().byId(1)?.name)
     }
 
+    /**
+     * The same reasoning one column down. A copy taken last week describes a complete ledger; a
+     * column added since does not make it incomplete, it makes it silent about a decision nobody
+     * could have made yet. The user's existing safety copies have to keep opening.
+     */
+    @Test
+    fun restore_acceptsARuleWrittenBeforeDismissalExisted() = runBlocking {
+        seedEveryTable(source)
+        val withoutDismissal = export(source).toString(Charsets.UTF_8)
+            .replace("        \"dismissedAt\": null,\n", "")
+        assertEquals(false, withoutDismissal.contains("dismissedAt"))
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(withoutDismissal.toByteArray()))
+
+        val rule = target.counterpartyRuleDao().all().single()
+        assertEquals(null, rule.dismissedAt)
+    }
+
     /** A table that carries money is never optional: an absent one would restore a broken ledger. */
     @Test
     fun restore_stillRejectsABackupMissingATableThatCarriesMoney() = runBlocking {
@@ -388,7 +406,7 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO merchant_aliases VALUES (1, 1, 'nikora trade')")
             sqlite.execSQL("INSERT INTO people VALUES (1, 'Alice', 'FRIEND', -456, 0)")
             sqlite.execSQL(
-                "INSERT INTO counterparty_rules VALUES (1, 'GE00WH0000000000000042', 'Alice', 1, 1, 6000)",
+                "INSERT INTO counterparty_rules VALUES (1, 'GE00WH0000000000000042', 'Alice', 1, 1, NULL, 6000)",
             )
             sqlite.execSQL(
                 "INSERT INTO income_sources VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 10, 20000, NULL, 6000)",

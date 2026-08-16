@@ -58,6 +58,8 @@ import dev.whekin.whfin.ui.settings.PrivacyRoute
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
 import dev.whekin.whfin.ui.settings.CategoriesRoute
 import dev.whekin.whfin.ui.settings.CategoryIntelligenceRoute
+import dev.whekin.whfin.ui.settings.CategoryQueue
+import dev.whekin.whfin.ui.settings.categoryQueueTitle
 import dev.whekin.whfin.ui.settings.IncomeSourcesRoute
 import dev.whekin.whfin.ui.settings.PeopleRoute
 import dev.whekin.whfin.ui.settings.CorrectionsScreen
@@ -285,6 +287,9 @@ fun MainScreen(
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
     }
     var accountTransactionsId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Held by the shell rather than inside the screen so its Back and its title are the shell's,
+    // and a queue can never be left open behind a screen the user has already exited.
+    var categoryQueue by rememberSaveable { mutableStateOf<CategoryQueue?>(null) }
     val target = shellTargetFor(secondaryDestination, accountTransactionsId, analyticsTransactions)
     val scene = target.scene
     val haptics = LocalHapticFeedback.current
@@ -346,6 +351,8 @@ fun MainScreen(
     fun goBack(withHaptic: Boolean) {
         if (withHaptic) haptics.performHapticFeedback(WhfinHaptics.navigation)
         when {
+            // A queue is a step inside its screen, so Back leaves it before leaving the screen.
+            categoryQueue != null -> categoryQueue = null
             analyticsTransactions != null -> analyticsTransactions = null
             secondaryDestination != null -> {
                 val leaving = secondaryDestination
@@ -354,6 +361,7 @@ fun MainScreen(
                 secondaryBackStack = back.remaining
                 if (leaving == SecondaryDestination.AccountTransactions) accountTransactionsId = null
                 if (leaving == SecondaryDestination.AppLock) appLockReturnTo = null
+                if (leaving == SecondaryDestination.CategoryIntelligence) categoryQueue = null
                 if (leaving == SecondaryDestination.CredoSync) {
                     credoReturnTo = null
                     credoRoutineSyncRequestKey = 0
@@ -617,9 +625,18 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) { CategoriesRoute() }
                     ShellScene.CategoryIntelligence -> SecondaryPage(
-                        title = stringResource(R.string.category_intelligence_title),
+                        title = categoryQueue?.let { categoryQueueTitle(it) }
+                            ?: stringResource(R.string.category_intelligence_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { CategoryIntelligenceRoute() }
+                    ) {
+                        CategoryIntelligenceRoute(
+                            queue = categoryQueue,
+                            onOpenQueue = {
+                                haptics.performHapticFeedback(WhfinHaptics.navigation)
+                                categoryQueue = it
+                            },
+                        )
+                    }
                     ShellScene.IncomeSources -> SecondaryPage(
                         title = stringResource(R.string.income_sources_title),
                         onBack = { goBack(withHaptic = true) },

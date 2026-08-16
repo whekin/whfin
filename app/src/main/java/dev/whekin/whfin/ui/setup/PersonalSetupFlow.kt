@@ -18,6 +18,7 @@ import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
 
 internal enum class PersonalSetupPage {
     Bank,
+    Categories,
     Accounts,
     Ready,
     Alternative,
@@ -30,11 +31,17 @@ internal enum class PersonalSetupPage {
 
 internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
 
+/**
+ * Categories come after the ambiguities and before the optional accounts.
+ *
+ * The order is what makes the proposals worth anything: they are read from the history the previous
+ * steps just finished importing, so asking earlier would offer a preset with no evidence behind it.
+ */
 internal fun personalSetupResolutionPage(state: PersonalSetupState): PersonalSetupPage? = when {
     state.reviewCount == null -> null
     (state.unresolvedSmsCount ?: 0) > 0 -> PersonalSetupPage.BankSms
     (state.statementReviewCount ?: 0) > 0 -> PersonalSetupPage.Statements
-    else -> PersonalSetupPage.Accounts
+    else -> PersonalSetupPage.Categories
 }
 
 internal fun personalSetupPageAfterBankConsent(state: PersonalSetupState): PersonalSetupPage? = when {
@@ -109,7 +116,7 @@ fun PersonalSetupFlow(
         val shouldAdvance = when (page) {
             PersonalSetupPage.CredoSync -> true
             PersonalSetupPage.BankSms -> next != PersonalSetupPage.BankSms
-            PersonalSetupPage.Statements -> next == PersonalSetupPage.Accounts
+            PersonalSetupPage.Statements -> next == PersonalSetupPage.Categories
             else -> false
         }
         if (shouldAdvance) page = next
@@ -128,6 +135,16 @@ fun PersonalSetupFlow(
             onContinue = { onContinue(0, false) },
             onBack = onExit,
         )
+        PersonalSetupPage.Categories -> CategorySetupStep(
+            onContinue = {
+                guidedResolutionActive = false
+                page = PersonalSetupPage.Accounts
+            },
+            onBack = {
+                guidedResolutionActive = false
+                page = PersonalSetupPage.Bank
+            },
+        )
         PersonalSetupPage.Accounts -> PersonalSetupScreen(
             step = PersonalSetupStep.Accounts,
             state = state,
@@ -138,7 +155,7 @@ fun PersonalSetupFlow(
             onRestoreBackup = {},
             onSkip = { page = PersonalSetupPage.Ready },
             onContinue = { onContinue(0, false) },
-            onBack = { page = PersonalSetupPage.Bank },
+            onBack = { page = PersonalSetupPage.Categories },
         )
         PersonalSetupPage.Ready -> PersonalSetupScreen(
             step = PersonalSetupStep.Ready,

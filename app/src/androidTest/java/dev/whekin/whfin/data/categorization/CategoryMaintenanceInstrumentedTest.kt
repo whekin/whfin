@@ -214,6 +214,74 @@ class CategoryMaintenanceInstrumentedTest {
         assertEquals(0, income.categorizedExpenses)
     }
 
+    /**
+     * A recipient the user refused to name. Nothing is categorized, but the question is settled:
+     * asking again after every import would make "these are unrelated" impossible to express.
+     */
+    @Test
+    fun aDismissedRecipient_stopsBeingAskedAbout() = runBlocking {
+        val iban = "GE00WH0000000000000045"
+        val transfer = entry(iban = iban, rawCounterparty = "Example Person")
+        db.counterpartyRuleDao().upsert(
+            CounterpartyRuleEntity(
+                iban = iban,
+                displayName = "Example Person",
+                categoryId = null,
+                dismissedAt = 2_000,
+                createdAt = 2_000,
+            ),
+        )
+
+        CategoryMaintenance.run(db)
+
+        assertNull(categoryOf(transfer))
+        assertEquals(
+            emptyList<String>(),
+            db.transactionDao().observeUncategorizedCounterparties().first().map { it.iban },
+        )
+    }
+
+    /** Correcting a rule has to reach the rows it already filed, or the past stays wrong. */
+    @Test
+    fun aCorrectedRule_movesTheHistoryItFiled() = runBlocking {
+        val iban = "GE00WH0000000000000046"
+        val early = entry(iban = iban)
+        val mine = entry(iban = iban)
+        db.transactionDao().categorizeIfUnassigned(early, transportId)
+        db.transactionDao().categorizeIfUnassigned(mine, bankFeesId)
+
+        db.transactionDao().recategorizeForCounterparty(iban, transportId, rentId)
+
+        assertEquals(rentId, categoryOf(early))
+        // Categorized by hand to something else, so this rule never spoke for it.
+        assertEquals(bankFeesId, categoryOf(mine))
+    }
+
+    /** Deleting a rule that leaves its categories behind would look like nothing happened. */
+    @Test
+    fun aDeletedRule_takesItsCategoriesWithIt() = runBlocking {
+        val iban = "GE00WH0000000000000047"
+        val filed = entry(iban = iban, rawCounterparty = "Example Person")
+        db.transactionDao().categorizeIfUnassigned(filed, rentId)
+        db.counterpartyRuleDao().upsert(
+            CounterpartyRuleEntity(
+                iban = iban,
+                displayName = "Example Person",
+                categoryId = rentId,
+                createdAt = 1_000,
+            ),
+        )
+
+        db.transactionDao().clearCategoryForCounterparty(iban, rentId)
+        db.counterpartyRuleDao().deleteByIban(iban)
+
+        assertNull(categoryOf(filed))
+        assertEquals(
+            listOf(iban),
+            db.transactionDao().observeUncategorizedCounterparties().first().map { it.iban },
+        )
+    }
+
     @Test
     fun aTransferIsAskedAboutByRecipient_notOnceMoreByNameSpelling() = runBlocking {
         val merchantId = db.merchantDao().insert(

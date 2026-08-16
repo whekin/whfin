@@ -27,7 +27,7 @@ class PersonalSetupFlowTest {
     @Test
     fun `existing Credo history continues to resolution after SMS consent`() {
         assertEquals(
-            PersonalSetupPage.Accounts,
+            PersonalSetupPage.Categories,
             personalSetupPageAfterBankConsent(
                 PersonalSetupState(
                     hasCredoImport = true,
@@ -64,7 +64,26 @@ class PersonalSetupFlowTest {
             ),
         )
         assertEquals(
-            PersonalSetupPage.Accounts,
+            PersonalSetupPage.Categories,
+            personalSetupResolutionPage(
+                PersonalSetupState(unresolvedSmsCount = 0, statementReviewCount = 0),
+            ),
+        )
+    }
+
+    /**
+     * The one step built from the user's own history, so it cannot come before the history does.
+     */
+    @Test
+    fun `categories are proposed only once every import queue is clear`() {
+        assertEquals(
+            PersonalSetupPage.BankSms,
+            personalSetupResolutionPage(
+                PersonalSetupState(unresolvedSmsCount = 1, statementReviewCount = 0),
+            ),
+        )
+        assertEquals(
+            PersonalSetupPage.Categories,
             personalSetupResolutionPage(
                 PersonalSetupState(unresolvedSmsCount = 0, statementReviewCount = 0),
             ),

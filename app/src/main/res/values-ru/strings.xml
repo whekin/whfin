@@ -688,7 +688,62 @@
     <string name="category_intelligence_income_body">%1$d приходов без категории. Один раз назвав отправителя, вы разметите все поступления от него — и прошлые, и будущие.</string>
     <string name="category_intelligence_transfers_title">Переводы людям</string>
     <string name="category_intelligence_transfers_body">Эти деньги ушли на чей-то счёт, а не в магазин. Строки сгруппированы по счёту получателя, поэтому все написания одного имени — одна строка.</string>
+    <string name="category_intelligence_income_body_short">Эти деньги пришли с чьего-то счёта. Один раз назвав отправителя, вы разметите все поступления от него — и прошлые, и будущие.</string>
     <string name="category_intelligence_transfer_unnamed">Получатель без имени</string>
+    <string name="category_intelligence_queues_title">Осталось разобрать</string>
+    <string name="category_intelligence_once_title">Встретился один раз</string>
+    <string name="category_intelligence_once_body">Один перевод — ещё не закономерность. Правило здесь описывало бы платёж, который может больше не повториться; такие обычно проще разметить прямо в операции.</string>
+    <string name="category_intelligence_not_a_rule">Это разные переводы</string>
+    <string name="category_intelligence_not_a_rule_body">WHFIN перестанет спрашивать про этот счёт. Ничего не размечается, а отдельные операции по-прежнему можно разметить в ленте.</string>
+    <plurals name="category_queue_merchants">
+        <item quantity="one">%1$d мерчант</item>
+        <item quantity="few">%1$d мерчанта</item>
+        <item quantity="many">%1$d мерчантов</item>
+        <item quantity="other">%1$d мерчантов</item>
+    </plurals>
+    <plurals name="category_queue_recipients">
+        <item quantity="one">%1$d получатель</item>
+        <item quantity="few">%1$d получателя</item>
+        <item quantity="many">%1$d получателей</item>
+        <item quantity="other">%1$d получателей</item>
+    </plurals>
+    <plurals name="category_queue_senders">
+        <item quantity="one">%1$d отправитель</item>
+        <item quantity="few">%1$d отправителя</item>
+        <item quantity="many">%1$d отправителей</item>
+        <item quantity="other">%1$d отправителей</item>
+    </plurals>
+    <string name="category_setup_title">Категории из ваших же трат</string>
+    <string name="category_setup_body">WHFIN прочитал только что загруженную историю и узнал вот это. Добавьте подходящие — все операции, которые за ними стоят, разметятся сразу.</string>
+    <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
+    <string name="category_setup_skip">Не сейчас</string>
+    <string name="category_rules_section">Решения</string>
+    <string name="category_rules_title">Названные получатели</string>
+    <string name="category_rules_body">Что вы уже сказали WHFIN про эти счета. Другая категория переносит переводы, размеченные этим правилом; удаление снова делает получателя открытым вопросом.</string>
+    <string name="category_rules_dismissed">Не спрашивать</string>
+    <string name="category_rules_dismissed_body">WHFIN не спрашивает про этот счёт. Выберите категорию, если переводы на него всё же нужно размечать.</string>
+    <string name="category_rules_change_label">Размечать переводы как</string>
+    <string name="category_rules_delete">Удалить правило</string>
+    <string name="category_rules_delete_title">Удалить правило?</string>
+    <string name="category_rules_delete_body_plain">Получатель снова появится в вопросах. Операции не изменятся.</string>
+    <plurals name="category_rules_applies">
+        <item quantity="one">%1$d перевод на этот счёт</item>
+        <item quantity="few">%1$d перевода на этот счёт</item>
+        <item quantity="many">%1$d переводов на этот счёт</item>
+        <item quantity="other">%1$d переводов на этот счёт</item>
+    </plurals>
+    <plurals name="category_rules_count">
+        <item quantity="one">%1$d правило</item>
+        <item quantity="few">%1$d правила</item>
+        <item quantity="many">%1$d правил</item>
+        <item quantity="other">%1$d правил</item>
+    </plurals>
+    <plurals name="category_rules_delete_body">
+        <item quantity="one">Категория, поставленная этим правилом, снимется с %1$d операции, а получатель снова появится в вопросах.</item>
+        <item quantity="few">Категория, поставленная этим правилом, снимется не более чем с %1$d операций, а получатель снова появится в вопросах.</item>
+        <item quantity="many">Категория, поставленная этим правилом, снимется не более чем с %1$d операций, а получатель снова появится в вопросах.</item>
+        <item quantity="other">Категория, поставленная этим правилом, снимется не более чем с %1$d операций, а получатель снова появится в вопросах.</item>
+    </plurals>
     <string name="category_intelligence_person_label">Кто это</string>
     <string name="category_intelligence_person_none">Не указывать</string>
     <string name="category_intelligence_person_create">Добавить «%1$s»</string>

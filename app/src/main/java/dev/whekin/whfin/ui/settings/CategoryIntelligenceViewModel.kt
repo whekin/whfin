@@ -13,6 +13,7 @@ import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.CounterpartyRuleEntity
+import dev.whekin.whfin.data.db.CounterpartyUsage
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.MerchantUsage
 import dev.whekin.whfin.data.db.PersonEntity
@@ -34,12 +35,34 @@ private data class CategoryIntelligenceOperation(
     val failed: Boolean = false,
 )
 
+/**
+ * A decision the user has already made about one recipient account, shown back to them.
+ *
+ * Rules were writable before they were readable, which meant a wrong one could not be corrected at
+ * all: the row it explained left the list the moment it was answered, taking the only way back to it.
+ */
+data class CounterpartyRuleView(
+    val id: Long,
+    val iban: String,
+    val displayName: String,
+    val categoryId: Long?,
+    val categoryName: String?,
+    val personName: String?,
+    val transactionCount: Int,
+    val isDismissed: Boolean,
+)
+
 data class CategoryIntelligenceState(
     val coverage: CategoryCoverage,
     val unresolved: List<UncategorizedMerchant>,
+    /** Recipients seen more than once — the only ones a standing rule can honestly describe. */
     val counterparties: List<UncategorizedCounterparty> = emptyList(),
+    /** Recipients seen exactly once, kept apart so a one-off does not read as a pattern. */
+    val counterpartiesOnce: List<UncategorizedCounterparty> = emptyList(),
     val incomeCoverage: CategoryCoverage = CategoryCoverage(0, 0, 0),
     val incomeSenders: List<UncategorizedCounterparty> = emptyList(),
+    val incomeSendersOnce: List<UncategorizedCounterparty> = emptyList(),
+    val rules: List<CounterpartyRuleView> = emptyList(),
     val people: List<PersonEntity> = emptyList(),
     val categories: List<CategoryEntity>,
     val incomeCategories: List<CategoryEntity> = emptyList(),
@@ -89,10 +112,22 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         ::Earning,
     )
 
+    private data class Rules(
+        val rules: List<CounterpartyRuleEntity>,
+        val usage: List<CounterpartyUsage>,
+    )
+
+    private val rules = combine(
+        db.counterpartyRuleDao().observeAll(),
+        db.transactionDao().observeCounterpartyUsage(),
+        ::Rules,
+    )
+
     private data class Library(
         val earned: Earned,
         val categories: List<CategoryEntity>,
         val people: List<PersonEntity>,
+        val rules: Rules,
     )
 
     // Combined in two steps because the typed builder stops at five flows.
@@ -100,6 +135,7 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         earned,
         db.categoryDao().observeAll(),
         db.personDao().observeActive(),
+        rules,
         ::Library,
     )
 
@@ -112,12 +148,27 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         val earned = library.earned
         val categories = library.categories
         val people = library.people
+        val countByIban = library.rules.usage.associate { it.iban to it.transactionCount }
         CategoryIntelligenceState(
             coverage = spending.coverage,
             unresolved = spending.merchants,
-            counterparties = spending.counterparties,
+            counterparties = spending.counterparties.filter { it.transactionCount >= REPEATED },
+            counterpartiesOnce = spending.counterparties.filter { it.transactionCount < REPEATED },
             incomeCoverage = earning.coverage,
-            incomeSenders = earning.senders,
+            incomeSenders = earning.senders.filter { it.transactionCount >= REPEATED },
+            incomeSendersOnce = earning.senders.filter { it.transactionCount < REPEATED },
+            rules = library.rules.rules.map { rule ->
+                CounterpartyRuleView(
+                    id = rule.id,
+                    iban = rule.iban,
+                    displayName = rule.displayName,
+                    categoryId = rule.categoryId,
+                    categoryName = categories.firstOrNull { it.id == rule.categoryId }?.name,
+                    personName = people.firstOrNull { it.id == rule.personId }?.name,
+                    transactionCount = countByIban[rule.iban] ?: 0,
+                    isDismissed = rule.dismissedAt != null,
+                )
+            },
             people = people,
             categories = categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem },
             incomeCategories = categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem },
@@ -239,6 +290,62 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Records that this recipient should not be asked about again.
+     *
+     * Most transfers to a person are unrelated to each other — a shared taxi, a returned loan, a
+     * gift — and a category covering all of them would be invented rather than observed. Saying so
+     * has to be storable, otherwise the only way to clear the row is to answer it wrongly.
+     */
+    fun dismissCounterparty(iban: String, displayName: String) {
+        mutate {
+            db.counterpartyRuleDao().upsert(
+                CounterpartyRuleEntity(
+                    id = db.counterpartyRuleDao().byIban(iban)?.id ?: 0,
+                    iban = iban,
+                    displayName = displayName,
+                    categoryId = null,
+                    personId = null,
+                    dismissedAt = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Corrects a rule, including the history it already filed.
+     *
+     * Only the rows still carrying the category this rule chose are moved: anything the user
+     * categorized by hand since is their answer, not this rule's, and stays where they put it.
+     */
+    fun updateRule(rule: CounterpartyRuleView, categoryId: Long) {
+        if (rule.categoryId == categoryId) return
+        mutate {
+            val stored = db.counterpartyRuleDao().byIban(rule.iban) ?: return@mutate
+            db.counterpartyRuleDao().upsert(
+                stored.copy(categoryId = categoryId, dismissedAt = null),
+            )
+            if (rule.categoryId != null) {
+                db.transactionDao().recategorizeForCounterparty(rule.iban, rule.categoryId, categoryId)
+            }
+            db.transactionDao().categorizeUnassignedForCounterparty(rule.iban, categoryId)
+        }
+    }
+
+    /**
+     * Forgets a decision completely, leaving the recipient as unanswered as before it was made.
+     *
+     * The rows the rule categorized are cleared with it. A deletion that left them labelled would
+     * look like nothing happened, and the label would have no remaining explanation.
+     */
+    fun deleteRule(rule: CounterpartyRuleView) {
+        mutate {
+            rule.categoryId?.let { db.transactionDao().clearCategoryForCounterparty(rule.iban, it) }
+            db.counterpartyRuleDao().delete(rule.id)
+        }
+    }
+
     private fun mutate(block: suspend () -> Unit) {
         viewModelScope.launch {
             try {
@@ -254,5 +361,14 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val PERSON_COLOR = 0xFF78906F.toInt()
+
+        /**
+         * How many transfers a recipient needs before a standing rule about them is worth offering.
+         *
+         * One transfer is an event, not a pattern: naming it teaches WHFIN a rule that may never
+         * apply again, and asking about every one of them buries the recipients that do repeat.
+         * Single transfers stay reachable, they are simply not the question the screen leads with.
+         */
+        const val REPEATED = 2
     }
 }
