@@ -23,9 +23,7 @@ import dev.whekin.whfin.data.credo.MyCredoGateway
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
-import dev.whekin.whfin.data.sms.HistoricalSms
-import dev.whekin.whfin.data.sms.SmsHistoryReader
-import dev.whekin.whfin.data.sms.SmsTransactionImporter
+import dev.whekin.whfin.data.sms.SmsInboxCardLinker
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import dev.whekin.whfin.data.importer.AmbiguousBankLedgerException
 import dev.whekin.whfin.data.importer.InvalidStatementException
@@ -571,6 +569,7 @@ class CredoSyncViewModel internal constructor(
                 }
             }.onFailure(Throwable::throwIfCancellation)
 
+            linkCardsFromInbox()
             historyStore.markComplete(walkedToTheEnd)
             refreshHistoryPresence()
             _state.value = _state.value.copy(
@@ -692,22 +691,16 @@ class CredoSyncViewModel internal constructor(
      * Only the card link is written: no message is imported and none is stored. Without READ_SMS
      * this does nothing at all — the permission is never requested on this account's behalf.
      */
+    /**
+     * Derives card identity from the inbox once new statements have landed.
+     *
+     * Runs after every path that imports statements, not just the routine one. The first connection
+     * loads a year of history and is exactly when the inbox has the most to say, so skipping it
+     * there left the user linking by hand precisely where the automation was supposed to help.
+     */
     private suspend fun linkCardsFromInbox() {
-        val app = getApplication<Application>()
-        if (
-            ContextCompat.checkSelfPermission(app, Manifest.permission.READ_SMS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-        runCatching {
-            val since = System.currentTimeMillis() - INBOX_LOOKBACK_MILLIS
-            val messages = SmsHistoryReader(app.contentResolver).credoCandidates(since)
-            val importer = SmsTransactionImporter(db)
-            importer.learnCardsFrom(messages.map(HistoricalSms::body))
-            // A card learned a moment ago can place messages that were already waiting.
-            importer.attachUnroutedToStatements()
-        }.onFailure(Throwable::throwIfCancellation)
+        runCatching { SmsInboxCardLinker.run(getApplication<Application>(), db) }
+            .onFailure(Throwable::throwIfCancellation)
     }
 
     /** Copies an explicitly selected failed download; the bytes are otherwise app-private. */
@@ -908,7 +901,6 @@ class CredoSyncViewModel internal constructor(
 
     private companion object {
         /** The same window the explicit history scan uses; a card older than that is long linked. */
-        const val INBOX_LOOKBACK_MILLIS = 90L * 24 * 60 * 60 * 1000
 
         const val OTP_LENGTH = dev.whekin.whfin.data.sms.CredoLoginOtp.LENGTH
         val TERMINAL_LOGIN_ERRORS = setOf("UNAUTHORIZED", "LOGIN_EXPIRED", "USER_IS_BLOCKED", "USER_OTP_BLOCKED")

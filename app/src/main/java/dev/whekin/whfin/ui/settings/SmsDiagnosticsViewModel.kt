@@ -17,6 +17,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.sms.HistoricalSms
 import dev.whekin.whfin.data.sms.SmsImportResult
 import dev.whekin.whfin.data.sms.SmsHistoryReader
+import dev.whekin.whfin.data.sms.SmsInboxCardLinker
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import java.time.Duration
 import java.time.Instant
@@ -111,9 +112,11 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private var pendingHistory: List<HistoricalSms> = emptyList()
 
     init {
-        // Statements imported since these messages were read can answer them without the user.
+        // Statements imported since these messages were read can answer them without the user, and
+        // the inbox can still name a card no statement ever prints. Both are re-derived on open, so
+        // a message left over from an earlier run gets another chance without a second bank sync.
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { importer.attachUnroutedToStatements() }
+            runCatching { SmsInboxCardLinker.run(app, db) }
         }
     }
 

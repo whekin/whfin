@@ -117,6 +117,54 @@ class SmsStatementEvidenceInstrumentedTest {
         assertEquals(second, db.transactionDao().byId(requireNotNull(later.transactionId))?.accountId)
     }
 
+    /**
+     * The first bank connection: a year of statements lands, and the phone's inbox is read only
+     * afterwards. The messages are already old news — every one of them is in the statements — but
+     * they are the only place the card number appears, so they still have identity to give.
+     */
+    @Test
+    fun theInboxNamesACardTheStatementsNeverPrint() = runBlocking {
+        ledger("Everyday GEL", "GEL", IBAN_ONE)
+        val second = ledger("Second GEL", "GEL", IBAN_TWO)
+        statementRow(second, amountMinor = -1_234, balanceAfterMinor = 56_789)
+
+        val linked = importer.learnCardsFrom(listOf(CARD_PAYMENT))
+
+        assertEquals(1, linked)
+        assertEquals(second, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        // Reading the inbox is not importing it: the statement stays the only row.
+        assertEquals(1, transactionCount())
+    }
+
+    /** A card already pointing at a ledger of that currency has nothing left to learn. */
+    @Test
+    fun aCardAlreadyLinked_isNotReExaminedAgainstTheStatements() = runBlocking {
+        val second = ledger("Second GEL", "GEL", IBAN_TWO)
+        statementRow(second, amountMinor = -1_234, balanceAfterMinor = 56_789)
+        importer.learnCardsFrom(listOf(CARD_PAYMENT))
+
+        val again = importer.learnCardsFrom(listOf(CARD_PAYMENT))
+
+        assertEquals(0, again)
+    }
+
+    /**
+     * Ambiguity is not identity. Two ledgers could equally have paid, so the card stays unlinked
+     * rather than being bound to a guess that every future message would then inherit.
+     */
+    @Test
+    fun anInboxMessageThatCouldBeEitherLedger_teachesNothing() = runBlocking {
+        val first = ledger("Everyday GEL", "GEL", IBAN_ONE)
+        val second = ledger("Second GEL", "GEL", IBAN_TWO)
+        statementRow(first, amountMinor = -1_234, balanceAfterMinor = null)
+        statementRow(second, amountMinor = -1_234, balanceAfterMinor = null)
+
+        val linked = importer.learnCardsFrom(listOf(CARD_PAYMENT))
+
+        assertEquals(0, linked)
+        assertTrue(db.accountDao().byCardAndCurrency("0001", "GEL").isEmpty())
+    }
+
     @Test
     fun theStatedBalanceDecidesBetweenTwoIdenticalRows() = runBlocking {
         val first = ledger("Everyday GEL", "GEL", IBAN_ONE)
