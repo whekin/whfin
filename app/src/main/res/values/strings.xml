@@ -70,12 +70,9 @@
     <string name="home_today">Today</string>
     <string name="home_recent_activity">Recent activity</string>
     <string name="home_all_transactions">All transactions</string>
-    <string name="home_insights_title">Worth knowing</string>
-    <string name="home_insight_pace">At this pace, spending may reach %1$s</string>
-    <string name="home_insight_previous_month">Last month: %1$s</string>
-    <string name="home_insight_category_higher">%1$s may be higher than last month</string>
-    <string name="home_insight_category_lower">%1$s may be lower than last month</string>
-    <string name="home_insight_category_comparison">At current pace: %1$s · last month: %2$s</string>
+    <string name="home_insights_title">Outlook</string>
+    <string name="home_insight_pace">At this pace</string>
+    <string name="home_insight_previous_month">Last month %1$s</string>
     <string name="home_credo_sync_title">Reconcile Credo</string>
     <string name="home_credo_sync_never">Not reconciled yet</string>
     <plurals name="home_credo_sync_days">

@@ -253,7 +253,8 @@ fun AddTransactionSheet(
                     Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
                 ) {
                 ComposerHeader(kind, requestClose, { if (editing == null) showTypeMenu = true }, editing != null)
-                AnimatedContent(kind, modifier = Modifier.weight(1f), transitionSpec = { fadeIn(WhfinMotion.quick()) togetherWith fadeOut(WhfinMotion.quick()) }, label = "composer-kind") { current ->
+                val kindFade = WhfinMotion.quick<Float>()
+                AnimatedContent(kind, modifier = Modifier.weight(1f), transitionSpec = { fadeIn(kindFade) togetherWith fadeOut(kindFade) }, label = "composer-kind") { current ->
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         if (current == ManualKind.DEBT && !debtHasMovement) DebtAmountEditor(amountText, { amountText = it }, debtCurrency) { debtCurrency = it }

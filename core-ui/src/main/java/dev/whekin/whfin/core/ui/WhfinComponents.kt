@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -112,12 +114,15 @@ fun WhfinButton(
         Text(label, maxLines = 2)
     }
     val sized = modifier.heightIn(min = WhfinThemeTokens.sizes.buttonHeight)
+    val interactionSource = remember { MutableInteractionSource() }
+    val shape = rememberWhfinPressShape(interactionSource, WhfinThemeTokens.sizes.buttonCorner)
     when (style) {
         WhfinActionStyle.Primary -> Button(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            shape = MaterialTheme.shapes.medium,
+            interactionSource = interactionSource,
+            shape = shape,
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
         )
@@ -125,7 +130,8 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            shape = MaterialTheme.shapes.medium,
+            interactionSource = interactionSource,
+            shape = shape,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
@@ -134,7 +140,8 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            shape = MaterialTheme.shapes.medium,
+            interactionSource = interactionSource,
+            shape = shape,
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             content = content,
         )
@@ -142,7 +149,8 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            shape = MaterialTheme.shapes.medium,
+            interactionSource = interactionSource,
+            shape = shape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError,
@@ -154,7 +162,8 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            shape = MaterialTheme.shapes.medium,
+            interactionSource = interactionSource,
+            shape = shape,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,
@@ -607,6 +616,13 @@ private fun MonthlyBar(
     // палочкой-засечкой. Пустой месяц рисуется базовой чертой, а не почти невидимым
     // огрызком столбца.
     val fraction = (bar.value.toFloat() / maximum).coerceIn(0f, 1f)
+    // Height carries the comparison, so it settles with a spring: switching year or period reads
+    // as the same bars moving, not as a different chart appearing.
+    val grown by animateFloatAsState(
+        targetValue = fraction,
+        animationSpec = WhfinMotion.standard(),
+        label = "monthly bar",
+    )
     val itemModifier = modifier
         .fillMaxHeight()
         .testTag("whfin-monthly-bar-$index")
@@ -616,7 +632,7 @@ private fun MonthlyBar(
         }
     val content: @Composable () -> Unit = {
         Column(
-            Modifier.fillMaxHeight().padding(horizontal = 4.dp),
+            Modifier.fillMaxHeight().padding(horizontal = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -628,11 +644,13 @@ private fun MonthlyBar(
                         .background(MaterialTheme.colorScheme.outlineVariant, CircleShape),
                 ) else Box(
                     Modifier
-                        .fillMaxWidth(if (bar.selected) .82f else .66f)
-                        .fillMaxHeight(fraction.coerceAtLeast(0.02f))
+                        // A column has to read as a column: a hairline inside a wide slot reads as
+                        // a tick mark, and twelve of them read as a ruler rather than a year.
+                        .fillMaxWidth(if (bar.selected) 1f else .84f)
+                        .fillMaxHeight(grown.coerceAtLeast(0.02f))
                         .background(
                             if (bar.selected) color else color.copy(alpha = .38f),
-                            RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp),
+                            RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp),
                         ),
                 )
             }
@@ -711,10 +729,12 @@ fun WhfinFilterPill(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget),
-        shape = MaterialTheme.shapes.small,
+        interactionSource = interactionSource,
+        shape = rememberWhfinPressShape(interactionSource, WhfinThemeTokens.sizes.pillCorner),
         color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
         contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
         border = BorderStroke(

@@ -289,11 +289,6 @@ private fun PeriodResult(
                 style = MaterialTheme.typography.displayMedium,
                 color = if (data.deltaMinor >= 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
             )
-            Text(
-                stringResource(R.string.analytics_net),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
         // Итог месяца закрывается бухгалтерской двойной чертой, как и блок месяца в ленте.
         WhfinTotalRule()

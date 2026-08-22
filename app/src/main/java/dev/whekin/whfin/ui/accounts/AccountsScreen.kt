@@ -63,6 +63,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -746,62 +747,41 @@ private fun IbanCard(
                                 accounts.first().account.name,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            val primaryCards = accounts.flatMap { it.primaryCardMasks }.toSet()
-                            val cards = (
-                                accounts.flatMap { it.cardMasks }.map { mask ->
-                                    if (mask in primaryCards) {
-                                        "${stringResource(R.string.account_card_primary)} ••$mask"
-                                    } else {
-                                        "••$mask"
-                                    }
-                                } + accounts.flatMap { it.virtualCardMasks }.map { mask ->
-                                    val type = stringResource(R.string.account_card_virtual)
-                                    if (mask in primaryCards) {
-                                        "${stringResource(R.string.account_card_primary)} · $type ••$mask"
-                                    } else {
-                                        "$type ••$mask"
-                                    }
-                                }
-                            ).distinct()
-                            val metadata = buildList {
-                                if (cards.isNotEmpty()) add(cards.joinToString(" · "))
-                                iban?.let { add(stringResource(R.string.account_iban_short, it.takeLast(4))) }
-                            }
-                            if (metadata.isNotEmpty()) Text(
-                                metadata.joinToString(" · "),
+                            // One line, and only about the card this account is actually paid with.
+                            // The full list of masks, the virtual cards and the IBAN belong to the
+                            // account's own screen: enumerated here they wrapped the heading onto a
+                            // third line and told the owner nothing they did not already know.
+                            val payingCard = payingCardMask(accounts)
+                            if (payingCard != null) Text(
+                                "•$payingCard",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
+                                maxLines = 1,
                             )
                         }
+                        val headlineTotal = when {
+                            total?.isComplete == true && total.amount != null ->
+                                formatDecimal(total.amount, total.currency) to total.currency
+                            accounts.size == 1 -> accounts.first().let { only ->
+                                formatMinor(only.balanceMinor, only.account.currency) to only.account.currency
+                            }
+                            // Several currencies without a full set of rates: the rows below say
+                            // each one honestly, and a partial sum here would be a wrong number.
+                            else -> null
+                        }
+                        if (headlineTotal != null) WhfinAmount(
+                            text = headlineTotal.first,
+                            symbol = currencySymbol(headlineTotal.second),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.account_bank_mapping),
                         )
                     }
-                }
-            }
-            Column(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                WhfinFieldLabel(stringResource(R.string.account_total_balance))
-                if (total?.isComplete == true && total.amount != null) {
-                    WhfinAmount(
-                        formatDecimal(total.amount, total.currency),
-                        symbol = currencySymbol(total.currency),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                } else {
-                    Text(
-                        accounts.sortedBy { it.account.currency }.joinToString(" · ") { item ->
-                            "${formatMinor(item.balanceMinor, item.account.currency)} ${item.account.currency}"
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        textAlign = TextAlign.End,
-                    )
                 }
             }
             HorizontalDivider(
@@ -823,6 +803,7 @@ private fun IbanCard(
                     item = item,
                     currencyInTitle = currencyInTitle,
                     sourceName = sourceName,
+                    containerTitle = accounts.first().account.name,
                     onClick = { onOpenTransactions(item) },
                     onAdjustBalance = { onAdjustBalance(item) },
                 )
@@ -833,6 +814,19 @@ private fun IbanCard(
             }
         }
     }
+}
+
+/**
+ * The card this account is actually paid with, if one can be named without guessing.
+ *
+ * A primary card answers it outright; a single physical card answers it by having no rival. More
+ * than one physical card and no primary is a question the heading must not invent an answer to.
+ */
+private fun payingCardMask(accounts: List<AccountWithBalance>): String? {
+    val physical = accounts.flatMap { it.cardMasks }.distinct()
+    val primary = accounts.flatMap { it.primaryCardMasks }.distinct()
+    return physical.firstOrNull { it in primary }
+        ?: physical.singleOrNull()
 }
 
 /**
@@ -863,6 +857,7 @@ private fun CurrencyAccountRow(
     item: AccountWithBalance,
     currencyInTitle: Boolean,
     sourceName: String,
+    containerTitle: String? = null,
     onClick: () -> Unit,
     onAdjustBalance: () -> Unit,
 ) {
@@ -884,8 +879,15 @@ private fun CurrencyAccountRow(
     // that name can end up in one language under a heading written in another — "Наличные / Cash",
     // the same word twice. Those names are our own output, not something the user typed, so a row
     // carrying one has nothing of its own to say and leads with its currency instead.
+    // The card heading directly above prints the account's name once. A ledger that carries the
+    // same name has nothing left to add and leads with its currency: "Everyday / Everyday · GEL /
+    // Everyday · USD" said one word three times and hid the only difference at the end of the line.
     val ownName = accountRowTitle(item)
-        .takeUnless { it.equals(sourceName, ignoreCase = true) || it in SEEDED_CASH_NAMES }
+        .takeUnless {
+            it.equals(sourceName, ignoreCase = true) ||
+                it.equals(containerTitle, ignoreCase = true) ||
+                it in SEEDED_CASH_NAMES
+        }
     val name = ownName ?: item.account.currency
     val title = if (currencyInTitle && ownName != null) "$name · ${item.account.currency}" else name
     // The purpose is not repeated beside a named account: the section heading above already says

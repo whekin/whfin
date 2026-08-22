@@ -15,7 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -152,6 +154,8 @@ private fun AmountKey(
         calculationRail -> Color.Transparent
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
+    val interactionSource = remember { MutableInteractionSource() }
+    val sizes = WhfinThemeTokens.sizes
     Surface(
         onClick = onClick,
         enabled = enabled,
@@ -160,7 +164,11 @@ private fun AmountKey(
                 Modifier.semantics { contentDescription = deleteContentDescription }
             } else Modifier,
         ),
-        shape = if (calculationRail) MaterialTheme.shapes.small else MaterialTheme.shapes.medium,
+        interactionSource = interactionSource,
+        shape = rememberWhfinPressShape(
+            interactionSource = interactionSource,
+            corner = if (calculationRail) sizes.pillCorner else sizes.buttonCorner,
+        ),
         color = color,
     ) {
         Box(contentAlignment = Alignment.Center) {

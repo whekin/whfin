@@ -27,6 +27,8 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    // Predictive Back is drawn by the shell, so the gesture plumbing lives with the components.
+    implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

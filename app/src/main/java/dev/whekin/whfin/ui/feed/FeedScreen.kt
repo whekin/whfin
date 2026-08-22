@@ -121,6 +121,7 @@ import dev.whekin.whfin.ui.CategoryIcons
 import dev.whekin.whfin.ui.components.CategoryGrid
 import dev.whekin.whfin.ui.components.CategoryAppearancePicker
 import dev.whekin.whfin.data.db.CategoryKind
+import androidx.compose.ui.text.style.TextOverflow
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.convertedTotalLabel
 import dev.whekin.whfin.ui.formatDecimal
@@ -2248,27 +2249,13 @@ private fun HomeInsightRow(
     }
     val improving = projected < previous
     val accent = if (improving) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+    // A forecast is a number with a comparison, not a sentence about one. The reading stays in the
+    // ledger grammar the rest of Home uses: what it is on the left, how much on the right.
     val title = when (insight) {
-        is HomeInsight.SpendingPace -> stringResource(
-            R.string.home_insight_pace,
-            formatMinor(projected, "GEL"),
-        )
-        is HomeInsight.CategoryDriver -> stringResource(
-            if (improving) R.string.home_insight_category_lower else R.string.home_insight_category_higher,
-            insight.name ?: stringResource(R.string.analytics_uncategorized),
-        )
+        is HomeInsight.SpendingPace -> stringResource(R.string.home_insight_pace)
+        is HomeInsight.CategoryDriver -> insight.name ?: stringResource(R.string.analytics_uncategorized)
     }
-    val supporting = when (insight) {
-        is HomeInsight.SpendingPace -> stringResource(
-            R.string.home_insight_previous_month,
-            formatMinor(previous, "GEL"),
-        )
-        is HomeInsight.CategoryDriver -> stringResource(
-            R.string.home_insight_category_comparison,
-            formatMinor(projected, "GEL"),
-            formatMinor(previous, "GEL"),
-        )
-    }
+    val supporting = stringResource(R.string.home_insight_previous_month, formatMinor(previous, "GEL"))
     val icon = when (insight) {
         is HomeInsight.SpendingPace -> Icons.AutoMirrored.Filled.TrendingUp
         is HomeInsight.CategoryDriver -> Icons.Default.Category
@@ -2281,29 +2268,35 @@ private fun HomeInsightRow(
         color = Color.Transparent,
     ) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(
-                Modifier.size(38.dp).background(accent.copy(alpha = .14f), CircleShape),
+                Modifier.size(32.dp).background(accent.copy(alpha = .14f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     supporting,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
+            WhfinAmount(
+                text = formatMinor(projected, "GEL"),
+                symbol = currencySymbol("GEL"),
+                color = accent,
             )
         }
     }

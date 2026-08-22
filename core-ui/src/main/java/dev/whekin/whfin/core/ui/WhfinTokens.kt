@@ -1,12 +1,14 @@
 package dev.whekin.whfin.core.ui
 
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 @Immutable
@@ -47,20 +49,59 @@ data class WhfinSizes(
     val dockIcon: Dp = 22.dp,
     val dockCenterSlot: Dp = 64.dp,
     val ledgerMarker: Dp = 3.dp,
+    /** Mirrors `MaterialTheme.shapes.medium`; kept as a number so a press can animate it. */
+    val buttonCorner: Dp = 14.dp,
+    /** Mirrors `MaterialTheme.shapes.small`. */
+    val pillCorner: Dp = 10.dp,
 )
 
+/**
+ * Motion is borrowed from the platform rather than invented here.
+ *
+ * These are the Material 3 expressive spring tokens Android 16 itself animates with, written out
+ * as constants because the springs are public API only in an alpha of Material 3 while the values
+ * are stable. Springs, not durations: an interrupted movement — a second tap, a Back gesture
+ * abandoned half-way — continues from its current velocity instead of restarting a fixed curve.
+ */
 object WhfinMotion {
-    private val easing = CubicBezierEasing(.2f, 0f, 0f, 1f)
-    fun <T> quick() = tween<T>(durationMillis = 140, easing = easing)
-    fun <T> standard() = tween<T>(durationMillis = 220, easing = easing)
-    fun <T> screen() = tween<T>(durationMillis = 280, easing = easing)
+    private const val SPATIAL_DAMPING = .8f
+    private const val SPATIAL_STIFFNESS = 380f
+    private const val SLOW_SPATIAL_STIFFNESS = 200f
+    private const val EFFECTS_DAMPING = 1f
+    private const val EFFECTS_STIFFNESS = 1600f
+    private const val FAST_EFFECTS_STIFFNESS = 3800f
+
+    /** Colour, alpha and other non-spatial changes that should land immediately. */
+    fun <T> quick(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = EFFECTS_DAMPING, stiffness = FAST_EFFECTS_STIFFNESS)
+
+    /** Anything that physically moves or resizes. */
+    fun <T> standard(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = SPATIAL_DAMPING, stiffness = SPATIAL_STIFFNESS)
+
+    /** Whole-screen travel. */
+    fun <T> screen(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = SPATIAL_DAMPING, stiffness = SLOW_SPATIAL_STIFFNESS)
+
+    /**
+     * Movement measured in pixels stops at the pixel: without this threshold a spring keeps
+     * resolving fractions of a pixel nobody can see, and the layout keeps recomposing for them.
+     */
+    fun travel(): FiniteAnimationSpec<IntOffset> = spring(
+        dampingRatio = SPATIAL_DAMPING,
+        stiffness = SPATIAL_STIFFNESS,
+        visibilityThreshold = IntOffset.VisibilityThreshold,
+    )
 
     /**
      * Sibling panes (the two dock destinations) trade places instead of pushing each other:
      * the outgoing pane clears first, so two opaque ledgers never blend into a muddy frame.
      */
-    fun <T> paneExit() = tween<T>(durationMillis = 90, easing = easing)
-    fun <T> paneEnter() = tween<T>(durationMillis = 170, delayMillis = 70, easing = easing)
+    fun <T> paneExit(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = EFFECTS_DAMPING, stiffness = FAST_EFFECTS_STIFFNESS)
+
+    fun <T> paneEnter(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = EFFECTS_DAMPING, stiffness = EFFECTS_STIFFNESS)
 }
 
 /** Quiet, action-oriented feedback that respects the device's system haptic setting. */

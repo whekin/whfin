@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import dev.whekin.whfin.R
@@ -44,7 +45,8 @@ import dev.whekin.whfin.core.ui.WhfinDockDestination
 import dev.whekin.whfin.core.ui.WhfinMotion
 import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.core.ui.WhfinBackButton
-import androidx.activity.compose.BackHandler
+import dev.whekin.whfin.core.ui.rememberWhfinBackGesture
+import dev.whekin.whfin.core.ui.whfinPredictiveBack
 import dev.whekin.whfin.ui.feed.FeedScreen
 import dev.whekin.whfin.ui.feed.FeedMode
 import dev.whekin.whfin.ui.feed.FeedViewModel
@@ -372,7 +374,9 @@ fun MainScreen(
             }
         }
     }
-    BackHandler(enabled = scene != ShellScene.Primary || primaryTabAfterBack(tab) != null) {
+    val backGesture = rememberWhfinBackGesture(
+        enabled = scene != ShellScene.Primary || primaryTabAfterBack(tab) != null,
+    ) {
         val homeTab = primaryTabAfterBack(tab)
         if (scene == ShellScene.Primary && homeTab != null) tab = homeTab else goBack(withHaptic = false)
     }
@@ -385,21 +389,27 @@ fun MainScreen(
             onUsePersonal = onExitDemo,
         ) {
             DemoWorkspaceFrame {
+                val sceneTravel = WhfinMotion.travel()
+                val sceneFadeIn = WhfinMotion.standard<Float>()
+                val sceneFadeOut = WhfinMotion.quick<Float>()
+                val paneTravel = WhfinMotion.travel()
+                val paneFadeIn = WhfinMotion.paneEnter<Float>()
+                val paneFadeOut = WhfinMotion.paneExit<Float>()
                 AnimatedContent(
                     targetState = target,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().whfinPredictiveBack(backGesture),
                     transitionSpec = {
                         // A destination's first frame is expensive, and a full-width push loses a
                         // visible chunk of its travel to that frame, which reads as a stutter.
                         // A short directional shift under a fade keeps the direction legible even
                         // when the first frames are dropped.
                         val forward = shellTransitionIsForward(initialState, targetState)
-                        val enter = fadeIn(WhfinMotion.standard()) +
-                            slideInHorizontally(WhfinMotion.standard()) { width ->
+                        val enter = fadeIn(sceneFadeIn) +
+                            slideInHorizontally(sceneTravel) { width ->
                                 if (forward) width / 8 else -width / 8
                             }
-                        val exit = fadeOut(WhfinMotion.quick()) +
-                            slideOutHorizontally(WhfinMotion.standard()) { width ->
+                        val exit = fadeOut(sceneFadeOut) +
+                            slideOutHorizontally(sceneTravel) { width ->
                                 if (forward) -width / 8 else width / 8
                             }
                         (enter togetherWith exit).apply {
@@ -418,11 +428,11 @@ fun MainScreen(
                                 // Dock destinations are siblings, not a hierarchy: they trade
                                 // places with a short directional settle instead of pushing.
                                 val forward = targetState > initialState
-                                val enter = fadeIn(WhfinMotion.paneEnter()) +
-                                    slideInHorizontally(WhfinMotion.paneEnter()) { width ->
+                                val enter = fadeIn(paneFadeIn) +
+                                    slideInHorizontally(paneTravel) { width ->
                                         if (forward) width / 24 else -width / 24
                                     }
-                                (enter togetherWith fadeOut(WhfinMotion.paneExit()))
+                                (enter togetherWith fadeOut(paneFadeOut))
                                     .using(SizeTransform(clip = false))
                             },
                             label = "primary-pane",
