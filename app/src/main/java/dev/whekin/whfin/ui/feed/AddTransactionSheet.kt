@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
@@ -563,7 +564,9 @@ private fun minorInput(value: Long): String {
 }
 
 @Composable private fun CategoryTile(item: CategoryEntity, modifier: Modifier, selected: Boolean = false, onClick: () -> Unit) {
-    Column(modifier.clip(MaterialTheme.shapes.medium).height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+    // Two lines, because a quarter of the screen width cuts "Subscriptions" mid-word and the
+    // suggestion then asks the user to recognise a category by its first eight letters.
+    Column(modifier.clip(MaterialTheme.shapes.medium).heightIn(min = 78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)) {
         Surface(
             shape = androidx.compose.foundation.shape.CircleShape,
@@ -576,14 +579,15 @@ private fun minorInput(value: Long): String {
             item.name,
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
+            maxLines = 2,
+            textAlign = TextAlign.Center,
             overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 @Composable private fun MoreTile(modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clip(MaterialTheme.shapes.medium).height(78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+    Column(modifier.clip(MaterialTheme.shapes.medium).heightIn(min = 78.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)) {
         Surface(shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surfaceContainer) {
             Icon(Icons.Default.MoreHoriz, null, modifier = Modifier.padding(10.dp).size(22.dp))

@@ -77,7 +77,7 @@
     <string name="home_all_transactions">Все операции</string>
     <string name="home_insights_title">Прогноз</string>
     <string name="home_insight_pace">Этим темпом</string>
-    <string name="home_insight_previous_month">Прошлый месяц %1$s</string>
+    <string name="home_insight_previous_month">Прошлый %1$s</string>
     <string name="home_credo_sync_title">Сверить Credo</string>
     <string name="home_credo_sync_never">Ещё не сверялось</string>
     <plurals name="home_credo_sync_days">

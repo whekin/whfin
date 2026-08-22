@@ -382,6 +382,9 @@ fun MainScreen(
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // The Back pull moves everything the app is showing, workspace strip and dock included:
+        // a page that insets while the furniture around it stays put reads as two applications.
+        Box(Modifier.fillMaxSize().whfinPredictiveBack(backGesture)) {
         DemoWorkspaceProvider(
             active = demoMode,
             busy = runtimeModeBusy,
@@ -397,7 +400,7 @@ fun MainScreen(
                 val paneFadeOut = WhfinMotion.paneExit<Float>()
                 AnimatedContent(
                     targetState = target,
-                    modifier = Modifier.fillMaxSize().whfinPredictiveBack(backGesture),
+                    modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
                         // A destination's first frame is expensive, and a full-width push loses a
                         // visible chunk of its travel to that frame, which reads as a stutter.
@@ -686,6 +689,7 @@ fun MainScreen(
                     }
                 }
             }
+        }
         }
     }
 }

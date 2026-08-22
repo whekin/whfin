@@ -675,7 +675,9 @@ internal fun PeriodTrend(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_year_trend_months, period.year),
-            supportingText = filterName,
+            // The filter names itself only while one is on. Unfiltered, "All expenses" repeated
+            // what the chart under it is: a second line that carried no new fact.
+            supportingText = filterName.takeIf { data.trendFilter is AnalyticsTrendFilter.Category },
         )
         if (data.trendFilter is AnalyticsTrendFilter.Category) WhfinChoiceRail {
             item {
