@@ -728,6 +728,8 @@ fun WhfinFilterPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
+    /** Set when the pill is one segment of a row that divides the width between equal choices. */
+    centered: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Surface(
@@ -743,14 +745,25 @@ fun WhfinFilterPill(
         ),
     ) {
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier
+                .then(if (centered) Modifier.fillMaxWidth() else Modifier)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement = if (centered) {
+                Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally)
+            } else {
+                Arrangement.spacedBy(7.dp)
+            },
         ) {
             if (leadingIcon != null) {
                 Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(17.dp))
             }
-            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

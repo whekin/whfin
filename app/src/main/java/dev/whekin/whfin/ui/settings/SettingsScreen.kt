@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -115,23 +116,23 @@ fun SettingsScreen(
         WhfinSectionLabel(stringResource(R.string.settings_appearance))
         // One choice, not three announcements. As three full rows with icons and a sentence each,
         // picking a theme filled a screen and a half at large font sizes to say what three words say.
-        WhfinChoiceRail(Modifier.padding(bottom = 12.dp), contentPadding = PaddingValues(end = 20.dp)) {
-            items(
-                listOf(
-                    AppThemeMode.System to R.string.settings_theme_system,
-                    AppThemeMode.Light to R.string.settings_theme_light,
-                    AppThemeMode.Dark to R.string.settings_theme_dark,
-                ),
-            ) { (mode, label) ->
+        // Three mutually exclusive choices divide one row between them. A scrolling rail hid the
+        // third answer off-screen and made a two-word decision look like a list to browse.
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                AppThemeMode.System to R.string.settings_theme_system,
+                AppThemeMode.Light to R.string.settings_theme_light,
+                AppThemeMode.Dark to R.string.settings_theme_dark,
+            ).forEach { (mode, label) ->
                 WhfinFilterPill(
                     label = stringResource(label),
                     selected = appThemeMode == mode,
                     onClick = { onAppThemeModeChange(mode) },
-                    leadingIcon = when (mode) {
-                        AppThemeMode.System -> Icons.Default.BrightnessAuto
-                        AppThemeMode.Light -> Icons.Default.LightMode
-                        AppThemeMode.Dark -> Icons.Default.DarkMode
-                    },
+                    modifier = Modifier.weight(1f),
+                    centered = true,
                 )
             }
         }
@@ -206,8 +207,9 @@ fun SettingsScreen(
                 divider = true,
             )
             WhfinLedgerRow(
+                // The title already says where money comes in; a subtitle saying the same thing in
+                // other words is a second line for nothing.
                 title = stringResource(R.string.income_sources_title),
-                supportingText = stringResource(R.string.income_sources_settings_summary),
                 icon = Icons.Default.SouthWest,
                 trailing = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = onOpenIncomeSources,

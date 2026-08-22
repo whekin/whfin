@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Wallet
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,35 +58,48 @@ fun WelcomeChoiceScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
-            Column(
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                WhfinSectionLabel(stringResource(R.string.app_name))
-                Spacer(Modifier.height(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        stringResource(R.string.welcome_title),
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        stringResource(R.string.welcome_body),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            WhfinSectionLabel(stringResource(R.string.app_name))
+            // The greeting sits in the middle of the screen rather than at the top of an empty
+            // one: two sentences pinned under the status bar left two thirds of a phone blank,
+            // which reads as a screen still loading. It still scrolls, so a large font scale
+            // pushes nothing off the bottom.
+            BoxWithConstraints(Modifier.weight(1f)) {
+                val viewport = maxHeight
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().heightIn(min = viewport),
+                        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(96.dp).offset(x = (-24).dp),
+                        )
+                        Text(
+                            stringResource(R.string.welcome_title),
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            stringResource(R.string.welcome_body),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (problem != null) {
+                            WhfinNotice(
+                                title = stringResource(R.string.demo_mode_problem_title),
+                                body = problem,
+                                kind = WhfinNoticeKind.Error,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
-                if (problem != null) {
-                    WhfinNotice(
-                        title = stringResource(R.string.demo_mode_problem_title),
-                        body = problem,
-                        kind = WhfinNoticeKind.Error,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
             }
             Column(
                 Modifier.padding(top = 16.dp),
