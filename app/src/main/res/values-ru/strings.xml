@@ -199,7 +199,7 @@
     <string name="developer_mode_enabled_title">Режим разработчика включён</string>
     <string name="developer_mode_enabled_body">Здесь могут появляться экспериментальные диагностика и инструменты. Настройка хранится только на этом устройстве.</string>
     <string name="developer_mode_toggle">Переключить режим разработчика</string>
-    <string name="settings_theme_system">Системная</string>
+    <string name="settings_theme_system">Авто</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Тёмная</string>
     <string name="settings_dynamic_colors">Системные цвета</string>

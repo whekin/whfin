@@ -57,6 +57,8 @@ import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinMotion
+import dev.whekin.whfin.core.ui.rememberWhfinBackGesture
+import dev.whekin.whfin.core.ui.whfinPredictiveBack
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
@@ -237,8 +239,15 @@ fun AddTransactionSheet(
         ),
     ) {
         WhfinDialogSystemBars()
+        // The composer answers the Back pull like every other page: it insets under the finger and
+        // comes back if the finger lifts early. A dirty form still asks before discarding — the
+        // gesture only decides when to ask, never what the answer is.
+        val backGesture = rememberWhfinBackGesture(enabled = true) { requestDialogDismiss() }
         DemoWorkspaceFrame {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Surface(
+                Modifier.fillMaxSize().whfinPredictiveBack(backGesture),
+                color = MaterialTheme.colorScheme.background,
+            ) {
                 if (showAllCategories) {
                     CategorySelectorScreen(
                         categories = categories.filter {
