@@ -257,3 +257,35 @@ fun decisionDialogDarkScreenshot() {
 fun decisionDialogLargeFontScreenshot() {
     WhfinTheme(darkTheme = false) { WhfinConfirmDialogGallery() }
 }
+
+@PreviewTest
+@Preview(name = "state_loading_light", widthDp = 400, heightDp = 260)
+@Composable
+fun stateLoadingLightScreenshot() {
+    WhfinTheme(darkTheme = false) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            WhfinStatePane(
+                state = WhfinPaneState.Loading,
+                title = "Reading the ledger",
+                body = "One moment.",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "state_loading_dark", widthDp = 400, heightDp = 260, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun stateLoadingDarkScreenshot() {
+    WhfinTheme(darkTheme = true) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            WhfinStatePane(
+                state = WhfinPaneState.Loading,
+                title = "Reading the ledger",
+                body = "One moment.",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}

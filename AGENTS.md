@@ -562,6 +562,13 @@ This is a single-context repository with root domain documentation and system-wi
   публичен только в alpha material3, а сами значения стабильны); прерванное движение продолжается со
   своей скоростью. Нажатие теперь меняет форму (`rememberWhfinPressShape`, угол сжимается до 40%) —
   это единственная афорданс-возможность у намеренно тихой палитры.
+  Material 3 переведён на 1.5.0-alpha26 (2026-08-22): пружины теперь берутся из настоящего
+  `MotionScheme.expressive()` темы, а не из выписанных констант; `WhfinButton` отдаёт морфинг формы
+  самому Material через `ButtonShapes`; ожидание рисует expressive `LoadingIndicator` (тихим
+  `onSurfaceVariant`, а не акцентом — ожидание не событие), закреплённый двумя screenshot references.
+  `rememberModalBottomSheetState` в alpha помечен deprecated в пользу `rememberBottomSheetState`;
+  15 мест намеренно НЕ мигрированы — сигнатура сама ещё alpha, а quick-expense sheet держит
+  собственную scrim/anchor-логику на `requireOffset()`.
   Проход по плотности и текстам: строка не печатает то, что уже сказано выше. Прогноз на Home — число
   со сравнением, а не предложение; шапка счёта называет карту, которой платят, и несёт свой баланс
   (список масок, виртуальные карты и IBAN остались на экране счёта), а валютные строки не повторяют
@@ -1142,8 +1149,14 @@ This is a single-context repository with root domain documentation and system-wi
 
 - AGP 9.2.1 + **built-in Kotlin 2.3.10** (плагин `org.jetbrains.kotlin.android` НЕ применять!
   `kotlin { compilerOptions {} }` DSL, не `android.kotlinOptions`)
-- Gradle 9.4.1 (wrapper), JDK 17 (zulu, установлен), compileSdk 36, minSdk 29
-- Compose BOM 2026.06.01 + Material 3, Room 2.8.4 + KSP 2.3.10, DataStore, Glance 1.1.1
+- Gradle 9.4.1 (wrapper), JDK 17 (zulu, установлен), compileSdk 37, targetSdk 36, minSdk 29
+  (compileSdk поднят ради Material 3 1.5 и Compose 1.12, которые он приносит; runtime-поведение
+  остаётся на 36 — targetSdk меняется отдельным осознанным шагом)
+- Compose BOM 2026.06.01, но **material3 закреплён на 1.5.0-alpha26** мимо BOM: expressive-API
+  (`MotionScheme`, `LoadingIndicator`, `ButtonShapes`) публичны только в 1.5-alpha. Из-за него
+  сериализация выровнена на 1.11.0 во ВСЕХ конфигурациях: Compose 1.12 тянет 1.7.3 через savedstate,
+  Room testing — 1.11.0, а AGP резолвит тестовый classpath согласованно с основным
+- Room 2.8.4 + KSP 2.3.10, DataStore, Glance 1.1.1
 - SDK: ~/Library/Android/sdk (platforms 35/36/36.1, build-tools до 37), adb есть, устройств пока не подключено
 - Пакет: `dev.whekin.whfin`
 

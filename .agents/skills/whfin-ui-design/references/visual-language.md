@@ -166,10 +166,10 @@ bank-centred, guided but skippable, and exposes only channels that work for the 
 
 ## Motion
 
-- Use `WhfinMotion` springs, not durations. It carries the Material 3 expressive spring tokens
-  (spatial 0.8/380, slow spatial 0.8/200, effects 1.0/1600, fast effects 1.0/3800), so an interrupted
-  movement continues from its own velocity instead of restarting a curve. Pixel travel uses
-  `WhfinMotion.travel()` so a spring stops at the pixel rather than resolving invisible fractions.
+- Use `WhfinMotion` springs, not durations. They come from the theme's `MotionScheme.expressive()`, so
+  an interrupted movement continues from its own velocity instead of restarting a curve and WHFIN's
+  transitions stay in step with its Material components. Pixel travel uses `WhfinMotion.travel()` so a
+  spring stops at the pixel rather than resolving invisible fractions.
 - Answer the Back gesture continuously: a custom shell must draw the pull with `whfinPredictiveBack`
   rather than committing the destination change at the end of an invisible swipe.
 - Navigate between complete opaque destination surfaces. A destination's system inset, top bar, and body must change under one layout owner; never add a `Scaffold` app-bar slot conditionally while replacing its body.

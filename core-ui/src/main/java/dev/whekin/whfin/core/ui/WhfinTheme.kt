@@ -3,6 +3,7 @@ package dev.whekin.whfin.core.ui
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -170,6 +171,10 @@ fun WhfinTheme(
     ) {
         MaterialTheme(
             colorScheme = scheme,
+            // Springs, not durations: every Material component in the app settles with the same
+            // physics Android 16 itself animates with, and WhfinMotion hands the same scheme to
+            // WHFIN's own transitions.
+            motionScheme = MotionScheme.expressive(),
             typography = if (useSystemFont) SystemTypography else WhfinTypography,
             shapes = WhfinShapes,
             content = content,

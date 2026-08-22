@@ -29,6 +29,7 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinBackGesture` / `Modifier.whfinPredictiveBack`: the shell's answer to a Back swipe. `rememberWhfinBackGesture(enabled, onBack)` registers a `PredictiveBackHandler`; the modifier insets the page to 92%, nudges it along the drag, rounds it to 28 dp and lifts it, reading the progress in the draw phase. Apply it to everything the app is showing — workspace strip and dock included — not to the page alone. `onBack` runs on commit only; an abandoned pull settles by itself.
 - `rememberWhfinPressShape`: the press affordance for a quiet palette. A pressed control tightens its corner to 40% and springs back; a pressed tint would read as noise against this canvas. Corner values live in `WhfinSizes` (`buttonCorner`, `pillCorner`) so they can animate.
 - `WhfinFilterPill`: a choice pill. Pass `centered = true` with a weight when several mutually exclusive answers divide one row; a scrolling rail is for sets that genuinely do not fit.
+- `WhfinLoadingIndicator`: the only "working" affordance. Wraps Material's expressive `LoadingIndicator` in `onSurfaceVariant` and is sized by the caller; do not reach for `CircularProgressIndicator` or invent a second waiting shape.
 - `WhfinStatePane`: loading, empty, error, and unavailable presentation with compact guidance and optional retry/action.
 - `WhfinFilterBar`: horizontally resilient filters and search affordance.
 - `WhfinChoiceRail`: a single horizontal scrolling line for mutually exclusive or compact multi-select

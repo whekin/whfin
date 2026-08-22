@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,6 +48,7 @@ import dev.whekin.whfin.ui.formatMinor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import dev.whekin.whfin.core.ui.WhfinLoadingIndicator
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinConfirmDialog
@@ -202,7 +203,7 @@ private fun CardSourceHistoryCard(history: CardStatementHistory) {
 private fun ImportProgressCard(state: StatementImportUiState.Running) {
     WhfinLedgerGroup(tonal = true) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator()
+            WhfinLoadingIndicator(Modifier.size(38.dp))
             Column(Modifier.padding(start = 18.dp)) {
                 Text(stringResource(R.string.statements_working), style = MaterialTheme.typography.titleMedium)
                 if (state.totalFiles > 1) Text(
@@ -230,7 +231,7 @@ private fun ImportProgressCard(state: StatementImportUiState.Running) {
 private fun ImportCheckingCard(state: StatementImportUiState.Checking) {
     WhfinLedgerGroup(tonal = true) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator()
+            WhfinLoadingIndicator(Modifier.size(38.dp))
             Column(Modifier.padding(start = 18.dp)) {
                 Text(stringResource(R.string.statements_checking), style = MaterialTheme.typography.titleMedium)
                 if (state.totalFiles > 1) Text(

@@ -44,7 +44,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,6 +78,7 @@ import dev.whekin.whfin.ui.settings.BankStatementsViewModel
 import dev.whekin.whfin.ui.settings.StatementImportStatusSheet
 import dev.whekin.whfin.ui.settings.StatementImportUiState
 import dev.whekin.whfin.ui.settings.statementFileName
+import dev.whekin.whfin.core.ui.WhfinLoadingIndicator
 import dev.whekin.whfin.core.ui.WhfinAmount
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -240,7 +240,7 @@ fun AccountsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    WhfinLoadingIndicator(Modifier.size(24.dp))
                     Text(
                         stringResource(R.string.accounts_loading),
                         style = MaterialTheme.typography.bodyMedium,

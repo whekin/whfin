@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
+
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -21,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -168,6 +171,26 @@ fun WhfinSwitch(
     }
 }
 
+/**
+ * The one shape WHFIN uses to say "working".
+ *
+ * Material's expressive loading indicator morphs between rounded polygons instead of sweeping an
+ * arc; it is the platform's current answer, and using it keeps a waiting WHFIN screen looking like
+ * a waiting Android screen. It needs a little more room than a hairline spinner, so callers size it
+ * rather than shrinking it below the shapes' legibility.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun WhfinLoadingIndicator(
+    modifier: Modifier = Modifier,
+    // Waiting is not an accent moment: the indicator is a filled shape, and in the primary colour
+    // it outweighed the sentence next to it. It states its presence in the quiet ink the rest of
+    // the supporting text uses.
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    LoadingIndicator(modifier = modifier, color = color)
+}
+
 @Composable
 fun WhfinStatePane(
     state: WhfinPaneState,
@@ -182,7 +205,7 @@ fun WhfinStatePane(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (state == WhfinPaneState.Loading) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+        if (state == WhfinPaneState.Loading) WhfinLoadingIndicator(Modifier.size(32.dp))
         Text(title, style = MaterialTheme.typography.titleLarge)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (actionLabel != null && onAction != null) WhfinButton(

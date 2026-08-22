@@ -1,6 +1,9 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Immutable
@@ -58,38 +61,38 @@ data class WhfinSizes(
 /**
  * Motion is borrowed from the platform rather than invented here.
  *
- * These are the Material 3 expressive spring tokens Android 16 itself animates with, written out
- * as constants because the springs are public API only in an alpha of Material 3 while the values
- * are stable. Springs, not durations: an interrupted movement — a second tap, a Back gesture
- * abandoned half-way — continues from its current velocity instead of restarting a fixed curve.
+ * Every spec comes from the theme's Material 3 expressive [androidx.compose.material3.MotionScheme],
+ * so an interrupted movement — a second tap, a Back gesture abandoned half-way — continues from its
+ * current velocity instead of restarting a fixed curve, and WHFIN's own transitions cannot drift
+ * away from what its Material components do.
  */
 object WhfinMotion {
-    private const val SPATIAL_DAMPING = .8f
-    private const val SPATIAL_STIFFNESS = 380f
-    private const val SLOW_SPATIAL_STIFFNESS = 200f
-    private const val EFFECTS_DAMPING = 1f
-    private const val EFFECTS_STIFFNESS = 1600f
-    private const val FAST_EFFECTS_STIFFNESS = 3800f
-
     /** Colour, alpha and other non-spatial changes that should land immediately. */
-    fun <T> quick(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = EFFECTS_DAMPING, stiffness = FAST_EFFECTS_STIFFNESS)
+    @Composable
+    @ReadOnlyComposable
+    fun <T> quick(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.fastEffectsSpec()
 
     /** Anything that physically moves or resizes. */
-    fun <T> standard(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = SPATIAL_DAMPING, stiffness = SPATIAL_STIFFNESS)
+    @Composable
+    @ReadOnlyComposable
+    fun <T> standard(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.defaultSpatialSpec()
 
     /** Whole-screen travel. */
-    fun <T> screen(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = SPATIAL_DAMPING, stiffness = SLOW_SPATIAL_STIFFNESS)
+    @Composable
+    @ReadOnlyComposable
+    fun <T> screen(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.slowSpatialSpec()
 
     /**
-     * Movement measured in pixels stops at the pixel: without this threshold a spring keeps
-     * resolving fractions of a pixel nobody can see, and the layout keeps recomposing for them.
+     * Movement measured in whole pixels.
+     *
+     * This one spring is written out rather than taken from the scheme: a spec carries its own
+     * visibility threshold, and the scheme's spatial spec uses the default fractional one. On an
+     * `IntOffset` that means the animation keeps resolving fractions of a pixel nobody can see, and
+     * the layout keeps recomposing for them. The numbers are the expressive spatial token's own.
      */
     fun travel(): FiniteAnimationSpec<IntOffset> = spring(
-        dampingRatio = SPATIAL_DAMPING,
-        stiffness = SPATIAL_STIFFNESS,
+        dampingRatio = .8f,
+        stiffness = 380f,
         visibilityThreshold = IntOffset.VisibilityThreshold,
     )
 
@@ -97,11 +100,13 @@ object WhfinMotion {
      * Sibling panes (the two dock destinations) trade places instead of pushing each other:
      * the outgoing pane clears first, so two opaque ledgers never blend into a muddy frame.
      */
-    fun <T> paneExit(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = EFFECTS_DAMPING, stiffness = FAST_EFFECTS_STIFFNESS)
+    @Composable
+    @ReadOnlyComposable
+    fun <T> paneExit(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.fastEffectsSpec()
 
-    fun <T> paneEnter(): FiniteAnimationSpec<T> =
-        spring(dampingRatio = EFFECTS_DAMPING, stiffness = EFFECTS_STIFFNESS)
+    @Composable
+    @ReadOnlyComposable
+    fun <T> paneEnter(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.defaultEffectsSpec()
 }
 
 /** Quiet, action-oriented feedback that respects the device's system haptic setting. */

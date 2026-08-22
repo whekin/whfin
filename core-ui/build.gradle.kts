@@ -7,7 +7,9 @@ plugins {
 
 android {
     namespace = "dev.whekin.whfin.core.ui"
-    compileSdk = 36
+    // Material 3 1.5 (expressive) and the Compose 1.12 runtime it brings compile against API 37.
+    // targetSdk stays at 36: this buys the newer APIs, not the newer runtime behaviour.
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 29

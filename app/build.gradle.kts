@@ -32,7 +32,9 @@ val verifyAndroidTestDevices by tasks.registering(Exec::class) {
 
 android {
     namespace = "dev.whekin.whfin"
-    compileSdk = 36
+    // Material 3 1.5 (expressive) and the Compose 1.12 runtime it brings compile against API 37.
+    // targetSdk stays at 36: this buys the newer APIs, not the newer runtime behaviour.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.whekin.whfin"
@@ -111,12 +113,16 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-configurations.matching { it.name.contains("androidTest", ignoreCase = true) }.configureEach {
-    // Keep the serialization override test-only: Room migration fixtures exercise the
-    // serialization runtime, while the Compose BOM may bring a different transitive version.
+configurations.configureEach {
+    // One serialization runtime for the whole app. Compose 1.12 brings 1.7.3 through savedstate
+    // while Room's migration testing brings 1.11.0, and AGP resolves test classpaths consistently
+    // with the main one — so pinning the newer version test-only made the two irreconcilable.
     resolutionStrategy.force(
         "org.jetbrains.kotlinx:kotlinx-serialization-core:${libs.versions.serialization.get()}",
         "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:${libs.versions.serialization.get()}",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:${libs.versions.serialization.get()}",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:${libs.versions.serialization.get()}",
+        "org.jetbrains.kotlinx:kotlinx-serialization-bom:${libs.versions.serialization.get()}",
     )
 }
 

@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -114,15 +115,19 @@ fun WhfinButton(
         Text(label, maxLines = 2)
     }
     val sized = modifier.heightIn(min = WhfinThemeTokens.sizes.buttonHeight)
-    val interactionSource = remember { MutableInteractionSource() }
-    val shape = rememberWhfinPressShape(interactionSource, WhfinThemeTokens.sizes.buttonCorner)
+    // Material animates the press morph itself once both shapes are declared, so the button no
+    // longer carries its own interaction plumbing to do what the platform already does.
+    val corner = WhfinThemeTokens.sizes.buttonCorner
+    val shapes = ButtonShapes(
+        shape = RoundedCornerShape(corner),
+        pressedShape = RoundedCornerShape(corner * .4f),
+    )
     when (style) {
         WhfinActionStyle.Primary -> Button(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            interactionSource = interactionSource,
-            shape = shape,
+            shapes = shapes,
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
         )
@@ -130,8 +135,7 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            interactionSource = interactionSource,
-            shape = shape,
+            shapes = shapes,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
@@ -140,8 +144,7 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            interactionSource = interactionSource,
-            shape = shape,
+            shapes = shapes,
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             content = content,
         )
@@ -149,8 +152,7 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            interactionSource = interactionSource,
-            shape = shape,
+            shapes = shapes,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError,
@@ -162,8 +164,7 @@ fun WhfinButton(
             onClick = onClick,
             modifier = sized,
             enabled = enabled,
-            interactionSource = interactionSource,
-            shape = shape,
+            shapes = shapes,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,

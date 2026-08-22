@@ -326,12 +326,22 @@ workspace strip and dock included — because a page that shrinks while the furn
 reads as two applications. Progress is eased with the platform's own `cubic-bezier(.1,.1,0,1)` so the
 first millimetres stay expressive and the last ones calm.
 
-**Motion is spring-based.** `WhfinMotion` carries the Material 3 expressive spring tokens as constants
-(spatial 0.8/380, slow spatial 0.8/200, effects 1.0/1600, fast effects 1.0/3800) rather than fixed
-durations, so an interrupted movement continues from its current velocity. They are written out because
-`MotionScheme` is public API only in a Material 3 alpha while the values are stable; when the BOM ships
-them, `WhfinMotion` becomes a thin adapter. Pixel-valued travel uses `WhfinMotion.travel()` with
-`IntOffset.VisibilityThreshold` so a spring stops at the pixel.
+**Motion is spring-based.** The theme installs `MotionScheme.expressive()` and `WhfinMotion` reads its
+specs, so WHFIN's own transitions and its Material components cannot drift apart, and an interrupted
+movement continues from its current velocity instead of restarting a duration. One exception is written
+out by hand: `WhfinMotion.travel()` needs `IntOffset.VisibilityThreshold` so a spring stops at the pixel
+instead of resolving invisible fractions, and a threshold cannot be added to an existing spec.
+
+**A press morphs the button itself.** `WhfinButton` declares `ButtonShapes(shape, pressedShape)` and lets
+Material run the morph. `rememberWhfinPressShape` stays for the surfaces Material does not own — filter
+pills, keypad keys.
+
+**Waiting uses the platform's shape.** `WhfinLoadingIndicator` wraps Material's expressive
+`LoadingIndicator` (polygon morph, not a sweeping arc) in `onSurfaceVariant`: waiting is not an accent
+moment, and in the primary colour the filled shape outweighed the sentence beside it.
+
+These need Material 3 1.5, which is pinned to `1.5.0-alpha26` ahead of the Compose BOM; it compiles
+against API 37, so `compileSdk` is 37 while `targetSdk` stays at 36.
 
 **A press changes shape.** `rememberWhfinPressShape` tightens a control's corner to 40% and springs back.
 This is the affordance a deliberately quiet palette has left: a pressed tint would read as noise here.
