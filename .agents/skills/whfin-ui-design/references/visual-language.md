@@ -166,10 +166,15 @@ bank-centred, guided but skippable, and exposes only channels that work for the 
 
 ## Motion
 
-- Use 120–220 ms for selection and small state changes.
-- Use 220–300 ms for sheet/screen transitions.
+- Use `WhfinMotion` springs, not durations. It carries the Material 3 expressive spring tokens
+  (spatial 0.8/380, slow spatial 0.8/200, effects 1.0/1600, fast effects 1.0/3800), so an interrupted
+  movement continues from its own velocity instead of restarting a curve. Pixel travel uses
+  `WhfinMotion.travel()` so a spring stops at the pixel rather than resolving invisible fractions.
+- Answer the Back gesture continuously: a custom shell must draw the pull with `whfinPredictiveBack`
+  rather than committing the destination change at the end of an invisible swipe.
 - Navigate between complete opaque destination surfaces. A destination's system inset, top bar, and body must change under one layout owner; never add a `Scaffold` app-bar slot conditionally while replacing its body.
 - Use a short directional shared-axis transition for hierarchy: forward enters from the right, Back returns toward the right. Preserve dock position when switching peers.
+- Let a press change shape (`rememberWhfinPressShape`) rather than colour: this palette is quiet by design and a pressed tint reads as noise.
 - Pair explicit destination changes with one subtle platform navigation haptic and switches with the platform on/off haptic. Do not duplicate Android's own Back-gesture feedback or vibrate for scrolling.
 - Animate position or emphasis only when it explains continuity.
 - Avoid staggered decoration, springy finance totals, or transitions that leave partially rendered frames for perceptible time.

@@ -313,3 +313,56 @@ counted but kept separate because they cannot produce a merchant rule.
 The screen uses one tonal coverage container, one actionable notice, and flat ledger rows for review.
 Unknown or ambiguous descriptors never receive a guessed category merely to improve the percentage.
 Verified on a disposable Pixel 9 Pro API 36.1 AVD in EN/light/font 1.0 and RU/dark/font 1.5.
+
+## Platform pass — Android 16 behaviour (2026-08-22)
+
+WHFIN keeps its own face; what it borrowed is how the platform *behaves*.
+
+**Back is answered continuously.** `rememberWhfinBackGesture` + `Modifier.whfinPredictiveBack`
+(`:core-ui`) register a `PredictiveBackHandler` and expose the live pull as draw-phase state. The shell
+insets the page to 92%, nudges it along the drag, rounds it to 28 dp and lifts it 8 dp; releasing early
+costs nothing because `onBack` runs only on commit. The transform wraps everything the app is showing —
+workspace strip and dock included — because a page that shrinks while the furniture around it stays put
+reads as two applications. Progress is eased with the platform's own `cubic-bezier(.1,.1,0,1)` so the
+first millimetres stay expressive and the last ones calm.
+
+**Motion is spring-based.** `WhfinMotion` carries the Material 3 expressive spring tokens as constants
+(spatial 0.8/380, slow spatial 0.8/200, effects 1.0/1600, fast effects 1.0/3800) rather than fixed
+durations, so an interrupted movement continues from its current velocity. They are written out because
+`MotionScheme` is public API only in a Material 3 alpha while the values are stable; when the BOM ships
+them, `WhfinMotion` becomes a thin adapter. Pixel-valued travel uses `WhfinMotion.travel()` with
+`IntOffset.VisibilityThreshold` so a spring stops at the pixel.
+
+**A press changes shape.** `rememberWhfinPressShape` tightens a control's corner to 40% and springs back.
+This is the affordance a deliberately quiet palette has left: a pressed tint would read as noise here.
+Buttons, filter pills and keypad keys use it; the corner radii live in `WhfinSizes` so they can animate.
+
+## Density and copy pass (2026-08-22)
+
+One rule, applied screen by screen: **do not print what the screen already says.**
+
+- **Home.** A forecast is a number with a comparison, not a sentence: `At this pace` / category name on
+  the left, previous month underneath, projected amount on the right in the ledger grammar the rest of
+  Home uses.
+- **Accounts.** The account heading names the card it is paid with (primary, else the only physical one)
+  and nothing else; the full mask list, virtual cards and IBAN belong to the account's own screen. Its
+  balance moved onto the heading row, so `Total balance` as a separate labelled block is gone. Currency
+  rows drop a name identical to the heading directly above them and lead with the currency instead.
+- **Settings.** A subtitle carries state or the one fact behind the door — never a restatement of the
+  title. Theme is one row of three segments (`WhfinFilterPill(centered = true)`), not a scrolling rail
+  that hid the third answer off-screen.
+- **Statistics.** The month title is the control that zooms out to its year; the separate centred link is
+  gone, and the result no longer captions itself `Net`.
+- **Spending.** The comparison base is named once on the section heading; each category row states its
+  distance from it as a signed number instead of repeating "above the previous 3-month average" five
+  times, three lines at a time.
+- **Trend chart.** Bars are columns (84% of the slot, 100% selected, 7 dp caps) that grow with the
+  spatial spring. Nine-dp hairlines inside 48 dp slots read as a ruler, not as twelve months.
+- **Welcome.** The mark and the two sentences sit in the middle of the screen; the greeting used to hang
+  under the status bar above two thirds of blank phone, which reads as a screen still loading.
+
+Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: EN at font scale 1.0 and RU at font scale
+1.5, dark, across Welcome, Home, Accounts, Transaction history, transaction details, Statistics, Spending
+and Settings; the Back pull was exercised mid-gesture on a secondary screen. `:app:testDebugUnitTest` and
+`:core-ui:testDebugUnitTest` pass; six `:core-ui` screenshot references were regenerated for the chart and
+the shell gallery.

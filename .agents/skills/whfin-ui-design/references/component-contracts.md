@@ -26,6 +26,9 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   that same frame inside full-screen dialogs so workspace identity and exit do not disappear in forms.
 - `WhfinSwitch`: Material-backed on/off control with a stable 48 dp target and explicit accessibility label. Persisted feature policy stays outside `:core-ui`; an OS permission may block an enabled preference without silently changing the user's choice.
 - `WhfinHaptics`: restrained action semantics, not custom vibration waveforms. Use a subtle segment tick for in-app destination changes and platform toggle-on/off effects for switches; do not add feedback to passive scrolling or duplicate the system Back gesture.
+- `WhfinBackGesture` / `Modifier.whfinPredictiveBack`: the shell's answer to a Back swipe. `rememberWhfinBackGesture(enabled, onBack)` registers a `PredictiveBackHandler`; the modifier insets the page to 92%, nudges it along the drag, rounds it to 28 dp and lifts it, reading the progress in the draw phase. Apply it to everything the app is showing — workspace strip and dock included — not to the page alone. `onBack` runs on commit only; an abandoned pull settles by itself.
+- `rememberWhfinPressShape`: the press affordance for a quiet palette. A pressed control tightens its corner to 40% and springs back; a pressed tint would read as noise against this canvas. Corner values live in `WhfinSizes` (`buttonCorner`, `pillCorner`) so they can animate.
+- `WhfinFilterPill`: a choice pill. Pass `centered = true` with a weight when several mutually exclusive answers divide one row; a scrolling rail is for sets that genuinely do not fit.
 - `WhfinStatePane`: loading, empty, error, and unavailable presentation with compact guidance and optional retry/action.
 - `WhfinFilterBar`: horizontally resilient filters and search affordance.
 - `WhfinChoiceRail`: a single horizontal scrolling line for mutually exclusive or compact multi-select
