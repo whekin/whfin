@@ -230,7 +230,6 @@ private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifi
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_expenses_composition),
-            supportingText = stringResource(R.string.analytics_expenses_composition_hint),
         )
         if (data.categoryValues.isEmpty()) {
             WhfinStatePane(
@@ -289,7 +288,13 @@ private fun ExpenseCategories(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_expenses_by_category),
-            supportingText = stringResource(R.string.analytics_expenses_category_hint),
+            supportingText = stringResource(
+                if (data.period.scale == AnalyticsScale.MONTH) {
+                    R.string.analytics_expenses_category_hint
+                } else {
+                    R.string.analytics_expenses_category_hint_year
+                },
+            ),
         )
         if (data.categoryValues.isNotEmpty()) {
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -351,13 +356,15 @@ private fun SpendingCategoryRow(
                         value.name ?: stringResource(R.string.analytics_uncategorized),
                         style = MaterialTheme.typography.titleMedium,
                     )
+                    // The comparison is a signed number, not a sentence: the section heading
+                    // already names what it is measured against, and repeating "above the
+                    // previous 3-month average" on every row wrapped each one onto three lines.
+                    val delta = averageDeltaText(value.expenseMinor, value.averageExpenseMinor)
                     Text(
-                        NumberFormat.getPercentInstance().format(percentage),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        averageComparisonText(value.expenseMinor, value.averageExpenseMinor, scale),
+                        listOfNotNull(
+                            NumberFormat.getPercentInstance().format(percentage),
+                            delta,
+                        ).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -374,6 +381,15 @@ private fun SpendingCategoryRow(
             )
         }
     }
+}
+
+/** The distance from the comparison base, signed. Null when there is no base to compare with. */
+@Composable
+private fun averageDeltaText(current: Long, average: Long): String? {
+    if (average <= 0L) return null
+    val difference = current - average
+    if (difference == 0L) return stringResource(R.string.analytics_expenses_at_average_short)
+    return formatMinor(difference, "GEL", withSign = true)
 }
 
 @Composable

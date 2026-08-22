@@ -214,7 +214,9 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
-        compose.onNodeWithText("100.00 ₾ above the previous 3-month average").assertExists()
+        // A category row states its distance from the comparison base as a signed number; the
+        // sentence naming that base is printed once, on the section heading.
+        compose.onNodeWithText("+100.00 ₾", substring = true).assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
     }
@@ -240,12 +242,14 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-period-title").assertTextEquals("July 2026")
+        // The month title is a control now — it zooms out to its year — so the text it prints
+        // lives one level below the merged click target.
+        compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).assertTextEquals("July 2026")
         compose.onNodeWithTag("analytics-trend").performScrollTo()
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
         compose.onNodeWithTag("analytics-list").performScrollToIndex(1)
-        compose.onNodeWithTag("analytics-period-title").assertTextEquals("June 2026")
+        compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).assertTextEquals("June 2026")
     }
 
     @Test

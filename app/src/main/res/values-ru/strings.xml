@@ -1074,12 +1074,13 @@
     <string name="analytics_expenses_title">Расходы</string>
     <string name="analytics_expenses_total">Всего расходов</string>
     <string name="analytics_expenses_composition">Куда ушли деньги</string>
-    <string name="analytics_expenses_composition_hint">Крупнейшие категории образуют кольцо, остальные собраны в «Другие».</string>
     <string name="analytics_expenses_distribution_description">Распределение расходов, всего %1$s</string>
     <string name="analytics_expenses_by_category">Расходы по категориям</string>
-    <string name="analytics_expenses_category_hint">Нажмите категорию, чтобы сравнить её динамику за 12 месяцев.</string>
-    <string name="analytics_expenses_above_average">На %1$s выше среднего за прошлые 3 месяца</string>
-    <string name="analytics_expenses_below_average">На %1$s ниже среднего за прошлые 3 месяца</string>
+    <string name="analytics_expenses_category_hint">В сравнении со средним за 3 месяца</string>
+    <string name="analytics_expenses_category_hint_year">В сравнении с прошлым годом</string>
+    <string name="analytics_expenses_at_average_short">как в среднем</string>
+    <string name="analytics_expenses_above_average">На %1$s выше среднего за 3 месяца</string>
+    <string name="analytics_expenses_below_average">На %1$s ниже среднего за 3 месяца</string>
     <string name="analytics_expenses_at_average">На уровне среднего за прошлые 3 месяца</string>
     <string name="analytics_expenses_no_average">За прошлые 3 месяца расходов не было</string>
     <string name="analytics_expenses_above_average_year">На %1$s больше прошлого года</string>

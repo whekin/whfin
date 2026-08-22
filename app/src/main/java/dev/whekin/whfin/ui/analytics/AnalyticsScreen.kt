@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.HorizontalDivider
@@ -343,12 +344,49 @@ internal fun PeriodSelector(
                 outlined = false,
                 enabled = canSelectPrevious,
             )
-            Text(
-                periodTitle(period),
-                modifier = Modifier.weight(1f).testTag("analytics-period-title"),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
+            // The month zooms out to its year by tapping the month, with the chevron saying so.
+            // A separate centred link under the title spent a whole row on a second way to move
+            // through time, next to the two arrows that already do it.
+            if (period.scale == AnalyticsScale.MONTH) {
+                Surface(
+                    onClick = { onScaleChange(AnalyticsScale.YEAR) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("analytics-view-year"),
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color.Transparent,
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            periodTitle(period),
+                            modifier = Modifier.testTag("analytics-period-title"),
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        Icon(
+                            Icons.Default.ExpandMore,
+                            contentDescription = stringResource(
+                                R.string.analytics_view_year_total,
+                                period.year,
+                            ),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    periodTitle(period),
+                    modifier = Modifier.weight(1f).testTag("analytics-period-title"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
             WhfinIconButton(
                 Icons.Default.ChevronRight,
                 stringResource(R.string.analytics_next_period),
@@ -357,25 +395,7 @@ internal fun PeriodSelector(
                 enabled = canSelectNext,
             )
         }
-        if (period.scale == AnalyticsScale.MONTH) {
-            Surface(
-                onClick = { onScaleChange(AnalyticsScale.YEAR) },
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .heightIn(min = 48.dp)
-                    .testTag("analytics-view-year"),
-                shape = MaterialTheme.shapes.small,
-                color = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
-            ) {
-                Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        stringResource(R.string.analytics_view_year_total, period.year),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        } else {
+        if (period.scale == AnalyticsScale.YEAR) {
             Text(
                 stringResource(R.string.analytics_choose_month_hint),
                 modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp),

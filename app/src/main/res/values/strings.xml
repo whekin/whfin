@@ -1025,12 +1025,13 @@
     <string name="analytics_expenses_title">Spending</string>
     <string name="analytics_expenses_total">Total spending</string>
     <string name="analytics_expenses_composition">Where it went</string>
-    <string name="analytics_expenses_composition_hint">The largest categories shape the ring; the rest are grouped as Other.</string>
     <string name="analytics_expenses_distribution_description">Expense distribution, total %1$s</string>
     <string name="analytics_expenses_by_category">Spending by category</string>
-    <string name="analytics_expenses_category_hint">Tap a category to compare its twelve-month trend.</string>
-    <string name="analytics_expenses_above_average">%1$s above the previous 3-month average</string>
-    <string name="analytics_expenses_below_average">%1$s below the previous 3-month average</string>
+    <string name="analytics_expenses_category_hint">Compared with the 3-month average</string>
+    <string name="analytics_expenses_category_hint_year">Compared with last year</string>
+    <string name="analytics_expenses_at_average_short">at average</string>
+    <string name="analytics_expenses_above_average">%1$s above the 3-month average</string>
+    <string name="analytics_expenses_below_average">%1$s below the 3-month average</string>
     <string name="analytics_expenses_at_average">In line with the previous 3-month average</string>
     <string name="analytics_expenses_no_average">No spending in the previous 3 months</string>
     <string name="analytics_expenses_above_average_year">%1$s above last year</string>
