@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -24,6 +26,8 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
@@ -73,6 +77,8 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 import dev.whekin.whfin.ui.demo.DemoWorkspaceProvider
 import java.time.YearMonth
+import androidx.activity.compose.PredictiveBackHandler
+import kotlin.coroutines.cancellation.CancellationException
 import androidx.core.content.pm.PackageInfoCompat
 
 private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsRequest?, Any>(
@@ -100,6 +106,9 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
         )
     },
 )
+
+/** Home and Accounts. The create action in the middle of the dock is not a page. */
+internal const val PRIMARY_PAGES = 2
 
 internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
 
@@ -277,6 +286,15 @@ fun MainScreen(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
     LaunchedEffect(initialTab) { tab = initialTab.coerceIn(0, 1) }
+    // `tab` stays the shell's own idea of where the user is — Back, the widget's entry point and
+    // the create action all set it — and the pager is kept in step in both directions.
+    val pagerState = rememberPagerState(initialPage = tab, pageCount = { PRIMARY_PAGES })
+    LaunchedEffect(tab) {
+        if (pagerState.currentPage != tab) pagerState.animateScrollToPage(tab)
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { settled -> tab = settled }
+    }
     var accountAddRequestKey by rememberSaveable {
         mutableIntStateOf(if (initialAccountAddRequest) 1 else 0)
     }
@@ -374,11 +392,31 @@ fun MainScreen(
             }
         }
     }
-    val backGesture = rememberWhfinBackGesture(
-        enabled = scene != ShellScene.Primary || primaryTabAfterBack(tab) != null,
-    ) {
-        val homeTab = primaryTabAfterBack(tab)
-        if (scene == ShellScene.Primary && homeTab != null) tab = homeTab else goBack(withHaptic = false)
+    // Leaving a screen is a pull; returning from Accounts to Home is not leaving anything, it is
+    // the same swipe the finger can make on the page itself. So the two Back cases are answered
+    // with two different gestures instead of one animation pretending to fit both.
+    val backGesture = rememberWhfinBackGesture(enabled = scene != ShellScene.Primary) {
+        goBack(withHaptic = false)
+    }
+    PredictiveBackHandler(
+        enabled = scene == ShellScene.Primary && primaryTabAfterBack(tab) != null,
+    ) { events ->
+        try {
+            pagerState.scroll {
+                var travelled = 0f
+                events.collect { event ->
+                    val pulled = event.progress.coerceIn(0f, 1f)
+                    val pageSize = pagerState.layoutInfo.pageSize.toFloat().coerceAtLeast(1f)
+                    scrollBy(-(pulled - travelled) * pageSize)
+                    travelled = pulled
+                }
+            }
+            // Committing only moves the shell's own idea of the tab; the pager follows it through
+            // the same path a dock tap takes, so both ways of going back settle identically.
+            tab = 0
+        } catch (_: CancellationException) {
+            pagerState.animateScrollToPage(tab)
+        }
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -424,22 +462,32 @@ fun MainScreen(
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         when (targetShell.scene) {
                             ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
-                        AnimatedContent(
-                            targetState = tab,
+                        // Two peer destinations are pages, not a hierarchy: the finger moves
+                        // between them directly and the dock reads the same scroll position, so
+                        // the whole shell answers the gesture while it is happening.
+                        HorizontalPager(
+                            state = pagerState,
                             modifier = Modifier.fillMaxWidth().weight(1f),
-                            transitionSpec = {
-                                // Dock destinations are siblings, not a hierarchy: they trade
-                                // places with a short directional settle instead of pushing.
-                                val forward = targetState > initialState
-                                val enter = fadeIn(paneFadeIn) +
-                                    slideInHorizontally(paneTravel) { width ->
-                                        if (forward) width / 24 else -width / 24
-                                    }
-                                (enter togetherWith fadeOut(paneFadeOut))
-                                    .using(SizeTransform(clip = false))
-                            },
-                            label = "primary-pane",
+                            beyondViewportPageCount = 1,
+                            key = { page -> page },
                         ) { currentTab ->
+                            // The neighbouring page is kept composed so a swipe starts on a drawn
+                            // screen rather than a blank one, but a page nobody is looking at must
+                            // not be readable: without this, a screen reader — and anything else
+                            // walking the tree — finds two Accounts screens, one of them invisible.
+                            val onScreen = currentTab == pagerState.currentPage ||
+                                currentTab == pagerState.targetPage
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (onScreen) {
+                                            Modifier
+                                        } else {
+                                            Modifier.semantics { hideFromAccessibility() }
+                                        },
+                                    ),
+                            ) {
                             if (currentTab == 0) FeedScreen(
                                 mode = FeedMode.HOME,
                                 showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
@@ -467,9 +515,10 @@ fun MainScreen(
                                 onOpenSettings = { open(SecondaryDestination.Settings) },
                                 onOpenAccountTransactions = ::openAccountTransactions,
                             )
+                            }
                         }
                         LedgerDock(
-                            selected = tab,
+                            selection = pagerState.currentPage + pagerState.currentPageOffsetFraction,
                             onAdd = {
                                 tab = 0
                                 addRequestKey += 1
@@ -727,7 +776,7 @@ private fun SecondaryPage(
     }
 }
 
-@Composable internal fun LedgerDock(selected: Int, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
+@Composable internal fun LedgerDock(selection: Float, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
     WhfinDock(
         leading = WhfinDockDestination(
             icon = Icons.Outlined.Home,
@@ -741,7 +790,7 @@ private fun SecondaryPage(
             label = stringResource(R.string.tab_accounts),
             testTag = "dock-accounts",
         ),
-        selectedIndex = selected,
+        selection = selection,
         addLabel = stringResource(R.string.dock_add),
         addContentDescription = stringResource(R.string.add_transaction),
         onAdd = onAdd,
@@ -754,5 +803,5 @@ private fun SecondaryPage(
 @Preview(name = "Dock font 1.5", widthDp = 400, heightDp = 116, fontScale = 1.5f, showBackground = true)
 @Composable
 private fun LedgerDockPreview() {
-    WhfinTheme { LedgerDock(selected = 0, onAdd = {}, onSelect = {}) }
+    WhfinTheme { LedgerDock(selection = 0f, onAdd = {}, onSelect = {}) }
 }

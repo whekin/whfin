@@ -1,8 +1,9 @@
 package dev.whekin.whfin.core.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,10 +22,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +38,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.lerp
 import androidx.compose.ui.unit.dp
 
 @Immutable
@@ -51,20 +53,25 @@ data class WhfinDockDestination(
  * The primary WHFIN shell: two stable destinations and one independent create action.
  *
  * The dock is deliberately grounded in the screen canvas. Selection is shown by a filled glyph,
- * stronger label and color. The create action shares the same visual rhythm without pretending to
- * be a destination.
+ * stronger label and color, plus one thin ledger rule that travels between the destinations. The
+ * create action shares the same visual rhythm without pretending to be a destination.
+ *
+ * [selection] is a position, not an index: the destinations are pages the finger can drag, so the
+ * dock reads their scroll fraction and moves with it. A dock that only flipped at the end of a
+ * swipe would leave the gesture unanswered for its whole length.
  */
 @Composable
 fun WhfinDock(
     leading: WhfinDockDestination,
     trailing: WhfinDockDestination,
-    selectedIndex: Int,
+    selection: Float,
     addLabel: String,
     addContentDescription: String,
     onAdd: () -> Unit,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val position = selection.coerceIn(0f, 1f)
     val spacing = WhfinThemeTokens.spacing
     val sizes = WhfinThemeTokens.sizes
     Surface(
@@ -87,7 +94,7 @@ fun WhfinDock(
             ) {
                 WhfinDockItem(
                     destination = leading,
-                    selected = selectedIndex == 0,
+                    emphasis = 1f - position,
                     modifier = Modifier.weight(1f),
                     onClick = { onSelect(0) },
                 )
@@ -132,7 +139,7 @@ fun WhfinDock(
                 }
                 WhfinDockItem(
                     destination = trailing,
-                    selected = selectedIndex == 1,
+                    emphasis = position,
                     modifier = Modifier.weight(1f),
                     onClick = { onSelect(1) },
                 )
@@ -168,23 +175,27 @@ private fun WhfinDockAddMark(
     }
 }
 
+/**
+ * One destination.
+ *
+ * [emphasis] runs from 0 (the other page is showing) to 1 (this one is), and every signal reads it
+ * directly instead of animating towards a boolean: mid-swipe the dock has to be able to say "half
+ * way", which a target-based animation cannot.
+ */
 @Composable
 private fun WhfinDockItem(
     destination: WhfinDockDestination,
-    selected: Boolean,
+    emphasis: Float,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val sizes = WhfinThemeTokens.sizes
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        animationSpec = WhfinMotion.quick(),
-        label = "dock content",
+    val selected = emphasis > .5f
+    val contentColor = lerp(
+        MaterialTheme.colorScheme.onSurfaceVariant,
+        MaterialTheme.colorScheme.primary,
+        emphasis,
     )
     val taggedModifier = if (destination.testTag != null) {
         modifier.testTag(destination.testTag)
@@ -213,33 +224,49 @@ private fun WhfinDockItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Spacer(
+            // The rule the ledger draws over the column being read. It grows out of the item the
+            // swipe is heading for and drains from the one being left, so the pair reads as one
+            // mark travelling rather than two marks blinking.
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sizes.ledgerMarker),
-            )
-            Crossfade(
-                targetState = selected,
-                animationSpec = WhfinMotion.quick(),
-                label = "dock icon emphasis",
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .width(sizes.dockRule * emphasis)
+                        .height(sizes.ledgerMarker)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = emphasis),
+                            CircleShape,
+                        ),
+                )
+            }
+            Box(
                 modifier = Modifier
                     .padding(top = 3.dp)
                     .size(sizes.dockIcon),
-            ) { isSelected ->
+                contentAlignment = Alignment.Center,
+            ) {
+                // Both glyphs are drawn and cross-faded by the same fraction: an outline that
+                // becomes filled only after the page has settled would answer the gesture late.
                 Icon(
-                    imageVector = if (isSelected) destination.selectedIcon else destination.icon,
+                    imageVector = destination.icon,
                     contentDescription = null,
-                    tint = contentColor,
+                    tint = contentColor.copy(alpha = 1f - emphasis),
+                )
+                Icon(
+                    imageVector = destination.selectedIcon,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = emphasis),
                 )
             }
             Text(
                 text = destination.label,
                 modifier = Modifier.padding(top = 2.dp),
-                style = if (selected) {
-                    MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                } else {
-                    MaterialTheme.typography.labelMedium
-                },
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = lerp(FontWeight.Medium, FontWeight.SemiBold, emphasis),
+                ),
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

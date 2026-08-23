@@ -174,6 +174,7 @@ bank-centred, guided but skippable, and exposes only channels that work for the 
   rather than committing the destination change at the end of an invisible swipe.
 - Navigate between complete opaque destination surfaces. A destination's system inset, top bar, and body must change under one layout owner; never add a `Scaffold` app-bar slot conditionally while replacing its body.
 - Use a short directional shared-axis transition for hierarchy: forward enters from the right, Back returns toward the right. Preserve dock position when switching peers.
+- Peer destinations are pages the finger can drag, not states of one slot: keep them in a pager, feed the dock the scroll position, and let Back on the second page drag that pager back rather than playing the hierarchy pull.
 - Let a press change shape (`rememberWhfinPressShape`) rather than colour: this palette is quiet by design and a pressed tint reads as noise.
 - Pair explicit destination changes with one subtle platform navigation haptic and switches with the platform on/off haptic. Do not duplicate Android's own Back-gesture feedback or vibrate for scrolling.
 - Animate position or emphasis only when it explains continuity.

@@ -52,6 +52,8 @@ data class WhfinSizes(
     val dockIcon: Dp = 22.dp,
     val dockCenterSlot: Dp = 64.dp,
     val ledgerMarker: Dp = 3.dp,
+    /** Width of the rule that marks the dock destination being read. */
+    val dockRule: Dp = 22.dp,
     /** Mirrors `MaterialTheme.shapes.medium`; kept as a number so a press can animate it. */
     val buttonCorner: Dp = 14.dp,
     /** Mirrors `MaterialTheme.shapes.small`. */

@@ -30,7 +30,8 @@ class LedgerDockTest {
         var addRequests = 0
         compose.setContent {
             WhfinTheme {
-                LedgerDock(selected, onAdd = { addRequests += 1 }) { selected = it }
+                // The dock reads a page position, so a settled tab is that page's whole number.
+                LedgerDock(selected.toFloat(), onAdd = { addRequests += 1 }) { selected = it }
             }
         }
 

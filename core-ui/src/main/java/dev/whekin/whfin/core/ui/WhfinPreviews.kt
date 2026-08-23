@@ -143,7 +143,7 @@ fun WhfinShellChromeGallery() {
                     selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
                     label = "Accounts",
                 ),
-                selectedIndex = 0,
+                selection = 0f,
                 addLabel = "New",
                 addContentDescription = "Add transaction",
                 onAdd = {},

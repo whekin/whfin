@@ -376,3 +376,28 @@ Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: EN at font scale
 and Settings; the Back pull was exercised mid-gesture on a secondary screen. `:app:testDebugUnitTest` and
 `:core-ui:testDebugUnitTest` pass; six `:core-ui` screenshot references were regenerated for the chart and
 the shell gallery.
+
+## Peers are pages (2026-08-23)
+
+Home and Accounts stopped being two states of one slot and became two pages of a `HorizontalPager`.
+The consequences are the point:
+
+- **The finger moves between them.** A swipe is the shortest path between the only two places the
+  shell has, and it costs no chrome.
+- **The dock reads a position, not an index.** `WhfinDock(selection: Float)` takes the pager's
+  `currentPage + currentPageOffsetFraction`, and every signal interpolates on it: colour, label
+  weight, the outline→filled glyph cross-fade, and one thin ledger rule that grows on the arriving
+  destination while it drains from the one being left. A dock that flipped only at the end of the
+  swipe left the whole gesture unanswered.
+- **Back on Accounts drags the page, it does not shrink the app.** Returning to a peer is not
+  leaving a screen, so the hierarchy pull would be a lie. A second `PredictiveBackHandler` scrolls
+  the pager by the gesture's own progress and commits by moving the shell's `tab`, which is the same
+  path a dock tap takes — both ways of going back settle identically.
+- **The page nobody looks at is hidden from accessibility.** The neighbour stays composed so a swipe
+  starts on a drawn screen, and `hideFromAccessibility()` keeps it out of the semantics tree while it
+  is off-screen; otherwise a screen reader — and every UI test walking the tree — finds two Accounts
+  screens, one of them invisible.
+
+Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: swipe both ways, dock tap, the Back
+drag mid-gesture (both rules partially drawn, both pages visible) and its settle. 120 instrumented
+tests and the JVM suites pass; the three shell screenshot references were regenerated for the rule.
