@@ -11,6 +11,46 @@ import org.junit.Test
 
 class FeedTransferSummaryTest {
     @Test
+    fun openingBalanceIsNotUserFacingAccountActivity_butLaterAdjustmentIs() {
+        val account = AccountEntity(
+            id = 1,
+            name = "Pocket money",
+            type = AccountType.CASH,
+            currency = "GEL",
+        )
+        val opening = TransactionEntity(
+            id = 1,
+            accountId = account.id,
+            amountMinor = 30_000,
+            currency = "GEL",
+            occurredAt = 1_000,
+            status = TxStatus.CONFIRMED,
+            source = TxSource.ADJUSTMENT,
+            isTransfer = true,
+        )
+        val laterAdjustment = TransactionEntity(
+            id = 2,
+            accountId = account.id,
+            amountMinor = -500,
+            currency = "GEL",
+            occurredAt = 2_000,
+            status = TxStatus.MANUAL,
+            source = TxSource.ADJUSTMENT,
+        )
+
+        val items = buildBaseFeedItems(
+            transactions = listOf(opening, laterAdjustment),
+            merchants = emptyList(),
+            categories = emptyList(),
+            accounts = listOf(account),
+            masksByAccount = emptyMap(),
+            zone = ZoneOffset.UTC,
+        )
+
+        assertEquals(listOf(laterAdjustment.id), items.map { it.tx.id })
+    }
+
+    @Test
     fun bankToCashTransfer_usesAccountNamesWithIbanTail() {
         val accounts = listOf(
             AccountEntity(

@@ -20,6 +20,7 @@ import dev.whekin.whfin.data.notifications.focusedPhysicalCards
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
+import dev.whekin.whfin.data.db.isOpeningBalanceAnchor
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.TransferGroupEntity
 import dev.whekin.whfin.data.db.TransferGroupType
@@ -150,7 +151,9 @@ internal fun buildBaseFeedItems(
         else -> "${account.name} •${account.iban.takeLast(4)}"
     }
     val transferLegs = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
-    return transactions.filter { tx ->
+    // An opening row is a balance baseline, not an operation the person performed. Keep it in the
+    // ledger for balance/reconciliation/backup, but never make it a feed or account-history row.
+    return transactions.filterNot { it.isOpeningBalanceAnchor() }.filter { tx ->
         val legs = tx.transferGroupId?.let(transferLegs::get).orEmpty()
         tx.transferGroupId == null || tx.amountMinor < 0 || legs.none { it.amountMinor < 0 }
     }.map { tx ->

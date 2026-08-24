@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.isOpeningBalanceAnchor
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
@@ -123,7 +124,7 @@ internal fun calculateAnalytics(
     val fundingByPurchase = findConversionFunding(transactions, zoneId)
     val slices = transactions
         .asSequence()
-        .filterNot { it.isTransfer || it.transferGroupId != null }
+        .filterNot { it.isOpeningBalanceAnchor() || it.isTransfer || it.transferGroupId != null }
         .flatMap { transaction ->
             val transactionAllocations = allocationsByTransaction[transaction.id].orEmpty()
             val includedParts = if (transactionAllocations.isEmpty()) {
@@ -165,7 +166,8 @@ internal fun calculateAnalytics(
                     gelMinor = if (currency == BASE_CURRENCY) amount else gelForPart(amount),
                     categoryId = categoryId,
                     groupId = tree.rollupId(categoryId),
-                    unaccounted = transaction.source == TxSource.ADJUSTMENT ||
+                    unaccounted = (transaction.source == TxSource.ADJUSTMENT &&
+                        !transaction.isOpeningBalanceAnchor()) ||
                         categoryId?.let(categoryById::get)?.isSystem == true,
                     pending = transaction.status == TxStatus.PENDING,
                 )

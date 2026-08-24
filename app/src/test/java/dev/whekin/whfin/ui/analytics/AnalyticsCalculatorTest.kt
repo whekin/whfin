@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.isOpeningBalanceAnchor
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.YearMonth
@@ -19,6 +20,53 @@ class AnalyticsCalculatorTest {
     private val food = CategoryEntity(1, "Food", kind = CategoryKind.EXPENSE, icon = "ShoppingCart", color = 0)
     private val transport = CategoryEntity(2, "Transport", kind = CategoryKind.EXPENSE, icon = "DirectionsBus", color = 0)
     private val unaccounted = CategoryEntity(3, "Unaccounted", kind = CategoryKind.EXPENSE, icon = "Category", color = 0, isSystem = true)
+
+    @Test
+    fun openingBalanceIsBalanceOnly_andNormalAdjustmentRemainsUnaccounted() {
+        val opening = tx(
+            id = 1,
+            amount = 30_000,
+            currency = "GEL",
+            date = LocalDate.of(2026, 7, 1),
+            categoryId = unaccounted.id,
+            source = TxSource.ADJUSTMENT,
+            isTransfer = true,
+        )
+        val adjustment = tx(
+            id = 2,
+            amount = -500,
+            currency = "GEL",
+            date = LocalDate.of(2026, 7, 2),
+            categoryId = unaccounted.id,
+            source = TxSource.ADJUSTMENT,
+        )
+
+        assertTrue(opening.isOpeningBalanceAnchor())
+        val openingData = calculateAnalytics(
+            transactions = listOf(opening),
+            categories = listOf(unaccounted),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+        )
+        assertEquals(0L, openingData.incomeMinor)
+        assertEquals(0L, openingData.expenseMinor)
+        assertEquals(0L, openingData.unaccountedNetMinor)
+
+        val data = calculateAnalytics(
+            transactions = listOf(opening, adjustment),
+            categories = listOf(unaccounted),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+        )
+
+        assertEquals(0L, data.incomeMinor)
+        assertEquals(0L, data.expenseMinor)
+        assertEquals(-500L, data.unaccountedNetMinor)
+    }
 
     @Test
     fun excludesTransfersDebtsAndAdjustmentsFromMonthTotals() {
