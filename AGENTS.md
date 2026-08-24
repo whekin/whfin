@@ -152,7 +152,9 @@ This is a single-context repository with root domain documentation and system-wi
   Salary шаги. Cash сразу открывает существующий cash editor (preset Cash/Pocket money/At home,
   custom name и initial balance, включая seeded zero ledger); Salary использует `income_sources`
   editor (amount/currency/receiving account/day window/current start) и никогда не пишет fake ledger
-  transaction. Back ведёт Salary → Cash → Categories, после обоих шагов — Ready.
+  transaction. Initial balance — balance-only opening anchor: влияет на остаток, но не виден в
+  activity и не попадает в income/expense/Unaccounted; последующая ручная корректировка
+  остаётся Unaccounted. Back ведёт Salary → Cash → Categories, после обоих шагов — Ready.
 - [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
