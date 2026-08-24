@@ -206,4 +206,57 @@ class FirstRunScreensTest {
         compose.onNodeWithText(context.getString(R.string.personal_setup_continue_action))
             .assertIsDisplayed()
     }
+
+    @Test
+    fun cashIsASeparateOptionalStep() {
+        var addCash = false
+        var skipped = false
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    step = PersonalSetupStep.Cash,
+                    state = PersonalSetupState(),
+                    onConnectBank = {},
+                    onShowAlternatives = {},
+                    onImportStatement = {},
+                    onCreateAccount = { addCash = true },
+                    onRestoreBackup = {},
+                    onSkip = { skipped = true },
+                    onContinue = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.personal_setup_cash_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.personal_setup_cash_add_action)).performClick()
+        compose.runOnIdle { assertTrue(addCash) }
+        compose.onNodeWithText(context.getString(R.string.personal_setup_skip_optional_action)).performClick()
+        compose.runOnIdle { assertTrue(skipped) }
+    }
+
+    @Test
+    fun salaryIsASeparateOptionalStep() {
+        var addSalary = false
+        compose.setContent {
+            WhfinTheme {
+                PersonalSetupScreen(
+                    step = PersonalSetupStep.Salary,
+                    state = PersonalSetupState(),
+                    onConnectBank = {},
+                    onShowAlternatives = {},
+                    onImportStatement = {},
+                    onCreateAccount = { addSalary = true },
+                    onRestoreBackup = {},
+                    onSkip = {},
+                    onContinue = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.personal_setup_salary_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.personal_setup_salary_add_action)).performClick()
+        compose.runOnIdle { assertTrue(addSalary) }
+    }
 }

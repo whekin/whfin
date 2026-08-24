@@ -8,18 +8,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.ui.settings.AppLockScreen
 import dev.whekin.whfin.ui.settings.BackupRoute
 import dev.whekin.whfin.ui.settings.BankStatementsScreen
 import dev.whekin.whfin.ui.settings.CredoSyncRoute
+import dev.whekin.whfin.ui.settings.IncomeSourceSheet
 import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
+import dev.whekin.whfin.ui.accounts.AddAccountSheet
 
 internal enum class PersonalSetupPage {
     Bank,
     Categories,
+    /** Legacy generic-account page retained for restored state; new setup uses Cash then Salary. */
     Accounts,
+    Cash,
+    Salary,
     Ready,
     Alternative,
     CredoSync,
@@ -30,6 +37,10 @@ internal enum class PersonalSetupPage {
 }
 
 internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
+
+internal fun personalSetupPageAfterCash(): PersonalSetupPage = PersonalSetupPage.Salary
+
+internal fun personalSetupPageAfterSalary(): PersonalSetupPage = PersonalSetupPage.Ready
 
 /**
  * Categories come after the ambiguities and before the optional accounts.
@@ -68,6 +79,10 @@ fun PersonalSetupFlow(
     onAppLockPinCreated: (String, AppLockTimeout) -> Unit,
     onBiometricUnlockEnabledChange: (Boolean) -> Unit,
     onOpenBiometricSettings: () -> Unit,
+    /** Personal ledgers shown in the salary declaration's account rail. */
+    accounts: List<AccountEntity> = emptyList(),
+    onSaveCash: (String, String, Long?) -> Unit = { _, _, _ -> },
+    onSaveSalary: (String, Long, String, Long?, Int, Int) -> Unit = { _, _, _, _, _, _ -> },
     onContinue: (initialTab: Int, openAccountAdd: Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
@@ -75,6 +90,15 @@ fun PersonalSetupFlow(
     var advanceAfterSmsPermission by rememberSaveable { mutableStateOf(false) }
     var guidedResolutionActive by rememberSaveable { mutableStateOf(false) }
     var statementsReturnPage by rememberSaveable { mutableStateOf(PersonalSetupPage.Alternative) }
+    var cashEditorOpen by rememberSaveable { mutableStateOf(false) }
+    var salaryEditorOpen by rememberSaveable { mutableStateOf(false) }
+    var rememberPasswordRequested by rememberSaveable { mutableStateOf(false) }
+    var appLockSetupTarget by rememberSaveable { mutableStateOf<AppLockTimeout?>(null) }
+
+    LaunchedEffect(page) {
+        cashEditorOpen = page == PersonalSetupPage.Cash
+        salaryEditorOpen = page == PersonalSetupPage.Salary
+    }
 
     fun continueBankSetup() {
         val next = personalSetupPageAfterBankConsent(state)
@@ -131,14 +155,14 @@ fun PersonalSetupFlow(
             onImportStatement = {},
             onCreateAccount = { onContinue(1, true) },
             onRestoreBackup = {},
-            onSkip = { page = PersonalSetupPage.Accounts },
+            onSkip = { page = PersonalSetupPage.Cash },
             onContinue = { onContinue(0, false) },
             onBack = onExit,
         )
         PersonalSetupPage.Categories -> CategorySetupStep(
             onContinue = {
                 guidedResolutionActive = false
-                page = PersonalSetupPage.Accounts
+                page = PersonalSetupPage.Cash
             },
             onBack = {
                 guidedResolutionActive = false
@@ -153,9 +177,45 @@ fun PersonalSetupFlow(
             onImportStatement = {},
             onCreateAccount = { onContinue(1, true) },
             onRestoreBackup = {},
-            onSkip = { page = PersonalSetupPage.Ready },
+            onSkip = { page = PersonalSetupPage.Cash },
             onContinue = { onContinue(0, false) },
             onBack = { page = PersonalSetupPage.Categories },
+        )
+        PersonalSetupPage.Cash -> PersonalSetupScreen(
+            step = PersonalSetupStep.Cash,
+            state = state,
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = { cashEditorOpen = true },
+            onRestoreBackup = {},
+            onSkip = {
+                cashEditorOpen = false
+                page = personalSetupPageAfterCash()
+            },
+            onContinue = { onContinue(0, false) },
+            onBack = {
+                cashEditorOpen = false
+                page = PersonalSetupPage.Categories
+            },
+        )
+        PersonalSetupPage.Salary -> PersonalSetupScreen(
+            step = PersonalSetupStep.Salary,
+            state = state,
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = { salaryEditorOpen = true },
+            onRestoreBackup = {},
+            onSkip = {
+                salaryEditorOpen = false
+                page = personalSetupPageAfterSalary()
+            },
+            onContinue = { onContinue(0, false) },
+            onBack = {
+                salaryEditorOpen = false
+                page = PersonalSetupPage.Cash
+            },
         )
         PersonalSetupPage.Ready -> PersonalSetupScreen(
             step = PersonalSetupStep.Ready,
@@ -167,7 +227,7 @@ fun PersonalSetupFlow(
             onRestoreBackup = {},
             onSkip = {},
             onContinue = { onContinue(0, false) },
-            onBack = { page = PersonalSetupPage.Accounts },
+            onBack = { page = PersonalSetupPage.Salary },
         )
         PersonalSetupPage.Alternative -> PersonalSetupScreen(
             step = PersonalSetupStep.Alternative,
@@ -180,7 +240,7 @@ fun PersonalSetupFlow(
             },
             onCreateAccount = {},
             onRestoreBackup = { page = PersonalSetupPage.Backup },
-            onSkip = { page = PersonalSetupPage.Accounts },
+            onSkip = { page = PersonalSetupPage.Cash },
             onContinue = {},
             onBack = { page = PersonalSetupPage.Bank },
         )
@@ -190,7 +250,12 @@ fun PersonalSetupFlow(
         ) {
             CredoSyncRoute(
                 appLockEnabled = appLockHasPin && appLockTimeout.enabled,
-                onOpenAppLock = { page = PersonalSetupPage.AppLock },
+                initialRememberPassword = rememberPasswordRequested,
+                onOpenAppLock = {
+                    rememberPasswordRequested = true
+                    appLockSetupTarget = AppLockTimeout.Immediate
+                    page = PersonalSetupPage.AppLock
+                },
                 autoLoadFullHistory = true,
                 onGuidedHistoryComplete = ::continueAfterHistory,
                 onDone = ::continueAfterHistory,
@@ -239,21 +304,58 @@ fun PersonalSetupFlow(
         }
         PersonalSetupPage.AppLock -> PersonalSetupSecondaryPage(
             title = stringResource(R.string.app_lock_title),
-            onBack = { page = personalSetupPageAfterAppLock() },
+            onBack = {
+                appLockSetupTarget = null
+                page = personalSetupPageAfterAppLock()
+            },
         ) {
             AppLockScreen(
-                timeout = appLockTimeout,
+                timeout = appLockSetupTarget ?: appLockTimeout,
                 hasPin = appLockHasPin,
                 biometricAvailability = biometricAvailability,
                 biometricEnabled = biometricUnlockEnabled,
                 onTimeoutChange = onAppLockTimeoutChange,
                 onPinCreated = { pin, timeout ->
                     onAppLockPinCreated(pin, timeout)
+                    appLockSetupTarget = null
                     page = personalSetupPageAfterAppLock()
                 },
                 onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                 onOpenBiometricSettings = onOpenBiometricSettings,
+                autoSetupTimeout = appLockSetupTarget,
             )
         }
+    }
+
+    if (page == PersonalSetupPage.Cash && cashEditorOpen) {
+        AddAccountSheet(
+            onDismiss = { cashEditorOpen = false },
+            onImportStatement = {},
+            initialType = AccountType.CASH,
+            cashOnly = true,
+            titleOverride = stringResource(R.string.personal_setup_cash_sheet_title),
+            onConfirm = { name, _, currency, _, openingMinor ->
+                onSaveCash(name, currency, openingMinor)
+                cashEditorOpen = false
+                page = personalSetupPageAfterCash()
+            },
+        )
+    }
+
+    if (page == PersonalSetupPage.Salary && salaryEditorOpen) {
+        IncomeSourceSheet(
+            source = null,
+            accounts = accounts,
+            onDismiss = { salaryEditorOpen = false },
+            onSave = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
+                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, dayTo)
+                salaryEditorOpen = false
+                page = personalSetupPageAfterSalary()
+            },
+            onEnd = null,
+            onDelete = null,
+            initialLabel = stringResource(R.string.personal_setup_salary_default_label),
+            initialCurrency = "GEL",
+        )
     }
 }

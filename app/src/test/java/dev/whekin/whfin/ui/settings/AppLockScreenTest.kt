@@ -85,6 +85,31 @@ class AppLockScreenTest {
     }
 
     @Test
+    fun setupDetour_canOpenCodeEntryWithAnActiveImmediateDefault() {
+        var savedTimeout: AppLockTimeout? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                AppLockScreen(
+                    timeout = AppLockTimeout.Immediate,
+                    hasPin = false,
+                    biometricAvailability = BiometricAvailability.Unsupported,
+                    biometricEnabled = false,
+                    onTimeoutChange = {},
+                    onPinCreated = { _, timeout -> savedTimeout = timeout },
+                    onBiometricEnabledChange = {},
+                    onOpenBiometricSettings = {},
+                    autoSetupTimeout = AppLockTimeout.Immediate,
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.app_lock_create_code_title)).assertIsDisplayed()
+        repeat(2) { "2468".forEach { compose.onNodeWithText(it.toString()).performClick() } }
+        assertEquals(AppLockTimeout.Immediate, savedTimeout)
+    }
+
+    @Test
     fun lockedGate_withBiometrics_hidesKeypadUntilCodeRequested() {
         var verified: String? = null
         var biometricRequested = 0

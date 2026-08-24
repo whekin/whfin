@@ -65,8 +65,10 @@ fun AppLockScreen(
     onPinCreated: (String, AppLockTimeout) -> Unit,
     onBiometricEnabledChange: (Boolean) -> Unit,
     onOpenBiometricSettings: () -> Unit,
+    /** Non-settings flows can request a secure default and open code setup in one tap. */
+    autoSetupTimeout: AppLockTimeout? = null,
 ) {
-    var setupTarget by remember { mutableStateOf<AppLockTimeout?>(null) }
+    var setupTarget by remember(autoSetupTimeout) { mutableStateOf(autoSetupTimeout) }
     var changingCode by remember { mutableStateOf(false) }
     if (setupTarget != null || changingCode) {
         PinSetup(

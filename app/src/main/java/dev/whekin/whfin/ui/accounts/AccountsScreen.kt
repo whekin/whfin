@@ -412,6 +412,10 @@ fun AccountsScreen(
                 viewModel.addAccount(name, type, currency, bankProvider, openingMinor)
                 showAdd = false
             },
+            onConfirmWithProduct = { name, type, currency, bankProvider, openingMinor, bankProduct ->
+                viewModel.addAccount(name, type, currency, bankProvider, openingMinor, bankProduct)
+                showAdd = false
+            },
             onConfirmWallet = { name, network, address ->
                 viewModel.addCryptoWallet(name, network, address)
                 showAdd = false

@@ -392,19 +392,39 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         currency: String,
         bankProvider: String? = null,
         openingMinor: Long? = null,
+        bankProduct: BankProduct? = null,
     ) {
         viewModelScope.launch {
             db.withTransaction {
                 val normalizedCurrency = currency.trim().uppercase()
                 val normalizedName = if (type == AccountType.CASH) name.trim().ifBlank { "Cash" } else name.trim()
-                if (type == AccountType.CASH && db.accountDao().allActive().any {
+                if (type == AccountType.CASH) {
+                    // First-run seeds one zero-balance GEL cash ledger so the app can show a
+                    // meaningful source immediately. The onboarding Cash step edits that ledger
+                    // instead of creating a duplicate, while still using the same opening-balance
+                    // provenance as a newly created cash account.
+                    val existingCash = db.accountDao().allActive().firstOrNull {
                         it.type == AccountType.CASH && it.currency == normalizedCurrency
-                    }) {
-                    _message.value = getApplication<Application>().getString(
-                        dev.whekin.whfin.R.string.cash_account_exists,
-                        normalizedCurrency,
-                    )
-                    return@withTransaction
+                    }
+                    if (existingCash != null) {
+                        db.accountDao().update(
+                            existingCash.copy(
+                                name = normalizedName,
+                                fundRole = FundRole.AVAILABLE,
+                            ),
+                        )
+                        openingMinor?.let { desired ->
+                            val current = db.transactionDao().sumByAccount(existingCash.id)
+                            val delta = desired - current
+                            if (delta == 0L) return@let
+                            transactionMutations.createOpeningBalance(
+                                accountId = existingCash.id,
+                                amountMinor = delta,
+                                occurredAt = System.currentTimeMillis(),
+                            )
+                        }
+                        return@withTransaction
+                    }
                 }
                 val groupId = if (type == AccountType.BANK) {
                     val provider = bankProvider ?: normalizedName
@@ -417,6 +437,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     AccountEntity(
                         name = normalizedName, type = type, currency = normalizedCurrency, groupId = groupId,
                         fundRole = if (type == AccountType.SAVINGS) FundRole.RESERVE else FundRole.AVAILABLE,
+                        bankProduct = bankProduct.takeIf { type == AccountType.BANK },
                     ),
                 )
                 openingMinor?.takeIf { it != 0L }?.let { amount ->
@@ -459,9 +480,10 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 return@launch
             }
-            if (groupId != null && iban != null &&
-                (account.type == AccountType.BANK || account.type == AccountType.SAVINGS)
-            ) {
+            // A bank/IBAN is the user-facing container. Product and fund role belong to that
+            // container and must not depend on which currency row (or legacy account type) opened
+            // the editor.
+            if (groupId != null && iban != null) {
                 db.accountDao().updateIbanContainer(groupId, iban, normalizedName, fundRole, bankProduct)
             } else {
                 db.accountDao().update(

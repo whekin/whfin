@@ -131,6 +131,8 @@ fun CredoSyncRoute(
     autoLoadFullHistory: Boolean = false,
     /** Called only after that guided history pass completes without a failed account. */
     onGuidedHistoryComplete: (() -> Unit)? = null,
+    /** Set when the user explicitly asked to remember credentials before the App Lock detour. */
+    initialRememberPassword: Boolean = false,
     /**
      * Where the user came from. A sync ends with its result on screen, and reading it is the point;
      * leaving afterwards should not require finding the Back arrow again.
@@ -289,6 +291,7 @@ fun CredoSyncRoute(
     CredoSyncScreen(
         state = state,
         appLockEnabled = appLockEnabled,
+        initialRememberPassword = initialRememberPassword,
         loginDraft = viewModel.loginDraft,
         incomingOtp = incomingOtp,
         onIncomingOtpConsumed = { incomingOtp = null },
@@ -325,6 +328,7 @@ fun CredoSyncScreen(
     state: CredoSyncUiState,
     appLockEnabled: Boolean,
     loginDraft: CredoLoginDraft? = null,
+    initialRememberPassword: Boolean = false,
     incomingOtp: String? = null,
     onIncomingOtpConsumed: () -> Unit = {},
     onOpenAppLock: () -> Unit,
@@ -348,8 +352,8 @@ fun CredoSyncScreen(
         CredoLoginDraft(username = if (appLockEnabled) state.savedUsername.orEmpty() else "")
     }
     var otp by remember { mutableStateOf("") }
-    var rememberPassword by rememberSaveable(state.hasSavedPassword, appLockEnabled) {
-        mutableStateOf(usableSavedPassword)
+    var rememberPassword by remember {
+        mutableStateOf(initialRememberPassword || usableSavedPassword)
     }
 
     LaunchedEffect(state.savedUsername, appLockEnabled) {
@@ -357,6 +361,7 @@ fun CredoSyncScreen(
     }
     LaunchedEffect(appLockEnabled) {
         if (!appLockEnabled) rememberPassword = false
+        else if (initialRememberPassword) rememberPassword = true
     }
     LaunchedEffect(state.stage) {
         if (state.stage != CredoSyncStage.AwaitingOtp) otp = ""
@@ -456,7 +461,13 @@ fun CredoSyncScreen(
                     canRememberPassword = appLockEnabled,
                     onOpenAppLock = onOpenAppLock,
                     loading = state.stage == CredoSyncStage.Connecting,
-                    onConnect = { onConnect(draft.username, draft.credential, rememberPassword) },
+                    onConnect = {
+                        onConnect(
+                            draft.username,
+                            draft.credential,
+                            rememberPassword || initialRememberPassword,
+                        )
+                    },
                 )
             }
 

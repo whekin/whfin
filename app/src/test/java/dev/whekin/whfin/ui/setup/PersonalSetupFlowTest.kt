@@ -89,4 +89,10 @@ class PersonalSetupFlowTest {
             ),
         )
     }
+
+    @Test
+    fun `cash and salary continue to ready in order`() {
+        assertEquals(PersonalSetupPage.Salary, personalSetupPageAfterCash())
+        assertEquals(PersonalSetupPage.Ready, personalSetupPageAfterSalary())
+    }
 }

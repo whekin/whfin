@@ -73,10 +73,24 @@ fun AddAccountSheet(
         bankProvider: String?,
         openingMinor: Long?,
     ) -> Unit,
+    /** Extended callback for callers that need to persist bank-product metadata on creation. */
+    onConfirmWithProduct: (
+        name: String,
+        type: AccountType,
+        currency: String,
+        bankProvider: String?,
+        openingMinor: Long?,
+        bankProduct: BankProduct?,
+    ) -> Unit = { name, type, currency, bankProvider, openingMinor, _ ->
+        onConfirm(name, type, currency, bankProvider, openingMinor)
+    },
     onConfirmWallet: (name: String?, network: CryptoNetwork, address: String) -> Unit = { _, _, _ -> },
     // Наличные — единственный тип, который заводится только руками: банк приходит из выписки или
     // MyCredo, а кошелёк требует адреса. Поэтому форма открывается на Cash.
     initialType: AccountType = AccountType.CASH,
+    /** Setup can present the cash editor as its own step without offering unrelated account types. */
+    cashOnly: Boolean = false,
+    titleOverride: String? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }
@@ -87,6 +101,7 @@ fun AddAccountSheet(
     var customCashName by remember { mutableStateOf(false) }
     var opening by remember { mutableStateOf("") }
     var bankProvider by remember { mutableStateOf<String?>(null) }
+    var bankProduct by remember { mutableStateOf<BankProduct?>(null) }
 
     val addressCheck = if (type == AccountType.CRYPTO && address.isNotBlank()) {
         CryptoAddressValidator.check(network, address)
@@ -96,7 +111,7 @@ fun AddAccountSheet(
     val addressProblem = (addressCheck as? CryptoAddressValidator.Result.Invalid)?.problem
 
     FormSheet(
-        title = stringResource(R.string.accounts_add),
+        title = titleOverride ?: stringResource(R.string.accounts_add),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
             if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
@@ -110,11 +125,18 @@ fun AddAccountSheet(
             if (type == AccountType.CRYPTO) {
                 onConfirmWallet(name.trim().takeIf(String::isNotEmpty), network, address.trim())
             } else {
-                onConfirm(name.ifBlank { "Cash" }, type, currency, bankProvider, parseToMinor(opening))
+                onConfirmWithProduct(
+                    name.ifBlank { "Cash" },
+                    type,
+                    currency,
+                    bankProvider,
+                    parseToMinor(opening),
+                    bankProduct,
+                )
             }
         },
     ) {
-        TypeSelector(
+        if (!cashOnly) TypeSelector(
             selected = type,
             onSelect = {
                 type = it
@@ -149,6 +171,11 @@ fun AddAccountSheet(
                     )
                 }
             }
+            Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
+            BankProductSelector(
+                selected = bankProduct,
+                onSelect = { bankProduct = it },
+            )
         }
         if (type == AccountType.CRYPTO) {
             Text(stringResource(R.string.account_network), style = MaterialTheme.typography.labelLarge)
@@ -446,7 +473,14 @@ private fun AddCryptoPreview() {
 @Composable
 private fun AddCashPreview() {
     WhfinTheme {
-        AddAccountSheet({}, {}, { _, _, _, _, _ -> }, initialType = AccountType.CASH)
+        AddAccountSheet(
+            onDismiss = {},
+            onImportStatement = {},
+            onConfirm = { _, _, _, _, _ -> },
+            initialType = AccountType.CASH,
+            cashOnly = true,
+            titleOverride = stringResource(R.string.personal_setup_cash_sheet_title),
+        )
     }
 }
 

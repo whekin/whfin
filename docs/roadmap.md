@@ -66,6 +66,9 @@
   расхода напрямую и не требует App Lock: это capture-only поверхность без чтения финансовой истории.
 - [x] Код/соль/Keystore key исключены из JSON и Android backup. Если timeout восстановится без локального
   ключа и кода, приложение безопасно сбрасывает блокировку, а не запирает пользователя.
+- [x] В Credo setup выбор Remember password открывает code setup с активным Immediate timeout;
+  после создания кода draft логина остаётся в ViewModel, флаг Remember password сохраняется, а
+  пользователь возвращается прямо в незавершённый Credo flow.
 - Будущие банковские токены хранить зашифрованными отдельным ключом Android Keystore. App lock сам по себе
   не является шифрованием Room DB; возможное DB-at-rest encryption — отдельное решение с учётом
   фоновой синхронизации и Glance.
@@ -133,6 +136,12 @@ production bank sync.
 - [x] Сделать Accounts семантическим: тап по валютному ledger открывает его транзакции; редактирование
   вынести в явное действие; добавить пользовательское имя IBAN-контейнера и разделить everyday от
   savings/deposits без ложного объединения разных валют.
+- [x] Bank product (`CURRENT_ACCOUNT`, `DEMAND_DEPOSIT`, `TERM_DEPOSIT`) можно выбрать при создании
+  банковского ledger и редактировать из его IBAN-container; ответ применяется ко всем валютным
+  ledger’ам контейнера независимо от `FundRole`.
+- [x] Personal setup после bank/category resolution ведёт через отдельные optional Cash и Salary
+  шаги: Cash принимает имя/текущий баланс или skip, Salary пишет `income_sources` declaration
+  (сумма, валюта, receiving account и day window) без ledger transaction, затем открывает Ready.
 - [x] Заменить системное OTP-поле на локальную четырёхточечную WHFIN-клавиатуру, не сохраняя OTP и не
   подтверждая его автоматически. Вход в Credo setup контекстно включает future transaction monitoring,
   запрашивает общий `RECEIVE_SMS` и может заполнить локальные точки из точного login-шаблона; Inbox для

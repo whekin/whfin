@@ -145,6 +145,11 @@ This is a single-context repository with root domain documentation and system-wi
   объявление описывает месяцы от своего начала и не переписывает прошлое. В ledger ничего не пишется.
   Осталось: чтение входящих переводов кошелька, без него сверять нечего — настоящая точка входа
   владельца (USDT) для WHFIN пока невидима, кошельков в базе ноль.
+- [x] Personal onboarding tail: после bank/category resolution идут отдельные skippable Cash и
+  Salary шаги. Cash сразу открывает существующий cash editor (preset Cash/Pocket money/At home,
+  custom name и initial balance, включая seeded zero ledger); Salary использует `income_sources`
+  editor (amount/currency/receiving account/day window/current start) и никогда не пишет fake ledger
+  transaction. Back ведёт Salary → Cash → Categories, после обоих шагов — Ready.
 - [~] SMS Credo: парсер (6 типов + явные ignored/unrecognized outcomes), BroadcastReceiver,
   persistent toggle и запись распознанного как PENDING. Room DB v3 добавляет локальный журнал
   `sms_diagnostics` без raw body: imported/duplicate/ignored/unrecognized/needs card mapping/
@@ -887,6 +892,12 @@ This is a single-context repository with root domain documentation and system-wi
   действует 30-секундная пауза. Системный PIN телефона не запрашивается. Quick-entry из виджета
   намеренно остаётся мгновенным и не требует разблокировки; сам виджет не показывает баланс.
   App lock не считать шифрованием Room DB; будущие банковские токены получают отдельное key management
+- [x] Credo Remember password detour: если App Lock ещё не настроен, Credo открывает code setup с
+  активным Immediate timeout; login draft остаётся memory-only в ViewModel, а после PIN Remember password
+  остаётся выбранным и следующий connect действительно получает `remember=true`.
+- [x] Bank product edit: Add Account и Account activity показывают `CURRENT_ACCOUNT`, `DEMAND_DEPOSIT`,
+  `TERM_DEPOSIT`; изменение IBAN-container не зависит от `FundRole`/отдельной валютной строки и
+  применяется ко всем его валютным ledgers. Regression покрывает manual product selection и return policy.
 - [~] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
   Известный разрыв до появления второго банка: `TransferPairing` работает внутри одной банковской
   группы, а `isOwnMovement` знает только «между своими счетами Credo». Перевод Credo→TBC уйдёт

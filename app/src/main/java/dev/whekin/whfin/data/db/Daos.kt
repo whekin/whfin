@@ -54,8 +54,9 @@ interface AccountDao {
         bankProduct: BankProduct?,
     )
 
+    /** Bank product is container metadata; null explicitly clears an old answer. */
     @Query("UPDATE accounts SET bankProduct = :bankProduct WHERE groupId = :groupId AND iban = :iban")
-    suspend fun updateIbanBankProduct(groupId: Long, iban: String, bankProduct: BankProduct)
+    suspend fun updateIbanBankProduct(groupId: Long, iban: String, bankProduct: BankProduct?)
 
     @Query("SELECT COUNT(*) FROM accounts WHERE groupId = :groupId")
     suspend fun countInGroup(groupId: Long): Int

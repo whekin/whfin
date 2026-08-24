@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.settings
 import android.content.Context
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -82,6 +83,40 @@ class CredoConnectedScreenTest {
         compose.onNodeWithText(
             context.resources.getQuantityString(R.plurals.credo_sync_unchanged, 2, 2),
         ).performScrollTo().assertExists()
+    }
+
+    @Test
+    fun returningFromAppLock_keepsRememberPasswordSelectedForConnect() {
+        var remember: Boolean? = null
+        compose.setContent {
+            WhfinTheme {
+                CredoSyncScreen(
+                    state = CredoSyncUiState(stage = CredoSyncStage.Disconnected),
+                    appLockEnabled = true,
+                    loginDraft = CredoLoginDraft("user", "password"),
+                    initialRememberPassword = true,
+                    onOpenAppLock = {},
+                    onConnect = { _, _, value -> remember = value },
+                    onSubmitOtp = {},
+                    onResendOtp = {},
+                    onSync = {},
+                    onLoadHistory = {},
+                    onDisconnect = {},
+                    onDismissError = {},
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription(
+            context.getString(R.string.credo_sync_remember_password),
+        ).assertIsOn()
+        compose.runOnIdle { }
+        compose.onNodeWithText(context.getString(R.string.credo_sync_connect))
+            .assertIsEnabled()
+            .performScrollTo()
+            .performClick()
+        compose.runOnIdle { }
+        assertEquals(true, remember)
     }
 
     @Test

@@ -53,9 +53,14 @@ For the current Credo dogfood build, the recommended guided-but-skippable sequen
    infers safe card mappings without copying raw messages into Room. A failed account remains on the
    Credo result surface for retry instead of advancing as if setup succeeded.
 4. After a successful pass, resolve Unrouted SMS first and statement reconciliation issues second. Each
-   queue is skipped when empty; when both are clear, setup advances to the optional accounts step.
-5. A separate second wizard screen optionally adds cash, an unconnected bank account, or a deposit.
-   Skipping it reaches a concise Ready outcome and then Home.
+   queue is skipped when empty; when both are clear, setup advances to the evidence-based category step.
+5. The optional personal-finance tail is explicit and ordered: a dedicated Cash step opens the cash
+   editor immediately (name presets such as Cash/Pocket money/At home, custom name, current balance,
+   or skip), then a dedicated Salary step declares an income source (amount, currency, receiving
+   account, day window and start date, or skip). Neither step invents a transaction; both return to
+   the resumable wizard.
+6. After Cash and Salary, the wizard reaches a concise Ready outcome and then Home. Generic account
+   creation remains available from Accounts for anything outside this first-run path.
 
 The wizard never shows SMS, bank connection, reconciliation, accounts, statement import, and restore in
 one overview. Conditional reconciliation screens appear only when their live queues contain work. Manual

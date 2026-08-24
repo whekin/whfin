@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -33,6 +34,7 @@ class AddAccountSheetTest {
         val type: AccountType,
         val currency: String,
         val openingMinor: Long? = null,
+        val bankProduct: BankProduct? = null,
     )
 
     private data class SavedWallet(
@@ -53,7 +55,12 @@ class AddAccountSheetTest {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, _, opening -> onSave(Saved(name, type, currency, opening)) },
+                    onConfirm = { name, type, currency, _, opening ->
+                        onSave(Saved(name, type, currency, opening))
+                    },
+                    onConfirmWithProduct = { name, type, currency, _, opening, product ->
+                        onSave(Saved(name, type, currency, opening, product))
+                    },
                     onConfirmWallet = { name, network, address ->
                         onSaveWallet(SavedWallet(name, network, address))
                     },
@@ -135,7 +142,12 @@ class AddAccountSheetTest {
                 AddAccountSheet(
                     onDismiss = {},
                     onImportStatement = {},
-                    onConfirm = { name, type, currency, _, opening -> saved = Saved(name, type, currency, opening) },
+                    onConfirm = { name, type, currency, _, opening ->
+                        saved = Saved(name, type, currency, opening)
+                    },
+                    onConfirmWithProduct = { name, type, currency, _, opening, product ->
+                        saved = Saved(name, type, currency, opening, product)
+                    },
                 )
             }
         }
@@ -145,6 +157,19 @@ class AddAccountSheetTest {
 
         assertEquals(AccountType.CASH, saved?.type)
         assertEquals("GEL", saved?.currency)
+    }
+
+    @Test
+    fun bankAccountCanChooseItsProductBeforeAnIbanIsMapped() {
+        var saved: Saved? = null
+        show(AccountType.BANK, onSave = { saved = it })
+
+        tap("Credo")
+        tap(context.getString(R.string.account_product_term_deposit))
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+
+        assertEquals(AccountType.BANK, saved?.type)
+        assertEquals(BankProduct.TERM_DEPOSIT, saved?.bankProduct)
     }
 
     @Test

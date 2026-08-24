@@ -192,20 +192,23 @@ private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?):
     }
 }
 
+/** Shared editor used by Settings and the dedicated first-run salary declaration. */
 @Composable
-private fun IncomeSourceSheet(
+fun IncomeSourceSheet(
     source: IncomeSourceEntity?,
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
     onSave: (String, Long, String, Long?, Int, Int) -> Unit,
     onEnd: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    initialLabel: String = "",
+    initialCurrency: String = "USD",
 ) {
-    var label by remember { mutableStateOf(source?.label.orEmpty()) }
+    var label by remember { mutableStateOf(source?.label ?: initialLabel) }
     var amount by remember {
         mutableStateOf(source?.let { (it.amountMinor / 100.0).toString() }.orEmpty())
     }
-    var currency by remember { mutableStateOf(source?.currency ?: "USD") }
+    var currency by remember { mutableStateOf(source?.currency ?: initialCurrency) }
     var accountId by remember { mutableStateOf(source?.accountId) }
     var dayFrom by remember { mutableStateOf((source?.expectedDayFrom ?: 5).toString()) }
     var dayTo by remember { mutableStateOf((source?.expectedDayTo ?: 10).toString()) }

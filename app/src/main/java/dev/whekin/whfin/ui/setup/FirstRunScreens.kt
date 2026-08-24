@@ -9,10 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Wallet
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -150,7 +152,7 @@ internal val PersonalSetupState.reviewCount: Int?
 internal val PersonalSetupState.ready: Boolean
     get() = smsReady && hasCredoImport == true && reviewCount == 0
 
-internal enum class PersonalSetupStep { Bank, Accounts, Ready, Alternative }
+internal enum class PersonalSetupStep { Bank, Accounts, Cash, Salary, Ready, Alternative }
 
 @Composable
 internal fun PersonalSetupScreen(
@@ -238,6 +240,34 @@ internal fun PersonalSetupScreen(
                             style = WhfinActionStyle.Quiet,
                         )
                     }
+                    PersonalSetupStep.Cash -> {
+                        WhfinButton(
+                            label = stringResource(R.string.personal_setup_cash_add_action),
+                            onClick = onCreateAccount,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            leadingIcon = Icons.Default.Payments,
+                        )
+                        WhfinButton(
+                            label = stringResource(R.string.personal_setup_skip_optional_action),
+                            onClick = onSkip,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = WhfinActionStyle.Quiet,
+                        )
+                    }
+                    PersonalSetupStep.Salary -> {
+                        WhfinButton(
+                            label = stringResource(R.string.personal_setup_salary_add_action),
+                            onClick = onCreateAccount,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            leadingIcon = Icons.Default.Work,
+                        )
+                        WhfinButton(
+                            label = stringResource(R.string.personal_setup_skip_optional_action),
+                            onClick = onSkip,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = WhfinActionStyle.Quiet,
+                        )
+                    }
                     PersonalSetupStep.Ready -> WhfinButton(
                         label = stringResource(R.string.personal_setup_continue_action),
                         onClick = onContinue,
@@ -276,18 +306,24 @@ private fun WizardHeader(step: PersonalSetupStep, bankConnected: Boolean) {
     val label = when (step) {
         PersonalSetupStep.Bank -> R.string.personal_setup_progress_bank
         PersonalSetupStep.Accounts -> R.string.personal_setup_progress_accounts
+        PersonalSetupStep.Cash -> R.string.personal_setup_progress_cash
+        PersonalSetupStep.Salary -> R.string.personal_setup_progress_salary
         PersonalSetupStep.Ready -> R.string.personal_setup_progress_ready
         PersonalSetupStep.Alternative -> R.string.personal_setup_progress_alternative
     }
     val title = when (step) {
         PersonalSetupStep.Bank -> R.string.personal_setup_bank_title
         PersonalSetupStep.Accounts -> R.string.personal_setup_accounts_title
+        PersonalSetupStep.Cash -> R.string.personal_setup_cash_title
+        PersonalSetupStep.Salary -> R.string.personal_setup_salary_title
         PersonalSetupStep.Ready -> R.string.personal_setup_ready_title
         PersonalSetupStep.Alternative -> R.string.personal_setup_alternative_title
     }
     val body = when (step) {
         PersonalSetupStep.Bank -> R.string.personal_setup_bank_body
         PersonalSetupStep.Accounts -> R.string.personal_setup_accounts_body
+        PersonalSetupStep.Cash -> R.string.personal_setup_cash_body
+        PersonalSetupStep.Salary -> R.string.personal_setup_salary_body
         PersonalSetupStep.Ready -> if (bankConnected) {
             R.string.personal_setup_ready_body
         } else {
@@ -348,6 +384,22 @@ private fun WizardBody(step: PersonalSetupStep, state: PersonalSetupState) {
                 },
                 supportingMaxLines = 3,
                 icon = Icons.Default.Wallet,
+            )
+        }
+        PersonalSetupStep.Cash -> WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.personal_setup_cash_card_title),
+                supportingText = stringResource(R.string.personal_setup_cash_card_body),
+                supportingMaxLines = 3,
+                icon = Icons.Default.Payments,
+            )
+        }
+        PersonalSetupStep.Salary -> WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.personal_setup_salary_card_title),
+                supportingText = stringResource(R.string.personal_setup_salary_card_body),
+                supportingMaxLines = 3,
+                icon = Icons.Default.Work,
             )
         }
         PersonalSetupStep.Ready -> WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
@@ -502,6 +554,48 @@ private fun PersonalSetupAccountsPreview() {
         PersonalSetupScreen(
             step = PersonalSetupStep.Accounts,
             state = PersonalSetupState(accountCount = 3, hasCredoImport = true),
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = {},
+            onRestoreBackup = {},
+            onSkip = {},
+            onContinue = {},
+            onBack = {},
+        )
+    }
+}
+
+@Preview(name = "Personal setup cash", widthDp = 400, heightDp = 850, showBackground = true)
+@Preview(name = "Personal setup cash dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Personal setup cash RU large", widthDp = 400, heightDp = 950, locale = "ru", fontScale = 1.5f)
+@Composable
+private fun PersonalSetupCashPreview() {
+    WhfinTheme {
+        PersonalSetupScreen(
+            step = PersonalSetupStep.Cash,
+            state = PersonalSetupState(hasCredoImport = true),
+            onConnectBank = {},
+            onShowAlternatives = {},
+            onImportStatement = {},
+            onCreateAccount = {},
+            onRestoreBackup = {},
+            onSkip = {},
+            onContinue = {},
+            onBack = {},
+        )
+    }
+}
+
+@Preview(name = "Personal setup salary", widthDp = 400, heightDp = 850, showBackground = true)
+@Preview(name = "Personal setup salary dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Personal setup salary compact", widthDp = 400, heightDp = 560, fontScale = 1.5f)
+@Composable
+private fun PersonalSetupSalaryPreview() {
+    WhfinTheme {
+        PersonalSetupScreen(
+            step = PersonalSetupStep.Salary,
+            state = PersonalSetupState(hasCredoImport = true),
             onConnectBank = {},
             onShowAlternatives = {},
             onImportStatement = {},

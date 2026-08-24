@@ -48,7 +48,9 @@ import dev.whekin.whfin.data.security.WhfinAuthenticator
 import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAvailability
 import dev.whekin.whfin.data.sms.SmsForegroundCatchUp
 import dev.whekin.whfin.ui.MainScreen
+import dev.whekin.whfin.ui.accounts.AccountsViewModel
 import dev.whekin.whfin.ui.settings.AppLockGate
+import dev.whekin.whfin.ui.settings.IncomeSourcesViewModel
 import dev.whekin.whfin.ui.setup.PersonalSetupFlow
 import dev.whekin.whfin.ui.setup.PersonalSetupState
 import dev.whekin.whfin.ui.setup.WelcomeChoiceScreen
@@ -130,6 +132,9 @@ class MainActivity : FragmentActivity() {
     private var welcomeCompleted by mutableStateOf(false)
     private var personalSetupPending by mutableStateOf(false)
     private var setupInvitationDismissed by mutableStateOf(false)
+    // Keeps the setup caller truthful in the frame immediately after PIN creation, before the
+    // asynchronous DataStore collector has observed the newly selected timeout.
+    private var appLockTimeoutOverride by mutableStateOf<AppLockTimeout?>(null)
     // Setup reached from Home is a visit, not the first run: leaving it goes back to the workspace
     // that is already there, and must not strand the pending flag that reopens setup on every launch.
     private var setupResumedFromHome by mutableStateOf(false)
@@ -146,6 +151,8 @@ class MainActivity : FragmentActivity() {
         SmsForegroundCatchUp(applicationContext, (application as WhfinApp).userDb)
     }
     private lateinit var appLock: AppLockViewModel
+    private lateinit var setupAccounts: AccountsViewModel
+    private lateinit var setupIncomeSources: IncomeSourcesViewModel
     private lateinit var authenticator: WhfinAuthenticator
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -168,6 +175,8 @@ class MainActivity : FragmentActivity() {
         runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
         if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
+        setupAccounts = ViewModelProvider(this)[AccountsViewModel::class.java]
+        setupIncomeSources = ViewModelProvider(this)[IncomeSourcesViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
         hasAppLockPin = pinStore.hasPin()
         refreshSmsPermission()
@@ -230,7 +239,7 @@ class MainActivity : FragmentActivity() {
                     .collectAsState(initial = null)
                 val savedTimeout: AppLockTimeout? by uiPreferences.appLockTimeout.collectAsState(initial = null)
                 val biometricEnabled: Boolean? by uiPreferences.biometricUnlockEnabled.collectAsState(initial = null)
-                val effectiveTimeout = savedTimeout
+                val effectiveTimeout = (appLockTimeoutOverride ?: savedTimeout)
                     ?.takeIf { !it.enabled || hasAppLockPin }
                     ?: AppLockTimeout.Disabled
                 val scope = rememberCoroutineScope()
@@ -333,6 +342,26 @@ class MainActivity : FragmentActivity() {
                                     scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
                                 },
                                 onOpenBiometricSettings = ::openBiometricSettings,
+                                accounts = personalAccounts.orEmpty(),
+                                onSaveCash = { name, currency, openingMinor ->
+                                    setupAccounts.addAccount(
+                                        name = name,
+                                        type = AccountType.CASH,
+                                        currency = currency,
+                                        openingMinor = openingMinor,
+                                    )
+                                },
+                                onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
+                                    setupIncomeSources.save(
+                                        existing = null,
+                                        label = label,
+                                        amountMinor = amountMinor,
+                                        currency = currency,
+                                        accountId = accountId,
+                                        dayFrom = dayFrom,
+                                        dayTo = dayTo,
+                                    )
+                                },
                                 onContinue = { initialTab, openAccountAdd ->
                                     app.runtimeModes.personalSetupPending = false
                                     personalSetupPending = false
@@ -629,6 +658,7 @@ class MainActivity : FragmentActivity() {
     private fun requestTimeoutChange(timeout: AppLockTimeout) {
         if (timeout == appLock.timeout) return
         if (timeout.enabled && !hasAppLockPin) return
+        appLockTimeoutOverride = timeout
         appLock.configure(timeout, hasAppLockPin)
         appLock.unlock()
         updateWindowPrivacy()
@@ -638,6 +668,7 @@ class MainActivity : FragmentActivity() {
     private fun savePin(pin: String, timeout: AppLockTimeout) {
         pinStore.setPin(pin.toCharArray())
         hasAppLockPin = true
+        appLockTimeoutOverride = timeout
         appLock.configure(timeout, hasPin = true)
         appLock.unlock()
         updateWindowPrivacy()
