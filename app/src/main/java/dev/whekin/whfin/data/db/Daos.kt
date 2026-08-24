@@ -42,16 +42,21 @@ interface AccountDao {
     @Update
     suspend fun update(account: AccountEntity)
 
+    /**
+     * Update the owner-controlled profile of every currency ledger in an IBAN container.
+     *
+     * The bank product is contract metadata owned by Bank details, so this path deliberately
+     * leaves it (and every other ledger field) untouched.
+     */
     @Query(
-        "UPDATE accounts SET name = :name, fundRole = :fundRole, bankProduct = :bankProduct " +
+        "UPDATE accounts SET name = :name, fundRole = :fundRole " +
             "WHERE groupId = :groupId AND iban = :iban",
     )
-    suspend fun updateIbanContainer(
+    suspend fun updateIbanProfile(
         groupId: Long,
         iban: String,
         name: String,
         fundRole: FundRole,
-        bankProduct: BankProduct?,
     )
 
     /** Bank product is container metadata; null explicitly clears an old answer. */

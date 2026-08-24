@@ -29,7 +29,7 @@ class AccountProductDaoTest {
     fun tearDown() = db.close()
 
     @Test
-    fun productEditAppliesToEveryCurrencyLedgerOfTheIbanContainer() = runBlocking {
+    fun profileEditAppliesNameAndFundRoleAcrossContainerWithoutChangingProducts() = runBlocking {
         val groupId = db.financialGroupDao().insert(
             FinancialGroupEntity(
                 name = "Credo",
@@ -45,6 +45,7 @@ class AccountProductDaoTest {
                 currency = "GEL",
                 iban = "GE00CONTAINER",
                 fundRole = FundRole.AVAILABLE,
+                bankProduct = BankProduct.CURRENT_ACCOUNT,
             ),
         )
         db.accountDao().insert(
@@ -55,19 +56,19 @@ class AccountProductDaoTest {
                 currency = "USD",
                 iban = "GE00CONTAINER",
                 fundRole = FundRole.RESERVE,
+                bankProduct = BankProduct.DEMAND_DEPOSIT,
             ),
         )
 
-        db.accountDao().updateIbanContainer(
+        db.accountDao().updateIbanProfile(
             groupId = groupId,
             iban = "GE00CONTAINER",
             name = "Rainy day",
             fundRole = FundRole.AVAILABLE,
-            bankProduct = BankProduct.TERM_DEPOSIT,
         )
 
         assertEquals(
-            listOf(BankProduct.TERM_DEPOSIT, BankProduct.TERM_DEPOSIT),
+            listOf(BankProduct.CURRENT_ACCOUNT, BankProduct.DEMAND_DEPOSIT),
             db.accountDao().byGroup(groupId).map { it.bankProduct },
         )
         assertEquals(

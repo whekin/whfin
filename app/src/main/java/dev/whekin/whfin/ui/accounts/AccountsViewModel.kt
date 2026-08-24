@@ -457,7 +457,6 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         currency: String,
         address: String?,
         fundRole: FundRole,
-        bankProduct: BankProduct?,
     ) {
         viewModelScope.launch {
             val normalizedName = name.trim().ifBlank { if (account.type == AccountType.CASH) "Cash" else account.name }
@@ -480,18 +479,17 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 return@launch
             }
-            // A bank/IBAN is the user-facing container. Product and fund role belong to that
-            // container and must not depend on which currency row (or legacy account type) opened
-            // the editor.
+            // A bank/IBAN is the user-facing container. Name and fund role are the owner's
+            // profile fields; bank product belongs exclusively to Bank details and must survive
+            // editing any currency row in this sheet.
             if (groupId != null && iban != null) {
-                db.accountDao().updateIbanContainer(groupId, iban, normalizedName, fundRole, bankProduct)
+                db.accountDao().updateIbanProfile(groupId, iban, normalizedName, fundRole)
             } else {
                 db.accountDao().update(
                     account.copy(
                         name = normalizedName,
                         currency = currency.trim().uppercase(),
                         fundRole = fundRole,
-                        bankProduct = bankProduct,
                     ),
                 )
             }

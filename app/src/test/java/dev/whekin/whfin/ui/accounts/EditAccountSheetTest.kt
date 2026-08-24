@@ -24,10 +24,9 @@ class EditAccountSheetTest {
     val compose = createComposeRule()
 
     @Test
-    fun bankAccountEditsPurposeWithoutPretendingCurrencyIsContainerMetadata() {
+    fun bankEditDoesNotExposeBankProductAndSavesOnlyFundRole() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         var savedRole: FundRole? = null
-        var savedProduct: BankProduct? = null
         compose.setContent {
             WhfinTheme {
                 EditAccountSheet(
@@ -42,21 +41,18 @@ class EditAccountSheetTest {
                         bankProduct = BankProduct.DEMAND_DEPOSIT,
                     ),
                     onDismiss = {},
-                    onConfirm = { _, _, _, role, product ->
+                    onConfirm = { _, _, _, role ->
                         savedRole = role
-                        savedProduct = product
                     },
                 )
             }
         }
 
         compose.onNodeWithText(context.getString(R.string.account_fund_role)).assertExists()
-        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.account_currency)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.account_fund_available)).performClick()
-        compose.onNodeWithText(context.getString(R.string.account_product_term_deposit)).performClick()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         assertEquals(FundRole.AVAILABLE, savedRole)
-        assertEquals(BankProduct.TERM_DEPOSIT, savedProduct)
     }
 }

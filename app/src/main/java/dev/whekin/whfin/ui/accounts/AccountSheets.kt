@@ -311,14 +311,12 @@ fun EditAccountSheet(
         currency: String,
         address: String?,
         fundRole: FundRole,
-        bankProduct: BankProduct?,
     ) -> Unit,
 ) {
     var name by remember { mutableStateOf(account.name) }
     var currency by remember { mutableStateOf(account.currency) }
     var address by remember { mutableStateOf(initialAddress.orEmpty()) }
     var fundRole by remember { mutableStateOf(account.fundRole) }
-    var bankProduct by remember { mutableStateOf(account.bankProduct) }
 
     FormSheet(
         title = stringResource(R.string.account_edit),
@@ -331,7 +329,6 @@ fun EditAccountSheet(
                 currency,
                 address.trim().takeIf(String::isNotEmpty),
                 fundRole,
-                bankProduct,
             )
         },
     ) {
@@ -349,13 +346,6 @@ fun EditAccountSheet(
                     selected = fundRole,
                     onSelect = { fundRole = it },
                 )
-                if (account.type != AccountType.CASH) {
-                    Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
-                    BankProductSelector(
-                        selected = bankProduct,
-                        onSelect = { bankProduct = it },
-                    )
-                }
             }
             // A wallet is its address and the chain decides its assets: only the name is the
             // person's to change, so the rest is shown as what it is rather than as a field.
@@ -423,23 +413,23 @@ private fun BankProductSelector(
     }
 }
 
-@Preview(name = "Edit demand deposit", widthDp = 400, heightDp = 700, showBackground = true)
+@Preview(name = "Edit bank profile", widthDp = 400, heightDp = 700, showBackground = true)
 @Preview(
-    name = "Edit demand deposit dark",
+    name = "Edit bank profile dark",
     widthDp = 400,
     heightDp = 700,
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
 @Preview(
-    name = "Edit demand deposit font 1.5",
+    name = "Edit bank profile font 1.5",
     widthDp = 400,
     heightDp = 900,
     fontScale = 1.5f,
     showBackground = true,
 )
-@Preview(name = "Edit demand deposit compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Preview(name = "Edit bank profile compact", widthDp = 400, heightDp = 520, showBackground = true)
 @Composable
-private fun EditDemandDepositPreview() {
+private fun EditBankProfilePreview() {
     WhfinTheme {
         EditAccountSheet(
             account = AccountEntity(
@@ -452,7 +442,7 @@ private fun EditDemandDepositPreview() {
                 bankProduct = BankProduct.DEMAND_DEPOSIT,
             ),
             onDismiss = {},
-            onConfirm = { _, _, _, _, _ -> },
+            onConfirm = { _, _, _, _ -> },
         )
     }
 }

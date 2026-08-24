@@ -480,8 +480,8 @@ fun AccountsScreen(
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editAccountFor = null },
-            onConfirm = { name, currency, address, fundRole, bankProduct ->
-                viewModel.editAccount(item.account, name, currency, address, fundRole, bankProduct)
+            onConfirm = { name, currency, address, fundRole ->
+                viewModel.editAccount(item.account, name, currency, address, fundRole)
                 editAccountFor = null
             },
         )

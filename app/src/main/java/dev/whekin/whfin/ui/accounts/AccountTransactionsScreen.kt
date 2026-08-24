@@ -266,8 +266,8 @@ internal fun AccountTransactionsScreen(
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editAccount = false },
-            onConfirm = { name, currency, address, fundRole, bankProduct ->
-                accountsViewModel.editAccount(item.account, name, currency, address, fundRole, bankProduct)
+            onConfirm = { name, currency, address, fundRole ->
+                accountsViewModel.editAccount(item.account, name, currency, address, fundRole)
                 editAccount = false
             },
         )

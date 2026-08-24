@@ -137,8 +137,9 @@ production bank sync.
   вынести в явное действие; добавить пользовательское имя IBAN-контейнера и разделить everyday от
   savings/deposits без ложного объединения разных валют.
 - [x] Bank product (`CURRENT_ACCOUNT`, `DEMAND_DEPOSIT`, `TERM_DEPOSIT`) можно выбрать при создании
-  банковского ledger и редактировать из его IBAN-container; ответ применяется ко всем валютным
-  ledger’ам контейнера независимо от `FundRole`.
+  банковского ledger и редактировать из Bank details его IBAN-container; ответ применяется ко всем
+  валютным ledger’ам контейнера независимо от `FundRole`. Edit account меняет только имя и роль
+  средств, поэтому профиль контейнера не перезаписывает продукт договора.
 - [x] Personal setup после bank/category resolution ведёт через отдельные optional Cash и Salary
   шаги: Cash принимает имя/текущий баланс или skip, Salary пишет `income_sources` declaration
   (сумма, валюта, receiving account и day window) без ledger transaction, затем открывает Ready.

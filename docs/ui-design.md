@@ -95,8 +95,10 @@ the fallback), so a ledger may become “Pocket money” or “Rainy day”; it 
 WHFIN still rejects a second active Cash ledger in the same currency.
 
 Currency rows only open their own transaction ledger. Container-wide edit, bank mapping, balance actions,
-and destructive removal live behind the account header settings action. The source header opens a full-screen
-overview: bank/Cash details, account aliases, IBAN/card metadata, currencies, and statement coverage. Currency
+and destructive removal live behind the account header settings action. Edit account owns the user-facing
+name and Available/Reserve role; bank product (`Current account`, `Demand deposit`, or `Term deposit`)
+belongs only to Bank details, where it applies atomically to every currency ledger under that IBAN. The
+source header opens a full-screen overview: bank/Cash details, account aliases, IBAN/card metadata, currencies, and statement coverage. Currency
 codes are not repeated in the account header because the ledger rows immediately below already own them.
 
 The Accounts list carries only what distinguishes a row. A source with exactly one account container has no
