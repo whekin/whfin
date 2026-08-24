@@ -31,6 +31,9 @@ This is a single-context repository with root domain documentation and system-wi
   Dogfood `0.2.1 (3)` установлен upgrade поверх `0.2.0 (2)` на Samsung S25 (SM-S931B): сертификат APK
   сверен, исходная дата установки и данные сохранены, процесс запущен, SMS/notification permissions
   остались выданы. Предыдущий upgrade сборки `e37dbea` также доказал Room v1→v2 на месте.
+  Dogfood `0.3.4 (16)` установлен signed in-place upgrade поверх `0.3.3 (15)` на том же Samsung:
+  release certificate `af6009…fae92` сверен до установки, `firstInstallTime` сохранился, SMS и
+  notification permissions остались выданы, запуск дошёл до существующего App Lock biometric prompt.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
