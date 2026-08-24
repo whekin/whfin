@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.BankProduct
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Rule
 import org.junit.Assert.assertEquals
@@ -44,7 +45,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = listOf("0002"),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _ -> },
+                    onConfirm = { _, _, _, _, _ -> },
                 )
             }
         }
@@ -68,7 +69,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { _, savedPhysical, savedVirtual, _ ->
+                    onConfirm = { _, _, savedPhysical, savedVirtual, _ ->
                         physical = savedPhysical
                         virtual = savedVirtual
                     },
@@ -97,7 +98,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = emptyList(),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, savedPrimary -> primary = savedPrimary },
+                    onConfirm = { _, _, _, _, savedPrimary -> primary = savedPrimary },
                 )
             }
         }
@@ -106,5 +107,45 @@ class BankMappingSheetTest {
         compose.onNodeWithTag("card-0002-primary").assertIsSelected()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         compose.runOnIdle { assertEquals("0002", primary) }
+    }
+
+    @Test
+    fun bankProductCanBeSetFromBankDetailsAndSavedWithCardMetadata() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var savedProduct: BankProduct? = null
+        var savedIban: String? = null
+
+        compose.setContent {
+            WhfinTheme {
+                BankMappingSheet(
+                    account = AccountEntity(
+                        id = 1,
+                        name = "Everyday",
+                        type = AccountType.BANK,
+                        groupId = 1,
+                        currency = "GEL",
+                        iban = "GE00CD0000000000000001",
+                    ),
+                    existingCards = listOf("0001"),
+                    existingVirtualCards = emptyList(),
+                    onDismiss = {},
+                    onConfirm = { iban, product, _, _, _ ->
+                        savedIban = iban
+                        savedProduct = product
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_product_term_deposit))
+            .performScrollTo()
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+
+        compose.runOnIdle {
+            assertEquals("GE00CD0000000000000001", savedIban)
+            assertEquals(BankProduct.TERM_DEPOSIT, savedProduct)
+        }
     }
 }

@@ -903,9 +903,10 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] Credo Remember password detour: если App Lock ещё не настроен, Credo открывает code setup с
   активным Immediate timeout; login draft остаётся memory-only в ViewModel, а после PIN Remember password
   остаётся выбранным и следующий connect действительно получает `remember=true`.
-- [x] Bank product edit: Add Account и Account activity показывают `CURRENT_ACCOUNT`, `DEMAND_DEPOSIT`,
-  `TERM_DEPOSIT`; изменение IBAN-container не зависит от `FundRole`/отдельной валютной строки и
-  применяется ко всем его валютным ledgers. Regression покрывает manual product selection и return policy.
+- [x] Bank product edit: Add Account, Bank details и Account activity показывают `CURRENT_ACCOUNT`,
+  `DEMAND_DEPOSIT`, `TERM_DEPOSIT`; изменение IBAN-container не зависит от `FundRole`/отдельной
+  валютной строки и применяется ко всем его валютным ledgers. Regression покрывает выбор продукта
+  в Bank details, manual product selection и return policy.
 - [~] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
   Известный разрыв до появления второго банка: `TransferPairing` работает внутри одной банковской
   группы, а `isOwnMovement` знает только «между своими счетами Credo». Перевод Credo→TBC уйдёт

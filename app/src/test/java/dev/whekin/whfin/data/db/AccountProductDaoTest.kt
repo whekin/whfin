@@ -75,4 +75,50 @@ class AccountProductDaoTest {
             db.accountDao().byGroup(groupId).map { it.fundRole },
         )
     }
+
+    @Test
+    fun bankDetailsProductEditPreservesEachLedgerFundRole() = runBlocking {
+        val groupId = db.financialGroupDao().insert(
+            FinancialGroupEntity(
+                name = "Credo",
+                type = FinancialGroupType.BANK,
+                provider = "Credo",
+            ),
+        )
+        db.accountDao().insert(
+            AccountEntity(
+                name = "Credo",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "GEL",
+                iban = "GE00BANKDETAILS",
+                fundRole = FundRole.AVAILABLE,
+            ),
+        )
+        db.accountDao().insert(
+            AccountEntity(
+                name = "Credo",
+                type = AccountType.BANK,
+                groupId = groupId,
+                currency = "USD",
+                iban = "GE00BANKDETAILS",
+                fundRole = FundRole.RESERVE,
+            ),
+        )
+
+        db.accountDao().updateIbanBankProduct(
+            groupId = groupId,
+            iban = "GE00BANKDETAILS",
+            bankProduct = BankProduct.TERM_DEPOSIT,
+        )
+
+        assertEquals(
+            listOf(BankProduct.TERM_DEPOSIT, BankProduct.TERM_DEPOSIT),
+            db.accountDao().byGroup(groupId).map { it.bankProduct },
+        )
+        assertEquals(
+            listOf(FundRole.AVAILABLE, FundRole.RESERVE),
+            db.accountDao().byGroup(groupId).map { it.fundRole },
+        )
+    }
 }

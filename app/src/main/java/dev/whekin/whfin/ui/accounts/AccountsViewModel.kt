@@ -513,6 +513,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     fun updateBankMapping(
         accounts: List<AccountEntity>,
         iban: String?,
+        bankProduct: BankProduct?,
         cardMasks: List<String>,
         virtualCards: List<String>,
         primaryLast4: String?,
@@ -524,7 +525,12 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 // apart, a failure halfway leaves cards pointing at an account that never got its
                 // IBAN, and SMS routing then lands the money in the wrong ledger.
                 db.withTransaction {
-                    val updatedAccounts = accounts.map { account -> account.copy(iban = iban) }
+                    // IBAN and bank product are container metadata. Keep each ledger's role and
+                    // every unrelated field intact while applying both values to every currency
+                    // row in the container atomically.
+                    val updatedAccounts = accounts.map { account ->
+                        account.copy(iban = iban, bankProduct = bankProduct)
+                    }
                     updatedAccounts.forEach { account -> db.accountDao().update(account) }
                     db.paymentInstrumentDao().replaceForAccounts(
                         updatedAccounts,

@@ -461,10 +461,11 @@ fun AccountsScreen(
             existingVirtualCards = rows.flatMap { it.virtualCardMasks }.distinct(),
             existingPrimaryCard = rows.flatMap { it.primaryCardMasks }.firstOrNull(),
             onDismiss = { bankDetailsFor = null },
-            onConfirm = { iban, physicalCards, virtualCards, primaryCard ->
+            onConfirm = { iban, bankProduct, physicalCards, virtualCards, primaryCard ->
                 viewModel.updateBankMapping(
                     rows.map { it.account },
                     iban,
+                    bankProduct,
                     physicalCards,
                     virtualCards,
                     primaryCard,

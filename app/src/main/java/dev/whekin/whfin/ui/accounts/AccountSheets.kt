@@ -491,9 +491,12 @@ fun BankMappingSheet(
     existingVirtualCards: List<String>,
     existingPrimaryCard: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (String?, List<String>, List<String>, String?) -> Unit,
+    onConfirm: (String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
 ) {
     var iban by remember { mutableStateOf(account.iban.orEmpty()) }
+    var bankProduct by remember(account.id, account.bankProduct) {
+        mutableStateOf(account.bankProduct)
+    }
     var cards by remember(account.id, existingCards, existingVirtualCards) {
         mutableStateOf((existingCards + existingVirtualCards).distinct().joinToString(", "))
     }
@@ -516,6 +519,7 @@ fun BankMappingSheet(
         onPrimary = {
             onConfirm(
                 iban.trim().takeIf(String::isNotEmpty),
+                bankProduct,
                 validCards.filter { cardTypes[it] != PaymentInstrumentType.VIRTUAL_CARD },
                 validCards.filter { cardTypes[it] == PaymentInstrumentType.VIRTUAL_CARD },
                 primaryCard?.takeIf(validCards::contains),
@@ -532,6 +536,11 @@ fun BankMappingSheet(
             onValueChange = { iban = it.uppercase().filterNot(Char::isWhitespace) },
             label = stringResource(R.string.account_iban),
             modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
+        BankProductSelector(
+            selected = bankProduct,
+            onSelect = { bankProduct = it },
         )
         WhfinField(
             value = cards,
@@ -634,7 +643,7 @@ private fun BankMappingPreview() {
             existingVirtualCards = listOf("0002"),
             existingPrimaryCard = "0001",
             onDismiss = {},
-            onConfirm = { _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _ -> },
         )
     }
 }
