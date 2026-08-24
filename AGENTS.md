@@ -34,6 +34,9 @@ This is a single-context repository with root domain documentation and system-wi
   Dogfood `0.3.4 (16)` установлен signed in-place upgrade поверх `0.3.3 (15)` на том же Samsung:
   release certificate `af6009…fae92` сверен до установки, `firstInstallTime` сохранился, SMS и
   notification permissions остались выданы, запуск дошёл до существующего App Lock biometric prompt.
+  Dogfood `0.3.5 (17)` установлен signed in-place upgrade поверх `0.3.4 (16)`:
+  certificate и version APK сверены, `firstInstallTime` и SMS/notification permissions сохранились,
+  процесс WHFIN запущен; visual QA не прерывал активный foreground-экран владельца.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
