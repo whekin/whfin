@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
@@ -67,7 +68,11 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -153,6 +158,7 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
+import dev.whekin.whfin.data.recurring.RecurringCharge
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
 import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
 import androidx.compose.ui.tooling.preview.Preview
@@ -169,7 +175,7 @@ import dev.whekin.whfin.ui.analytics.AnalyticsUiModel
 import dev.whekin.whfin.ui.analytics.AnalyticsUiState
 import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
 
-private sealed interface FeedTimelineEntry {
+internal sealed interface FeedTimelineEntry {
     val day: LocalDate
     val occurredAt: Long
     val amountMinor: Long
@@ -267,6 +273,7 @@ fun FeedScreen(
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var splitFor by remember { mutableStateOf<FeedItem?>(null) }
     var showAdd by remember { mutableStateOf(false) }
+    var addPrefill by remember { mutableStateOf<ManualPrefill?>(null) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
     var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var expandedTransferDays by remember { mutableStateOf(setOf<LocalDate>()) }
@@ -280,23 +287,21 @@ fun FeedScreen(
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
     var showBatchStatus by remember { mutableStateOf(false) }
     var showBatchDelete by remember { mutableStateOf(false) }
-    val now = LocalDate.now()
-    val monthItems = items.filter {
-        it.day.month == now.month && it.day.year == now.year &&
-            !it.tx.isTransfer && it.tx.transferGroupId == null && !it.isDebt &&
-            it.tx.source != dev.whekin.whfin.data.db.TxSource.ADJUSTMENT && it.category?.isSystem != true
-    }
-    // Валютная операция входит в сводку своей зафиксированной стоимостью в лари — курсом её
-    // собственного дня. Пока день не оценён, строка не превращается в ноль и просто ждёт.
-    val monthGelValues = monthItems.mapNotNull {
-        if (it.tx.currency == "GEL") it.tx.amountMinor else it.tx.gelValueMinor
-    }
-    val fallbackIncome = monthGelValues.sumOf { it.coerceAtLeast(0) }
-    val fallbackExpenses = -monthGelValues.sumOf { it.coerceAtMost(0) }
+    var noticesExpanded by remember { mutableStateOf(false) }
+    val monthFlow by viewModel.monthFlow.collectAsState()
+    val attention by viewModel.attention.collectAsState()
+    val recent by viewModel.recentActivity.collectAsState()
+    val spendable by viewModel.spendable.collectAsState()
+    val accountBalances by viewModel.accountBalances.collectAsState()
+    val recurringDue by viewModel.recurringDue.collectAsState()
+    val incomeSources by viewModel.incomeSources.collectAsState()
     val homeAnalytics = (homeAnalyticsState?.state as? AnalyticsUiState.Content)?.data
-    val income = homeAnalytics?.incomeMinor ?: fallbackIncome
-    val expenses = homeAnalytics?.expenseMinor ?: fallbackExpenses
+    val income = homeAnalytics?.incomeMinor ?: monthFlow.incomeMinor
+    val expenses = homeAnalytics?.expenseMinor ?: monthFlow.expenseMinor
     val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
+    val runway = remember(spendable, homeAnalytics, incomeSources) {
+        homeRunway(spendable?.pivotMinor, homeAnalytics, incomeSources, LocalDate.now())
+    }
     val visibleItems = items.filter { item ->
         val matchesType = when (filter) {
             FeedFilter.ALL -> true
@@ -369,6 +374,7 @@ fun FeedScreen(
         onConsumed = onAddRequestConsumed,
     ) {
             selectedIds = emptySet()
+            addPrefill = null
             showAdd = true
     }
 
@@ -432,10 +438,16 @@ fun FeedScreen(
                     )
                 }
             } else {
-                val total = netWorth
+                // Home leads with money that can be spent today; what is owned is the Accounts
+                // page's headline. The pager's two peers answer two different questions, and one
+                // number shown twice answered neither.
+                val total = if (mode == FeedMode.HOME) spendable?.total else netWorth
                 val totalAmount = total?.amount
+                val headline = stringResource(
+                    if (mode == FeedMode.HOME) R.string.home_spendable else R.string.balance_total,
+                )
                 WhfinContextHeader(
-                    label = convertedTotalLabel(stringResource(R.string.balance_total), total),
+                    label = convertedTotalLabel(headline, total),
                     value = if (totalAmount == null) "—" else formatDecimal(totalAmount, total.currency),
                     valueSymbol = currencySymbol(total?.currency ?: displayCurrency),
                     scrollBehavior = headerScrollBehavior,
@@ -484,50 +496,72 @@ fun FeedScreen(
         ) {
         if (mode == FeedMode.HOME && !selectionMode) {
             item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
-            if (showSetupInvitation) item(key = "setup-invitation") {
-                SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
+            runway?.let { reading ->
+                item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts) }
+            }
+            if (recurringDue.isNotEmpty()) item(key = "recurring") {
+                HomeRecurringRow(recurringDue)
             }
             val lowCardBalances = physicalCardBalances.filter {
                 physicalCardBalanceStatus(it.balanceMinor) != PhysicalCardBalanceStatus.Enough
             }
-            if (lowCardBalances.isNotEmpty()) item(key = "physical-card-balance") {
-                HomePhysicalCardBalance(
-                    balances = lowCardBalances,
-                    notificationsEnabled = hasLowBalanceNotificationPermission,
-                    onOpenAccounts = onOpenAccounts,
-                    onEnableNotifications = onRequestLowBalanceNotificationPermission,
-                )
+            // Every standing condition is a block competing for the same first screenful, so they
+            // are ranked and capped rather than stacked in the order the code happens to know them.
+            val presentNotices = buildSet {
+                if (lowCardBalances.isNotEmpty()) add(HomeNotice.CARD_BALANCE)
+                if (showSetupInvitation) add(HomeNotice.SETUP)
+                if (integrityIssues > 0) add(HomeNotice.INTEGRITY)
+                if (credoReminder != null && showCredoSyncReminder) add(HomeNotice.CREDO_SYNC)
+                if (showSmsOnboarding) add(HomeNotice.SMS_ONBOARDING)
             }
-            if (showSmsOnboarding) item(key = "sms-onboarding") {
-                SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
-            }
-            credoReminder?.takeIf { showCredoSyncReminder }?.let { reminder ->
-                item(key = "credo-sync-reminder") {
-                    CredoSyncReminderCard(reminder, onOpenCredoSync)
+            val triage = triageHomeNotices(presentNotices, expanded = noticesExpanded)
+            items(triage.visible, key = { "notice-${it.name}" }) { notice ->
+                when (notice) {
+                    HomeNotice.CARD_BALANCE -> HomePhysicalCardBalance(
+                        balances = lowCardBalances,
+                        notificationsEnabled = hasLowBalanceNotificationPermission,
+                        onOpenAccounts = onOpenAccounts,
+                        onEnableNotifications = onRequestLowBalanceNotificationPermission,
+                        onTopUp = { balance ->
+                            accounts.firstOrNull { it.id == balance.accountId }?.let { target ->
+                                addPrefill = ManualPrefill(
+                                    fromAccountId = cardTopUpSource(accounts, accountBalances, target)?.id,
+                                    toAccountId = target.id,
+                                )
+                                showAdd = true
+                            }
+                        },
+                    )
+                    HomeNotice.SETUP -> SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
+                    // Technical state stays quiet unless the ledger contradicts itself; everything
+                    // else about it lives in Data health.
+                    HomeNotice.INTEGRITY -> WhfinNotice(
+                        title = stringResource(R.string.home_integrity_title),
+                        body = pluralStringResource(
+                            R.plurals.home_integrity_body,
+                            integrityIssues,
+                            integrityIssues,
+                        ),
+                        icon = Icons.Default.ReportProblem,
+                        kind = WhfinNoticeKind.Info,
+                        actionLabel = stringResource(R.string.data_health_title),
+                        onAction = onOpenDataHealth,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    HomeNotice.CREDO_SYNC -> credoReminder?.let { reminder ->
+                        CredoSyncReminderCard(reminder, onOpenCredoSync)
+                    }
+                    HomeNotice.SMS_ONBOARDING -> SmsOnboardingCard(onEnableSms, onDismissSmsOnboarding)
                 }
             }
-            // Freshness has its one scheduled row above. Technical state still stays quiet unless
-            // the ledger contradicts itself; everything else lives in Data health.
-            if (integrityIssues > 0) item(key = "integrity") {
-                WhfinNotice(
-                    title = stringResource(R.string.home_integrity_title),
-                    body = pluralStringResource(
-                        R.plurals.home_integrity_body,
-                        integrityIssues,
-                        integrityIssues,
-                    ),
-                    icon = Icons.Default.ReportProblem,
-                    kind = WhfinNoticeKind.Info,
-                    actionLabel = stringResource(R.string.data_health_title),
-                    onAction = onOpenDataHealth,
-                    modifier = Modifier.fillMaxWidth(),
+            if (triage.foldable > 0) item(key = "notices-fold") {
+                HomeNoticesFold(
+                    count = triage.foldable,
+                    expanded = noticesExpanded,
+                    onToggle = { noticesExpanded = !noticesExpanded },
                 )
             }
 
-            val attention = (
-                unroutedOperations.map(FeedTimelineEntry::Unrouted) +
-                    items.filter { it.tx.status == TxStatus.PENDING }.map(FeedTimelineEntry::Transaction)
-                ).sortedByDescending(FeedTimelineEntry::occurredAt)
             if (attention.isNotEmpty()) {
                 item(key = "attention-header") {
                     HomeSectionHeader(
@@ -562,20 +596,17 @@ fun FeedScreen(
                 }
             }
 
-            val todayItems = items.filter { it.day == now && it.tx.status != TxStatus.PENDING }.take(5)
-            val recentItems = if (todayItems.isNotEmpty()) todayItems
-                else items.filter { it.tx.status != TxStatus.PENDING }.take(3)
-            if (recentItems.isNotEmpty()) {
+            if (recent.items.isNotEmpty()) {
                 item(key = "recent-header") {
                     HomeSectionHeader(
                         title = stringResource(
-                            if (todayItems.isNotEmpty()) R.string.home_today else R.string.home_recent_activity,
+                            if (recent.isToday) R.string.home_today else R.string.home_recent_activity,
                         ),
                         action = stringResource(R.string.home_all_transactions),
                         onAction = onOpenHistory,
                     )
                 }
-                items(recentItems, key = { "home-recent-${it.tx.id}" }) { item ->
+                items(recent.items, key = { "home-recent-${it.tx.id}" }) { item ->
                     FeedRow(item = item, onClick = { details = item })
                 }
             }
@@ -774,12 +805,14 @@ fun FeedScreen(
             accounts = accounts,
             categories = categoriesByUsage,
             people = people,
-            onDismiss = { showAdd = false },
+            prefill = addPrefill,
+            onDismiss = { showAdd = false; addPrefill = null },
             onSave = { manual ->
                 viewModel.addManual(manual)
                 showAdd = false
+                addPrefill = null
             },
-            onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false },
+            onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false; addPrefill = null },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
@@ -911,11 +944,12 @@ fun FeedScreen(
 }
 
 @Composable
-private fun HomePhysicalCardBalance(
+internal fun HomePhysicalCardBalance(
     balances: List<PhysicalCardHomeBalance>,
     notificationsEnabled: Boolean,
     onOpenAccounts: () -> Unit,
     onEnableNotifications: () -> Unit,
+    onTopUp: ((PhysicalCardHomeBalance) -> Unit)? = null,
 ) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -956,10 +990,21 @@ private fun HomePhysicalCardBalance(
                         iconTint = accent,
                         markerColor = accent,
                     )
-                    Box(
-                        Modifier.fillMaxWidth().padding(start = 72.dp, end = 16.dp, bottom = 13.dp),
-                        contentAlignment = Alignment.CenterEnd,
+                    // The answer to an empty card is always to move money onto it, so the row
+                    // carries that action rather than sending the reader to Accounts to find it.
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, bottom = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (onTopUp != null) {
+                            WhfinButton(
+                                label = stringResource(R.string.home_card_top_up),
+                                onClick = { onTopUp(balance) },
+                                style = WhfinActionStyle.Secondary,
+                                leadingIcon = Icons.AutoMirrored.Filled.CallMade,
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
                         WhfinAmount(
                             text = formatMinor(balance.balanceMinor, "GEL"),
                             symbol = currencySymbol("GEL"),
@@ -2179,6 +2224,141 @@ private fun HomeSectionHeader(
     }
 }
 
+/**
+ * How long today's money lasts, said once and only while it is news.
+ *
+ * The row carries the consequence in words as well as colour: a runway that does not reach the
+ * declared payday must still read as short to someone who cannot see the accent.
+ */
+@Composable
+internal fun HomeRunwayRow(
+    runway: HomeRunway,
+    onOpenAccounts: () -> Unit,
+) {
+    val accent = if (runway.shortOfIncome) {
+        WhfinThemeTokens.colors.warning
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val burn = stringResource(
+        R.string.home_runway_burn,
+        formatMinor(runway.dailyBurnMinor, "GEL"),
+    )
+    val payday = runway.nextIncome?.let { window ->
+        stringResource(R.string.home_runway_income, incomeWindowLabel(window))
+    }
+    WhfinLedgerGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("home-runway"),
+        tonal = true,
+    ) {
+        WhfinLedgerRow(
+            title = pluralStringResource(
+                if (runway.shortOfIncome) R.plurals.home_runway_days_short else R.plurals.home_runway_days,
+                runway.daysLeft,
+                runway.daysLeft,
+            ),
+            titleMaxLines = 2,
+            supportingText = listOfNotNull(burn, payday).joinToString(" · "),
+            supportingMaxLines = 2,
+            icon = Icons.Outlined.Schedule,
+            iconTint = accent,
+            markerColor = if (runway.shortOfIncome) accent else null,
+            trailing = {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            onClick = onOpenAccounts,
+        )
+    }
+}
+
+/**
+ * What this month still owes, named rather than folded into a forecast.
+ *
+ * The number stays out of the pace insight on purpose: a projection the person can also read in
+ * Statistics must mean the same thing on both screens, and an obligation is a fact about the future
+ * rather than a rate. Naming the payees is what makes the sum checkable.
+ */
+@Composable
+internal fun HomeRecurringRow(charges: List<RecurringCharge>) {
+    val total = charges.sumOf(RecurringCharge::typicalMinor)
+    val named = charges.take(MAX_NAMED_CHARGES).joinToString(" · ") { it.label }
+    val rest = charges.size - MAX_NAMED_CHARGES
+    val supporting = if (rest > 0) {
+        "$named · ${pluralStringResource(R.plurals.home_recurring_more, rest, rest)}"
+    } else {
+        named
+    }
+    WhfinLedgerGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("home-recurring"),
+        tonal = true,
+    ) {
+        WhfinLedgerRow(
+            title = stringResource(R.string.home_recurring_title),
+            supportingText = supporting,
+            supportingMaxLines = 2,
+            icon = Icons.Outlined.EventRepeat,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+            trailing = {
+                WhfinAmount(
+                    text = formatMinor(total, "GEL"),
+                    symbol = currencySymbol("GEL"),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+        )
+    }
+}
+
+private const val MAX_NAMED_CHARGES = 3
+
+/** A declared window reads as one span: "5–10 Sep", or two dates when it crosses a month. */
+@Composable
+private fun incomeWindowLabel(window: NextIncomeWindow): String {
+    val dayMonth = remember { DateTimeFormatter.ofPattern("d MMM") }
+    return when {
+        window.from == window.to -> window.from.format(dayMonth)
+        window.from.month == window.to.month ->
+            "${window.from.dayOfMonth}–${window.to.format(dayMonth)}"
+        else -> "${window.from.format(dayMonth)} – ${window.to.format(dayMonth)}"
+    }
+}
+
+/**
+ * The one row that stands for everything Home decided not to raise yet.
+ *
+ * Kept quiet on purpose: the conditions behind it are real but ranked below what is already shown,
+ * and a second alarming block would defeat the cap it exists to enforce.
+ */
+@Composable
+internal fun HomeNoticesFold(
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    WhfinLedgerGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("home-notices-fold"),
+        tonal = true,
+    ) {
+        WhfinLedgerRow(
+            title = if (expanded) {
+                stringResource(R.string.home_notices_collapse)
+            } else {
+                pluralStringResource(R.plurals.home_notices_folded, count, count)
+            },
+            icon = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+            onClick = onToggle,
+        )
+    }
+}
+
 @Composable
 private fun CredoSyncReminderCard(
     reminder: CredoSyncReminder,
@@ -2824,18 +3004,47 @@ private fun FeedContentPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 WhfinContextHeader(
-                    stringResource(R.string.balance_total),
-                    formatMinor(559_417, "GEL"),
+                    stringResource(R.string.home_spendable),
+                    formatMinor(38_140, "GEL"),
                     valueSymbol = currencySymbol("GEL"),
                 ) {
                     WhfinIconButton(Icons.AutoMirrored.Filled.TrendingUp, "Statistics", {}, outlined = false)
                     WhfinIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "History", {}, outlined = false)
                 }
                 MonthlyFlowSummary(730_800, 109_127, {})
-                CredoSyncReminderCard(
-                    CredoSyncReminder(daysSinceSync = 31, awaitingStatementCount = 100),
+                HomeRunwayRow(
+                    HomeRunway(
+                        daysLeft = 4,
+                        dailyBurnMinor = 9_500,
+                        nextIncome = NextIncomeWindow(
+                            LocalDate.now().withDayOfMonth(5).plusMonths(1),
+                            LocalDate.now().withDayOfMonth(10).plusMonths(1),
+                        ),
+                        shortOfIncome = true,
+                    ),
                     {},
                 )
+                HomeRecurringRow(
+                    listOf(
+                        RecurringCharge("iban:GE00CD0000000000000009", "Landlord", 120_000, 3, LocalDate.now()),
+                        RecurringCharge("merchant:2", "Silknet", 6_000, 12, LocalDate.now()),
+                    ),
+                )
+                HomePhysicalCardBalance(
+                    balances = listOf(
+                        PhysicalCardHomeBalance(
+                            accountId = account.id,
+                            accountName = "Everyday",
+                            balanceMinor = 9_540,
+                            cardLast4s = listOf("0000"),
+                        ),
+                    ),
+                    notificationsEnabled = true,
+                    onOpenAccounts = {},
+                    onEnableNotifications = {},
+                    onTopUp = {},
+                )
+                HomeNoticesFold(count = 3, expanded = false, onToggle = {})
                 HomeInsightsSection(
                     listOf(
                         HomeInsight.SpendingPace(169_147, 96_000),

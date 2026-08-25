@@ -11,7 +11,10 @@ import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
 import dev.whekin.whfin.data.rates.NbgFiatRateProvider
 import dev.whekin.whfin.data.rates.NetWorthSource
 import dev.whekin.whfin.data.rates.RatesRepository
+import dev.whekin.whfin.data.rates.SpendableMoney
+import dev.whekin.whfin.data.rates.SpendableSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
+import dev.whekin.whfin.data.db.IncomeSourceEntity
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
@@ -34,6 +37,9 @@ import dev.whekin.whfin.data.db.insertBankLedger
 import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.categorization.CategorySuggester
+import dev.whekin.whfin.data.recurring.RecurringCharge
+import dev.whekin.whfin.data.recurring.recurringDue
+import dev.whekin.whfin.data.recurring.recurringObservations
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.mutation.AllocationMutation
 import dev.whekin.whfin.data.mutation.ManualMutation
@@ -49,6 +55,7 @@ import dev.whekin.whfin.ui.sms.SmsRoutingAccount
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +63,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 
 internal data class CredoSyncReminder(
@@ -84,6 +92,9 @@ internal fun credoSyncReminder(
 }
 
 private const val MILLIS_PER_DAY = 86_400_000L
+
+/** Enough months for a monthly obligation to prove itself, plus the running one. */
+private const val RECURRING_MONTHS = 5L
 private const val CREDO_SYNC_REMINDER_DAYS = 30
 
 data class FeedItem(
@@ -410,6 +421,34 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         applyDebtAllocations(items, allocations, people)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Home's own readings, derived off the composition.
+     *
+     * These used to be computed in the screen body, so every unrelated state change — a currency
+     * rotation, a sheet opening — walked the whole feed window again while laying out the first
+     * screenful. The lists are the same; only who computes them moved.
+     */
+    internal val monthFlow: StateFlow<HomeMonthFlow> = items
+        .map { homeMonthFlow(it, YearMonth.now(zone)) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeMonthFlow(0L, 0L))
+
+    internal val attention: StateFlow<List<FeedTimelineEntry>> = combine(
+        items,
+        unroutedOperations,
+    ) { items, unrouted -> homeAttention(items, unrouted) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    internal val recentActivity: StateFlow<HomeRecent> = items
+        .map { homeRecent(it, LocalDate.now(zone)) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            HomeRecent(emptyList(), isToday = false),
+        )
+
     val voidedImported: StateFlow<List<TransactionEntity>> = db.transactionDao().observeVoidedImported()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -449,6 +488,43 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     /** The same headline as Accounts, so the two screens can never disagree about what is owned. */
     val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Money that can be spent today — Home's own headline, next to Accounts' net worth.
+     *
+     * The two screens answer different questions on purpose: one page of the pager says what there
+     * is to spend, the other says what is owned.
+     */
+    internal val spendable: StateFlow<SpendableMoney?> = SpendableSource(db, preferences).observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Where the money actually is, for decisions that cannot be made from names alone. */
+    internal val accountBalances: StateFlow<Map<Long, Long>> = db.transactionDao().observeAccountBalances()
+        .map { rows -> rows.associate { it.accountId to it.totalMinor } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /**
+     * Monthly obligations the running month has not seen yet.
+     *
+     * Read over its own window rather than the feed's: recurrence is a claim about months, and the
+     * newest few hundred rows cannot say whether something happens every month.
+     */
+    internal val recurringDue: StateFlow<List<RecurringCharge>> = combine(
+        db.transactionDao().observeRange(
+            LocalDate.now(zone).withDayOfMonth(1).minusMonths(RECURRING_MONTHS)
+                .atStartOfDay(zone).toInstant().toEpochMilli(),
+            Long.MAX_VALUE,
+        ),
+        db.merchantDao().observeAll(),
+    ) { transactions, merchants ->
+        recurringDue(recurringObservations(transactions, merchants, zone), LocalDate.now(zone))
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Declared entry points of money; they explain rows and never create them. */
+    val incomeSources: StateFlow<List<IncomeSourceEntity>> = db.incomeSourceDao().observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val displayCurrency: StateFlow<String> = preferences.displayCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)

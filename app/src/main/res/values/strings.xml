@@ -79,6 +79,27 @@
         <item quantity="one">One bookkeeping link may be wrong. Your accounts stay available; review it when convenient.</item>
         <item quantity="other">%1$d bookkeeping links may be wrong. Your accounts stay available; review them when convenient.</item>
     </plurals>
+    <string name="home_spendable">Available to spend</string>
+    <string name="home_recurring_title">Still due</string>
+    <plurals name="home_recurring_more">
+        <item quantity="one">%d more</item>
+        <item quantity="other">%d more</item>
+    </plurals>
+    <plurals name="home_runway_days">
+        <item quantity="one">Lasts %d day</item>
+        <item quantity="other">Lasts %d days</item>
+    </plurals>
+    <plurals name="home_runway_days_short">
+        <item quantity="one">Only %d day left</item>
+        <item quantity="other">Only %d days left</item>
+    </plurals>
+    <string name="home_runway_burn">Usually %1$s a day</string>
+    <string name="home_runway_income">payday %1$s</string>
+    <plurals name="home_notices_folded">
+        <item quantity="one">%d more notice</item>
+        <item quantity="other">%d more notices</item>
+    </plurals>
+    <string name="home_notices_collapse">Hide these</string>
     <string name="home_needs_attention">Needs attention</string>
     <string name="home_review_all">Review all</string>
     <string name="home_today">Today</string>
@@ -1167,6 +1188,7 @@
     <string name="low_balance_notification_title">Physical card balance is low</string>
     <string name="low_balance_notification_body">%1$s · %2$s has %3$.2f ₾ left. Top it up before groceries.</string>
     <string name="home_card_balance_low">Top up before buying groceries</string>
+    <string name="home_card_top_up">Top up</string>
     <string name="home_card_balance_critical">Your next grocery payment may fail</string>
     <string name="home_card_balance_identity">%1$s · physical card %2$s</string>
     <string name="home_card_balance_enable_alerts">Tap to enable alerts</string>
