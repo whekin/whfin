@@ -11,13 +11,14 @@ tap away, in Accounts and Statistics.
 | Block | Says | Silent when |
 |---|---|---|
 | Headline | Money that can be spent, in the display currency | never (a dash while rates load) |
-| This month | Result of the running month, income and expenses under it | never |
+| This month | Result of the running month, income and expenses under it, and what is not in the total yet | never; the last line only when a row's day has no quote |
 | Runway | How long the spendable money lasts, and whether that reaches payday | comfortable, or no honest daily rate yet |
 | Still due | Monthly obligations this month has not seen yet | nothing recurring is outstanding |
+| Yours to return | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
 | Notices | At most two standing conditions, the rest behind one fold row | nothing is wrong |
 | Needs attention | Drafts and unrouted messages waiting on a decision | the queue is empty |
 | Outlook | Up to two insights: pace and its largest driver | early month, or normal variation |
-| Today / Recent | The last settled rows | no history at all |
+| Today / Recent | Today's own spending and the last settled rows | no history at all |
 
 ## Two headlines, two questions
 
@@ -77,6 +78,35 @@ should still be treated as owed.
 The sum stays **out** of the pace insight. A projection the person can also read in Statistics must
 mean the same thing on both screens; folding an obligation into a rate would quietly change a number
 that has its own screen. Naming the payees is what makes the sum checkable.
+
+## Money that is not the person's own
+
+Two lines exist because a balance can be true and still mislead.
+
+**Yours to return** names what is still owed on open `I_OWE_THEM` debt cases, one row per currency,
+because a debt in dollars and a debt in lari are two promises and adding them would need a rate to say
+something that needs none. Money owed *to* the person needs no line: it already left their accounts.
+The claim is named rather than quietly subtracted from the headline — a borrowed sum may already be
+spent, and a headline that moved without saying why is worse than one that needs a second line to be
+read correctly.
+
+**Not in the total yet** names foreign spending whose own day has no quote. Those rows are excluded
+from the month result rather than counted as zero, which is the rule everywhere in this app; without
+the line, the month total would silently be smaller than the month.
+
+## Today's number
+
+The `Today` heading carries the day's own spending, counted over the whole day rather than the five
+rows shown, so the total can never be the sum of a truncated list. It reads against the ordinary daily
+rate the runway row already states, which is why the row does not repeat that rate. A day that only
+earned has nothing to report.
+
+## Nothing recorded is a claim
+
+"Your financial picture will appear here" waits for the ledger to answer: a `StateFlow` placeholder is
+not evidence of an empty database. It also stays quiet while any money-bearing block above it —
+obligations, debts, unrouted messages — already names something, because a screen cannot both list
+money and offer to help the person get started.
 
 ## Notice triage
 

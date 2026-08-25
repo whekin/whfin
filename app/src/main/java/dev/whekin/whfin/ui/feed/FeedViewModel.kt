@@ -522,6 +522,26 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Whether the ledger has actually answered yet.
+     *
+     * A `StateFlow` starts on a placeholder, so an empty list means "not asked yet" just as often as
+     * "nothing recorded". Home cannot tell the person their financial picture will appear here while
+     * other rows on the same screen are already naming obligations and debts.
+     */
+    val feedLoaded: StateFlow<Boolean> = db.transactionDao().observeFeed(limit = 1)
+        .map { true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Borrowed money that the balances still count as the person's own. */
+    internal val debtsOwed: StateFlow<List<HomeDebt>> = combine(
+        db.debtDao().observeCases(),
+        db.debtDao().observeEvents(),
+        people,
+    ) { cases, events, people -> homeDebtsOwed(cases, events, people) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Declared entry points of money; they explain rows and never create them. */
     val incomeSources: StateFlow<List<IncomeSourceEntity>> = db.incomeSourceDao().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

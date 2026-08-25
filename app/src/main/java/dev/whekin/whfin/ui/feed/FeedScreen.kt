@@ -72,6 +72,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
@@ -172,6 +173,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.sms.SmsRoutingSheet
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 import dev.whekin.whfin.ui.analytics.AnalyticsUiModel
+import dev.whekin.whfin.ui.analytics.AnalyticsCurrencyValue
 import dev.whekin.whfin.ui.analytics.AnalyticsUiState
 import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
 
@@ -294,6 +296,8 @@ fun FeedScreen(
     val spendable by viewModel.spendable.collectAsState()
     val accountBalances by viewModel.accountBalances.collectAsState()
     val recurringDue by viewModel.recurringDue.collectAsState()
+    val debtsOwed by viewModel.debtsOwed.collectAsState()
+    val feedLoaded by viewModel.feedLoaded.collectAsState()
     val incomeSources by viewModel.incomeSources.collectAsState()
     val homeAnalytics = (homeAnalyticsState?.state as? AnalyticsUiState.Content)?.data
     val income = homeAnalytics?.incomeMinor ?: monthFlow.incomeMinor
@@ -495,12 +499,22 @@ fun FeedScreen(
             contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 28.dp),
         ) {
         if (mode == FeedMode.HOME && !selectionMode) {
-            item(key = "summary") { MonthlyFlowSummary(income, expenses, onOpenAnalytics) }
+            item(key = "summary") {
+                MonthlyFlowSummary(
+                    income = income,
+                    expenses = expenses,
+                    onClick = onOpenAnalytics,
+                    unconverted = homeAnalytics?.otherCurrencyExpenses.orEmpty(),
+                )
+            }
             runway?.let { reading ->
                 item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts) }
             }
             if (recurringDue.isNotEmpty()) item(key = "recurring") {
                 HomeRecurringRow(recurringDue)
+            }
+            if (debtsOwed.isNotEmpty()) item(key = "debts-owed") {
+                HomeDebtsOwedRow(debtsOwed, onOpenAccounts)
             }
             val lowCardBalances = physicalCardBalances.filter {
                 physicalCardBalanceStatus(it.balanceMinor) != PhysicalCardBalanceStatus.Enough
@@ -604,13 +618,14 @@ fun FeedScreen(
                         ),
                         action = stringResource(R.string.home_all_transactions),
                         onAction = onOpenHistory,
+                        metricMinor = recent.expenseMinor,
                     )
                 }
                 items(recent.items, key = { "home-recent-${it.tx.id}" }) { item ->
                     FeedRow(item = item, onClick = { details = item })
                 }
             }
-            if (items.isEmpty() && unroutedOperations.isEmpty()) {
+            if (homeNothingRecorded(feedLoaded, items, unroutedOperations, recurringDue, debtsOwed)) {
                 item(key = "empty") {
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,
@@ -629,7 +644,7 @@ fun FeedScreen(
                     )
                 }
             }
-            if (items.isEmpty() && unroutedOperations.isEmpty()) {
+            if (feedLoaded && items.isEmpty() && unroutedOperations.isEmpty()) {
                 item(key = "empty") {
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,
@@ -2214,13 +2229,22 @@ private fun HomeSectionHeader(
     title: String,
     action: String,
     onAction: () -> Unit,
+    metricMinor: Long? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 22.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         WhfinSectionLabel(title, Modifier.weight(1f))
-        TextButton(onClick = onAction) { Text(action) }
+        // The day's own total belongs to the day's label: it is the same fact, said once.
+        if (metricMinor != null) WhfinAmount(
+            text = formatMinor(-metricMinor, "GEL", withSign = true),
+            symbol = currencySymbol("GEL"),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        TextButton(onClick = onAction) { Text(action, maxLines = 1) }
     }
 }
 
@@ -2316,6 +2340,43 @@ internal fun HomeRecurringRow(charges: List<RecurringCharge>) {
 }
 
 private const val MAX_NAMED_CHARGES = 3
+
+/**
+ * Borrowed money the balances above still count as the person's own.
+ *
+ * One row per currency, because a debt in dollars and a debt in lari are two different promises and
+ * adding them would need a rate to say something that needs none.
+ */
+@Composable
+internal fun HomeDebtsOwedRow(
+    debts: List<HomeDebt>,
+    onOpenAccounts: () -> Unit,
+) {
+    WhfinLedgerGroup(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .testTag("home-debts-owed"),
+        tonal = true,
+    ) {
+        val shown = debts.take(2)
+        shown.forEachIndexed { index, debt ->
+            WhfinLedgerRow(
+                title = stringResource(R.string.home_debts_owed_title),
+                supportingText = debt.people.take(2).joinToString(" · ").takeIf(String::isNotEmpty),
+                icon = Icons.Outlined.Handshake,
+                iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                trailing = {
+                    WhfinAmount(
+                        text = formatMinor(debt.outstandingMinor, debt.currency),
+                        symbol = currencySymbol(debt.currency),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                },
+                divider = index != shown.lastIndex,
+                onClick = onOpenAccounts,
+            )
+        }
+    }
+}
 
 /** A declared window reads as one span: "5–10 Sep", or two dates when it crosses a month. */
 @Composable
@@ -2483,7 +2544,12 @@ private fun HomeInsightRow(
 }
 
 @Composable
-private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit) {
+private fun MonthlyFlowSummary(
+    income: Long,
+    expenses: Long,
+    onClick: () -> Unit,
+    unconverted: List<AnalyticsCurrencyValue> = emptyList(),
+) {
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -2521,6 +2587,22 @@ private fun MonthlyFlowSummary(income: Long, expenses: Long, onClick: () -> Unit
                     Modifier.weight(1f),
                     stringResource(R.string.summary_expenses), -expenses,
                     MaterialTheme.colorScheme.tertiary,
+                )
+            }
+            // Строка, которой в итоге нет: валютный расход без курса своего дня не превращается
+            // в ноль и не прячется — иначе сумма месяца молча меньше, чем прожитый месяц.
+            if (unconverted.isNotEmpty()) {
+                val named = unconverted.take(2).joinToString(" · ") {
+                    formatMinor(it.expenseMinor, it.currency)
+                }
+                val rest = unconverted.size - 2
+                Text(
+                    stringResource(
+                        R.string.home_month_unconverted,
+                        if (rest > 0) "$named +$rest" else named,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             // Итоговая черта книги: блок месяца закрывается двойной линейкой, обычные разделители
@@ -3044,7 +3126,12 @@ private fun FeedContentPreview() {
                     onEnableNotifications = {},
                     onTopUp = {},
                 )
+                HomeDebtsOwedRow(
+                    listOf(HomeDebt("GEL", 18_000, listOf("Maya"))),
+                    {},
+                )
                 HomeNoticesFold(count = 3, expanded = false, onToggle = {})
+                HomeSectionHeader("Today", "All transactions", {}, metricMinor = 4_720)
                 HomeInsightsSection(
                     listOf(
                         HomeInsight.SpendingPace(169_147, 96_000),

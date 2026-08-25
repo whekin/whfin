@@ -86,6 +86,8 @@
     </plurals>
     <string name="home_spendable">Можно тратить</string>
     <string name="home_recurring_title">Ещё предстоит</string>
+    <string name="home_debts_owed_title">Нужно вернуть</string>
+    <string name="home_month_unconverted">Ещё не в итоге: %1$s</string>
     <plurals name="home_recurring_more">
         <item quantity="one">и ещё %d</item>
         <item quantity="few">и ещё %d</item>

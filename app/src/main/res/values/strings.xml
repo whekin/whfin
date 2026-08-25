@@ -81,6 +81,8 @@
     </plurals>
     <string name="home_spendable">Available to spend</string>
     <string name="home_recurring_title">Still due</string>
+    <string name="home_debts_owed_title">Yours to return</string>
+    <string name="home_month_unconverted">Not in the total yet: %1$s</string>
     <plurals name="home_recurring_more">
         <item quantity="one">%d more</item>
         <item quantity="other">%d more</item>

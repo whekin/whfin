@@ -2,6 +2,12 @@ package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.data.db.DebtCaseEntity
+import dev.whekin.whfin.data.db.DebtDirection
+import dev.whekin.whfin.data.db.DebtEventEntity
+import dev.whekin.whfin.data.db.DebtEventKind
+import dev.whekin.whfin.data.db.DebtStatus
+import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
@@ -133,6 +139,81 @@ class HomeBoardTest {
     }
 
     @Test
+    fun `today's total covers the whole day, not the rows on screen`() {
+        val today = LocalDate.of(2026, 8, 25)
+        val items = (1L..7L).map { id ->
+            item(id = id, amountMinor = -1_000, day = today)
+        } + listOf(
+            item(id = 8, amountMinor = 50_000, day = today),
+            item(id = 9, amountMinor = -9_000, day = today, isTransfer = true),
+            item(id = 10, amountMinor = -3_000, day = today, source = TxSource.ADJUSTMENT),
+        )
+
+        val recent = homeRecent(items, today)
+
+        assertEquals(5, recent.items.size)
+        assertEquals(7_000L, recent.expenseMinor)
+    }
+
+    @Test
+    fun `a day that only earned has no spending to report`() {
+        val today = LocalDate.of(2026, 8, 25)
+        val recent = homeRecent(listOf(item(id = 1, amountMinor = 50_000, day = today)), today)
+
+        assertTrue(recent.isToday)
+        assertEquals(null, recent.expenseMinor)
+    }
+
+    @Test
+    fun `only what is still owed to other people is named, per currency`() {
+        val people = listOf(person(1, "Nino"), person(2, "Dato"))
+        val cases = listOf(
+            debtCase(id = 1, personId = 1, direction = DebtDirection.I_OWE_THEM, amountMinor = 30_000),
+            debtCase(id = 2, personId = 2, direction = DebtDirection.I_OWE_THEM, amountMinor = 20_000),
+            debtCase(
+                id = 3,
+                personId = 1,
+                direction = DebtDirection.I_OWE_THEM,
+                amountMinor = 10_000,
+                currency = "USD",
+            ),
+            // Money owed to the person is already missing from their accounts.
+            debtCase(id = 4, personId = 2, direction = DebtDirection.THEY_OWE_ME, amountMinor = 90_000),
+            // A closed case is not a claim any more.
+            debtCase(
+                id = 5,
+                personId = 1,
+                direction = DebtDirection.I_OWE_THEM,
+                amountMinor = 40_000,
+                status = DebtStatus.CLOSED,
+            ),
+        )
+        val events = listOf(
+            settlement(debtCaseId = 1, debtValueMinor = 10_000),
+            // A corrected settlement is an audit row, not a repayment.
+            settlement(debtCaseId = 2, debtValueMinor = 20_000, voided = true),
+        )
+
+        assertEquals(
+            listOf(
+                HomeDebt("GEL", 40_000, listOf("Nino", "Dato")),
+                HomeDebt("USD", 10_000, listOf("Nino")),
+            ),
+            homeDebtsOwed(cases, events, people),
+        )
+    }
+
+    @Test
+    fun `a fully repaid case that stayed open is not a claim`() {
+        val cases = listOf(
+            debtCase(id = 1, personId = 1, direction = DebtDirection.I_OWE_THEM, amountMinor = 30_000),
+        )
+        val events = listOf(settlement(debtCaseId = 1, debtValueMinor = 30_000))
+
+        assertTrue(homeDebtsOwed(cases, events, listOf(person(1, "Nino"))).isEmpty())
+    }
+
+    @Test
     fun `a quiet day falls back to the last settled rows`() {
         val today = LocalDate.of(2026, 8, 25)
         val items = (1L..5L).map { id ->
@@ -185,6 +266,74 @@ class HomeBoardTest {
         cardHint = null,
         isDebt = isDebt,
         day = day,
+    )
+
+    @Test
+    fun `an unanswered ledger is not an empty one`() {
+        assertEquals(
+            false,
+            homeNothingRecorded(
+                feedLoaded = false,
+                items = emptyList(),
+                unrouted = emptyList(),
+                recurringDue = emptyList(),
+                debtsOwed = emptyList(),
+            ),
+        )
+        assertTrue(
+            homeNothingRecorded(
+                feedLoaded = true,
+                items = emptyList(),
+                unrouted = emptyList(),
+                recurringDue = emptyList(),
+                debtsOwed = emptyList(),
+            ),
+        )
+    }
+
+    @Test
+    fun `a screen that already names money never offers to get started`() {
+        assertEquals(
+            false,
+            homeNothingRecorded(
+                feedLoaded = true,
+                items = emptyList(),
+                unrouted = emptyList(),
+                recurringDue = emptyList(),
+                debtsOwed = listOf(HomeDebt("GEL", 18_000, listOf("Maya"))),
+            ),
+        )
+    }
+
+    private fun person(id: Long, name: String) = PersonEntity(id = id, name = name, color = 0)
+
+    private fun debtCase(
+        id: Long,
+        personId: Long,
+        direction: DebtDirection,
+        amountMinor: Long,
+        currency: String = "GEL",
+        status: DebtStatus = DebtStatus.OPEN,
+    ) = DebtCaseEntity(
+        id = id,
+        personId = personId,
+        direction = direction,
+        originalAmountMinor = amountMinor,
+        currency = currency,
+        openedAt = 0,
+        status = status,
+    )
+
+    private fun settlement(
+        debtCaseId: Long,
+        debtValueMinor: Long,
+        voided: Boolean = false,
+    ) = DebtEventEntity(
+        debtCaseId = debtCaseId,
+        kind = DebtEventKind.SETTLEMENT,
+        debtValueMinor = debtValueMinor,
+        occurredAt = 0,
+        isVoided = voided,
     )
 
     private fun unroutedOperation(id: Long, occurredAt: Long) = UnroutedOperation(
