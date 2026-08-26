@@ -9,7 +9,9 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -39,7 +41,7 @@ class SettingsScreenTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -72,7 +74,7 @@ class SettingsScreenTest {
         val action = context.getString(R.string.permission_allow)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = true,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,
@@ -101,7 +103,7 @@ class SettingsScreenTest {
         val action = context.getString(R.string.permission_allow)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -137,7 +139,7 @@ class SettingsScreenTest {
         compose.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 WhfinTheme {
-                    SettingsScreen(
+                    SettingsContent(
                         smsImportEnabled = enabled,
                         hasSmsPermission = true,
                         canRequestSmsPermission = true,
@@ -168,7 +170,7 @@ class SettingsScreenTest {
         val description = context.getString(R.string.settings_sms_toggle)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -197,7 +199,7 @@ class SettingsScreenTest {
         val description = context.getString(R.string.settings_quick_keypad_toggle)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     quickExpenseKeypadEnabled = enabled,
                     onQuickExpenseKeypadEnabledChange = { enabled = it },
                     smsImportEnabled = false,
@@ -232,7 +234,7 @@ class SettingsScreenTest {
         val description = context.getString(R.string.settings_widget_open_app_toggle)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     widgetOpenAppButtonEnabled = enabled,
                     onWidgetOpenAppButtonEnabledChange = { enabled = it },
                     smsImportEnabled = false,
@@ -269,7 +271,7 @@ class SettingsScreenTest {
         val description = context.getString(R.string.settings_sms_toggle)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = false,
                     hasSmsCardMapping = false,
                     hasSmsPermission = false,
@@ -306,7 +308,7 @@ class SettingsScreenTest {
         val systemFontDescription = context.getString(R.string.settings_system_font_toggle)
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     appThemeMode = selectedTheme,
                     dynamicColorsEnabled = dynamicColors,
                     useSystemFont = useSystemFont,
@@ -331,7 +333,9 @@ class SettingsScreenTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.settings_theme_dark)).performClick()
+        compose.onNodeWithText(context.getString(R.string.settings_theme_dark))
+            .performScrollTo()
+            .performClick()
         compose.onNodeWithContentDescription(dynamicColorsDescription).performScrollTo().assertIsOn().performClick()
         compose.onNodeWithContentDescription(systemFontDescription).performScrollTo().assertIsOff().performClick()
         assertEquals(AppThemeMode.Dark, selectedTheme)
@@ -348,7 +352,7 @@ class SettingsScreenTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = false,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,
@@ -415,7 +419,7 @@ class SettingsScreenTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -451,7 +455,7 @@ class SettingsScreenTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
-                SettingsScreen(
+                SettingsContent(
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -502,5 +506,96 @@ class SettingsScreenTest {
             .assertIsOff()
             .performClick()
         assertTrue(requested)
+    }
+
+    @Test
+    fun search_findsARowByWhatPeopleCallIt_andHidesTheRest() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNode(hasSetTextAction()).performTextInput("pin")
+
+        compose.onNodeWithText(context.getString(R.string.app_lock_title)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.categories_title)).assertDoesNotExist()
+    }
+
+    @Test
+    fun search_saysWhenNothingMatches() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNode(hasSetTextAction()).performTextInput("mortgage")
+
+        compose.onNodeWithText(context.getString(R.string.settings_search_empty)).assertIsDisplayed()
+    }
+
+    @Test
+    fun bankRows_leadWithTheirOwnState() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    status = SettingsStatus(integrityIssues = 2),
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.settings_credo_never)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_sms_state_off)).assertIsDisplayed()
+        compose.onNodeWithText(
+            context.resources.getQuantityString(R.plurals.settings_data_health_issues, 2, 2),
+        ).performScrollTo().assertIsDisplayed()
     }
 }

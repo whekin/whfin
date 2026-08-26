@@ -96,6 +96,25 @@ arrive. Prefer it over a sentence or a spinner whenever the layout is known in a
 `WhfinLoadingIndicator` remains for work whose result has no shape yet (a sync, an import, a network
 call). The skeleton breathes as one and carries a single content description for the whole group.
 
+## Settings
+
+Settings is a described catalogue, not hand-written rows: `SettingsSection`/`SettingsRow` with
+`filterSettings` for search. Three rules hold.
+
+- **Order by why the screen is opened.** Money arriving on its own comes first, then what the ledger is
+  made of, then the data itself, then how the app looks. Appearance is decided once and must not own
+  the first screenful.
+- **A row says what is true now.** Where a state exists — last reconciliation, last import, lock
+  timeout, backup destination, contradictions found — it is the row's supporting text. A row that only
+  names the door behind it makes the reader open every door.
+- **Findable by the person's own word.** Each row carries `keywords` with the synonyms people actually
+  type ("пин", "копия", "тема"); search matches title, state, synonyms and the section label, folds
+  `ё` to `е`, and narrows with each further word. The field stays pinned above the scrolling catalogue.
+
+A problem that needs an action stays a `WhfinNotice` next to its row rather than becoming a state
+string: permission missing, messages unrouted. A destructive row keeps its own section heading and
+never draws a chevron — it is not a door.
+
 ## Preview matrix
 
 For each key screen, provide representative preview data for empty and populated states. Add error/unavailable when supported. Render at compact phone light, compact phone dark, font scale 1.5, and compact height. Component previews cover enabled, disabled, destructive, and long-text cases.
