@@ -65,6 +65,8 @@ import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.core.ui.WhfinCodeDots
 import dev.whekin.whfin.core.ui.WhfinNumericKeypad
 import dev.whekin.whfin.data.credo.CredoRemoteAccount
+import dev.whekin.whfin.data.security.LocalSensitiveActions
+import dev.whekin.whfin.data.security.SensitiveAction
 import dev.whekin.whfin.data.importer.StatementImporter
 import com.google.android.gms.auth.api.phone.SmsRetriever
 import dev.whekin.whfin.data.sms.CredoLoginOtp
@@ -122,7 +124,7 @@ class CredoLoginDraft(
 
 @Composable
 fun CredoSyncRoute(
-    appLockEnabled: Boolean,
+    canStoreCredentials: Boolean,
     onOpenAppLock: () -> Unit,
     routineSyncRequestKey: Int = 0,
     onRoutineSyncRequestConsumed: () -> Unit = {},
@@ -184,16 +186,20 @@ fun CredoSyncRoute(
             }
         }
     }
-    LaunchedEffect(appLockEnabled) {
-        if (appLockEnabled) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
+    val sensitive = LocalSensitiveActions.current
+    LaunchedEffect(canStoreCredentials) {
+        if (canStoreCredentials) viewModel.revealSavedUsername() else viewModel.forgetSavedCredentials()
     }
-    LaunchedEffect(routineSyncRequestKey, appLockEnabled) {
+    LaunchedEffect(routineSyncRequestKey, canStoreCredentials) {
         if (routineSyncRequestKey > 0) {
             onRoutineSyncRequestConsumed()
-            if (appLockEnabled) {
-                otpInbox.beginChallenge()
-                otpChallengeKey += 1
-                viewModel.syncLatest()
+            if (canStoreCredentials) {
+                // This path logs in with the stored bank password without asking for it again.
+                sensitive.require(SensitiveAction.BankCredential) {
+                    otpInbox.beginChallenge()
+                    otpChallengeKey += 1
+                    viewModel.syncLatest()
+                }
             }
         }
     }
@@ -290,16 +296,24 @@ fun CredoSyncRoute(
     }
     CredoSyncScreen(
         state = state,
-        appLockEnabled = appLockEnabled,
+        canStoreCredentials = canStoreCredentials,
         initialRememberPassword = initialRememberPassword,
         loginDraft = viewModel.loginDraft,
         incomingOtp = incomingOtp,
         onIncomingOtpConsumed = { incomingOtp = null },
         onOpenAppLock = onOpenAppLock,
         onConnect = { username, credential, rememberPassword ->
-            otpInbox.beginChallenge()
-            otpChallengeKey += 1
-            viewModel.connect(username, credential, rememberPassword && appLockEnabled)
+            val connect = {
+                otpInbox.beginChallenge()
+                otpChallengeKey += 1
+                viewModel.connect(username, credential, rememberPassword && canStoreCredentials)
+            }
+            // A typed password is the user proving themselves already; only the stored one is gated.
+            if (credential.isBlank() && state.hasSavedPassword) {
+                sensitive.require(SensitiveAction.BankCredential, connect)
+            } else {
+                connect()
+            }
         },
         onSubmitOtp = viewModel::submitOtp,
         onResendOtp = {
@@ -326,7 +340,7 @@ fun CredoSyncRoute(
 @Composable
 fun CredoSyncScreen(
     state: CredoSyncUiState,
-    appLockEnabled: Boolean,
+    canStoreCredentials: Boolean,
     loginDraft: CredoLoginDraft? = null,
     initialRememberPassword: Boolean = false,
     incomingOtp: String? = null,
@@ -345,22 +359,22 @@ fun CredoSyncScreen(
     showCredentialManagement: Boolean = false,
     onDone: (() -> Unit)? = null,
 ) {
-    val usableSavedPassword = appLockEnabled && state.hasSavedPassword
+    val usableSavedPassword = canStoreCredentials && state.hasSavedPassword
     // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
     // draft so App Lock navigation cannot erase the form, without ever saving the password.
     val draft = loginDraft ?: remember {
-        CredoLoginDraft(username = if (appLockEnabled) state.savedUsername.orEmpty() else "")
+        CredoLoginDraft(username = if (canStoreCredentials) state.savedUsername.orEmpty() else "")
     }
     var otp by remember { mutableStateOf("") }
     var rememberPassword by remember {
         mutableStateOf(initialRememberPassword || usableSavedPassword)
     }
 
-    LaunchedEffect(state.savedUsername, appLockEnabled) {
-        if (appLockEnabled && draft.username.isBlank()) draft.username = state.savedUsername.orEmpty()
+    LaunchedEffect(state.savedUsername, canStoreCredentials) {
+        if (canStoreCredentials && draft.username.isBlank()) draft.username = state.savedUsername.orEmpty()
     }
-    LaunchedEffect(appLockEnabled) {
-        if (!appLockEnabled) rememberPassword = false
+    LaunchedEffect(canStoreCredentials) {
+        if (!canStoreCredentials) rememberPassword = false
         else if (initialRememberPassword) rememberPassword = true
     }
     LaunchedEffect(state.stage) {
@@ -458,7 +472,7 @@ fun CredoSyncScreen(
                     hasSavedPassword = false,
                     rememberPassword = rememberPassword,
                     onRememberPasswordChange = { rememberPassword = it },
-                    canRememberPassword = appLockEnabled,
+                    canRememberPassword = canStoreCredentials,
                     onOpenAppLock = onOpenAppLock,
                     loading = state.stage == CredoSyncStage.Connecting,
                     onConnect = {
@@ -949,7 +963,7 @@ private fun CredoDisconnectedPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(savedUsername = "demo", hasSavedPassword = true),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -972,7 +986,7 @@ private fun CredoOtpPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp, mobileHint = "+995 *** ** 42"),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 incomingOtp = "4821",
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
@@ -988,7 +1002,7 @@ private fun CredoConnectedPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(stage = CredoSyncStage.Connected, accounts = previewAccounts),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -1025,7 +1039,7 @@ private fun CredoRejectedStatementPreview() {
                         ),
                     ),
                 ),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -1067,7 +1081,7 @@ private fun CredoPartialRetryPreview() {
                         ),
                     ),
                 ),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -1082,7 +1096,7 @@ private fun CredoUnavailablePreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(errorCode = "NETWORK_ERROR"),
-                appLockEnabled = false,
+                canStoreCredentials = false,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )
@@ -1097,7 +1111,7 @@ private fun CredoProtocolErrorPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             CredoSyncScreen(
                 state = CredoSyncUiState(errorCode = "INVALID_API_RESPONSE"),
-                appLockEnabled = true,
+                canStoreCredentials = true,
                 onOpenAppLock = {}, onConnect = { _, _, _ -> }, onSubmitOtp = {}, onResendOtp = {},
                 onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {},
             )

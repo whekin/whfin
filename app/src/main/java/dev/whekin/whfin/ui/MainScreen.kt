@@ -593,7 +593,9 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) {
                         CredoSyncRoute(
-                            appLockEnabled = appLockHasPin && appLockTimeout.enabled,
+                            // A stored bank password needs a code to sit behind, not a
+                            // screen-lock policy: the action gate asks for it on use.
+                            canStoreCredentials = appLockHasPin,
                             onOpenAppLock = { openAppLock(SecondaryDestination.CredoSync) },
                             routineSyncRequestKey = credoRoutineSyncRequestKey,
                             onRoutineSyncRequestConsumed = { credoRoutineSyncRequestKey = 0 },

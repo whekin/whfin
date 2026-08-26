@@ -27,6 +27,8 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinFormSheet
+import dev.whekin.whfin.data.security.LocalSensitiveActions
+import dev.whekin.whfin.data.security.SensitiveAction
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -157,6 +159,7 @@ fun DriveBackupSection(appVersion: String) {
         }
     }
 
+    val sensitive = LocalSensitiveActions.current
     fun authorize(reason: DriveAuthReason) {
         scope.launch {
             status = DriveUiStatus.Working
@@ -200,7 +203,13 @@ fun DriveBackupSection(appVersion: String) {
                     checked = enabled,
                     onCheckedChange = { checked ->
                         if (checked) {
-                            if (store.hasPassphrase()) authorize(DriveAuthReason.Enable) else setupPassphrase = true
+                            sensitive.require(SensitiveAction.BackupExport) {
+                                if (store.hasPassphrase()) {
+                                    authorize(DriveAuthReason.Enable)
+                                } else {
+                                    setupPassphrase = true
+                                }
+                            }
                         } else {
                             disable()
                         }
@@ -220,7 +229,9 @@ fun DriveBackupSection(appVersion: String) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             WhfinButton(
                 label = stringResource(R.string.drive_backup_now),
-                onClick = { authorize(DriveAuthReason.BackupNow) },
+                onClick = {
+                    sensitive.require(SensitiveAction.BackupExport) { authorize(DriveAuthReason.BackupNow) }
+                },
                 enabled = !working,
                 style = WhfinActionStyle.Secondary,
                 leadingIcon = Icons.Default.CloudUpload,
@@ -228,7 +239,11 @@ fun DriveBackupSection(appVersion: String) {
             )
             WhfinButton(
                 label = stringResource(R.string.drive_restore_action),
-                onClick = { authorize(DriveAuthReason.ListForRestore) },
+                onClick = {
+                    sensitive.require(SensitiveAction.BackupRestore) {
+                        authorize(DriveAuthReason.ListForRestore)
+                    }
+                },
                 enabled = !working,
                 style = WhfinActionStyle.DestructiveSecondary,
                 leadingIcon = Icons.Default.Restore,
@@ -236,7 +251,7 @@ fun DriveBackupSection(appVersion: String) {
             )
             WhfinButton(
                 label = stringResource(R.string.drive_passphrase_change),
-                onClick = { setupPassphrase = true },
+                onClick = { sensitive.require(SensitiveAction.BackupExport) { setupPassphrase = true } },
                 enabled = !working,
                 style = WhfinActionStyle.Quiet,
                 modifier = Modifier.fillMaxWidth(),

@@ -249,7 +249,9 @@ fun PersonalSetupFlow(
             onBack = { page = PersonalSetupPage.Bank },
         ) {
             CredoSyncRoute(
-                appLockEnabled = appLockHasPin && appLockTimeout.enabled,
+                // A stored bank password needs a code to sit behind, not a screen-lock policy:
+                // the action gate asks for it at the moment the password is used.
+                canStoreCredentials = appLockHasPin,
                 initialRememberPassword = rememberPasswordRequested,
                 onOpenAppLock = {
                     rememberPasswordRequested = true

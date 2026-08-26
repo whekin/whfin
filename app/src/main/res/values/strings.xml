@@ -596,6 +596,11 @@
     <string name="app_lock_cancelled">Use the WHFIN code to continue.</string>
     <string name="app_lock_locked_out">Biometrics are temporarily locked. Use the WHFIN code.</string>
     <string name="app_lock_prompt_unavailable">Biometrics are unavailable. Use the WHFIN code.</string>
+    <string name="sensitive_gate_title">Confirm it\'s you</string>
+    <string name="sensitive_gate_backup_export">Enter your WHFIN code to export a backup. The file holds your whole ledger.</string>
+    <string name="sensitive_gate_backup_restore">Enter your WHFIN code to replace your data from a backup file.</string>
+    <string name="sensitive_gate_bank_credential">Enter your WHFIN code to use your saved MyCredo login.</string>
+    <string name="sensitive_gate_app_lock">Enter your WHFIN code to change App Lock.</string>
     <string name="app_lock_prompt_title">Unlock WHFIN</string>
     <string name="app_lock_prompt_subtitle">Use a fingerprint or face scan</string>
     <string name="app_lock_use_code">Use WHFIN code</string>

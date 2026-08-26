@@ -11,6 +11,8 @@ import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +43,8 @@ import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.security.AppLockPinStore
 import dev.whekin.whfin.data.security.AppLockViewModel
+import dev.whekin.whfin.data.security.LocalSensitiveActions
+import dev.whekin.whfin.data.security.SensitiveActionController
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.security.PinVerificationResult
 import dev.whekin.whfin.data.security.WHFIN_BIOMETRIC_AUTHENTICATORS
@@ -50,6 +54,8 @@ import dev.whekin.whfin.data.sms.SmsForegroundCatchUp
 import dev.whekin.whfin.ui.MainScreen
 import dev.whekin.whfin.ui.accounts.AccountsViewModel
 import dev.whekin.whfin.ui.settings.AppLockGate
+import dev.whekin.whfin.ui.settings.SensitiveActionGate
+import dev.whekin.whfin.ui.settings.bodyResource
 import dev.whekin.whfin.ui.settings.IncomeSourcesViewModel
 import dev.whekin.whfin.ui.setup.PersonalSetupFlow
 import dev.whekin.whfin.ui.setup.PersonalSetupState
@@ -154,6 +160,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var setupAccounts: AccountsViewModel
     private lateinit var setupIncomeSources: IncomeSourcesViewModel
     private lateinit var authenticator: WhfinAuthenticator
+    private val sensitiveActions = SensitiveActionController(hasPin = { hasAppLockPin })
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -263,208 +270,230 @@ class MainActivity : FragmentActivity() {
                     }
                 }
 
-                when (
-                    appStartupContent(
-                        savedTimeout = savedTimeout,
-                        hasPin = hasAppLockPin,
-                        sessionLocked = appLock.locked,
-                        runtimeModeRestart = runtimeModeRestart,
-                    )
-                ) {
-                    AppStartupContent.Loading -> Surface(
-                        Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background,
-                    ) {}
-                    AppStartupContent.LockGate -> AppLockGate(
-                        biometricAvailable = biometricEnabled == true &&
-                            biometricAvailability == BiometricAvailability.Available,
-                        problem = appLock.problem,
-                        onVerifyPin = ::verifyPin,
-                        onBiometric = {
-                            // An explicit tap outranks an earlier code choice.
-                            codeUnlockChosen = false
-                            requestBiometricUnlock()
-                        },
-                        onUseCode = { codeUnlockChosen = true },
-                    )
-                    AppStartupContent.Main -> when (appEntry) {
-                        AppEntry.Welcome -> WelcomeChoiceScreen(
-                            busy = runtimeModeBusy,
-                            problem = runtimeModeProblem,
-                            onSetUpPersonal = {
-                                app.runtimeModes.completeWelcomeChoice(personalSetupPending = true)
-                                welcomeCompleted = true
-                                personalSetupPending = true
-                                appEntry = AppEntry.PersonalSetup
-                            },
-                            onExploreDemo = ::enterDemoFromWelcome,
-                            onExit = ::finish,
-                        )
-                        AppEntry.PersonalSetup -> mainState.SaveableStateProvider("personal-setup") {
-                            PersonalSetupFlow(
-                                state = PersonalSetupState(
-                                    accountCount = personalAccounts?.count {
-                                        it.type != AccountType.PERSON
-                                    },
-                                    bankLedgerCount = personalAccounts?.count {
-                                        it.type == AccountType.BANK || it.type == AccountType.SAVINGS
-                                    },
-                                    hasCredoImport = statementImports?.any {
-                                        it.origin == StatementImportOrigin.CREDO_SYNC
-                                    },
-                                    smsMonitoringEnabled = smsImportEnabled == true,
-                                    hasSmsPermission = hasSmsPermission,
-                                    canRequestSmsPermission = canRequestSmsPermission,
-                                    unresolvedSmsCount = personalUnroutedSmsCount,
-                                    statementReviewCount = personalStatementReviewCount,
-                                ),
-                                appVersion = portableAppVersion,
-                                appLockTimeout = effectiveTimeout,
-                                appLockHasPin = hasAppLockPin,
-                                biometricAvailability = biometricAvailability,
-                                biometricUnlockEnabled = biometricEnabled != false,
-                                hasSmsHistoryPermission = hasSmsHistoryPermission,
-                                canRequestSmsHistoryPermission = canRequestSmsHistoryPermission,
-                                onEnableSmsMonitoring = {
-                                    scope.launch { uiPreferences.setSmsImportEnabled(true) }
-                                    if (!hasSmsPermission) {
-                                        if (canRequestSmsPermission) requestSmsPermission()
-                                        else openAppSettings()
-                                    }
-                                },
-                                onRequestSmsPermission = ::requestSmsPermission,
-                                onRequestSmsHistoryPermission = ::requestSmsHistoryPermission,
-                                onOpenSystemSettings = ::openAppSettings,
-                                onAppLockTimeoutChange = ::requestTimeoutChange,
-                                onAppLockPinCreated = ::savePin,
-                                onBiometricUnlockEnabledChange = { enabled ->
-                                    biometricUnlockEnabled = enabled
-                                    scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
-                                },
-                                onOpenBiometricSettings = ::openBiometricSettings,
-                                accounts = personalAccounts.orEmpty(),
-                                onSaveCash = { name, currency, openingMinor ->
-                                    setupAccounts.addAccount(
-                                        name = name,
-                                        type = AccountType.CASH,
-                                        currency = currency,
-                                        openingMinor = openingMinor,
-                                    )
-                                },
-                                onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
-                                    setupIncomeSources.save(
-                                        existing = null,
-                                        label = label,
-                                        amountMinor = amountMinor,
-                                        currency = currency,
-                                        accountId = accountId,
-                                        dayFrom = dayFrom,
-                                        dayTo = dayTo,
-                                    )
-                                },
-                                onContinue = { initialTab, openAccountAdd ->
-                                    app.runtimeModes.personalSetupPending = false
-                                    personalSetupPending = false
-                                    setupResumedFromHome = false
-                                    mainInitialTab = initialTab
-                                    mainOpenAccountAdd = openAccountAdd
-                                    appEntry = AppEntry.Main
-                                },
-                                onExit = { if (setupResumedFromHome) leaveResumedSetup() else finish() },
+                val pendingSensitive = sensitiveActions.pending
+                // While the whole-app lock is up it owns the prompt; the action gate waits its turn.
+                LaunchedEffect(pendingSensitive, appLock.locked) {
+                    if (pendingSensitive != null && !appLock.locked) requestSensitiveBiometric()
+                }
+                CompositionLocalProvider(LocalSensitiveActions provides sensitiveActions) {
+                    Box(Modifier.fillMaxSize()) {
+                        when (
+                            appStartupContent(
+                                savedTimeout = savedTimeout,
+                                hasPin = hasAppLockPin,
+                                sessionLocked = appLock.locked,
+                                runtimeModeRestart = runtimeModeRestart,
                             )
-                        }
-                        AppEntry.Main -> mainState.SaveableStateProvider("main") {
-                            MainScreen(
-                                initialTab = mainInitialTab,
-                                initialAccountAddRequest = mainOpenAccountAdd,
-                                appThemeMode = appThemeMode,
-                                dynamicColorsEnabled = dynamicColorsEnabled,
-                                useSystemFont = useSystemFont,
-                                quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
-                                widgetOpenAppButtonEnabled = widgetOpenAppButtonEnabled,
-                                onAppThemeModeChange = { mode ->
-                                    scope.launch { uiPreferences.setAppThemeMode(mode) }
+                        ) {
+                            AppStartupContent.Loading -> Surface(
+                                Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background,
+                            ) {}
+                            AppStartupContent.LockGate -> AppLockGate(
+                                biometricAvailable = biometricEnabled == true &&
+                                    biometricAvailability == BiometricAvailability.Available,
+                                problem = appLock.problem,
+                                onVerifyPin = ::verifyPin,
+                                onBiometric = {
+                                    // An explicit tap outranks an earlier code choice.
+                                    codeUnlockChosen = false
+                                    requestBiometricUnlock()
                                 },
-                                onDynamicColorsEnabledChange = { enabled ->
-                                    scope.launch { uiPreferences.setDynamicColorsEnabled(enabled) }
-                                },
-                                onUseSystemFontChange = { enabled ->
-                                    scope.launch { uiPreferences.setUseSystemFont(enabled) }
-                                },
-                                onQuickExpenseKeypadEnabledChange = { enabled ->
-                                    scope.launch { uiPreferences.setQuickExpenseKeypadEnabled(enabled) }
-                                },
-                                onWidgetOpenAppButtonEnabledChange = { enabled ->
-                                    scope.launch {
-                                        uiPreferences.setWidgetOpenAppButtonEnabled(enabled)
-                                        WhfinWidget().updateAll(applicationContext)
-                                    }
-                                },
-                                showSetupInvitation = showSetupInvitation(
-                                    welcomeCompleted = welcomeCompleted,
-                                    personalSetupPending = personalSetupPending,
-                                    demoMode = demoMode,
-                                    dismissed = setupInvitationDismissed,
-                                    bankLedgerCount = personalAccounts?.count {
-                                        it.type == AccountType.BANK || it.type == AccountType.SAVINGS
+                                onUseCode = { codeUnlockChosen = true },
+                            )
+                            AppStartupContent.Main -> when (appEntry) {
+                                AppEntry.Welcome -> WelcomeChoiceScreen(
+                                    busy = runtimeModeBusy,
+                                    problem = runtimeModeProblem,
+                                    onSetUpPersonal = {
+                                        app.runtimeModes.completeWelcomeChoice(personalSetupPending = true)
+                                        welcomeCompleted = true
+                                        personalSetupPending = true
+                                        appEntry = AppEntry.PersonalSetup
                                     },
-                                    statementImportCount = statementImports?.size,
-                                ),
-                                onResumeSetup = {
-                                    // The earlier pass ended on its last step, and restoring that
-                                    // would answer "connect your bank" with "your ledger is ready".
-                                    // A setup entered again starts where setup starts.
-                                    mainState.removeState("personal-setup")
-                                    app.runtimeModes.personalSetupPending = true
-                                    personalSetupPending = true
-                                    setupResumedFromHome = true
-                                    appEntry = AppEntry.PersonalSetup
-                                },
-                                onDismissSetupInvitation = {
-                                    app.runtimeModes.personalSetupInvitationDismissed = true
-                                    setupInvitationDismissed = true
-                                },
-                                smsImportEnabled = smsImportEnabled == true,
-                                hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,
-                                hasSmsPermission = hasSmsPermission,
-                                canRequestSmsPermission = canRequestSmsPermission,
-                                hasSmsHistoryPermission = hasSmsHistoryPermission,
-                                canRequestSmsHistoryPermission = canRequestSmsHistoryPermission,
-                                // Do not flash an already dismissed prompt while DataStore is loading.
-                                smsPermissionPromptDismissed = smsPermissionPromptDismissed != false,
-                                onRequestSmsPermission = ::requestSmsPermission,
-                                onRequestSmsHistoryPermission = ::requestSmsHistoryPermission,
-                                onDismissSmsPermissionPrompt = {
-                                    scope.launch { uiPreferences.dismissSmsPermissionPrompt() }
-                                },
-                                onSmsImportEnabledChange = { enabled ->
-                                    scope.launch { uiPreferences.setSmsImportEnabled(enabled) }
-                                },
-                                onOpenSystemSettings = ::openAppSettings,
-                                hasLowBalanceNotificationPermission = hasNotificationPermission,
-                                onRequestLowBalanceNotificationPermission = ::requestLowBalanceNotificationPermission,
-                                appLockTimeout = effectiveTimeout,
-                                appLockHasPin = hasAppLockPin,
-                                biometricAvailability = biometricAvailability,
-                                biometricUnlockEnabled = biometricEnabled != false,
-                                onAppLockTimeoutChange = ::requestTimeoutChange,
-                                onAppLockPinCreated = ::savePin,
-                                onBiometricUnlockEnabledChange = { enabled ->
-                                    biometricUnlockEnabled = enabled
-                                    scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
-                                },
-                                onOpenBiometricSettings = ::openBiometricSettings,
-                                demoMode = demoMode,
-                                developerMode = developerMode,
-                                runtimeModeBusy = runtimeModeBusy,
-                                runtimeModeProblem = runtimeModeProblem,
-                                onEnterDemo = { changeDemoMode(true) },
-                                onExitDemo = { changeDemoMode(false) },
-                                onResetDemoData = ::resetDemoData,
-                                onDeveloperModeChange = { enabled ->
-                                    developerMode = enabled
-                                    app.setDeveloperMode(enabled)
-                                },
+                                    onExploreDemo = ::enterDemoFromWelcome,
+                                    onExit = ::finish,
+                                )
+                                AppEntry.PersonalSetup -> mainState.SaveableStateProvider("personal-setup") {
+                                    PersonalSetupFlow(
+                                        state = PersonalSetupState(
+                                            accountCount = personalAccounts?.count {
+                                                it.type != AccountType.PERSON
+                                            },
+                                            bankLedgerCount = personalAccounts?.count {
+                                                it.type == AccountType.BANK || it.type == AccountType.SAVINGS
+                                            },
+                                            hasCredoImport = statementImports?.any {
+                                                it.origin == StatementImportOrigin.CREDO_SYNC
+                                            },
+                                            smsMonitoringEnabled = smsImportEnabled == true,
+                                            hasSmsPermission = hasSmsPermission,
+                                            canRequestSmsPermission = canRequestSmsPermission,
+                                            unresolvedSmsCount = personalUnroutedSmsCount,
+                                            statementReviewCount = personalStatementReviewCount,
+                                        ),
+                                        appVersion = portableAppVersion,
+                                        appLockTimeout = effectiveTimeout,
+                                        appLockHasPin = hasAppLockPin,
+                                        biometricAvailability = biometricAvailability,
+                                        biometricUnlockEnabled = biometricEnabled != false,
+                                        hasSmsHistoryPermission = hasSmsHistoryPermission,
+                                        canRequestSmsHistoryPermission = canRequestSmsHistoryPermission,
+                                        onEnableSmsMonitoring = {
+                                            scope.launch { uiPreferences.setSmsImportEnabled(true) }
+                                            if (!hasSmsPermission) {
+                                                if (canRequestSmsPermission) requestSmsPermission()
+                                                else openAppSettings()
+                                            }
+                                        },
+                                        onRequestSmsPermission = ::requestSmsPermission,
+                                        onRequestSmsHistoryPermission = ::requestSmsHistoryPermission,
+                                        onOpenSystemSettings = ::openAppSettings,
+                                        onAppLockTimeoutChange = ::requestTimeoutChange,
+                                        onAppLockPinCreated = ::savePin,
+                                        onBiometricUnlockEnabledChange = { enabled ->
+                                            biometricUnlockEnabled = enabled
+                                            scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
+                                        },
+                                        onOpenBiometricSettings = ::openBiometricSettings,
+                                        accounts = personalAccounts.orEmpty(),
+                                        onSaveCash = { name, currency, openingMinor ->
+                                            setupAccounts.addAccount(
+                                                name = name,
+                                                type = AccountType.CASH,
+                                                currency = currency,
+                                                openingMinor = openingMinor,
+                                            )
+                                        },
+                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
+                                            setupIncomeSources.save(
+                                                existing = null,
+                                                label = label,
+                                                amountMinor = amountMinor,
+                                                currency = currency,
+                                                accountId = accountId,
+                                                dayFrom = dayFrom,
+                                                dayTo = dayTo,
+                                            )
+                                        },
+                                        onContinue = { initialTab, openAccountAdd ->
+                                            app.runtimeModes.personalSetupPending = false
+                                            personalSetupPending = false
+                                            setupResumedFromHome = false
+                                            mainInitialTab = initialTab
+                                            mainOpenAccountAdd = openAccountAdd
+                                            appEntry = AppEntry.Main
+                                        },
+                                        onExit = { if (setupResumedFromHome) leaveResumedSetup() else finish() },
+                                    )
+                                }
+                                AppEntry.Main -> mainState.SaveableStateProvider("main") {
+                                    MainScreen(
+                                        initialTab = mainInitialTab,
+                                        initialAccountAddRequest = mainOpenAccountAdd,
+                                        appThemeMode = appThemeMode,
+                                        dynamicColorsEnabled = dynamicColorsEnabled,
+                                        useSystemFont = useSystemFont,
+                                        quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
+                                        widgetOpenAppButtonEnabled = widgetOpenAppButtonEnabled,
+                                        onAppThemeModeChange = { mode ->
+                                            scope.launch { uiPreferences.setAppThemeMode(mode) }
+                                        },
+                                        onDynamicColorsEnabledChange = { enabled ->
+                                            scope.launch { uiPreferences.setDynamicColorsEnabled(enabled) }
+                                        },
+                                        onUseSystemFontChange = { enabled ->
+                                            scope.launch { uiPreferences.setUseSystemFont(enabled) }
+                                        },
+                                        onQuickExpenseKeypadEnabledChange = { enabled ->
+                                            scope.launch { uiPreferences.setQuickExpenseKeypadEnabled(enabled) }
+                                        },
+                                        onWidgetOpenAppButtonEnabledChange = { enabled ->
+                                            scope.launch {
+                                                uiPreferences.setWidgetOpenAppButtonEnabled(enabled)
+                                                WhfinWidget().updateAll(applicationContext)
+                                            }
+                                        },
+                                        showSetupInvitation = showSetupInvitation(
+                                            welcomeCompleted = welcomeCompleted,
+                                            personalSetupPending = personalSetupPending,
+                                            demoMode = demoMode,
+                                            dismissed = setupInvitationDismissed,
+                                            bankLedgerCount = personalAccounts?.count {
+                                                it.type == AccountType.BANK || it.type == AccountType.SAVINGS
+                                            },
+                                            statementImportCount = statementImports?.size,
+                                        ),
+                                        onResumeSetup = {
+                                            // The earlier pass ended on its last step, and restoring that
+                                            // would answer "connect your bank" with "your ledger is ready".
+                                            // A setup entered again starts where setup starts.
+                                            mainState.removeState("personal-setup")
+                                            app.runtimeModes.personalSetupPending = true
+                                            personalSetupPending = true
+                                            setupResumedFromHome = true
+                                            appEntry = AppEntry.PersonalSetup
+                                        },
+                                        onDismissSetupInvitation = {
+                                            app.runtimeModes.personalSetupInvitationDismissed = true
+                                            setupInvitationDismissed = true
+                                        },
+                                        smsImportEnabled = smsImportEnabled == true,
+                                        hasSmsCardMapping = (configuredSmsCards ?: 0) > 0,
+                                        hasSmsPermission = hasSmsPermission,
+                                        canRequestSmsPermission = canRequestSmsPermission,
+                                        hasSmsHistoryPermission = hasSmsHistoryPermission,
+                                        canRequestSmsHistoryPermission = canRequestSmsHistoryPermission,
+                                        // Do not flash an already dismissed prompt while DataStore is loading.
+                                        smsPermissionPromptDismissed = smsPermissionPromptDismissed != false,
+                                        onRequestSmsPermission = ::requestSmsPermission,
+                                        onRequestSmsHistoryPermission = ::requestSmsHistoryPermission,
+                                        onDismissSmsPermissionPrompt = {
+                                            scope.launch { uiPreferences.dismissSmsPermissionPrompt() }
+                                        },
+                                        onSmsImportEnabledChange = { enabled ->
+                                            scope.launch { uiPreferences.setSmsImportEnabled(enabled) }
+                                        },
+                                        onOpenSystemSettings = ::openAppSettings,
+                                        hasLowBalanceNotificationPermission = hasNotificationPermission,
+                                        onRequestLowBalanceNotificationPermission = ::requestLowBalanceNotificationPermission,
+                                        appLockTimeout = effectiveTimeout,
+                                        appLockHasPin = hasAppLockPin,
+                                        biometricAvailability = biometricAvailability,
+                                        biometricUnlockEnabled = biometricEnabled != false,
+                                        onAppLockTimeoutChange = ::requestTimeoutChange,
+                                        onAppLockPinCreated = ::savePin,
+                                        onBiometricUnlockEnabledChange = { enabled ->
+                                            biometricUnlockEnabled = enabled
+                                            scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
+                                        },
+                                        onOpenBiometricSettings = ::openBiometricSettings,
+                                        demoMode = demoMode,
+                                        developerMode = developerMode,
+                                        runtimeModeBusy = runtimeModeBusy,
+                                        runtimeModeProblem = runtimeModeProblem,
+                                        onEnterDemo = { changeDemoMode(true) },
+                                        onExitDemo = { changeDemoMode(false) },
+                                        onResetDemoData = ::resetDemoData,
+                                        onDeveloperModeChange = { enabled ->
+                                            developerMode = enabled
+                                            app.setDeveloperMode(enabled)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        // Over the caller, never instead of it: a document picker launched after this gate
+                        // would lose its result if the screen that registered it were unmounted here.
+                        if (pendingSensitive != null && !appLock.locked) {
+                            SensitiveActionGate(
+                                action = pendingSensitive,
+                                biometricAvailable = biometricEnabled == true &&
+                                    biometricAvailability == BiometricAvailability.Available,
+                                problem = sensitiveActions.problem,
+                                onVerifyPin = ::verifySensitivePin,
+                                onBiometric = ::requestSensitiveBiometric,
+                                onCancel = sensitiveActions::cancel,
                             )
                         }
                     }
@@ -563,6 +592,9 @@ class MainActivity : FragmentActivity() {
         if (::appLock.isInitialized && !isChangingConfigurations && !runtimeModeRestarting) {
             appLock.background()
         }
+        // Leaving the app ends the sensitive grace regardless of the lock timeout: whoever comes
+        // back is not necessarily whoever authenticated.
+        if (!isChangingConfigurations) sensitiveActions.endGrace()
         super.onStop()
     }
 
@@ -680,6 +712,26 @@ class MainActivity : FragmentActivity() {
             appLock.unlock()
             updateWindowPrivacy()
         }
+    }
+
+    /** The whole-app lock has already passed by now, so this verification stands on its own. */
+    private fun verifySensitivePin(pin: String): PinVerificationResult =
+        pinStore.verify(pin.toCharArray()).also {
+            if (it == PinVerificationResult.Success) sensitiveActions.allow()
+        }
+
+    private fun requestSensitiveBiometric() {
+        val action = sensitiveActions.pending ?: return
+        if (!resumed || !biometricUnlockEnabled || authenticator.isPromptVisible) return
+        if (biometricAvailability != BiometricAvailability.Available) return
+        authenticator.authenticate(
+            title = getString(R.string.sensitive_gate_title),
+            subtitle = getString(action.bodyResource()),
+            useCodeLabel = getString(R.string.app_lock_use_code),
+            onSuccess = sensitiveActions::allow,
+            // A dismissed prompt is not a failure: the keypad is already on screen behind it.
+            onProblem = sensitiveActions::report,
+        )
     }
 
     private fun openBiometricSettings() {

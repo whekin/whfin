@@ -52,6 +52,8 @@ import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.backup.WhfinBackupManager
 import dev.whekin.whfin.data.backup.WhfinBackupMetadata
 import dev.whekin.whfin.data.backup.WhfinBackupPassphraseException
+import dev.whekin.whfin.data.security.LocalSensitiveActions
+import dev.whekin.whfin.data.security.SensitiveAction
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.Instant
 import java.time.LocalDate
@@ -95,6 +97,9 @@ fun BackupRoute(appVersion: String) {
     var safetyCopy by remember { mutableStateOf(safetyBackup.latest()) }
     var confirmUndo by remember { mutableStateOf(false) }
     var restorePassphraseError by remember { mutableStateOf(false) }
+    // Taken before the document picker starts, never after: the gate must not sit between the
+    // picker and the write it authorised.
+    val sensitive = LocalSensitiveActions.current
 
     fun metadata() = WhfinBackupMetadata(
         exportedAt = Instant.now(),
@@ -194,23 +199,31 @@ fun BackupRoute(appVersion: String) {
         uiState = uiState,
         pendingRestore = pendingRestore,
         driveSection = { DriveBackupSection(appVersion = appVersion) },
-        onExportEncrypted = { exportPassphraseSheet = true },
-        onExportPlain = { createPlainBackup.launch("whfin-backup-${LocalDate.now()}.json") },
+        onExportEncrypted = {
+            sensitive.require(SensitiveAction.BackupExport) { exportPassphraseSheet = true }
+        },
+        onExportPlain = {
+            sensitive.require(SensitiveAction.BackupExport) {
+                createPlainBackup.launch("whfin-backup-${LocalDate.now()}.json")
+            }
+        },
         onRestore = { chooseBackup.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
         onConfirmRestore = {
             pendingRestore?.let { pending ->
                 pendingRestore = null
-                if (pending.encrypted) {
-                    restorePassphraseError = false
-                    restorePassphraseFor = pending.uri
-                } else {
-                    restore(pending.uri, passphrase = null)
+                sensitive.require(SensitiveAction.BackupRestore) {
+                    if (pending.encrypted) {
+                        restorePassphraseError = false
+                        restorePassphraseFor = pending.uri
+                    } else {
+                        restore(pending.uri, passphrase = null)
+                    }
                 }
             }
         },
         onDismissRestore = { pendingRestore = null },
         safetyCopyTakenAt = safetyCopy?.takenAt,
-        onUndoRestore = { confirmUndo = true },
+        onUndoRestore = { sensitive.require(SensitiveAction.BackupRestore) { confirmUndo = true } },
     )
 
     if (confirmUndo) {

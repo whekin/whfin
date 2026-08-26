@@ -38,7 +38,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = { submitted = it },
@@ -76,7 +76,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     incomingOtp = "4821",
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
@@ -111,7 +111,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = state,
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -142,7 +142,7 @@ class CredoOtpScreenTest {
                         stage = CredoSyncStage.AwaitingOtp,
                         errorCode = "OTP_NOT_SENT",
                     ),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -165,7 +165,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(stage = CredoSyncStage.AwaitingOtp),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -193,7 +193,7 @@ class CredoOtpScreenTest {
                 if (showCredo) {
                     CredoSyncScreen(
                         state = CredoSyncUiState(),
-                        appLockEnabled = false,
+                        canStoreCredentials = false,
                         loginDraft = draft,
                         onOpenAppLock = { showCredo = false },
                         onConnect = { username, credential, remember ->
@@ -231,7 +231,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(),
-                    appLockEnabled = false,
+                    canStoreCredentials = false,
                     onOpenAppLock = { openedAppLock = true },
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -259,7 +259,7 @@ class CredoOtpScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -287,7 +287,7 @@ class CredoOtpScreenTest {
                         savedUsername = "saved-user",
                         hasSavedPassword = true,
                     ),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},

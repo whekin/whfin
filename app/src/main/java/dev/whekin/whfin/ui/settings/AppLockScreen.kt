@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
@@ -53,6 +56,8 @@ import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.security.AppLockPinStore
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.security.PinVerificationResult
+import dev.whekin.whfin.data.security.LocalSensitiveActions
+import dev.whekin.whfin.data.security.SensitiveAction
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
@@ -70,6 +75,10 @@ fun AppLockScreen(
 ) {
     var setupTarget by remember(autoSetupTimeout) { mutableStateOf(autoSetupTimeout) }
     var changingCode by remember { mutableStateOf(false) }
+    // Changing the code or the delay is how every other protected action stops being protected,
+    // so it answers to the same gate. With no code yet there is nothing to verify against and
+    // `require` runs the change straight through.
+    val sensitive = LocalSensitiveActions.current
     if (setupTarget != null || changingCode) {
         PinSetup(
             onComplete = { pin ->
@@ -106,7 +115,11 @@ fun AppLockScreen(
                     icon = if (option.enabled) Icons.Default.Lock else null,
                     trailing = { RadioButton(selected = timeout == option, onClick = null) },
                     onClick = {
-                        if (option.enabled && !hasPin) setupTarget = option else onTimeoutChange(option)
+                        if (option.enabled && !hasPin) {
+                            setupTarget = option
+                        } else {
+                            sensitive.require(SensitiveAction.AppLockSettings) { onTimeoutChange(option) }
+                        }
                     },
                     divider = index != AppLockTimeout.entries.lastIndex,
                 )
@@ -120,7 +133,9 @@ fun AppLockScreen(
                     title = stringResource(R.string.app_lock_change_code),
                     supportingText = stringResource(R.string.app_lock_change_code_body),
                     icon = Icons.Default.Key,
-                    onClick = { changingCode = true },
+                    onClick = {
+                        sensitive.require(SensitiveAction.AppLockSettings) { changingCode = true }
+                    },
                 )
                 WhfinLedgerRow(
                     title = stringResource(R.string.app_lock_biometric_title),
@@ -135,7 +150,10 @@ fun AppLockScreen(
                     },
                     onClick = {
                         if (biometricAvailability == BiometricAvailability.Available) {
-                            onBiometricEnabledChange(!biometricEnabled)
+                            // Turning this on adds a second way in, so it is a change to the lock.
+                            sensitive.require(SensitiveAction.AppLockSettings) {
+                                onBiometricEnabledChange(!biometricEnabled)
+                            }
                         } else if (biometricAvailability == BiometricAvailability.EnrollmentRequired) {
                             onOpenBiometricSettings()
                         }
@@ -253,6 +271,89 @@ fun AppLockGate(
             applySystemInsets = true,
         )
     }
+}
+
+/**
+ * Re-authentication for a single sensitive action, shown over the screen that asked for it so the
+ * caller stays composed — a document picker launched after this must not lose its result to a
+ * cancelled composition.
+ *
+ * The keypad is visible from the start rather than hidden behind the system prompt: the prompt is
+ * dismissible here, and the action always has a way out through Cancel.
+ */
+@Composable
+fun SensitiveActionGate(
+    action: SensitiveAction,
+    biometricAvailable: Boolean,
+    problem: dev.whekin.whfin.data.security.AppLockProblem?,
+    onVerifyPin: (String) -> PinVerificationResult,
+    onBiometric: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val resources = LocalResources.current
+    var pin by remember(action) { mutableStateOf("") }
+    var pinProblem by remember(action) { mutableStateOf<String?>(null) }
+    BackHandler(onBack = onCancel)
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        WhfinPinPad(
+            title = stringResource(R.string.sensitive_gate_title),
+            body = stringResource(action.bodyResource()),
+            pin = pin,
+            error = pinProblem ?: problem?.let { stringResource(it.messageResource()) },
+            onDigit = { digit ->
+                if (pin.length >= AppLockPinStore.PIN_LENGTH) return@WhfinPinPad
+                pinProblem = null
+                val next = pin + digit
+                pin = next
+                if (next.length == AppLockPinStore.PIN_LENGTH) {
+                    when (val result = onVerifyPin(next)) {
+                        PinVerificationResult.Success -> Unit
+                        is PinVerificationResult.Invalid -> {
+                            pin = ""
+                            pinProblem = resources.getString(
+                                R.string.app_lock_wrong_code,
+                                result.attemptsRemaining,
+                            )
+                        }
+                        is PinVerificationResult.Locked -> {
+                            pin = ""
+                            pinProblem = resources.getString(
+                                R.string.app_lock_code_locked,
+                                (result.retryAfterMillis / 1_000L).coerceAtLeast(1L),
+                            )
+                        }
+                    }
+                }
+            },
+            onBackspace = { if (pin.isNotEmpty()) pin = pin.dropLast(1) },
+            showBiometric = biometricAvailable,
+            onBiometric = onBiometric,
+            applySystemInsets = true,
+        )
+        // The way out sits in the corner rather than under the keypad: at font scale 1.5 the pad
+        // already fills the screen, and a way out that scrolls off is not one.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        ) {
+            WhfinIconButton(
+                icon = Icons.Default.Close,
+                contentDescription = stringResource(R.string.action_cancel),
+                onClick = onCancel,
+                outlined = false,
+                modifier = Modifier.align(Alignment.TopStart),
+            )
+        }
+    }
+}
+
+internal fun SensitiveAction.bodyResource(): Int = when (this) {
+    SensitiveAction.BackupExport -> R.string.sensitive_gate_backup_export
+    SensitiveAction.BackupRestore -> R.string.sensitive_gate_backup_restore
+    SensitiveAction.BankCredential -> R.string.sensitive_gate_bank_credential
+    SensitiveAction.AppLockSettings -> R.string.sensitive_gate_app_lock
 }
 
 @Composable
@@ -431,6 +532,34 @@ private fun AppLockGateWaitingPreview() {
             problem = null,
             onVerifyPin = { PinVerificationResult.Invalid(4) },
             onBiometric = {},
+        )
+    }
+}
+
+@Preview(name = "Sensitive action gate", widthDp = 400, heightDp = 800, showBackground = true)
+@Preview(
+    name = "Sensitive action gate dark",
+    widthDp = 400,
+    heightDp = 800,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(
+    name = "Sensitive action gate font 1.5",
+    widthDp = 400,
+    heightDp = 900,
+    fontScale = 1.5f,
+    showBackground = true,
+)
+@Composable
+private fun SensitiveActionGatePreview() {
+    WhfinTheme {
+        SensitiveActionGate(
+            action = SensitiveAction.BackupExport,
+            biometricAvailable = true,
+            problem = null,
+            onVerifyPin = { PinVerificationResult.Invalid(4) },
+            onBiometric = {},
+            onCancel = {},
         )
     }
 }

@@ -51,7 +51,7 @@ class CredoConnectedScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = state,
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     onOpenAppLock = {},
                     onConnect = { _, _, _ -> },
                     onSubmitOtp = {},
@@ -92,7 +92,7 @@ class CredoConnectedScreenTest {
             WhfinTheme {
                 CredoSyncScreen(
                     state = CredoSyncUiState(stage = CredoSyncStage.Disconnected),
-                    appLockEnabled = true,
+                    canStoreCredentials = true,
                     loginDraft = CredoLoginDraft("user", "password"),
                     initialRememberPassword = true,
                     onOpenAppLock = {},

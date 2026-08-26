@@ -626,6 +626,11 @@
     <string name="app_lock_cancelled">Используй код WHFIN, чтобы продолжить.</string>
     <string name="app_lock_locked_out">Биометрия временно заблокирована. Используй код WHFIN.</string>
     <string name="app_lock_prompt_unavailable">Биометрия недоступна. Используй код WHFIN.</string>
+    <string name="sensitive_gate_title">Подтвердите, что это вы</string>
+    <string name="sensitive_gate_backup_export">Введите код WHFIN, чтобы выгрузить копию. В файле — вся ваша книга.</string>
+    <string name="sensitive_gate_backup_restore">Введите код WHFIN, чтобы заменить данные из файла копии.</string>
+    <string name="sensitive_gate_bank_credential">Введите код WHFIN, чтобы использовать сохранённый вход MyCredo.</string>
+    <string name="sensitive_gate_app_lock">Введите код WHFIN, чтобы изменить блокировку приложения.</string>
     <string name="app_lock_prompt_title">Разблокировать WHFIN</string>
     <string name="app_lock_prompt_subtitle">Отпечаток пальца или распознавание лица</string>
     <string name="app_lock_use_code">Использовать код WHFIN</string>
