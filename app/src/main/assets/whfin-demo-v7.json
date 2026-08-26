@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "exportedAt": "2026-07-31T18:00:00Z",
   "appVersion": "0.2.0-demo (2)",
-  "databaseVersion": 1,
+  "databaseVersion": 2,
   "primaryCurrency": "GEL",
   "tables": {
     "financial_groups": [
@@ -888,6 +888,7 @@
     ],
     "counterparty_rules": [],
     "income_sources": [],
+    "savings_plans": [],
     "transactions": [
       {
         "id": 1,

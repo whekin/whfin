@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * The schema a first install creates.
@@ -13,7 +15,7 @@ import androidx.room.RoomDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 1
+const val WHFIN_DATABASE_VERSION = 2
 
 @Database(
     entities = [
@@ -41,6 +43,7 @@ const val WHFIN_DATABASE_VERSION = 1
         ExchangeRateHistoryEntity::class,
         CounterpartyRuleEntity::class,
         IncomeSourceEntity::class,
+        SavingsPlanEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
     exportSchema = true,
@@ -63,6 +66,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun exchangeRateDao(): ExchangeRateDao
     abstract fun counterpartyRuleDao(): CounterpartyRuleDao
     abstract fun incomeSourceDao(): IncomeSourceDao
+    abstract fun savingsPlanDao(): SavingsPlanDao
 
     companion object {
         const val NAME = "whfin.db"
@@ -79,6 +83,29 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
+    }
+}
+
+val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `savings_plans` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`currency` TEXT NOT NULL, " +
+                "`monthlyTargetMinor` INTEGER NOT NULL, " +
+                "`goalMinor` INTEGER, " +
+                "`goalBy` INTEGER, " +
+                "`startedOn` INTEGER NOT NULL, " +
+                "`endedOn` INTEGER, " +
+                "`createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_savings_plans_currency_startedOn` " +
+                "ON `savings_plans` (`currency`, `startedOn`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_savings_plans_endedOn` ON `savings_plans` (`endedOn`)",
+        )
     }
 }

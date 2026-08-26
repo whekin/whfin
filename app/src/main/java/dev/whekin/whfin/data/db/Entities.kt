@@ -212,6 +212,35 @@ data class IncomeSourceEntity(
 )
 
 /**
+ * One version of the owner's monthly saving intention in a single currency.
+ *
+ * A change starts on the first day of a calendar month and closes the prior version instead of
+ * rewriting it. The declaration never creates ledger rows: actual pace is derived from real money
+ * crossing the Available/Reserve boundary.
+ */
+@Entity(
+    tableName = "savings_plans",
+    indices = [
+        Index(value = ["currency", "startedOn"], unique = true),
+        Index("endedOn"),
+    ],
+)
+data class SavingsPlanEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val currency: String,
+    val monthlyTargetMinor: Long,
+    /** Optional desired Reserve balance in [currency]. */
+    val goalMinor: Long? = null,
+    /** Optional epoch day by which the desired balance is intended. */
+    val goalBy: Long? = null,
+    /** Inclusive epoch day, always the first day of a calendar month. */
+    val startedOn: Long,
+    /** Inclusive epoch day, always the last day of a calendar month. */
+    val endedOn: Long? = null,
+    val createdAt: Long,
+)
+
+/**
  * Кому уходит перевод, узнанный по счёту получателя, а не по написанию его имени.
  *
  * Банк печатает одного и того же человека каждый раз иначе — транслитерацией, инициалом, порядком

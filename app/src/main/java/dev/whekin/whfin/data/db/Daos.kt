@@ -118,6 +118,39 @@ interface AccountDao {
 }
 
 @Dao
+interface SavingsPlanDao {
+    @Query("SELECT * FROM savings_plans ORDER BY currency, startedOn, id")
+    fun observeAll(): Flow<List<SavingsPlanEntity>>
+
+    @Query("SELECT * FROM savings_plans ORDER BY currency, startedOn, id")
+    suspend fun allForIntegrity(): List<SavingsPlanEntity>
+
+    @Query(
+        "SELECT * FROM savings_plans WHERE currency = :currency AND endedOn IS NULL " +
+            "ORDER BY startedOn DESC, id DESC LIMIT 1",
+    )
+    suspend fun active(currency: String): SavingsPlanEntity?
+
+    @Query(
+        "SELECT * FROM savings_plans WHERE currency = :currency AND startedOn <= :epochDay " +
+            "AND (endedOn IS NULL OR endedOn >= :epochDay) ORDER BY startedOn DESC, id DESC LIMIT 1",
+    )
+    suspend fun covering(currency: String, epochDay: Long): SavingsPlanEntity?
+
+    @Insert
+    suspend fun insert(plan: SavingsPlanEntity): Long
+
+    @Update
+    suspend fun update(plan: SavingsPlanEntity)
+
+    @Query("UPDATE savings_plans SET endedOn = :endedOn WHERE id = :id")
+    suspend fun finish(id: Long, endedOn: Long)
+
+    @Query("DELETE FROM savings_plans WHERE id = :id")
+    suspend fun delete(id: Long)
+}
+
+@Dao
 interface FinancialGroupDao {
     @Query("SELECT * FROM financial_groups WHERE isArchived = 0 ORDER BY sortOrder, id")
     fun observeActive(): Flow<List<FinancialGroupEntity>>

@@ -501,6 +501,10 @@ tables = {
     # The demo declares no entry point: its income is already recorded row by row, and a
     # declaration would only restate it.
     "income_sources": [],
+    # A monthly intention belongs to the person, not to the product tour. The Savings screen still
+    # gets twelve months of Reserve history from the deposit ledgers and can show its honest no-plan
+    # state without inventing a habit on the visitor's behalf.
+    "savings_plans": [],
     "transactions": sorted(f.transactions, key=lambda row: row["id"]),
     "transaction_allocations": f.allocations,
     "debt_cases": f.debt_cases,

@@ -40,6 +40,29 @@ class DataIntegrityChecker(
             val byTransaction = transactions.associateBy { it.id }
             val allocations = db.transactionAllocationDao().allForIntegrity().groupBy { it.transactionId }
 
+            val savingsPlans = db.savingsPlanDao().allForIntegrity()
+            savingsPlans.forEach { plan ->
+                val start = LocalDate.ofEpochDay(plan.startedOn)
+                val end = plan.endedOn?.let(LocalDate::ofEpochDay)
+                when {
+                    plan.monthlyTargetMinor <= 0L ->
+                        add(error("savings_plan_invalid_pace", "savings_plans", plan.id, "Monthly savings pace must be positive."))
+                    plan.goalMinor != null && plan.goalMinor <= 0L ->
+                        add(error("savings_plan_invalid_goal", "savings_plans", plan.id, "Savings goal must be positive."))
+                    start.dayOfMonth != 1 ->
+                        add(error("savings_plan_partial_start", "savings_plans", plan.id, "Savings plans start on a calendar month boundary."))
+                    end != null && (end.dayOfMonth != end.lengthOfMonth() || end < start) ->
+                        add(error("savings_plan_invalid_end", "savings_plans", plan.id, "Savings plans end on a calendar month boundary after they start."))
+                }
+            }
+            savingsPlans.groupBy { it.currency }.forEach { (_, plans) ->
+                plans.sortedBy { it.startedOn }.zipWithNext().forEach { (before, after) ->
+                    if (before.endedOn == null || before.endedOn >= after.startedOn) {
+                        add(error("savings_plan_overlap", "savings_plans", after.id, "Savings-plan periods overlap in one currency."))
+                    }
+                }
+            }
+
             // Categories nest exactly one level, and only within their own kind. Nothing in the app
             // can build anything else, but a restored file can carry it, and a deeper chain would
             // report the same money under a group the user never sees.

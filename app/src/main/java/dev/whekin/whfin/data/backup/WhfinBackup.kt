@@ -199,6 +199,13 @@ internal object WhfinBackupSchema {
             ),
         ),
         BackupTable(
+            "savings_plans",
+            listOf(
+                "id", "currency", "monthlyTargetMinor", "goalMinor", "goalBy",
+                "startedOn", "endedOn", "createdAt",
+            ),
+        ),
+        BackupTable(
             "transactions",
             listOf(
                 "id", "accountId", "amountMinor", "currency", "origAmountMinor", "origCurrency",
@@ -403,7 +410,14 @@ internal object WhfinBackupCodec {
         val version = appVersion?.takeIf(String::isNotBlank)
             ?: throw WhfinBackupException("Missing application version.")
         val exported = exportedAt ?: throw WhfinBackupException("Missing backup export time.")
-        val tables = rowsByTable ?: throw WhfinBackupException("Backup data is missing.")
+        val parsedTables = rowsByTable ?: throw WhfinBackupException("Backup data is missing.")
+        val missingTables = WhfinBackupSchema.byName.keys - parsedTables.keys
+        val backwardOptional = if (dbVersion < 2) setOf("savings_plans") else emptySet()
+        val requiredMissing = missingTables - backwardOptional
+        if (requiredMissing.isNotEmpty()) {
+            throw WhfinBackupException("Backup is missing tables: ${requiredMissing.joinToString()}.")
+        }
+        val tables = parsedTables + missingTables.associateWith { emptyList() }
         tables.forEach { (tableName, rows) ->
             val table = WhfinBackupSchema.byName.getValue(tableName)
             rows.forEach { row ->
@@ -449,10 +463,6 @@ internal object WhfinBackupCodec {
             result[tableName] = rows
         }
         endObject()
-        val missing = WhfinBackupSchema.byName.keys - result.keys
-        if (missing.isNotEmpty()) {
-            throw WhfinBackupException("Backup is missing tables: ${missing.joinToString()}.")
-        }
         return result
     }
 

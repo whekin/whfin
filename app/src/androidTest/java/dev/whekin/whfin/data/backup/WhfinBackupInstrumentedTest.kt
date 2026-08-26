@@ -73,7 +73,7 @@ class WhfinBackupInstrumentedTest {
         val summary = WhfinBackupManager(target).restore(ByteArrayInputStream(original))
         val restored = export(target)
 
-        assertEquals(26, summary.rowCount)
+        assertEquals(27, summary.rowCount)
         assertEquals(original.toString(Charsets.UTF_8), restored.toString(Charsets.UTF_8))
     }
 
@@ -358,6 +358,9 @@ class WhfinBackupInstrumentedTest {
             )
             sqlite.execSQL(
                 "INSERT INTO income_sources VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 10, 20000, NULL, 6000)",
+            )
+            sqlite.execSQL(
+                "INSERT INTO savings_plans VALUES (1, 'GEL', 100000, 3000000, 22000, 20666, NULL, 6000)",
             )
             // Named columns on purpose: a positional insert breaks on every new column.
             sqlite.execSQL(
