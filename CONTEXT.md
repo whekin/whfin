@@ -98,3 +98,20 @@ _Avoid_: Reserve account, savings purpose, available deposit
 The single payment instrument the owner treats as their everyday default across the Personal workspace.
 It may be physical or virtual; when it is physical, its linked GEL ledger owns the grocery balance warning.
 _Avoid_: Main account, default bank, primary ledger
+
+### Savings
+
+**Savings plan**:
+The owner’s monthly intention for how much money to move from Available funds into Reserve in one
+currency. It describes a habit from an effective month onward and never creates a future transaction.
+_Avoid_: Scheduled transfer, recurring payment, savings goal
+
+**Savings pace**:
+The net owner-controlled movement across the Available↔Reserve boundary during a calendar month.
+Passive income such as deposit interest changes the Reserve balance but does not satisfy the plan.
+_Avoid_: Reserve balance change, account growth, investment return
+
+**Savings goal**:
+An optional desired Reserve balance and optional date attached to a Savings plan. Reaching it is an
+observation, not an automatic close, transfer, or withdrawal.
+_Avoid_: Monthly target, mandatory deadline
