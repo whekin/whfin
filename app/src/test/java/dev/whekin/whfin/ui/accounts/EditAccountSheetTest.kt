@@ -23,10 +23,14 @@ class EditAccountSheetTest {
     @get:Rule
     val compose = createComposeRule()
 
+    /**
+     * A bank account is its IBAN across every currency under it, so its name and fund role are
+     * answered in the account sheet. This per-currency form must not offer a second, narrower
+     * mechanism for the same decision.
+     */
     @Test
-    fun bankEditDoesNotExposeBankProductAndSavesOnlyFundRole() {
+    fun bankEditExposesNeitherFundRoleNorBankProduct() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        var savedRole: FundRole? = null
         compose.setContent {
             WhfinTheme {
                 EditAccountSheet(
@@ -41,16 +45,39 @@ class EditAccountSheetTest {
                         bankProduct = BankProduct.DEMAND_DEPOSIT,
                     ),
                     onDismiss = {},
-                    onConfirm = { _, _, _, role ->
-                        savedRole = role
-                    },
+                    onConfirm = { _, _, _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.account_fund_role)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.account_currency)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.account_name)).assertExists()
+    }
+
+    /** Cash has no IBAN to hold the answer, so it keeps its own fund role here. */
+    @Test
+    fun cashEditSavesFundRole() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var savedRole: FundRole? = null
+        compose.setContent {
+            WhfinTheme {
+                EditAccountSheet(
+                    account = AccountEntity(
+                        id = 2,
+                        name = "Pocket money",
+                        type = AccountType.CASH,
+                        currency = "GEL",
+                        fundRole = FundRole.RESERVE,
+                    ),
+                    onDismiss = {},
+                    onConfirm = { _, _, _, role -> savedRole = role },
                 )
             }
         }
 
         compose.onNodeWithText(context.getString(R.string.account_fund_role)).assertExists()
-        compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.account_currency)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.account_fund_available)).performClick()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         assertEquals(FundRole.AVAILABLE, savedRole)

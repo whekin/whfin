@@ -165,7 +165,9 @@
     <string name="action_save_changes">Save changes</string>
     <string name="action_import_statement">Import statement</string>
     <string name="action_enable_sms">Enable automatic SMS import</string>
-    <string name="account_bank_mapping">Bank details</string>
+    <!-- One IBAN spans every currency ledger under it, so this sheet is the account itself. -->
+    <string name="account_settings_title">Account</string>
+    <string name="account_settings_hint">Applies to every currency of this account.</string>
     <string name="account_iban">IBAN</string>
     <string name="account_card_last4">Card last 4 digits</string>
     <string name="account_card_last4_hint">Separate multiple cards with commas</string>

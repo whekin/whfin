@@ -13,6 +13,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Rule
 import org.junit.Assert.assertEquals
@@ -22,10 +23,51 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "w411dp-h891dp")
 class BankMappingSheetTest {
     @get:Rule
     val compose = createComposeRule()
+
+    /**
+     * One IBAN is one account across every currency under it, so the fund role is answered here
+     * next to the IBAN it applies to — not in a per-currency form the owner has to go looking for.
+     */
+    @Test
+    fun accountSheetSavesNameAndFundRole() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var savedName: String? = null
+        var savedRole: FundRole? = null
+        compose.setContent {
+            WhfinTheme {
+                BankMappingSheet(
+                    account = AccountEntity(
+                        id = 1,
+                        name = "Everyday",
+                        type = AccountType.BANK,
+                        groupId = 1,
+                        currency = "GEL",
+                        iban = "GE00CD0000000000000001",
+                        fundRole = FundRole.AVAILABLE,
+                    ),
+                    existingCards = emptyList(),
+                    existingVirtualCards = emptyList(),
+                    onDismiss = {},
+                    onConfirm = { name, role, _, _, _, _, _ ->
+                        savedName = name
+                        savedRole = role
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.account_fund_role)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_purpose_reserve))
+            .performScrollTo()
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        assertEquals("Everyday", savedName)
+        assertEquals(FundRole.RESERVE, savedRole)
+    }
 
     @Test
     fun mixedCardsExposeIndependentTypeAndPrimaryControls() {
@@ -45,7 +87,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = listOf("0002"),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, _ -> },
+                    onConfirm = { _, _, _, _, _, _, _ -> },
                 )
             }
         }
@@ -69,7 +111,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { _, _, savedPhysical, savedVirtual, _ ->
+                    onConfirm = { _, _, _, _, savedPhysical, savedVirtual, _ ->
                         physical = savedPhysical
                         virtual = savedVirtual
                     },
@@ -98,7 +140,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = emptyList(),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, savedPrimary -> primary = savedPrimary },
+                    onConfirm = { _, _, _, _, _, _, savedPrimary -> primary = savedPrimary },
                 )
             }
         }
@@ -129,7 +171,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { iban, product, _, _, _ ->
+                    onConfirm = { _, _, iban, product, _, _, _ ->
                         savedIban = iban
                         savedProduct = product
                     },

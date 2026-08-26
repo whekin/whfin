@@ -464,9 +464,11 @@ fun AccountsScreen(
             existingVirtualCards = rows.flatMap { it.virtualCardMasks }.distinct(),
             existingPrimaryCard = rows.flatMap { it.primaryCardMasks }.firstOrNull(),
             onDismiss = { bankDetailsFor = null },
-            onConfirm = { iban, bankProduct, physicalCards, virtualCards, primaryCard ->
+            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, primaryCard ->
                 viewModel.updateBankMapping(
                     rows.map { it.account },
+                    name,
+                    fundRole,
                     iban,
                     bankProduct,
                     physicalCards,
@@ -787,7 +789,7 @@ private fun IbanCard(
                         )
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = stringResource(R.string.account_bank_mapping),
+                            contentDescription = stringResource(R.string.account_settings_title),
                         )
                     }
                 }

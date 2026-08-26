@@ -514,6 +514,8 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateBankMapping(
         accounts: List<AccountEntity>,
+        name: String,
+        fundRole: FundRole,
         iban: String?,
         bankProduct: BankProduct?,
         cardMasks: List<String>,
@@ -523,15 +525,22 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 require(accounts.isNotEmpty())
+                val normalizedName = name.trim().ifBlank { accounts.first().name }
                 // One IBAN, its cards and their statement sources describe a single account: applied
                 // apart, a failure halfway leaves cards pointing at an account that never got its
                 // IBAN, and SMS routing then lands the money in the wrong ledger.
                 db.withTransaction {
-                    // IBAN and bank product are container metadata. Keep each ledger's role and
-                    // every unrelated field intact while applying both values to every currency
-                    // row in the container atomically.
+                    // Name, fund role, IBAN and bank product are all container metadata: one IBAN
+                    // is one account, and its currency rows only differ in the money they hold.
+                    // They are written by row rather than by IBAN key because this same save may
+                    // be the one changing that key.
                     val updatedAccounts = accounts.map { account ->
-                        account.copy(iban = iban, bankProduct = bankProduct)
+                        account.copy(
+                            name = normalizedName,
+                            fundRole = fundRole,
+                            iban = iban,
+                            bankProduct = bankProduct,
+                        )
                     }
                     updatedAccounts.forEach { account -> db.accountDao().update(account) }
                     db.paymentInstrumentDao().replaceForAccounts(

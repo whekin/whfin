@@ -340,13 +340,16 @@ fun EditAccountSheet(
             modifier = Modifier.fillMaxWidth(),
         )
         when (account.type) {
-            AccountType.BANK, AccountType.SAVINGS, AccountType.CASH -> {
+            AccountType.CASH -> {
                 Text(stringResource(R.string.account_fund_role), style = MaterialTheme.typography.labelLarge)
                 FundRoleSelector(
                     selected = fundRole,
                     onSelect = { fundRole = it },
                 )
             }
+            // A bank account answers name and fund role in its own sheet, where the IBAN they
+            // belong to is on screen. Nothing here is a currency row's to change.
+            AccountType.BANK, AccountType.SAVINGS -> Unit
             // A wallet is its address and the chain decides its assets: only the name is the
             // person's to change, so the rest is shown as what it is rather than as a field.
             AccountType.CRYPTO -> {
@@ -431,7 +434,7 @@ private fun BankProductSelector(
 @Composable
 private fun EditBankProfilePreview() {
     WhfinTheme {
-        EditAccountSheet(
+        BankMappingSheet(
             account = AccountEntity(
                 name = "Daily deposit",
                 type = AccountType.BANK,
@@ -441,8 +444,11 @@ private fun EditBankProfilePreview() {
                 fundRole = FundRole.AVAILABLE,
                 bankProduct = BankProduct.DEMAND_DEPOSIT,
             ),
+            existingCards = listOf("0000"),
+            existingVirtualCards = emptyList(),
+            existingPrimaryCard = "0000",
             onDismiss = {},
-            onConfirm = { _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _, _, _ -> },
         )
     }
 }
@@ -474,6 +480,11 @@ private fun AddCashPreview() {
     }
 }
 
+/**
+ * The single editor of a bank account. One IBAN spans every currency ledger under it, so its name,
+ * fund role, IBAN, product and cards are all container-level answers and belong in one sheet: split
+ * across two, the same decision had two mechanisms and the fund role was reachable only sideways.
+ */
 @Composable
 fun BankMappingSheet(
     account: AccountEntity,
@@ -481,8 +492,10 @@ fun BankMappingSheet(
     existingVirtualCards: List<String>,
     existingPrimaryCard: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
+    onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
 ) {
+    var name by remember(account.id, account.name) { mutableStateOf(account.name) }
+    var fundRole by remember(account.id, account.fundRole) { mutableStateOf(account.fundRole) }
     var iban by remember { mutableStateOf(account.iban.orEmpty()) }
     var bankProduct by remember(account.id, account.bankProduct) {
         mutableStateOf(account.bankProduct)
@@ -502,12 +515,14 @@ fun BankMappingSheet(
     val validCards = parseCardMasks(cards)
 
     FormSheet(
-        title = stringResource(R.string.account_bank_mapping),
+        title = stringResource(R.string.account_settings_title),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = true,
+        primaryEnabled = name.isNotBlank(),
         onPrimary = {
             onConfirm(
+                name,
+                fundRole,
                 iban.trim().takeIf(String::isNotEmpty),
                 bankProduct,
                 validCards.filter { cardTypes[it] != PaymentInstrumentType.VIRTUAL_CARD },
@@ -517,9 +532,20 @@ fun BankMappingSheet(
         },
     ) {
         Text(
-            account.name,
+            stringResource(R.string.account_settings_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        WhfinField(
+            value = name,
+            onValueChange = { name = it },
+            label = stringResource(R.string.account_name),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.account_fund_role), style = MaterialTheme.typography.labelLarge)
+        FundRoleSelector(
+            selected = fundRole,
+            onSelect = { fundRole = it },
         )
         WhfinField(
             value = iban,
@@ -633,7 +659,7 @@ private fun BankMappingPreview() {
             existingVirtualCards = listOf("0002"),
             existingPrimaryCard = "0001",
             onDismiss = {},
-            onConfirm = { _, _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _, _, _ -> },
         )
     }
 }

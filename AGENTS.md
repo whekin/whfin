@@ -968,11 +968,18 @@ This is a single-context repository with root domain documentation and system-wi
 - [x] Credo Remember password detour: если App Lock ещё не настроен, Credo открывает code setup с
   активным Immediate timeout; login draft остаётся memory-only в ViewModel, а после PIN Remember password
   остаётся выбранным и следующий connect действительно получает `remember=true`.
-- [x] Bank product edit: Add Account и Bank details показывают `CURRENT_ACCOUNT`, `DEMAND_DEPOSIT`,
-  `TERM_DEPOSIT`; Bank details — единственный редактор продукта для существующего IBAN-container,
-  а Edit account оставляет только имя и `FundRole`. Профиль IBAN-container меняется атомарно по
-  всем валютным ledgers и сохраняет их индивидуальные `bankProduct`/прочие поля. Regression
-  покрывает выбор продукта в Bank details и сохранение профиля без перезаписи продукта.
+- [x] Один редактор банковского счёта (`BankMappingSheet`, заголовок «Счёт»): имя, назначение
+  (`FundRole`), IBAN, банковский продукт и карты. Раньше решений было два механизма при одном
+  scope: `Bank details` держал IBAN/продукт/карты, а имя и `FundRole` жили в `Edit account`, куда
+  со Счетов вообще не было пути (шестерёнка контейнера банка вела только в Bank details), поэтому
+  «Доступно/Резерв» для банка достигалось лишь через Account activity. IBAN — это и есть счёт,
+  а его валютные ledger отличаются только деньгами, поэтому все пять полей пишутся одной
+  транзакцией по каждой строке контейнера (не запросом по ключу `iban`: этот же save может менять
+  сам ключ). `Edit account` остался для Cash (там нет IBAN, который держал бы ответ) и крипты;
+  для BANK/SAVINGS он не предлагает ни `FundRole`, ни продукт. Проверено на эмуляторе в demo:
+  один выбор `Резерв` перевёл обе валюты IBAN (`GEL` и `USD`), Доступно 2 370.72 → 779.34 ₾,
+  соседний IBAN не затронут. Regression покрывает продукт, имя+`FundRole` и отсутствие второго
+  механизма в `Edit account`.
 - [~] Multi-bank statements: следующий банковский приоритет — **TBC**, затем **Bank of Georgia (BOG)**.
   Известный разрыв до появления второго банка: `TransferPairing` работает внутри одной банковской
   группы, а `isOwnMovement` знает только «между своими счетами Credo». Перевод Credo→TBC уйдёт

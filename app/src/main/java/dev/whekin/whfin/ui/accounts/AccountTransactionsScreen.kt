@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -114,14 +113,12 @@ internal fun AccountTransactionsScreen(
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
     var adjustBalance by remember { mutableStateOf(false) }
-    var bankMapping by remember { mutableStateOf(false) }
     var deleteAccount by remember { mutableStateOf(false) }
 
     val contentCallbacks = AccountActivityCallbacks(
         onTransaction = { details = it },
         onEditAccount = { editAccount = true },
         onAdjustBalance = { adjustBalance = true },
-        onBankMapping = { bankMapping = true },
         onDeleteAccount = { deleteAccount = true },
     )
     when (val value = state) {
@@ -262,7 +259,11 @@ internal fun AccountTransactionsScreen(
     }
 
     selectedRow?.let { item ->
-        if (editAccount) EditAccountSheet(
+        // A bank account is its IBAN across every currency under it, so editing it is the one
+        // account sheet rather than a per-currency form.
+        val editsWholeAccount = item.account.type == AccountType.BANK ||
+            item.account.type == AccountType.SAVINGS
+        if (editAccount && !editsWholeAccount) EditAccountSheet(
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editAccount = false },
@@ -279,22 +280,24 @@ internal fun AccountTransactionsScreen(
                 adjustBalance = false
             },
         )
-        if (bankMapping) BankMappingSheet(
+        if (editAccount && editsWholeAccount) BankMappingSheet(
             account = item.account,
             existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = containerRows.flatMap { it.virtualCardMasks }.distinct(),
             existingPrimaryCard = containerRows.flatMap { it.primaryCardMasks }.firstOrNull(),
-            onDismiss = { bankMapping = false },
-            onConfirm = { iban, bankProduct, physicalCards, virtualCards, primaryCard ->
+            onDismiss = { editAccount = false },
+            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, primaryCard ->
                 accountsViewModel.updateBankMapping(
                     containerRows.map { it.account },
+                    name,
+                    fundRole,
                     iban,
                     bankProduct,
                     physicalCards,
                     virtualCards,
                     primaryCard,
                 )
-                bankMapping = false
+                editAccount = false
             },
         )
         // Deleting one asset row of a wallet would come back with the next discovery pass, so a
@@ -326,7 +329,6 @@ private data class AccountActivityCallbacks(
     val onTransaction: (FeedItem) -> Unit,
     val onEditAccount: () -> Unit,
     val onAdjustBalance: () -> Unit,
-    val onBankMapping: () -> Unit,
     val onDeleteAccount: () -> Unit,
 )
 
@@ -343,7 +345,7 @@ private fun AccountTransactionsState(
         LazyColumn(Modifier.fillMaxSize()) {
             item { AccountTransactionsHeader(onBack) }
             if (account != null) item {
-                AccountTransactionsScope(account, balanceMinor, null, {}, {}, {}, {})
+                AccountTransactionsScope(account, balanceMinor, null, {}, {}, {})
             }
             item { WhfinStatePane(paneState, title, body, Modifier.fillMaxWidth()) }
         }
@@ -377,7 +379,6 @@ private fun AccountTransactionsContent(
                     accountRow = accountRow,
                     onEdit = callbacks.onEditAccount,
                     onAdjust = callbacks.onAdjustBalance,
-                    onBankMapping = callbacks.onBankMapping,
                     onDelete = callbacks.onDeleteAccount,
                 )
             }
@@ -443,7 +444,6 @@ private fun AccountTransactionsScope(
     accountRow: AccountWithBalance?,
     onEdit: () -> Unit,
     onAdjust: () -> Unit,
-    onBankMapping: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val isChain = account.type == AccountType.CRYPTO
@@ -480,18 +480,6 @@ private fun AccountTransactionsScope(
                             expanded = accountMenuExpanded,
                             onDismissRequest = { accountMenuExpanded = false },
                         ) {
-                            if (account.type == AccountType.BANK) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.account_bank_mapping)) },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.AccountBalance, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        accountMenuExpanded = false
-                                        onBankMapping()
-                                    },
-                                )
-                            }
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -645,7 +633,7 @@ private fun AccountTransactionsPreview() {
                 items = items,
                 accountRow = AccountWithBalance(account, 163_18, emptyList()),
                 onBack = {},
-                callbacks = AccountActivityCallbacks({}, {}, {}, {}, {}),
+                callbacks = AccountActivityCallbacks({}, {}, {}, {}),
             )
         }
     }

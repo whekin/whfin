@@ -182,7 +182,8 @@
     <string name="action_save_changes">Сохранить изменения</string>
     <string name="action_import_statement">Импорт выписки</string>
     <string name="action_enable_sms">Включить автоматический импорт SMS</string>
-    <string name="account_bank_mapping">Банковские реквизиты</string>
+    <string name="account_settings_title">Счёт</string>
+    <string name="account_settings_hint">Действует для всех валют этого счёта.</string>
     <string name="account_iban">IBAN</string>
     <string name="account_card_last4">Последние 4 цифры карты</string>
     <string name="account_card_last4_hint">Несколько карт укажи через запятую</string>
