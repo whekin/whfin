@@ -43,6 +43,10 @@ This is a single-context repository with root domain documentation and system-wi
   Dogfood `0.3.7 (19)` установлен signed in-place upgrade поверх `0.3.6 (18)`:
   release certificate `af6009…fae92` сверен до установки, `firstInstallTime` (2026-08-16) сохранился,
   SMS/notification permissions остались выданы, процесс WHFIN запущен.
+  Dogfood `0.3.8 (20)` установлен signed in-place upgrade поверх `0.3.7 (19)`: сертификат сверен
+  сравнением digest установленного `base.apk` и новой сборки (`af6009…fae92`), `firstInstallTime`
+  (2026-08-16) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы, запуск
+  без падений.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
