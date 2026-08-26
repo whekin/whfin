@@ -289,3 +289,32 @@ fun stateLoadingDarkScreenshot() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "skeleton_light", widthDp = 400, heightDp = 300)
+@Composable
+fun skeletonLightScreenshot() {
+    WhfinTheme(darkTheme = false) { SkeletonScreenshotContent() }
+}
+
+@PreviewTest
+@Preview(name = "skeleton_dark", widthDp = 400, heightDp = 300, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun skeletonDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { SkeletonScreenshotContent() }
+}
+
+@Composable
+private fun SkeletonScreenshotContent() {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        WhfinSkeleton(
+            contentDescription = "Reading the ledger",
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+        ) {
+            WhfinSkeletonBlock(Modifier.fillMaxWidth(.3f), height = 11.dp)
+            WhfinSkeletonBlock(Modifier.fillMaxWidth(.5f), height = 30.dp)
+            WhfinSkeletonLedgerRow()
+            WhfinSkeletonLedgerRow()
+        }
+    }
+}

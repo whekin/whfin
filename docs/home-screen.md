@@ -101,12 +101,27 @@ rows shown, so the total can never be the sum of a truncated list. It reads agai
 rate the runway row already states, which is why the row does not repeat that rate. A day that only
 earned has nothing to report.
 
-## Nothing recorded is a claim
+## Waiting, and nothing recorded
 
-"Your financial picture will appear here" waits for the ledger to answer: a `StateFlow` placeholder is
-not evidence of an empty database. It also stays quiet while any money-bearing block above it —
-obligations, debts, unrouted messages — already names something, because a screen cannot both list
-money and offer to help the person get started.
+Two different states used to look the same, and both looked like facts.
+
+While the ledger is still answering, Home shows a **skeleton** in its own rhythm — the month block and
+the first rows without numbers — instead of printing the `0.00` a `StateFlow` starts on. The readiness
+signal comes from the query pipeline that produces the month totals (`monthFlow`, null until the first
+real answer), not from shared feed state: a combined `StateFlow` hands its placeholder downstream, so a
+total built on it exists as zero before any query has returned. Transaction history and Accounts use
+the same silhouettes.
+
+A restore is the other half of the rule. `LedgerRestoreState.active` is raised inside
+`WhfinBackupManager.restore`, because a restore empties every table before writing the new rows while
+the screens are alive: a demo workspace being installed, a backup being brought back. During it Room
+truthfully answers "nothing", and without the flag Home would state a month result of zero over the
+person's own data mid-restore.
+
+"Your financial picture will appear here" is therefore a claim with three conditions: the ledger has
+answered, no restore is running, and no money-bearing block above it — obligations, debts, unrouted
+messages — already names something. A screen cannot both list money and offer to help the person get
+started.
 
 ## Notice triage
 

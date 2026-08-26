@@ -80,6 +80,7 @@
         <item quantity="other">%1$d bookkeeping links may be wrong. Your accounts stay available; review them when convenient.</item>
     </plurals>
     <string name="home_spendable">Available to spend</string>
+    <string name="home_loading">Reading your ledger</string>
     <string name="home_recurring_title">Still due</string>
     <string name="home_debts_owed_title">Yours to return</string>
     <string name="home_month_unconverted">Not in the total yet: %1$s</string>

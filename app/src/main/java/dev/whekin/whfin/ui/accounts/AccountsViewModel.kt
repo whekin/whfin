@@ -36,6 +36,7 @@ import dev.whekin.whfin.data.db.CryptoAssetEntity
 import dev.whekin.whfin.data.db.StatementSourceEntity
 import dev.whekin.whfin.data.db.StatementSourceType
 import dev.whekin.whfin.data.db.BankProduct
+import dev.whekin.whfin.data.backup.LedgerRestoreState
 import dev.whekin.whfin.data.db.FundRole
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -208,6 +209,9 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     ) { accounts, debts, archived ->
         AccountsScreenState.Ready(accounts, debts, archived)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountsScreenState.Loading)
+
+    /** True while a restore is replacing this database's contents. */
+    internal val restoring: StateFlow<Boolean> = LedgerRestoreState.active
 
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

@@ -14,13 +14,18 @@ import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeBoardTest {
+
+    private val SYSTEM_CATEGORY_ID = 99L
 
     @Test
     fun `few conditions all stay visible`() {
@@ -82,30 +87,63 @@ class HomeBoardTest {
     @Test
     fun `month flow counts own money only`() {
         val month = YearMonth.of(2026, 8)
-        val items = listOf(
-            item(id = 1, amountMinor = -4_000, day = month.atDay(3)),
-            item(id = 2, amountMinor = 120_000, day = month.atDay(5)),
+        val transactions = listOf(
+            transaction(id = 1, amountMinor = -4_000, day = month.atDay(3)),
+            transaction(id = 2, amountMinor = 120_000, day = month.atDay(5)),
             // Transfers, debts, balance corrections and last month never belong to a month result.
-            item(id = 3, amountMinor = -50_000, day = month.atDay(6), isTransfer = true),
-            item(id = 4, amountMinor = -20_000, day = month.atDay(7), isDebt = true),
-            item(id = 5, amountMinor = -900, day = month.atDay(8), source = TxSource.ADJUSTMENT),
-            item(id = 6, amountMinor = -700, day = month.atDay(9), systemCategory = true),
-            item(id = 7, amountMinor = -30_000, day = month.minusMonths(1).atDay(20)),
+            transaction(id = 3, amountMinor = -50_000, day = month.atDay(6), isTransfer = true),
+            transaction(id = 4, amountMinor = -20_000, day = month.atDay(7)),
+            transaction(id = 5, amountMinor = -900, day = month.atDay(8), source = TxSource.ADJUSTMENT),
+            transaction(id = 6, amountMinor = -700, day = month.atDay(9), categoryId = SYSTEM_CATEGORY_ID),
+            transaction(id = 7, amountMinor = -30_000, day = month.minusMonths(1).atDay(20)),
         )
+        val allocations = listOf(loanAllocation(transactionId = 4, amountMinor = -20_000))
 
-        assertEquals(HomeMonthFlow(120_000, 4_000), homeMonthFlow(items, month))
+        assertEquals(
+            HomeMonthFlow(120_000, 4_000),
+            homeMonthFlow(transactions, listOf(systemCategory()), allocations, month, ZoneOffset.UTC),
+        )
     }
 
     @Test
     fun `an unvalued foreign row waits instead of counting as zero`() {
         val month = YearMonth.of(2026, 8)
-        val items = listOf(
-            item(id = 1, amountMinor = -4_000, day = month.atDay(3)),
-            item(id = 2, amountMinor = -2_000, day = month.atDay(4), currency = "USD"),
-            item(id = 3, amountMinor = -3_000, day = month.atDay(5), currency = "EUR", gelValueMinor = -9_000),
+        val transactions = listOf(
+            transaction(id = 1, amountMinor = -4_000, day = month.atDay(3)),
+            transaction(id = 2, amountMinor = -2_000, day = month.atDay(4), currency = "USD"),
+            transaction(
+                id = 3,
+                amountMinor = -3_000,
+                day = month.atDay(5),
+                currency = "EUR",
+                gelValueMinor = -9_000,
+            ),
         )
 
-        assertEquals(HomeMonthFlow(0, 13_000), homeMonthFlow(items, month))
+        assertEquals(
+            HomeMonthFlow(0, 13_000),
+            homeMonthFlow(transactions, emptyList(), emptyList(), month, ZoneOffset.UTC),
+        )
+    }
+
+    @Test
+    fun `an opening balance anchor is not this month's income`() {
+        val month = YearMonth.of(2026, 8)
+        val transactions = listOf(
+            transaction(
+                id = 1,
+                amountMinor = 500_000,
+                day = month.atDay(1),
+                source = TxSource.ADJUSTMENT,
+                isTransfer = true,
+            ),
+            transaction(id = 2, amountMinor = -4_000, day = month.atDay(3)),
+        )
+
+        assertEquals(
+            HomeMonthFlow(0, 4_000),
+            homeMonthFlow(transactions, emptyList(), emptyList(), month, ZoneOffset.UTC),
+        )
     }
 
     @Test
@@ -304,6 +342,44 @@ class HomeBoardTest {
             ),
         )
     }
+
+    private fun systemCategory() = CategoryEntity(
+        id = SYSTEM_CATEGORY_ID,
+        name = "Unaccounted",
+        kind = CategoryKind.EXPENSE,
+        icon = "help",
+        color = 0,
+        sortOrder = 0,
+        isSystem = true,
+    )
+
+    private fun loanAllocation(transactionId: Long, amountMinor: Long) = TransactionAllocationEntity(
+        transactionId = transactionId,
+        amountMinor = amountMinor,
+        purpose = AllocationPurpose.LOAN,
+    )
+
+    private fun transaction(
+        id: Long,
+        amountMinor: Long,
+        day: LocalDate,
+        currency: String = "GEL",
+        gelValueMinor: Long? = null,
+        source: TxSource = TxSource.STATEMENT,
+        isTransfer: Boolean = false,
+        categoryId: Long? = null,
+    ) = TransactionEntity(
+        id = id,
+        accountId = 1,
+        amountMinor = amountMinor,
+        currency = currency,
+        gelValueMinor = gelValueMinor,
+        occurredAt = day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        status = TxStatus.CONFIRMED,
+        source = source,
+        isTransfer = isTransfer,
+        categoryId = categoryId,
+    )
 
     private fun person(id: Long, name: String) = PersonEntity(id = id, name = name, color = 0)
 

@@ -78,7 +78,6 @@ import dev.whekin.whfin.ui.settings.BankStatementsViewModel
 import dev.whekin.whfin.ui.settings.StatementImportStatusSheet
 import dev.whekin.whfin.ui.settings.StatementImportUiState
 import dev.whekin.whfin.ui.settings.statementFileName
-import dev.whekin.whfin.core.ui.WhfinLoadingIndicator
 import dev.whekin.whfin.core.ui.WhfinAmount
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -90,6 +89,9 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinSkeleton
+import dev.whekin.whfin.core.ui.WhfinSkeletonBlock
+import dev.whekin.whfin.core.ui.WhfinSkeletonLedgerRow
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
 import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
@@ -130,7 +132,9 @@ fun AccountsScreen(
 ) {
     val context = LocalContext.current
     val screenState by viewModel.screenState.collectAsState()
-    val readyState = screenState as? AccountsScreenState.Ready
+    val restoring by viewModel.restoring.collectAsState()
+    // Mid-restore the tables are empty on purpose; the list of accounts is not yet a fact.
+    val readyState = (screenState as? AccountsScreenState.Ready)?.takeIf { !restoring }
     val accounts = readyState?.accounts.orEmpty()
     val debts = readyState?.debts.orEmpty()
     val archivedAccounts = readyState?.archivedAccounts.orEmpty()
@@ -232,20 +236,19 @@ fun AccountsScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
             if (readyState == null) {
-                // Reading a local database takes milliseconds. A full-height pane announcing it left
-                // most of the screen empty for a moment that is normally invisible; a quiet line is
-                // enough to keep the state honest without pretending something is happening.
-                Row(
-                    Modifier.fillMaxWidth().padding(padding).padding(horizontal = 20.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                // Reading a local database takes milliseconds, and a sentence about it was the wrong
+                // shape for that moment: it announced work instead of showing what is arriving. The
+                // silhouette of the rows about to land says the same thing and does not move the
+                // screen when they do.
+                WhfinSkeleton(
+                    contentDescription = stringResource(R.string.accounts_loading),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
                 ) {
-                    WhfinLoadingIndicator(Modifier.size(24.dp))
-                    Text(
-                        stringResource(R.string.accounts_loading),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    WhfinSkeletonBlock(Modifier.fillMaxWidth(.3f), height = 11.dp)
+                    repeat(3) { WhfinSkeletonLedgerRow() }
                 }
             } else if (accounts.isEmpty() && debts.isEmpty() && archivedAccounts.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(padding)) {

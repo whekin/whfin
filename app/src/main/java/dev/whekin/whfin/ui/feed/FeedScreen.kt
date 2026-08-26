@@ -158,6 +158,9 @@ import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.core.ui.WhfinSkeleton
+import dev.whekin.whfin.core.ui.WhfinSkeletonBlock
+import dev.whekin.whfin.core.ui.WhfinSkeletonLedgerRow
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.recurring.RecurringCharge
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
@@ -291,17 +294,20 @@ fun FeedScreen(
     var showBatchDelete by remember { mutableStateOf(false) }
     var noticesExpanded by remember { mutableStateOf(false) }
     val monthFlow by viewModel.monthFlow.collectAsState()
+    // One signal, taken from the pipeline that produces the numbers: while it has no answer the
+    // screen shows the shape of what is coming instead of a total of nothing.
+    val restoring by viewModel.restoring.collectAsState()
+    val feedLoaded = monthFlow != null && !restoring
     val attention by viewModel.attention.collectAsState()
     val recent by viewModel.recentActivity.collectAsState()
     val spendable by viewModel.spendable.collectAsState()
     val accountBalances by viewModel.accountBalances.collectAsState()
     val recurringDue by viewModel.recurringDue.collectAsState()
     val debtsOwed by viewModel.debtsOwed.collectAsState()
-    val feedLoaded by viewModel.feedLoaded.collectAsState()
     val incomeSources by viewModel.incomeSources.collectAsState()
     val homeAnalytics = (homeAnalyticsState?.state as? AnalyticsUiState.Content)?.data
-    val income = homeAnalytics?.incomeMinor ?: monthFlow.incomeMinor
-    val expenses = homeAnalytics?.expenseMinor ?: monthFlow.expenseMinor
+    val income = homeAnalytics?.incomeMinor ?: monthFlow?.incomeMinor ?: 0L
+    val expenses = homeAnalytics?.expenseMinor ?: monthFlow?.expenseMinor ?: 0L
     val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
     val runway = remember(spendable, homeAnalytics, incomeSources) {
         homeRunway(spendable?.pivotMinor, homeAnalytics, incomeSources, LocalDate.now())
@@ -499,6 +505,9 @@ fun FeedScreen(
             contentPadding = PaddingValues(top = contentPadding.calculateTopPadding(), bottom = 28.dp),
         ) {
         if (mode == FeedMode.HOME && !selectionMode) {
+            if (!feedLoaded) {
+                item(key = "skeleton") { HomeSkeleton() }
+            } else {
             item(key = "summary") {
                 MonthlyFlowSummary(
                     income = income,
@@ -634,6 +643,7 @@ fun FeedScreen(
                     )
                 }
             }
+            }
         } else if (mode == FeedMode.HISTORY) {
             if (!selectionMode) {
                 item(key = "feed-tools") {
@@ -643,6 +653,9 @@ fun FeedScreen(
                         searchVisible = showSearch,
                     )
                 }
+            }
+            if (!feedLoaded) {
+                item(key = "skeleton") { FeedSkeleton() }
             }
             if (feedLoaded && items.isEmpty() && unroutedOperations.isEmpty()) {
                 item(key = "empty") {
@@ -2340,6 +2353,42 @@ internal fun HomeRecurringRow(charges: List<RecurringCharge>) {
 }
 
 private const val MAX_NAMED_CHARGES = 3
+
+/**
+ * Home while the ledger is still answering: the month block and the first rows, without numbers.
+ *
+ * The layout is the message. The blocks sit where the result, the two flow figures and the first two
+ * rows will land, so nothing jumps when the real values arrive and nothing claims an amount before
+ * they do.
+ */
+@Composable
+private fun HomeSkeleton() {
+    WhfinSkeleton(
+        contentDescription = stringResource(R.string.home_loading),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+    ) {
+        WhfinSkeletonBlock(Modifier.fillMaxWidth(.3f), height = 11.dp)
+        WhfinSkeletonBlock(Modifier.fillMaxWidth(.5f), height = 30.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            WhfinSkeletonBlock(Modifier.weight(1f), height = 15.dp)
+            WhfinSkeletonBlock(Modifier.weight(1f), height = 15.dp)
+        }
+        WhfinTotalRule()
+        WhfinSkeletonLedgerRow()
+        WhfinSkeletonLedgerRow()
+    }
+}
+
+/** The same wait on the full ledger, where rows are all there is. */
+@Composable
+private fun FeedSkeleton() {
+    WhfinSkeleton(
+        contentDescription = stringResource(R.string.home_loading),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+    ) {
+        repeat(4) { WhfinSkeletonLedgerRow() }
+    }
+}
 
 /**
  * Borrowed money the balances above still count as the person's own.

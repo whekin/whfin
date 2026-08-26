@@ -82,6 +82,20 @@ for invisible layout primitives or one-off behavior that has no product appearan
 
 Expose a stable screen state with one of `Loading`, `Empty`, `Error`, `Unavailable`, or `Content`. If a screen can retain old content while refreshing, represent refresh separately and keep content visible. Route composables collect flows; content composables accept plain immutable state and callbacks.
 
+A `StateFlow` placeholder is not an answer. `emptyList()` before the first query returns means "not
+asked yet", and combining such a flow hands the placeholder downstream, so a derived total exists as
+zero before anything is known. Take the readiness signal from the query pipeline that produces the
+numbers — a nullable state whose first non-null value is the first real answer — and treat "nothing
+recorded" as a claim that needs that answer plus silence from every other money-bearing block on the
+screen. `LedgerRestoreState.active` is the same rule for a restore in progress: the tables really are
+empty while they are being replaced, and screens must read that as waiting rather than as truth.
+
+Waiting shows the shape of what is coming: `WhfinSkeleton` with `WhfinSkeletonBlock` and
+`WhfinSkeletonLedgerRow`, laid out in the destination's own rhythm so nothing jumps when the values
+arrive. Prefer it over a sentence or a spinner whenever the layout is known in advance;
+`WhfinLoadingIndicator` remains for work whose result has no shape yet (a sync, an import, a network
+call). The skeleton breathes as one and carries a single content description for the whole group.
+
 ## Preview matrix
 
 For each key screen, provide representative preview data for empty and populated states. Add error/unavailable when supported. Render at compact phone light, compact phone dark, font scale 1.5, and compact height. Component previews cover enabled, disabled, destructive, and long-text cases.

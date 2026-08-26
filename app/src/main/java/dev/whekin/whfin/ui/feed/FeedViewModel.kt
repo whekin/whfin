@@ -36,6 +36,7 @@ import dev.whekin.whfin.data.db.CREDO_PROVIDER
 import dev.whekin.whfin.data.db.insertBankLedger
 import androidx.room.withTransaction
 import java.time.LocalTime
+import dev.whekin.whfin.data.backup.LedgerRestoreState
 import dev.whekin.whfin.data.categorization.CategorySuggester
 import dev.whekin.whfin.data.recurring.RecurringCharge
 import dev.whekin.whfin.data.recurring.recurringDue
@@ -428,10 +429,23 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * rotation, a sheet opening — walked the whole feed window again while laying out the first
      * screenful. The lists are the same; only who computes them moved.
      */
-    internal val monthFlow: StateFlow<HomeMonthFlow> = items
-        .map { homeMonthFlow(it, YearMonth.now(zone)) }
+    /** True while a restore is replacing this database's contents; an empty answer means nothing. */
+    internal val restoring: StateFlow<Boolean> = LedgerRestoreState.active
+
+    internal val monthFlow: StateFlow<HomeMonthFlow?> = combine(
+        // Room's own flows, not the shared feed state: these emit when a query answers, which is
+        // exactly the moment Home is allowed to state a total.
+        db.transactionDao().observeRange(
+            YearMonth.now(zone).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+            YearMonth.now(zone).plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+        ),
+        db.categoryDao().observeAll(),
+        db.transactionAllocationDao().observeAll(),
+    ) { transactions, categories, allocations ->
+        homeMonthFlow(transactions, categories, allocations, YearMonth.now(zone), zone)
+    }
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeMonthFlow(0L, 0L))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     internal val attention: StateFlow<List<FeedTimelineEntry>> = combine(
         items,
@@ -521,17 +535,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /**
-     * Whether the ledger has actually answered yet.
-     *
-     * A `StateFlow` starts on a placeholder, so an empty list means "not asked yet" just as often as
-     * "nothing recorded". Home cannot tell the person their financial picture will appear here while
-     * other rows on the same screen are already naming obligations and debts.
-     */
-    val feedLoaded: StateFlow<Boolean> = db.transactionDao().observeFeed(limit = 1)
-        .map { true }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Borrowed money that the balances still count as the person's own. */
     internal val debtsOwed: StateFlow<List<HomeDebt>> = combine(

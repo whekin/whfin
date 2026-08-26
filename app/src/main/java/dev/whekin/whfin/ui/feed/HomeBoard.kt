@@ -1,15 +1,22 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.DebtCaseEntity
 import dev.whekin.whfin.data.db.DebtDirection
 import dev.whekin.whfin.data.db.DebtEventEntity
 import dev.whekin.whfin.data.db.DebtStatus
 import dev.whekin.whfin.data.db.PersonEntity
+import dev.whekin.whfin.data.db.TransactionAllocationEntity
+import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.isOpeningBalanceAnchor
 import dev.whekin.whfin.data.recurring.RecurringCharge
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 
 /**
  * A standing condition Home can raise, ordered by how much it deserves the first screenful.
@@ -54,15 +61,33 @@ internal fun triageHomeNotices(
 internal data class HomeMonthFlow(val incomeMinor: Long, val expenseMinor: Long)
 
 /**
- * Month totals read straight off the feed, used until the full analytics pass has an answer.
+ * Month totals read straight from the ledger, used until the full analytics pass has an answer.
+ *
+ * Taken from the queries themselves rather than from the feed window, because the answer doubles as
+ * Home's readiness signal: a `StateFlow` hands its placeholder to whatever combines it, so a total
+ * built on shared feed state exists — as zero — before any query has returned, and a zero that means
+ * "not asked yet" is indistinguishable from a zero that means "nothing happened".
  *
  * A foreign-currency operation enters at its booked GEL value — the rate of its own day. While that
  * day has no quote the row is left out rather than counted as zero, which is why this is a fallback
  * and Statistics stays the source of record.
  */
-internal fun homeMonthFlow(items: List<FeedItem>, month: YearMonth): HomeMonthFlow {
-    val monthGelValues = items.asSequence()
-        .filter { YearMonth.from(it.day) == month && isOwnMoney(it) }
+internal fun homeMonthFlow(
+    transactions: List<TransactionEntity>,
+    categories: List<CategoryEntity>,
+    allocations: List<TransactionAllocationEntity>,
+    month: YearMonth,
+    zone: ZoneId,
+): HomeMonthFlow {
+    val systemCategoryIds = categories.filter(CategoryEntity::isSystem).mapTo(mutableSetOf()) { it.id }
+    val debtTransactionIds = allocations
+        .filter { it.purpose == AllocationPurpose.LOAN || it.purpose == AllocationPurpose.REPAYMENT }
+        .mapTo(mutableSetOf()) { it.transactionId }
+    val monthGelValues = transactions.asSequence()
+        .filter { transaction ->
+            YearMonth.from(Instant.ofEpochMilli(transaction.occurredAt).atZone(zone)) == month &&
+                isOwnMoney(transaction, systemCategoryIds, debtTransactionIds)
+        }
         .mapNotNull(::pivotValueMinor)
         .toList()
     return HomeMonthFlow(
@@ -72,12 +97,24 @@ internal fun homeMonthFlow(items: List<FeedItem>, month: YearMonth): HomeMonthFl
 }
 
 /** The person's own earning and spending: transfers, debts and corrections move money they had. */
+private fun isOwnMoney(
+    transaction: TransactionEntity,
+    systemCategoryIds: Set<Long>,
+    debtTransactionIds: Set<Long>,
+): Boolean = !transaction.isVoided && !transaction.isOpeningBalanceAnchor() &&
+    !transaction.isTransfer && transaction.transferGroupId == null &&
+    transaction.id !in debtTransactionIds &&
+    transaction.source != TxSource.ADJUSTMENT &&
+    transaction.categoryId !in systemCategoryIds
+
 private fun isOwnMoney(item: FeedItem): Boolean =
     !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt &&
         item.tx.source != TxSource.ADJUSTMENT && item.category?.isSystem != true
 
-private fun pivotValueMinor(item: FeedItem): Long? =
-    if (item.tx.currency == "GEL") item.tx.amountMinor else item.tx.gelValueMinor
+private fun pivotValueMinor(transaction: TransactionEntity): Long? =
+    if (transaction.currency == "GEL") transaction.amountMinor else transaction.gelValueMinor
+
+private fun pivotValueMinor(item: FeedItem): Long? = pivotValueMinor(item.tx)
 
 /**
  * Rows waiting on a decision: a draft the person has not confirmed and a message with no account.

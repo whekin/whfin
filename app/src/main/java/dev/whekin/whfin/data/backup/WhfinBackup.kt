@@ -75,6 +75,9 @@ class WhfinBackupManager(
 
     suspend fun restore(input: InputStream, passphrase: CharArray? = null): WhfinBackupSummary =
         withContext(Dispatchers.IO) {
+            // Screens stay alive while the tables are emptied and refilled, so they are told that an
+            // empty answer from Room means "being replaced" rather than "nothing recorded".
+            LedgerRestoreState.during {
             val (stream, encrypted) = WhfinEncryptedBackupEnvelope.detect(input)
             val plain = if (encrypted) {
                 if (passphrase == null) {
@@ -93,6 +96,7 @@ class WhfinBackupManager(
             }
             database.invalidationTracker.refreshAsync()
             snapshot.summary
+            }
         }
 }
 
