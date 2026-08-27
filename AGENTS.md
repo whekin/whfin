@@ -72,6 +72,10 @@ This is a single-context repository with root domain documentation and system-wi
   `firstInstallTime` и SMS/notification permissions сохранились. Signed R8/lintVital build прошёл.
   Приложение намеренно не запускалось поверх call UI владельца; runtime migration и Savings на
   реальных данных телефона остаются для первого ручного открытия (v1→v2 проверена на disposable Pixel).
+  Dogfood `0.3.10 (22)` собран с R8/lintVital и установлен через `adb install -r` поверх `0.3.9 (21)`:
+  команда установки вернула Success, до установки package/version и release certificate
+  `af6009…fae92` сверены, данные не очищались. S25 отключился от ADB сразу после установки, поэтому
+  post-install version/certificate/permissions check остаётся выполнить при следующем подключении.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
