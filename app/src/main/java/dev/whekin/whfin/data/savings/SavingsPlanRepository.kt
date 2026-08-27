@@ -26,6 +26,7 @@ class SavingsPlanRepository(
         require(currency.matches(Regex("[A-Z0-9]{2,12}"))) { "Unsupported savings-plan currency." }
         require(draft.monthlyTargetMinor > 0L) { "Monthly savings target must be positive." }
         require(draft.goalMinor == null || draft.goalMinor > 0L) { "Savings goal must be positive." }
+        require(draft.goalBy == null || draft.goalMinor != null) { "A desired date needs a savings goal." }
 
         val startedOn = effectiveMonth.atDay(1).toEpochDay()
         val active = db.savingsPlanDao().active(currency)

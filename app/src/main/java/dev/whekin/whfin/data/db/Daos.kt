@@ -384,6 +384,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isVoided = 0 ORDER BY occurredAt DESC LIMIT :limit OFFSET :offset")
     fun observeFeed(limit: Int, offset: Int = 0): Flow<List<TransactionEntity>>
 
+    /** Complete active ledger projection for balance-history features such as Savings. */
+    @Query("SELECT * FROM transactions WHERE isVoided = 0 ORDER BY occurredAt, id")
+    fun observeAllActive(): Flow<List<TransactionEntity>>
+
     @Query(
         "SELECT * FROM transactions WHERE occurredAt >= :fromMillis AND occurredAt < :toMillis " +
             "AND isVoided = 0 ORDER BY occurredAt DESC"

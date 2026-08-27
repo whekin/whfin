@@ -403,3 +403,18 @@ The consequences are the point:
 Verified on a disposable Pixel 9 Pro API 36.1 AVD in demo mode: swipe both ways, dock tap, the Back
 drag mid-gesture (both rules partially drawn, both pages visible) and its settle. 120 instrumented
 tests and the JVM suites pass; the three shell screenshot references were regenerated for the rule.
+
+## Savings: pace and balance are separate readings
+
+Reserve in Accounts opens a first-level Savings scene; Account overview remains a balance explanation.
+Keep native currencies explicit and selectable, never silently sum them. The current balance and optional
+goal precede the monthly intention, actual pace, and average over completed months. A declaration is
+not a scheduled transaction, and the editor says which month a change applies to.
+
+`WhfinSavingsPaceChart` renders signed columns around zero with a labelled current-target reference.
+The screen owns month selection and accessible previous/next actions, plus the exact value and the
+historical target of the selected month. Dense twelve-month columns give way to 48dp scrolling slots
+at large font scale. `WhfinSavingsBalanceChart` is a non-interactive solid line with an optional goal;
+all-time history fits the viewport and thins labels rather than forcing a horizontal scan across years.
+Both receive formatted descriptions from the feature layer and keep money/domain policy outside
+`:core-ui`. Render references cover positive, negative, zero, missing, dark and font 1.5 states.

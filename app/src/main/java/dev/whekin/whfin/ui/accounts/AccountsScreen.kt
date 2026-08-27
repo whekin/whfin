@@ -125,6 +125,7 @@ fun AccountsScreen(
     onAddRequestConsumed: () -> Unit = {},
     onOpenStatements: () -> Unit = {},
     onOpenOverview: () -> Unit = {},
+    onOpenSavings: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAccountTransactions: (Long) -> Unit = {},
     viewModel: AccountsViewModel = viewModel(),
@@ -273,7 +274,7 @@ fun AccountsScreen(
                 ) {
                     item(key = "accounts-summary") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            AccountsSummary(ledgerAccounts)
+                            AccountsSummary(ledgerAccounts, onOpenSavings)
                         }
                     }
                     listOf(
@@ -506,7 +507,7 @@ fun AccountsScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AccountsSummary(accounts: List<AccountWithBalance>) {
+private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (() -> Unit)? = null) {
     // Chain balances are read, not summed from transactions, so they have their own reading below
     // and never mix into these currency chips.
     val all = accounts.groupBy { it.account.currency }
@@ -528,6 +529,7 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
                 reserve["GEL"]?.let { formatMinor(it, "GEL") } ?: "—",
                 reserve["GEL"]?.let { currencySymbol("GEL") },
                 Modifier.weight(1f),
+                onClick = onOpenSavings?.takeIf { reserve.isNotEmpty() },
             )
         }
         // Available and reserve are lari only, so on a multi-currency ledger they cannot add up to
@@ -549,11 +551,39 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>) {
 }
 
 @Composable
-private fun SummaryColumn(label: String, value: String, symbol: String?, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        WhfinFieldLabel(label)
-        WhfinAmount(value, symbol = symbol, style = MaterialTheme.typography.titleMedium)
+private fun SummaryColumn(
+    label: String,
+    value: String,
+    symbol: String?,
+    modifier: Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    val content: @Composable () -> Unit = {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 5.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WhfinFieldLabel(label, Modifier.weight(1f))
+                if (onClick != null) Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            WhfinAmount(value, symbol = symbol, style = MaterialTheme.typography.titleMedium)
+        }
     }
+    if (onClick == null) Box(modifier, contentAlignment = Alignment.CenterStart) {
+        content()
+    } else Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = Color.Transparent,
+        content = content,
+    )
 }
 
 @Composable

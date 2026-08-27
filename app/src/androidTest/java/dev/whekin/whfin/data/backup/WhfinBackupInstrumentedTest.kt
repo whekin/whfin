@@ -107,6 +107,21 @@ class WhfinBackupInstrumentedTest {
     }
 
     @Test
+    fun restore_acceptsV1WithoutSavingsPlans_butV2MustIncludeThem() = runBlocking {
+        seedEveryTable(source)
+        val missing = export(source).toString(Charsets.UTF_8).replace(
+            Regex(""",\s*"savings_plans": \[[^]]*]"""), "",
+        )
+        assertThrows(WhfinBackupException::class.java) {
+            runBlocking { WhfinBackupManager(target).restore(ByteArrayInputStream(missing.toByteArray())) }
+        }
+        val old = missing.replace("\"databaseVersion\": 2", "\"databaseVersion\": 1")
+        WhfinBackupManager(target).restore(ByteArrayInputStream(old.toByteArray()))
+        assertEquals(0, target.savingsPlanDao().allForIntegrity().size)
+        assertEquals(source.transactionDao().sumByAccount(1), target.transactionDao().sumByAccount(1))
+    }
+
+    @Test
     fun restore_rejectsBackupFromAnotherDatabaseContractWithoutChangingCurrentData() = runBlocking {
         seedEveryTable(source)
         target.openHelper.writableDatabase.execSQL(

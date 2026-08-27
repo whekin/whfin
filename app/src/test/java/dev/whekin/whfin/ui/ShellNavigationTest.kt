@@ -66,6 +66,16 @@ class ShellNavigationTest {
     }
 
     @Test
+    fun `savings is a first-level reading opened from accounts`() {
+        val accounts = shellTargetFor(null, null, null)
+        val savings = shellTargetFor(SecondaryDestination.Savings, null, null)
+
+        assertEquals(ShellScene.Savings, savings.scene)
+        assertTrue(shellTransitionIsForward(accounts, savings))
+        assertFalse(shellTransitionIsForward(savings, accounts))
+    }
+
+    @Test
     fun `spending analysis is a child of statistics`() {
         val analytics = shellTargetFor(SecondaryDestination.Analytics, null, null)
         val spending = shellTargetFor(SecondaryDestination.AnalyticsExpenses, null, null)

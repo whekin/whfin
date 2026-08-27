@@ -22,6 +22,17 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Savings plan и pace (2026-08-27): тап по Reserve в Accounts открывает «Накопления»;
+  валюты читаются отдельно, роль резерва не зависит от продукта банка. Room v2 хранит месячные
+  версии плана, необязательную цель/срок; tested v1→v2 migration и backup сохраняют ledger и историю.
+  Темп — чистое управляемое пополнение, а не дельта баланса: проценты/доход/adjustments не выполняют
+  план, возвраты и траты из резерва уменьшают его, Reserve→Reserve не влияет. Среднее берёт до трёх
+  завершённых месяцев, consistency — прежние месяцы по их собственным планам. Два графика
+  «Темп / Баланс», «Год / Всё время», точное значение выбранного месяца, цель и требуемый темп к сроку.
+  Unit/Compose, 15 migration/backup instrumentation tests и shared screenshot references прошли;
+  EN light/dark и RU dark/font 1.5, включая 640dp height и реальную IME, проверены на disposable Pixel.
+  Ограничения: история нынешних Reserve-счетов (истории ролей нет), без конвертации валют и крипты.
+  Детали: `docs/savings.md`.
 - [x] Спека собрана из обсуждения (SPEC.md)
 - [x] Каркас проекта: собирается `./gradlew :app:assembleDebug` (Gradle 9.4.1, AGP 9.2.1, built-in Kotlin, Compose, Room+KSP подключены)
 - [x] Personal production/dogfood release: R8/minify + lintVital, постоянный RSA-4096 PKCS12 signing key

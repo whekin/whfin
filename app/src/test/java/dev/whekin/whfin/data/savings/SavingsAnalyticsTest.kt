@@ -21,6 +21,23 @@ class SavingsAnalyticsTest {
     private val available = account(2, "Everyday", FundRole.AVAILABLE)
 
     @Test
+    fun `an adjustment peer or same-sign group cannot prove a saving movement`() {
+        val day = LocalDate.of(2026, 7, 2)
+        val result = calculateSavingsAnalytics(
+            accounts = listOf(reserve, available),
+            transactions = listOf(
+                tx(1, 1000, day, transferGroupId = 1),
+                tx(2, -1000, day, accountId = available.id, transferGroupId = 1, source = TxSource.ADJUSTMENT),
+                tx(3, 2000, day, transferGroupId = 2),
+                tx(4, 2000, day, accountId = available.id, transferGroupId = 2),
+            ),
+            currency = "GEL", fromMonth = YearMonth.of(2026, 7), throughMonth = YearMonth.of(2026, 7), zoneId = utc,
+        )
+        assertEquals(3000L, result.endingReserveBalanceMinor)
+        assertEquals(0L, result.months.single().paceMinor)
+    }
+
+    @Test
     fun `balance includes every active reserve row but pace only counts controlled movements`() {
         val cryptoReserve = account(3, "Crypto reserve", FundRole.RESERVE, AccountType.CRYPTO, "USDT")
         val transactions = listOf(

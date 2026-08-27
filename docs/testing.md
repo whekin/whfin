@@ -7,8 +7,8 @@
 - UI: fully Jetpack Compose, with Glance for widgets.
 - UI behavior: Compose UI test APIs with Robolectric for fast host tests.
 - Database: Room instrumented tests use an in-memory database and the device SQLite engine.
-- Database contract: the committed Room v1 schema is generated from the complete current model. There is
-  intentionally no migration suite before first real use; the first post-release schema change must add one.
+- Database contract: v1 is the committed baseline; v2 adds Savings plans through a data-preserving
+  migration validated by `SavingsPlanMigrationInstrumentedTest` against both committed schemas.
 - Portable backup: instrumented SQLite tests verify the explicit table/column allowlist against the
   current Room schema, every-table deterministic export→restore→export, malformed JSON rejection and
   future-format rejection without changing current data.

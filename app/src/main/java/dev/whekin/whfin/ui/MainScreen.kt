@@ -70,6 +70,7 @@ import dev.whekin.whfin.ui.settings.IncomeSourcesRoute
 import dev.whekin.whfin.ui.settings.PeopleRoute
 import dev.whekin.whfin.ui.settings.CorrectionsScreen
 import dev.whekin.whfin.ui.settings.DataHealthRoute
+import dev.whekin.whfin.ui.savings.SavingsRoute
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -110,7 +111,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
 /** Home and Accounts. The create action in the middle of the dock is not a page. */
 internal const val PRIMARY_PAGES = 2
 
-internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
+internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
 
 internal enum class ShellScene(val depth: Int) {
     Primary(0),
@@ -120,6 +121,7 @@ internal enum class ShellScene(val depth: Int) {
     Statements(2),
     SmsDiagnostics(2),
     AccountOverview(1),
+    Savings(1),
     AccountTransactions(1),
     Analytics(1),
     AnalyticsExpenses(2),
@@ -170,6 +172,7 @@ internal fun shellTargetFor(
             SecondaryDestination.Statements -> ShellScene.Statements
             SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
             SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
+            SecondaryDestination.Savings -> ShellScene.Savings
             SecondaryDestination.Analytics -> ShellScene.Analytics
             SecondaryDestination.AnalyticsExpenses -> ShellScene.AnalyticsExpenses
             SecondaryDestination.AppLock -> ShellScene.AppLock
@@ -512,6 +515,7 @@ fun MainScreen(
                                 onAddRequestConsumed = { accountAddRequestKey = 0 },
                                 onOpenStatements = { open(SecondaryDestination.Statements) },
                                 onOpenOverview = { open(SecondaryDestination.AccountOverview) },
+                                onOpenSavings = { open(SecondaryDestination.Savings) },
                                 onOpenSettings = { open(SecondaryDestination.Settings) },
                                 onOpenAccountTransactions = ::openAccountTransactions,
                             )
@@ -634,6 +638,10 @@ fun MainScreen(
                         title = stringResource(R.string.account_overview_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { AccountOverviewScreen() }
+                    ShellScene.Savings -> SecondaryPage(
+                        title = stringResource(R.string.savings_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) { SavingsRoute() }
                     ShellScene.AccountTransactions -> targetShell.accountId?.let { accountId ->
                         AccountTransactionsScreen(
                             accountId = accountId,

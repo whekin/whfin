@@ -107,7 +107,7 @@ currency. It describes a habit from an effective month onward and never creates 
 _Avoid_: Scheduled transfer, recurring payment, savings goal
 
 **Savings pace**:
-The net owner-controlled movement across the Available↔Reserve boundary during a calendar month.
+Transfers into Reserve from Available funds minus withdrawals and direct Reserve spending in a calendar month.
 Passive income such as deposit interest changes the Reserve balance but does not satisfy the plan.
 _Avoid_: Reserve balance change, account growth, investment return
 

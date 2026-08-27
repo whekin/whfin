@@ -89,13 +89,16 @@ fun calculateSavingsAnalytics(
     // later summed into this analytics series.
     val activeForTransferClassification = transactions.asSequence()
         .filter { !it.isVoided && it.source != TxSource.CRYPTO }
+        .filter { it.source != TxSource.ADJUSTMENT }
         .filter { it.accountId in eligibleAccountIds }
         .filter { it.transferGroupId != null }
         .toList()
     val groupsWithAvailableLedger = activeForTransferClassification
         .groupBy { it.transferGroupId!! }
         .mapValues { (_, groupTransactions) ->
-            groupTransactions.any { transaction ->
+            groupTransactions.any { it.amountMinor < 0L } &&
+                groupTransactions.any { it.amountMinor > 0L } &&
+                groupTransactions.any { transaction ->
                 accountById[transaction.accountId]?.fundRole == FundRole.AVAILABLE
             }
         }
