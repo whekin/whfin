@@ -115,3 +115,8 @@ _Avoid_: Reserve balance change, account growth, investment return
 An optional desired Reserve balance and optional date attached to a Savings plan. Reaching it is an
 observation, not an automatic close, transfer, or withdrawal.
 _Avoid_: Monthly target, mandatory deadline
+
+**Savings projection**:
+A conditional path from today's Reserve balance if the declared monthly amount continues, without
+assumed interest, withdrawals or market returns. It is a scenario, never a promised balance or bank schedule.
+_Avoid_: Guaranteed return, scheduled transfer, recorded balance
