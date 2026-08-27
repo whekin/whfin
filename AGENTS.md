@@ -83,9 +83,13 @@ This is a single-context repository with root domain documentation and system-wi
   команда установки вернула Success, до установки package/version и release certificate
   `af6009…fae92` сверены, данные не очищались. S25 отключился от ADB сразу после установки, поэтому
   post-install version/certificate/permissions check остаётся выполнить при следующем подключении.
-  Dogfood `0.3.11 (23)` подготовлен: full unit suite, R8/lintVital, package/version и release
-  certificate `af6009…fae92` проверены. Включает bank launcher из Savings. S25 был отключён от ADB,
-  поэтому `install -r` и post-install check остаются выполнить при следующем подключении.
+  Dogfood `0.3.11 (23)` установлен signed in-place upgrade поверх `0.3.10 (22)` на Samsung S25:
+  full unit suite, R8/lintVital, package/version и release certificate `af6009…fae92` проверены до
+  установки; после `install -r` certificate установленного `base.apk` совпал. `firstInstallTime` и
+  `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` сохранились. Telegram остался foreground, WHFIN и банки
+  не запускались. Read-only проверка доказала launcher activities обоих установленных официальных apps:
+  `ge.qwerty.credo/com.mycredo.MainActivity` и
+  `com.icomvision.bsc.tbc/ge.tbc.bank.features.authentication.presentation.LoginActivity`.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
