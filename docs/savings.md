@@ -43,6 +43,8 @@ Fund-role history is not recorded by the account model. These are the histories 
 accounts**, not a claim about which role the owner gave each account years ago. The UI says this
 explicitly. Multiple named envelopes, allocations within one bank balance, historical cross-currency
 valuation, scheduled transfers, and reminders are outside this slice.
+The bank remains the place to move money. Savings does not need a separate “top up reserve” action;
+WHFIN observes the resulting transfer through its existing bank-data channels.
 
 ## Verification
 

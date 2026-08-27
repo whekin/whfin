@@ -58,6 +58,11 @@ This is a single-context repository with root domain documentation and system-wi
   сравнением digest установленного `base.apk` и новой сборки (`af6009…fae92`), `firstInstallTime`
   (2026-08-16) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы, запуск
   без падений.
+  Dogfood `0.3.9 (21)` установлен signed in-place upgrade поверх `0.3.8 (20)` на Samsung S25:
+  release certificate `af6009…fae92` сверен до и после установки, version/package проверены,
+  `firstInstallTime` и SMS/notification permissions сохранились. Signed R8/lintVital build прошёл.
+  Приложение намеренно не запускалось поверх call UI владельца; runtime migration и Savings на
+  реальных данных телефона остаются для первого ручного открытия (v1→v2 проверена на disposable Pixel).
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
