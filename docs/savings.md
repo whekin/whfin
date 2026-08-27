@@ -39,6 +39,29 @@ reference. Year means the latest twelve recorded months; All time includes the c
 series. Bar selection and previous/next controls expose exact amounts; the all-time balance line fits
 the viewport rather than requiring a horizontal scan of years.
 
+### Interactive projection
+
+An active plan opens the Forecast reading by default. Its first point is today's actual Reserve
+balance; equal contributions start **one month from today**, then repeat on that day (clamped to the
+end of shorter months). This is a visible scenario assumption, not a scheduled bank transfer. It
+does not add today's money twice or assume interest, withdrawals, or exchange-rate changes.
+
+The live editor shows the projected goal date while the monthly amount or goal is being edited.
+The target date is chosen through a Material calendar in an internal full-screen form step, not a
+raw date text field or a dialog stacked on a sheet. Each calendar selection immediately recalculates
+the balance by that date and the minimum monthly amount needed. Accepting the date changes only the
+draft; applying the suggested monthly amount is a separate explicit action. Only Save persists it.
+
+Forecast works without a goal: 1/2/5-year horizons and an accessible month scrubber show future
+Reserve balances. A solid historical segment joins a dashed forecast at the current balance;
+exact dates and values are shown below. Goal dates round up to complete monthly contributions,
+and monetary arithmetic is exact. Past deadlines, deadlines before the first contribution,
+zero pace, already-reached goals, and values exceeding Long are handled explicitly.
+
+`projectSavings` is pure and has no Room or network dependency. The calendar uses UTC date-picker
+values only for conversion to `LocalDate`; the projection then works with calendar dates. Draft
+values use saved state, and calendar Back cancels only the date step. No schema change is needed.
+
 Fund-role history is not recorded by the account model. These are the histories of **today's Reserve
 accounts**, not a claim about which role the owner gave each account years ago. The UI says this
 explicitly. Multiple named envelopes, allocations within one bank balance, historical cross-currency
@@ -55,6 +78,9 @@ WHFIN observes the resulting transfer through its existing bank-data channels.
 - Disposable Pixel instrumentation: v1→v2 migration, plan revision/pause, current/legacy backup rules,
   deterministic export/restore, and demo isolation.
 - Shared chart references cover light, dark, signed/missing observations, and font scale 1.5.
+- Projection tests cover monthly growth without a goal, live pace/date changes, explicit adoption
+  of the required pace, scrubber selection, saved draft restoration, leap/month ends, and overflow.
+  A dedicated screenshot reference locks the solid-actual/dashed-projection boundary.
 - Device QA: disposable Pixel 9 Pro API 36.1, EN light/dark at font 1.0, RU dark at font 1.5,
   plus a 426×640dp override. Creating a plan/goal/date, real numeric/text IME, chart modes/ranges,
   and scroll access to exact monthly values were exercised. No physical phone was installed or modified.

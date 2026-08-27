@@ -418,3 +418,10 @@ at large font scale. `WhfinSavingsBalanceChart` is a non-interactive solid line 
 all-time history fits the viewport and thins labels rather than forcing a horizontal scan across years.
 Both receive formatted descriptions from the feature layer and keep money/domain policy outside
 `:core-ui`. Render references cover positive, negative, zero, missing, dark and font 1.5 states.
+
+Savings planning uses `WhfinFullScreenForm`: a compact title, scrollable working area and pinned
+result/action footer. `WhfinCalendar` is a Material calendar in that same form hierarchy, not a second
+modal window. The calendar footer recomputes the selected-date result live; Back returns to the
+unchanged editor draft and Done accepts only the date. The editor itself previews growth and the
+goal date before Save. Forecast extends the balance chart with a dashed, distinct-color future
+segment and a visible present boundary; `WhfinTimelineScrubber` exposes precise monthly values.

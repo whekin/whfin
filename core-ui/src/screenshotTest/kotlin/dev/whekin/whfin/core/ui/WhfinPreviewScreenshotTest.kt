@@ -154,6 +154,28 @@ fun savingsChartsLightScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "savings_forecast", widthDp = 400, heightDp = 300)
+@Composable
+fun savingsForecastScreenshot() {
+    WhfinTheme(darkTheme = false) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Recorded → projected", style = MaterialTheme.typography.titleMedium)
+                WhfinSavingsBalanceChart(
+                    points = listOf(150L, 180L, 170L, 200L, 230L, 260L, 290L).mapIndexed { index, value ->
+                        WhfinSavingsBalancePoint("${index + 1}", value, "$value GEL",
+                            isProjected = index > 2, position = index * 30L)
+                    },
+                    goalMinor = 280L,
+                    goalDescription = "Goal 280 GEL",
+                    selectedIndex = 5,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
 @Preview(name = "savings_charts_dark", widthDp = 400, heightDp = 620, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun savingsChartsDarkScreenshot() {

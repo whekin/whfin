@@ -20,6 +20,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,10 +43,8 @@ import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinDistributionBar
 import dev.whekin.whfin.core.ui.WhfinDistributionSegment
-import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFilterPill
-import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
@@ -63,17 +61,14 @@ import dev.whekin.whfin.core.ui.WhfinSavingsPaceChart
 import dev.whekin.whfin.data.db.SavingsPlanEntity
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
-import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
-import java.time.temporal.ChronoUnit
 
-private enum class SavingsChartMode { Pace, Balance }
+private enum class SavingsChartMode { Pace, Balance, Projection }
 private enum class SavingsChartRange { Year, All }
 
 @Composable
@@ -94,7 +89,7 @@ internal fun SavingsScreen(
     onClearPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit = {},
 ) {
-    var editingPlan by remember { mutableStateOf(false) }
+    var editingPlan by rememberSaveable { mutableStateOf(false) }
     if (data == null) {
         WhfinSkeleton(contentDescription = stringResource(R.string.savings_loading), modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             WhfinSkeletonBlock(Modifier.fillMaxWidth(.35f), height = 14.dp)
@@ -115,9 +110,10 @@ internal fun SavingsScreen(
 
     SavingsContent(data = data, onEditPlan = { editingPlan = true }, onSelectCurrency = onSelectCurrency)
 
-    if (editingPlan) SavingsPlanSheet(
+    if (editingPlan) SavingsPlanEditor(
         plan = data.currentPlan,
         currency = data.currency,
+        balanceMinor = data.currentReserveMinor,
         onDismiss = { editingPlan = false },
         onSave = { monthly, goal, goalBy ->
             onSavePlan(monthly, goal, goalBy)
@@ -138,9 +134,14 @@ private fun SavingsContent(
     onEditPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit,
 ) {
-    var modeName by rememberSaveable { mutableStateOf(SavingsChartMode.Pace.name) }
+    var modeName by rememberSaveable { mutableStateOf(if (data.currentPlan != null) SavingsChartMode.Projection.name else SavingsChartMode.Pace.name) }
     var rangeName by rememberSaveable { mutableStateOf(SavingsChartRange.Year.name) }
-    val mode = SavingsChartMode.valueOf(modeName)
+    LaunchedEffect(data.currentPlan?.id) {
+        modeName = if (data.currentPlan != null) SavingsChartMode.Projection.name else SavingsChartMode.Pace.name
+    }
+    val mode = SavingsChartMode.valueOf(modeName).let {
+        if (it == SavingsChartMode.Projection && data.currentPlan == null) SavingsChartMode.Pace else it
+    }
     val range = SavingsChartRange.valueOf(rangeName)
     val shownMonths = when (range) {
         SavingsChartRange.Year -> data.months.takeLast(12)
@@ -168,9 +169,6 @@ private fun SavingsContent(
         item(key = "plan") {
             SavingsPlanSummary(data, onEditPlan)
         }
-        item(key = "pace-reading") {
-            PaceReading(data)
-        }
         item(key = "chart-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,8 +186,14 @@ private fun SavingsContent(
                         centered = true,
                         modifier = Modifier.weight(1f),
                     )
+                    if (data.currentPlan != null) WhfinFilterPill(
+                        label = stringResource(R.string.savings_view_projection),
+                        selected = mode == SavingsChartMode.Projection,
+                        onClick = { modeName = SavingsChartMode.Projection.name },
+                        centered = true, modifier = Modifier.weight(1f),
+                    )
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mode != SavingsChartMode.Projection) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WhfinFilterPill(
                         label = stringResource(R.string.savings_range_year),
                         selected = range == SavingsChartRange.Year,
@@ -208,7 +212,13 @@ private fun SavingsContent(
             }
         }
         item(key = "chart-$mode-$range") {
-            SavingsChart(data, shownMonths, mode, range)
+            if (mode == SavingsChartMode.Projection && data.currentPlan != null) {
+                SavingsProjectionPanel(data.currentReserveMinor, data.currentPlan.monthlyTargetMinor, data.currency,
+                    data.currentPlan.goalMinor, data.currentPlan.goalBy?.let(LocalDate::ofEpochDay), LocalDate.now(), data.months)
+            } else SavingsChart(data, shownMonths, mode, range)
+        }
+        item(key = "pace-reading") {
+            PaceReading(data)
         }
     }
 }
@@ -242,26 +252,6 @@ private fun ReserveSummary(data: SavingsScreenData) {
                     WhfinDistributionSegment(remaining.toFloat(), MaterialTheme.colorScheme.surfaceContainerHighest),
                 ),
             )
-            plan.goalBy?.let { epochDay ->
-                val goalDate = LocalDate.ofEpochDay(epochDay)
-                Text(
-                    stringResource(
-                        R.string.savings_goal_by,
-                        goalDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (remaining > 0L && !goalDate.isBefore(LocalDate.now())) {
-                    val monthsLeft = ChronoUnit.MONTHS.between(YearMonth.now(), YearMonth.from(goalDate)) + 1
-                    val required = remaining / monthsLeft + if (remaining % monthsLeft == 0L) 0L else 1L
-                    Text(
-                        stringResource(R.string.savings_goal_required, formatMinor(required, data.currency)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
         }
     }
 }
@@ -434,6 +424,7 @@ private fun SavingsChart(
                             )
                         },
                     )
+                    SavingsChartMode.Projection -> Unit
                 }
                 selected?.let { point ->
                     HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -482,80 +473,6 @@ private fun savingsPeriodLabel(
         append(month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale))
         append('\n')
         append(month.year.toString().takeLast(2))
-    }
-}
-
-@Composable
-private fun SavingsPlanSheet(
-    plan: SavingsPlanEntity?,
-    currency: String,
-    onDismiss: () -> Unit,
-    onSave: (Long, Long?, LocalDate?) -> Unit,
-    onClear: (() -> Unit)?,
-) {
-    var monthlyText by remember(plan?.id) {
-        mutableStateOf(plan?.let { (it.monthlyTargetMinor / 100.0).toString() }.orEmpty())
-    }
-    var goalText by remember(plan?.id) {
-        mutableStateOf(plan?.goalMinor?.let { (it / 100.0).toString() }.orEmpty())
-    }
-    var goalDateText by remember(plan?.id) {
-        mutableStateOf(plan?.goalBy?.let { LocalDate.ofEpochDay(it).toString() }.orEmpty())
-    }
-    val monthly = parseToMinor(monthlyText)
-    val goal = goalText.takeIf(String::isNotBlank)?.let(::parseToMinor)
-    val parsedDate = goalDateText.takeIf(String::isNotBlank)?.let { raw ->
-        runCatching { LocalDate.parse(raw) }.getOrNull()
-    }
-    val dateValid = goalDateText.isBlank() || parsedDate != null
-    val goalValid = goalText.isBlank() || (goal != null && goal > 0L)
-    val dateHasGoal = goalDateText.isBlank() || goal != null
-
-    WhfinFormSheet(
-        title = stringResource(if (plan == null) R.string.savings_plan_add else R.string.savings_plan_edit),
-        onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = monthly != null && monthly > 0L && goalValid && dateValid && dateHasGoal,
-        onPrimary = { onSave(requireNotNull(monthly), goal, parsedDate) },
-    ) {
-        Text(stringResource(R.string.savings_plan_effective), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        WhfinField(
-            value = monthlyText,
-            onValueChange = { monthlyText = it.take(14) },
-            label = stringResource(R.string.savings_plan_monthly_amount),
-            suffix = currencySymbol(currency),
-            keyboardType = KeyboardType.Decimal,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        WhfinField(
-            value = goalText,
-            onValueChange = { goalText = it.take(14) },
-            label = stringResource(R.string.savings_plan_goal_amount),
-            suffix = currencySymbol(currency),
-            keyboardType = KeyboardType.Decimal,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        WhfinField(
-            value = goalDateText,
-            onValueChange = { goalDateText = it.take(10) },
-            label = stringResource(R.string.savings_plan_goal_date),
-            placeholder = stringResource(R.string.savings_plan_goal_date_hint),
-            supportingText = stringResource(R.string.savings_plan_goal_date_error)
-                .takeIf { !dateValid || !dateHasGoal },
-            isError = !dateValid || !dateHasGoal,
-            keyboardType = KeyboardType.Text,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        onClear?.let {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            WhfinButton(
-                label = stringResource(R.string.savings_plan_pause),
-                onClick = it,
-                style = WhfinActionStyle.Secondary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
     }
 }
 

@@ -64,6 +64,9 @@ data class WhfinSavingsBalancePoint(
     val balanceMinor: Long,
     val balanceDescription: String,
     val periodDescription: String = periodLabel,
+    val isProjected: Boolean = false,
+    /** Optional common-axis position, e.g. an epoch day. All points must supply it to use it. */
+    val position: Long? = null,
 )
 
 /**
@@ -329,6 +332,7 @@ fun WhfinSavingsBalanceChart(
     goalMinor: Long? = null,
     goalDescription: String? = null,
     contentDescription: String? = null,
+    selectedIndex: Int? = null,
 ) {
     if (points.isEmpty()) return
 
@@ -342,6 +346,7 @@ fun WhfinSavingsBalanceChart(
     SavingsBalanceChartContent(
         points = points,
         goalMinor = goalMinor,
+        selectedIndex = selectedIndex,
         modifier = chartModifier,
     )
 }
@@ -350,6 +355,7 @@ fun WhfinSavingsBalanceChart(
 private fun SavingsBalanceChartContent(
     points: List<WhfinSavingsBalancePoint>,
     goalMinor: Long?,
+    selectedIndex: Int?,
     modifier: Modifier,
 ) {
     val values = buildList {
@@ -366,12 +372,20 @@ private fun SavingsBalanceChartContent(
     val goal = goalMinor?.toDouble()
     val goalColor = MaterialTheme.colorScheme.secondary
     val balanceColor = MaterialTheme.colorScheme.primary
+    val projectionColor = MaterialTheme.colorScheme.tertiary
+    val guideColor = MaterialTheme.colorScheme.outlineVariant
     val denseLabels = points.size <= SAVINGS_CHART_DENSE_PERIOD_LIMIT && LocalDensity.current.fontScale <= 1.2f
 
     Box(modifier.height(SAVINGS_BALANCE_CHART_HEIGHT)) {
         Canvas(Modifier.fillMaxSize()) {
             val plotHeightPx = SAVINGS_BALANCE_PLOT_HEIGHT.toPx()
             val xStep = size.width / points.size
+            val positions = points.mapNotNull { it.position }
+            val firstPosition = positions.minOrNull()?.toDouble() ?: 0.0
+            val positionSpan = (positions.maxOrNull()?.toDouble() ?: 0.0) - firstPosition
+            fun xFor(index: Int): Float = if (positions.size == points.size && positionSpan > 0.0) {
+                xStep / 2 + ((positions[index].toDouble() - firstPosition) / positionSpan).toFloat() * (size.width - xStep)
+            } else (index + .5f) * xStep
             fun yFor(value: Double): Float = ((upperBound - value) / range * plotHeightPx).toFloat()
             goal?.let { goalValue ->
                 drawLine(
@@ -394,17 +408,31 @@ private fun SavingsBalanceChartContent(
                     cap = StrokeCap.Round,
                 )
             } else {
-                val path = androidx.compose.ui.graphics.Path()
-                points.forEachIndexed { index, point ->
-                    val x = (index + .5f) * xStep
-                    val y = yFor(point.balanceMinor.toDouble())
-                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                fun pathFor(start: Int, end: Int): androidx.compose.ui.graphics.Path {
+                    val path = androidx.compose.ui.graphics.Path()
+                    for (index in start..end) {
+                        val x = xFor(index)
+                        val y = yFor(points[index].balanceMinor.toDouble())
+                        if (index == start) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    return path
                 }
-                drawPath(
-                    path = path,
-                    color = balanceColor,
-                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round),
-                )
+                val forecastStart = points.indexOfFirst { it.isProjected }
+                val actualEnd = if (forecastStart < 0) points.lastIndex else forecastStart - 1
+                if (actualEnd > 0) drawPath(pathFor(0, actualEnd), balanceColor,
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                if (forecastStart >= 0) {
+                    val anchor = (forecastStart - 1).coerceAtLeast(0)
+                    drawPath(pathFor(anchor, points.lastIndex), projectionColor,
+                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 4.dp.toPx()))))
+                    drawLine(guideColor, androidx.compose.ui.geometry.Offset(xFor(anchor), 0f),
+                        androidx.compose.ui.geometry.Offset(xFor(anchor), plotHeightPx), strokeWidth = 1.dp.toPx())
+                    drawCircle(balanceColor, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(anchor), yFor(points[anchor].balanceMinor.toDouble())))
+                }
+            }
+            selectedIndex?.takeIf { it in points.indices }?.let { index ->
+                drawCircle(balanceColor, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(index), yFor(points[index].balanceMinor.toDouble())))
             }
         }
         Row(
