@@ -83,6 +83,9 @@ This is a single-context repository with root domain documentation and system-wi
   команда установки вернула Success, до установки package/version и release certificate
   `af6009…fae92` сверены, данные не очищались. S25 отключился от ADB сразу после установки, поэтому
   post-install version/certificate/permissions check остаётся выполнить при следующем подключении.
+  Dogfood `0.3.11 (23)` подготовлен: full unit suite, R8/lintVital, package/version и release
+  certificate `af6009…fae92` проверены. Включает bank launcher из Savings. S25 был отключён от ADB,
+  поэтому `install -r` и post-install check остаются выполнить при следующем подключении.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
