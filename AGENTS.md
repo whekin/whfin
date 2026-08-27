@@ -744,6 +744,11 @@ This is a single-context repository with root domain documentation and system-wi
   100 GEL; virtual/non-GEL исключены. Permission запрашивается вместе с первым включением SMS, а Home
   предлагает включить его уже настроенной установке при появлении риска. Проверено на disposable Pixel при light/dark,
   EN и font scale 1.5; реальный notification опубликован на synthetic 95 GEL.
+  Действие `Пополнить` (2026-08-28) с этой строки убрано вместе со всем prefill-механизмом
+  (`CardTopUp.kt`, `ManualPrefill`, `AddTransactionSheet.prefill`): WHFIN записывает деньги, а не
+  двигает их, поэтому записанный здесь перевод был бы утверждением о движении, которого банк не делал,
+  и карта осталась бы пустой. Строка называет баланс и ведёт в Счета; банк открывается только из
+  Personal Savings, где лежит резерв.
 - [x] Accounts UX v3: everyday отделены от savings/deposits; имя и назначение IBAN-контейнера
   (`Everyday / Reserve / Deposit`) редактируются явным pencil-action и атомарно применяются ко всем
   его валютным ledgers. Тап по строке валюты открывает отдельную ledger-ленту этого счёта с Back,

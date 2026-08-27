@@ -69,7 +69,6 @@ import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.Handshake
@@ -278,7 +277,6 @@ fun FeedScreen(
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var splitFor by remember { mutableStateOf<FeedItem?>(null) }
     var showAdd by remember { mutableStateOf(false) }
-    var addPrefill by remember { mutableStateOf<ManualPrefill?>(null) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
     var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var expandedTransferDays by remember { mutableStateOf(setOf<LocalDate>()) }
@@ -384,7 +382,6 @@ fun FeedScreen(
         onConsumed = onAddRequestConsumed,
     ) {
             selectedIds = emptySet()
-            addPrefill = null
             showAdd = true
     }
 
@@ -545,15 +542,6 @@ fun FeedScreen(
                         notificationsEnabled = hasLowBalanceNotificationPermission,
                         onOpenAccounts = onOpenAccounts,
                         onEnableNotifications = onRequestLowBalanceNotificationPermission,
-                        onTopUp = { balance ->
-                            accounts.firstOrNull { it.id == balance.accountId }?.let { target ->
-                                addPrefill = ManualPrefill(
-                                    fromAccountId = cardTopUpSource(accounts, accountBalances, target)?.id,
-                                    toAccountId = target.id,
-                                )
-                                showAdd = true
-                            }
-                        },
                     )
                     HomeNotice.SETUP -> SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
                     // Technical state stays quiet unless the ledger contradicts itself; everything
@@ -833,14 +821,12 @@ fun FeedScreen(
             accounts = accounts,
             categories = categoriesByUsage,
             people = people,
-            prefill = addPrefill,
-            onDismiss = { showAdd = false; addPrefill = null },
+            onDismiss = { showAdd = false },
             onSave = { manual ->
                 viewModel.addManual(manual)
                 showAdd = false
-                addPrefill = null
             },
-            onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false; addPrefill = null },
+            onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
@@ -977,7 +963,6 @@ internal fun HomePhysicalCardBalance(
     notificationsEnabled: Boolean,
     onOpenAccounts: () -> Unit,
     onEnableNotifications: () -> Unit,
-    onTopUp: ((PhysicalCardHomeBalance) -> Unit)? = null,
 ) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -1018,20 +1003,12 @@ internal fun HomePhysicalCardBalance(
                         iconTint = accent,
                         markerColor = accent,
                     )
-                    // The answer to an empty card is always to move money onto it, so the row
-                    // carries that action rather than sending the reader to Accounts to find it.
+                    // Moving money onto the card is a bank action, not one this app can perform, so
+                    // the row states the balance and leaves the doing to Accounts and the bank app.
                     Row(
                         Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, bottom = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (onTopUp != null) {
-                            WhfinButton(
-                                label = stringResource(R.string.home_card_top_up),
-                                onClick = { onTopUp(balance) },
-                                style = WhfinActionStyle.Secondary,
-                                leadingIcon = Icons.AutoMirrored.Filled.CallMade,
-                            )
-                        }
                         Spacer(Modifier.weight(1f))
                         WhfinAmount(
                             text = formatMinor(balance.balanceMinor, "GEL"),
@@ -3173,7 +3150,6 @@ private fun FeedContentPreview() {
                     notificationsEnabled = true,
                     onOpenAccounts = {},
                     onEnableNotifications = {},
-                    onTopUp = {},
                 )
                 HomeDebtsOwedRow(
                     listOf(HomeDebt("GEL", 18_000, listOf("Maya"))),

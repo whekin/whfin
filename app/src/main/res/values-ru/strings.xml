@@ -1298,7 +1298,6 @@
     <string name="low_balance_notification_title">На физической карте мало денег</string>
     <string name="low_balance_notification_body">%1$s · %2$s: осталось %3$.2f ₾. Пополни перед покупкой продуктов.</string>
     <string name="home_card_balance_low">Перед продуктами лучше пополнить карту</string>
-    <string name="home_card_top_up">Пополнить</string>
     <string name="home_card_balance_critical">Следующая оплата в магазине может не пройти</string>
     <string name="home_card_balance_identity">%1$s · физическая карта %2$s</string>
     <string name="home_card_balance_enable_alerts">Нажми, чтобы включить уведомления</string>

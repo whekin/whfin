@@ -78,18 +78,6 @@ data class ManualTransaction(
     val day: LocalDate,
 )
 
-/**
- * A form opened with its answer already known, minus the amount.
- *
- * Used where the screen that opened the composer knows the movement better than the person does — a
- * card that cannot pay for groceries needs money from somewhere specific, and asking them to
- * re-derive that in a blank form wastes what the app already worked out.
- */
-data class ManualPrefill(
-    val fromAccountId: Long?,
-    val toAccountId: Long?,
-)
-
 private enum class ManualKind(val label: Int, val title: Int) {
     EXPENSE(R.string.tx_expense, R.string.new_expense),
     INCOME(R.string.tx_income, R.string.new_income),
@@ -149,7 +137,6 @@ fun AddTransactionSheet(
     onSave: (ManualTransaction) -> Unit,
     onSaveDebt: (NewDebt) -> Unit,
     editing: FeedItem? = null,
-    prefill: ManualPrefill? = null,
     onUpdate: (FeedItem, ManualTransaction) -> Unit = { _, _ -> },
     onCreateCategory: (String, CategoryKind, String, Int) -> Unit = { _, _, _, _ -> },
     onCreateCashCurrency: (String) -> Unit = {},
@@ -162,18 +149,14 @@ fun AddTransactionSheet(
         (editing?.tx?.amountMinor ?: -1) >= 0 -> ManualKind.INCOME
         else -> ManualKind.EXPENSE
     }
-    val initialKind = when {
-        editing != null -> editingKind
-        prefill != null -> ManualKind.TRANSFER
-        else -> ManualKind.EXPENSE
-    }
+    val initialKind = if (editing != null) editingKind else ManualKind.EXPENSE
     var kind by remember(editing?.tx?.id) { mutableStateOf(initialKind) }
     var amountText by remember(editing?.tx?.id) { mutableStateOf(editing?.tx?.amountMinor?.let(::minorInput).orEmpty()) }
     var accountId by remember(accounts, editing?.tx?.id) {
-        mutableStateOf(editing?.tx?.accountId ?: prefill?.fromAccountId ?: initial?.id)
+        mutableStateOf(editing?.tx?.accountId ?: initial?.id)
     }
     var destinationId by remember(editing?.tx?.id) {
-        mutableStateOf(editing?.destinationAccountId ?: prefill?.toAccountId)
+        mutableStateOf(editing?.destinationAccountId)
     }
     var destinationAmount by remember(editing?.tx?.id) { mutableStateOf(editing?.destinationAmountMinor?.let(::minorInput).orEmpty()) }
     var categoryId by remember(editing?.tx?.id) { mutableStateOf(editing?.tx?.categoryId) }
@@ -214,8 +197,6 @@ fun AddTransactionSheet(
     val valid = amountMinor != null && (kind == ManualKind.DEBT || account != null) &&
         (kind != ManualKind.TRANSFER || destination != null) && (!conversion || destinationMinor != null)
         && (kind != ManualKind.DEBT || debtPersonId != null || debtPersonName.isNotBlank())
-    // What the caller filled in is not the person's unsaved work: a prefilled transfer they close
-    // without typing has nothing to discard.
     val dirty = amountText.isNotBlank() || destinationAmount.isNotBlank() || categoryId != null || note.isNotBlank() ||
         day != LocalDate.now() || kind != initialKind
     val requestClose = { if (dirty) confirmDiscard = true else onDismiss() }

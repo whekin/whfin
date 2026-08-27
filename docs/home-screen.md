@@ -137,11 +137,10 @@ Two render fully; the rest collapse into one quiet row that says how many are hi
 overflowing notice is shown instead of folded: hiding one block behind a row that says one block is
 hidden costs the same glance and adds a tap.
 
-The low-card notice carries its own action. The answer to an empty card is always to move money onto
-it, so the row opens the composer as a transfer with both sides already chosen: the same bank first,
-because an internal top-up is instant; then anything not locked by a term; then money set aside as
-reserve; then whatever holds the most. An empty ledger is never proposed. A prefilled form the person
-closes without typing has nothing to discard.
+The low-card notice states the balance and does not offer to top the card up. WHFIN records money, it
+does not move it: a transfer written here would be a claim about a movement the bank has not made, and
+the card would still be empty. Moving money is the bank's job — the row opens Accounts, and the bank
+app is launched from Personal savings, where the reserve actually lives.
 
 ## Where the work happens
 
@@ -154,6 +153,5 @@ Pure logic and its tests:
 
 - `ui/feed/HomeBoard.kt` — notice triage, month flow, attention queue, recent rows
 - `ui/feed/HomeRunway.kt` — runway and the next declared payday
-- `ui/feed/CardTopUp.kt` — which ledger funds a top-up
 - `data/rates/SpendableSource.kt` — spendable money in the display currency
 - `data/recurring/RecurringCharges.kt` — monthly obligations from history

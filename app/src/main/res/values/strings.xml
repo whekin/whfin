@@ -1238,7 +1238,6 @@
     <string name="low_balance_notification_title">Physical card balance is low</string>
     <string name="low_balance_notification_body">%1$s · %2$s has %3$.2f ₾ left. Top it up before groceries.</string>
     <string name="home_card_balance_low">Top up before buying groceries</string>
-    <string name="home_card_top_up">Top up</string>
     <string name="home_card_balance_critical">Your next grocery payment may fail</string>
     <string name="home_card_balance_identity">%1$s · physical card %2$s</string>
     <string name="home_card_balance_enable_alerts">Tap to enable alerts</string>
