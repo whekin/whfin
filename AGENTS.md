@@ -22,6 +22,13 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Savings bank launcher (2026-08-28): Home намеренно не получил «пополнить резерв». Personal
+  Savings показывает `Open MyCredo` / `Open TBC Bank` только когда выбранная валюта Reserve принадлежит
+  соответствующему bank group, официальный consumer package установлен и имеет launch activity.
+  Только обычный Android launcher intent: без суммы/счёта/операции, потому что поддерживаемого transfer
+  deep link банки не публикуют. Demo workspace всегда скрывает live bank actions. Package visibility,
+  provider mapping и UI callback покрыты тестами; официальный package id: `ge.qwerty.credo` и
+  `com.icomvision.bsc.tbc`. Схема БД не менялась.
 - [x] Savings projection (2026-08-28): `projectSavings` считает точный сценарий роста по плану,
   дату цели, баланс к сроку и необходимый темп. Первое равное пополнение — через месяц от сегодня;
   проценты/снятия не выдумываются, в ledger ничего не пишется. Полноэкранный live-редактор заменил

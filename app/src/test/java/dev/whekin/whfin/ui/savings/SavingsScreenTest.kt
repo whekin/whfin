@@ -91,6 +91,19 @@ class SavingsScreenTest {
     }
 
     @Test
+    fun matchingInstalledBankOpensFromSavingsNotHome() {
+        var opened: SupportedBankApp? = null
+        compose.setContent {
+            WhfinTheme { SavingsScreen(
+                data(plan()).copy(bankApps = listOf(SupportedBankApp.CREDO)),
+                { _, _, _ -> }, {}, onOpenBank = { opened = it; true },
+            ) }
+        }
+        compose.onNodeWithText("Open MyCredo").performClick()
+        compose.runOnIdle { assertEquals(SupportedBankApp.CREDO, opened) }
+    }
+
+    @Test
     fun deadlineCanExplicitlySetThePaceWithoutChangingTheGoal() {
         val today = LocalDate.of(2026, 8, 27)
         val deadline = today.plusMonths(6)

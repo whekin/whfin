@@ -8,6 +8,7 @@ import dev.whekin.whfin.data.backup.LedgerRestoreState
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.FundRole
+import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.SavingsPlanEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.savings.SavingsPlanDraft
@@ -46,6 +47,7 @@ data class SavingsScreenData(
     val hasReserve: Boolean,
     val availableCurrencies: List<String> = listOf(currency),
     val rollingMonthsIncluded: Int = 3,
+    val bankApps: List<SupportedBankApp> = emptyList(),
 )
 
 internal fun buildSavingsScreenData(
@@ -122,22 +124,26 @@ class SavingsViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = SavingsPlanRepository(db)
     private val zone = ZoneId.systemDefault()
     private val selectedCurrency = MutableStateFlow<String?>(null)
+    private val accountsAndGroups = combine(
+        db.accountDao().observeActive(), db.financialGroupDao().observeActive(), ::Pair,
+    )
 
     private data class Snapshot(
         val accounts: List<AccountEntity>,
         val transactions: List<TransactionEntity>,
         val plans: List<SavingsPlanEntity>,
+        val groups: List<FinancialGroupEntity>,
         val currency: String?,
     )
 
     val state: StateFlow<SavingsScreenData?> = combine(
-        db.accountDao().observeActive(),
+        accountsAndGroups,
         db.transactionDao().observeAllActive(),
         db.savingsPlanDao().observeAll(),
         LedgerRestoreState.active,
         selectedCurrency,
-    ) { accounts, transactions, plans, restoring, currency ->
-        if (restoring) null else Snapshot(accounts, transactions, plans, currency)
+    ) { accountState, transactions, plans, restoring, currency ->
+        if (restoring) null else Snapshot(accountState.first, transactions, plans, accountState.second, currency)
     }.map { snapshot ->
         snapshot ?: return@map null
         withContext(Dispatchers.Default) {
@@ -153,7 +159,9 @@ class SavingsViewModel(app: Application) : AndroidViewModel(app) {
                 today = LocalDate.now(zone),
                 zone = zone,
                 currency = currency,
-            )
+            ).copy(bankApps = bankAppsForReserve(snapshot.accounts, snapshot.groups, currency) {
+                getApplication<Application>().packageManager.getLaunchIntentForPackage(it) != null
+            })
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

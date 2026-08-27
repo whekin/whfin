@@ -7,6 +7,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
+    <!-- Official consumer bank apps WHFIN may offer to open from a matching Reserve account. -->
+    <queries>
+        <package android:name="ge.qwerty.credo" />
+        <package android:name="com.icomvision.bsc.tbc" />
+    </queries>
+
     <application
         android:name=".WhfinApp"
         android:allowBackup="true"

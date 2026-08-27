@@ -1294,6 +1294,8 @@
     <string name="savings_projection_scrub">Explore future reserve by month</string>
     <string name="savings_projection_overflow">Further values exceed the supported amount range.</string>
     <string name="savings_projection_assumption">Scenario: equal monthly contributions, first on %1$s. No interest, withdrawals or currency changes assumed.</string>
+    <string name="savings_open_bank">Open %1$s</string>
+    <string name="savings_open_bank_hint">Move money in your bank. WHFIN observes it through the normal bank sync.</string>
     <string name="savings_loading">Reading reserve history…</string>
     <string name="savings_no_reserve_title">No Reserve funds yet</string>
     <string name="savings_no_reserve_body">Mark any account as Reserve to track its balance and saving pace here.</string>

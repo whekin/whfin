@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +48,7 @@ import dev.whekin.whfin.core.ui.WhfinDistributionSegment
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
+import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
@@ -62,6 +65,7 @@ import dev.whekin.whfin.data.db.SavingsPlanEntity
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.isDemoWorkspaceActive
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -74,11 +78,14 @@ private enum class SavingsChartRange { Year, All }
 @Composable
 fun SavingsRoute(viewModel: SavingsViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val demoWorkspace = isDemoWorkspaceActive()
     SavingsScreen(
-        data = state,
+        data = state?.let { if (demoWorkspace) it.copy(bankApps = emptyList()) else it },
         onSavePlan = viewModel::savePlan,
         onClearPlan = viewModel::clearPlan,
         onSelectCurrency = viewModel::selectCurrency,
+        onOpenBank = context::launchBank,
     )
 }
 
@@ -88,6 +95,7 @@ internal fun SavingsScreen(
     onSavePlan: (Long, Long?, LocalDate?) -> Unit,
     onClearPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit = {},
+    onOpenBank: (SupportedBankApp) -> Boolean = { false },
 ) {
     var editingPlan by rememberSaveable { mutableStateOf(false) }
     if (data == null) {
@@ -108,7 +116,7 @@ internal fun SavingsScreen(
         return
     }
 
-    SavingsContent(data = data, onEditPlan = { editingPlan = true }, onSelectCurrency = onSelectCurrency)
+    SavingsContent(data = data, onEditPlan = { editingPlan = true }, onSelectCurrency = onSelectCurrency, onOpenBank = onOpenBank)
 
     if (editingPlan) SavingsPlanEditor(
         plan = data.currentPlan,
@@ -133,6 +141,7 @@ private fun SavingsContent(
     data: SavingsScreenData,
     onEditPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit,
+    onOpenBank: (SupportedBankApp) -> Boolean,
 ) {
     var modeName by rememberSaveable { mutableStateOf(if (data.currentPlan != null) SavingsChartMode.Projection.name else SavingsChartMode.Pace.name) }
     var rangeName by rememberSaveable { mutableStateOf(SavingsChartRange.Year.name) }
@@ -168,6 +177,19 @@ private fun SavingsContent(
         }
         item(key = "plan") {
             SavingsPlanSummary(data, onEditPlan)
+        }
+        if (data.bankApps.isNotEmpty()) item(key = "bank-apps") {
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                data.bankApps.forEachIndexed { index, app ->
+                    WhfinLedgerRow(
+                        title = stringResource(R.string.savings_open_bank, app.displayName),
+                        supportingText = stringResource(R.string.savings_open_bank_hint),
+                        icon = Icons.Outlined.AccountBalance,
+                        onClick = { onOpenBank(app) },
+                        divider = index < data.bankApps.lastIndex,
+                    )
+                }
+            }
         }
         item(key = "chart-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

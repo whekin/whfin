@@ -1356,6 +1356,8 @@
     <string name="savings_projection_scrub">Посмотреть будущий резерв по месяцам</string>
     <string name="savings_projection_overflow">Дальнейшие значения выходят за поддерживаемый диапазон сумм.</string>
     <string name="savings_projection_assumption">Сценарий: равные взносы каждый месяц, первый — %1$s. Без предполагаемых процентов, снятий и изменения курсов.</string>
+    <string name="savings_open_bank">Открыть %1$s</string>
+    <string name="savings_open_bank_hint">Переведите деньги в банке. WHFIN увидит движение при обычной синхронизации.</string>
     <string name="savings_loading">Читаю историю резерва…</string>
     <string name="savings_no_reserve_title">В резерве пока ничего нет</string>
     <string name="savings_no_reserve_body">Отметьте любой счёт как «Резерв», чтобы видеть здесь его баланс и темп накопления.</string>

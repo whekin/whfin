@@ -49,6 +49,9 @@ private data class DemoWorkspaceUiState(
 private val LocalDemoWorkspace = staticCompositionLocalOf { DemoWorkspaceUiState() }
 
 @Composable
+internal fun isDemoWorkspaceActive(): Boolean = LocalDemoWorkspace.current.active
+
+@Composable
 fun DemoWorkspaceProvider(
     active: Boolean,
     busy: Boolean,

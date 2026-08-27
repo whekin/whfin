@@ -69,6 +69,16 @@ valuation, scheduled transfers, and reminders are outside this slice.
 The bank remains the place to move money. Savings does not need a separate “top up reserve” action;
 WHFIN observes the resulting transfer through its existing bank-data channels.
 
+### Opening the bank
+
+Savings may offer a quiet **Open MyCredo** or **Open TBC Bank** row for the bank that owns the selected
+currency's Reserve ledger. This is an ordinary Android launcher intent only: WHFIN does not prefill an
+amount, account, recipient, or operation because neither bank publishes a supported transfer deep-link
+contract. Home never carries this action. The row is absent when the matching official consumer app
+is not installed or has no launch activity, and live bank launchers are always suppressed in the Demo
+workspace. Official package identities are [MyCredo (`ge.qwerty.credo`)](https://play.google.com/store/apps/details?id=ge.qwerty.credo)
+and [TBC Bank (`com.icomvision.bsc.tbc`)](https://play.google.com/store/apps/details?id=com.icomvision.bsc.tbc).
+
 ## Verification
 
 - Pure kernel tests: transfers, same-role movements, direct spending, adjustments, voids, malformed
