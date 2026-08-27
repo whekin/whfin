@@ -90,6 +90,13 @@ This is a single-context repository with root domain documentation and system-wi
   не запускались. Read-only проверка доказала launcher activities обоих установленных официальных apps:
   `ge.qwerty.credo/com.mycredo.MainActivity` и
   `com.icomvision.bsc.tbc/ge.tbc.bank.features.authentication.presentation.LoginActivity`.
+  Dogfood `0.3.12 (24)` установлен signed in-place upgrade поверх `0.3.11 (23)` на Samsung S25:
+  full unit suite, R8/lintVital, package/version и release certificate `af6009…fae92` сверены до
+  установки (digest установленного `base.apk` совпал с новой сборкой); после `install -r` cert
+  установленного APK снова `af6009…fae92`, `firstInstallTime` (2026-08-16) сохранился,
+  `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы, процесс запустился без FATAL в logcat.
+  Визуальную проверку Home на самом телефоне делает владелец: экран был выключен, будить и
+  разблокировать чужой телефон нельзя.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
