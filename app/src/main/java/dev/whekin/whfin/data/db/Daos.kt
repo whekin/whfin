@@ -751,6 +751,32 @@ interface TransactionDao {
     )
     suspend fun sumByAccount(accountId: Long): Long
 
+    /**
+     * Последняя цифра остатка, объявленная самим банком по этому счёту на указанный момент.
+     *
+     * Её печатают и выписка, и SMS, поэтому она есть у любой строки банковского происхождения.
+     * Собственная сумма строк такой опорой быть не может: она утверждает, что ничего не потеряно.
+     */
+    @Query(
+        "SELECT * FROM transactions WHERE accountId = :accountId AND isVoided = 0 " +
+            "AND balanceAfterMinor IS NOT NULL AND occurredAt <= :atMillis " +
+            "ORDER BY occurredAt DESC, id DESC LIMIT 1"
+    )
+    suspend fun latestDeclaredBalance(accountId: Long, atMillis: Long): TransactionEntity?
+
+    /** Что счёт записал между объявленным остатком и указанным моментом. */
+    @Query(
+        "SELECT COALESCE(SUM(amountMinor), 0) FROM transactions WHERE accountId = :accountId " +
+            "AND isVoided = 0 AND occurredAt <= :atMillis " +
+            "AND (occurredAt > :anchorMillis OR (occurredAt = :anchorMillis AND id > :anchorId))"
+    )
+    suspend fun sumSinceDeclaredBalance(
+        accountId: Long,
+        anchorMillis: Long,
+        anchorId: Long,
+        atMillis: Long,
+    ): Long
+
     @Query(
         "SELECT accountId, COALESCE(SUM(amountMinor), 0) AS totalMinor FROM transactions " +
             "WHERE isVoided = 0 GROUP BY accountId"

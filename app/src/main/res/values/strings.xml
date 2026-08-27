@@ -490,6 +490,7 @@
     <string name="sms_new_account_support">Credo · %1$s. You can add IBAN and other currencies later.</string>
     <string name="sms_create_and_link_action">Create &amp; confirm</string>
     <string name="sms_link_and_confirm_action">Link &amp; confirm</string>
+    <string name="sms_stated_balance">The bank stated %1$s left afterwards</string>
     <string name="sms_close_action">Close</string>
     <string name="sms_choose_account_body">Choose the %1$s account this message belongs to. Future payments from the same card will use this mapping.</string>
     <string name="sms_no_matching_accounts">No active %1$s bank accounts are available. Add or import the account first.</string>

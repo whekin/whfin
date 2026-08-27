@@ -514,6 +514,7 @@
     <string name="sms_new_account_support">Credo · %1$s. IBAN и другие валюты можно добавить позже.</string>
     <string name="sms_create_and_link_action">Создать и подтвердить</string>
     <string name="sms_link_and_confirm_action">Привязать и подтвердить</string>
+    <string name="sms_stated_balance">Банк указал остаток после операции: %1$s</string>
     <string name="sms_close_action">Закрыть</string>
     <string name="sms_choose_account_body">Выберите счёт %1$s для этого сообщения. Будущие оплаты с той же карты будут использовать эту привязку.</string>
     <string name="sms_no_matching_accounts">Нет активных банковских счетов в %1$s. Сначала добавьте или импортируйте счёт.</string>

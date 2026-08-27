@@ -261,6 +261,23 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     private fun occurredMillis(sms: CredoSmsParser.Sms, receivedAt: Long): Long =
         sms.timestamp?.atZone(zone)?.toInstant()?.toEpochMilli() ?: receivedAt
 
+    /**
+     * What the operation does to the ledger it belongs to, signed.
+     *
+     * Messages state a magnitude and say in words where the money went, so the direction lives here
+     * and nowhere else: the row that gets written and the balance arithmetic that finds its account
+     * must not be able to disagree about which way the money moved.
+     */
+    private fun ledgerDeltaMinor(sms: CredoSmsParser.Sms): Long = when (sms) {
+        is CredoSmsParser.IncomingTransfer,
+        is CredoSmsParser.DepositTopUp,
+        // Cash paid in at a desk and interest paid by the bank are money arriving, not leaving.
+        is CredoSmsParser.CashDeposit,
+        is CredoSmsParser.InterestAccrual,
+        -> sms.amountMinor
+        else -> -sms.amountMinor
+    }
+
     private suspend fun evaluate(
         classification: CredoSmsParser.Classification,
         key: String,
@@ -420,7 +437,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             return evaluateGroupedParsed(sms, key, receivedAt, persist)
         }
 
-        return when (val resolution = resolveAccount(sms)) {
+        return when (val resolution = resolveAccount(sms, occurredMillis(sms, receivedAt))) {
             is AccountResolution.Found -> {
                 val evidenceDiagnostic = diagnosticFor(
                     sms = sms,
@@ -558,7 +575,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         return SmsImportResult(SmsDiagnosticOutcome.IMPORTED, id, transactionId)
     }
 
-    private suspend fun resolveAccount(sms: CredoSmsParser.Sms): AccountResolution {
+    private suspend fun resolveAccount(
+        sms: CredoSmsParser.Sms,
+        atMillis: Long,
+    ): AccountResolution {
         val currency = sms.balanceCurrency ?: sms.currency
         // A refund names its card and no account; the card is what says where the money went back to.
         val cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
@@ -596,6 +616,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             else -> emptyList()
         }
         if (narrowed.size == 1) return AccountResolution.Found(narrowed.single())
+        val pool = when (sms) {
+            is CredoSmsParser.OutgoingTransfer, is CredoSmsParser.DepositTopUp -> narrowed
+            else -> candidates
+        }
+        accountAtDeclaredBalance(sms, pool, atMillis)?.let { return AccountResolution.Found(it) }
         if (sms is CredoSmsParser.DepositTopUp) {
             return AccountResolution.NeedsChoice(
                 SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
@@ -610,6 +635,43 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 SmsDiagnosticReason.MULTIPLE_ACCOUNTS,
             )
         }
+    }
+
+    /**
+     * The ledger whose balance the message itself names, when exactly one of them fits.
+     *
+     * Only a same-currency operation can be checked this way: a card charged abroad moves the ledger
+     * by an amount the message never prints, so no arithmetic reaches the stated balance. A card is
+     * left alone for a different reason — its message is asked about once in order to learn which
+     * ledger the card belongs to, and a silent guess would trade that answer for one routed message
+     * and keep asking forever.
+     */
+    private suspend fun accountAtDeclaredBalance(
+        sms: CredoSmsParser.Sms,
+        candidates: List<AccountEntity>,
+        atMillis: Long,
+    ): AccountEntity? {
+        if (candidates.size < 2) return null
+        val declared = sms.balanceMinor ?: return null
+        val balanceCurrency = sms.balanceCurrency ?: return null
+        if (!balanceCurrency.equals(sms.currency, ignoreCase = true)) return null
+        val evidence = candidates.mapNotNull { account ->
+            if (!account.currency.equals(balanceCurrency, ignoreCase = true)) return@mapNotNull null
+            val anchor = db.transactionDao().latestDeclaredBalance(account.id, atMillis)
+                ?: return@mapNotNull null
+            DeclaredBalanceEvidence(
+                accountId = account.id,
+                anchorBalanceMinor = anchor.balanceAfterMinor ?: return@mapNotNull null,
+                movedSinceMinor = db.transactionDao().sumSinceDeclaredBalance(
+                    accountId = account.id,
+                    anchorMillis = anchor.occurredAt,
+                    anchorId = anchor.id,
+                    atMillis = atMillis,
+                ),
+            )
+        }
+        val id = accountAtDeclaredBalance(evidence, ledgerDeltaMinor(sms), declared) ?: return null
+        return candidates.firstOrNull { it.id == id }
     }
 
     private suspend fun resolveGroupedAccounts(sms: CredoSmsParser.Sms): GroupedAccountResolution? {
@@ -744,12 +806,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             else -> null
         }
         val merchant = rawCounterparty?.let { resolveMerchant(it) }
-        val amount = if (sms is CredoSmsParser.IncomingTransfer || sms is CredoSmsParser.DepositTopUp) {
-            sms.amountMinor
-        } else {
-            -sms.amountMinor
-        }
-        val accountAmount = if (sms.currency == account.currency) amount else 0L
+        val accountAmount = if (sms.currency == account.currency) ledgerDeltaMinor(sms) else 0L
         return db.transactionDao().insert(
             TransactionEntity(
                 accountId = account.id,
@@ -915,7 +972,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 return@forEach
             }
             val sms = diagnostic.toParsedSms() ?: return@forEach
-            val resolution = resolveAccount(sms)
+            val resolution = resolveAccount(
+                sms,
+                diagnostic.occurredAt ?: diagnostic.receivedAt,
+            )
             if (
                 resolution is AccountResolution.Found &&
                 !isCoveredByStatement(resolution.account.id, diagnostic.occurredAt)

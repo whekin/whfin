@@ -79,6 +79,18 @@ WHFIN never guesses from a bank name alone because one bank can contain several 
 Saving that mapping processes all already queued card payments that match one of those ledgers. Those
 payments become active automatically; routing is not a review or approval decision.
 
+A message that names no card and no IBAN still names the balance it left behind, and that figure
+belonged to exactly one ledger. Routing therefore checks it before asking: for each candidate of the
+message's currency, WHFIN takes the last balance the bank itself declared on that ledger at or before
+the message — statement rows and earlier messages both carry one — adds whatever the ledger recorded
+since, and adds this operation. Exactly one ledger reaching the printed figure decides; none and
+several both stay a question, because a wrong route writes a real operation into an account it never
+touched. The starting figure has to be the bank's own: our sum of rows would only assert that nothing
+is missing, so a ledger with no declared balance behind it does not answer at all. Foreign-currency
+card payments are excluded — the ledger moves by an amount the message never prints — and cards are
+excluded on purpose: their message is asked about once in order to learn which ledger the card belongs
+to, and a silent guess would trade that answer for one routed message and keep asking forever.
+
 Credo deposit notifications omit both IBANs. WHFIN may use the paired outgoing/deposit notifications to
 identify a single internal transfer, but account resolution remains a separate decision: it automatically
 uses a unique reserve and a unique remaining source inside one bank group, otherwise diagnostics asks the

@@ -144,12 +144,13 @@ fun SmsRoutingSheet(
         ),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
-            if (creatingCurrency != null) {
-                R.string.sms_create_and_link_action
-            } else if (grouped) {
-                R.string.sms_close_action
-            } else {
-                R.string.sms_link_and_confirm_action
+            when {
+                creatingCurrency != null -> R.string.sms_create_and_link_action
+                grouped -> R.string.sms_close_action
+                // Only a card leaves a mapping behind. A transfer names no card, so promising a link
+                // here promised something this step cannot do and the next message would ask again.
+                diagnostic.cardLast4 != null -> R.string.sms_link_and_confirm_action
+                else -> R.string.transaction_confirm
             },
         ),
         primaryEnabled = primaryEnabled,
@@ -196,6 +197,18 @@ fun SmsRoutingSheet(
                 text = formatMinor(kotlin.math.abs(amount), diagnostic.currency ?: currency),
                 symbol = currencySymbol(diagnostic.currency ?: currency),
                 style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+        // The figure the bank printed is what decides this when it can be decided at all; when two
+        // ledgers or none reach it, the person is the one who has to recognise it.
+        if (!grouped && diagnostic.balanceMinor != null && diagnostic.balanceCurrency != null) {
+            Text(
+                stringResource(
+                    R.string.sms_stated_balance,
+                    formatMinor(diagnostic.balanceMinor, diagnostic.balanceCurrency),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (

@@ -15,6 +15,7 @@ import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -79,6 +80,66 @@ class SmsRoutingSheetTest {
         compose.runOnIdle {
             assertEquals(10L to PaymentInstrumentType.PHYSICAL_CARD, resolved)
         }
+    }
+
+    /**
+     * A transfer names no card, so nothing is linked here and the balance is the only thing that
+     * tells the two ledgers apart.
+     */
+    @Test
+    fun transferShowsTheStatedBalanceAndPromisesNoLink() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsRoutingSheet(
+                    diagnostic = SmsDiagnosticEntity(
+                        id = 81,
+                        externalKey = "sms|transfer",
+                        kind = SmsDiagnosticKind.OUTGOING_TRANSFER,
+                        outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                        receivedAt = 1_000,
+                        occurredAt = 1_000,
+                        amountMinor = 10_000,
+                        currency = "GEL",
+                        balanceMinor = 123_456,
+                        balanceCurrency = "GEL",
+                        updatedAt = 1_000,
+                    ),
+                    accounts = listOf(
+                        SmsRoutingAccount(
+                            AccountEntity(
+                                id = 10,
+                                name = "Everyday",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                            ),
+                            groupName = "Credo",
+                        ),
+                        SmsRoutingAccount(
+                            AccountEntity(
+                                id = 11,
+                                name = "Second",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                            ),
+                            groupName = "Credo",
+                        ),
+                    ),
+                    onDismiss = {},
+                    onResolve = { _, _ -> },
+                    onResolveGroup = { _, _ -> },
+                    onCreateAccount = { _, _, _ -> },
+                    onAddGroupedAccount = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(
+            context.getString(R.string.sms_stated_balance, formatMinor(123_456, "GEL")),
+        ).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.transaction_confirm)).assertIsDisplayed()
     }
 
     @Test
