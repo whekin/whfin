@@ -222,6 +222,14 @@ This is a single-context repository with root domain documentation and system-wi
   процесс поднялся сам по `MY_PACKAGE_REPLACED` для обновления Glance-виджета и работает без FATAL в
   logcat. Схема БД не менялась; визуальную проверку нового Home/Счетов/Настроек на личных данных
   делает владелец.
+  Dogfood `0.3.17 (29)` установлен signed in-place upgrade поверх `0.3.16 (28)` на Samsung S25:
+  full unit suite (735 passed, 1 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` сверены до установки по digest установленного `base.apk`. После `install -r`
+  version/certificate и SHA-256 установленного `base.apk` (`09443d4a…f7edadbd`) совпали с новой
+  сборкой; `firstInstallTime` (2026-08-16) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS`
+  остались выданы. Chrome владельца остался foreground, WHFIN намеренно не запускался, FATAL в logcat
+  нет. Схема БД не менялась; проверку карточки низкого баланса и формы счёта на личных данных делает
+  владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
