@@ -12,7 +12,7 @@ tap away, in Accounts and Statistics.
 |---|---|---|
 | Headline | Money that can be spent, in the display currency | never (a dash while rates load) |
 | This month | Result of the running month, income and expenses under it, and what is not in the total yet | never; the last line only when a row's day has no quote |
-| Runway | How long the spendable money lasts, and whether that reaches payday | comfortable, or no honest daily rate yet |
+| Runway | Whether spendable money covers ordinary spending and expected bills until payday | no reliable rate yet; without payday, more than 45 days |
 | Still due | Monthly obligations this month has not seen yet | nothing recurring is outstanding |
 | Yours to return | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
 | Notices | At most two standing conditions, the rest behind one fold row | nothing is wrong |
@@ -38,19 +38,44 @@ neither can claim to be the whole picture.
 
 ## Runway
 
-`daysLeft = spendable ÷ ordinary spend of one day`.
+Runway is a forward cash reading, not the current month's expense average. Statistics still projects
+the whole calendar month and therefore keeps a phone, trip or other large purchase as realised once.
+`CashRunway.cashForecast` derives its own forward rate from the same normalized own-expense amounts
+as Statistics. It first excludes proven recurring payees, then uses the shared large-purchase rule
+(over max(5 × median transaction, 500 GEL)) on the remaining current-month expenses. Those remaining
+ordinary expenses are divided by elapsed calendar days. A realised large purchase already reduced
+today's spendable balance and is never spread back into future days.
 
-The daily rate is `pace.projectedExpenseMinor ÷ daysTotal` — the same projection Statistics shows,
-which already treats a purchase far above the person's typical transaction as realised once instead of
-repeating it every remaining day. Consequences of reusing it rather than inventing a second rate:
+Proven monthly obligations are scheduled separately on their usual dates. The same strict recurrence
+evidence as `Still due` is used, but the horizon crosses a calendar boundary through the end of the
+next declared payday window. A payment within the detector's 40% variation band settles that occurrence;
+a smaller partial payment leaves the typical amount minus what was paid. An unpaid
+one remains due after its expected day. Home walks those dates and ordinary days in between to find the
+first day the balance cannot cover. This preserves both sides of the distinction:
 
-- a month younger than five days has no rate at all, and the row says nothing;
-- a large purchase already made shortens the runway, which is the safe direction to be wrong in;
-- the number cannot disagree with the forecast on the Statistics screen.
+- several one-off purchases stay realised facts rather than a new daily habit;
+- rent, subscriptions and stable bills remain in the future cash requirement when they fall before payday.
 
-The row appears only while it is news: at most 45 days of runway, or whenever the money runs out
-before a declared payday window closes. A short runway carries the consequence in words as well as
-colour (`Only N days left`), because an accent alone is not readable by everyone.
+Consequences of keeping the monthly projection and the forward cash reading separate:
+
+- a month younger than five days, fewer than five non-recurring expense observations, or an unvalued
+  current expense (including an FX SMS awaiting settlement) cannot establish a reliable rate;
+- a large purchase already made affects Home once, through the lower balance;
+- Statistics can still state the honest projected total for the whole month;
+- a short runway names the expected gap and the first recurring payment behind it.
+
+With a payday the row answers `Should last until payday` or `May be X short`; without one it reports
+at most 45 days, using bills scheduled over that same horizon. It never extrapolates a reassuring number
+of days beyond a payday for which later bills have not been scheduled. Zero and negative available
+balances remain warnings, not missing input. Daily spending covers the number of days from today to
+the last payday date; bills due on that last date are included conservatively. No incoming salary is
+added to the current balance.
+
+The row expands to show every expected bill, the total needed until payday, any remaining balance and
+the limits of the estimate. New one-off purchases cannot be predicted. Monthly recurrence and the
+large-purchase threshold are heuristics, not a user-confirmed schedule or a guarantee. All inputs must
+have answered before a forecast appears; the ViewModel publishes the forecast and `Still due` together,
+off the UI thread, and re-evaluates when the calendar date changes.
 
 Paydays come from declared `income_sources`. A window that has not closed yet is still the answer — a
 payment inside its own window is not late. A source whose era has ended promises nothing.
@@ -71,13 +96,14 @@ Detection is deliberately strict, because a wrong recurrence would promise money
 - amounts are compared in lari at each row's own booked value, so an unpriced day is skipped rather
   than guessed.
 
-A charge already recorded this month is finished business. One whose usual day has passed with nothing
+A charge sufficiently paid this month is finished business. One whose usual day has passed with nothing
 recorded still counts: either it is late or the statement has not arrived, and both mean the money
 should still be treated as owed.
 
-The sum stays **out** of the pace insight. A projection the person can also read in Statistics must
-mean the same thing on both screens; folding an obligation into a rate would quietly change a number
-that has its own screen. Naming the payees is what makes the sum checkable.
+The sum stays **out** of the Statistics pace and out of Home's ordinary daily rate. It does participate
+in Home's forward cash runway as a dated event: folding an obligation into a rate would quietly repeat
+rent every day, while ignoring it would promise money that is already spoken for. Naming the payees is
+what makes the forecast checkable.
 
 ## Money that is not the person's own
 
@@ -152,6 +178,7 @@ laying out the first screenful.
 Pure logic and its tests:
 
 - `ui/feed/HomeBoard.kt` — notice triage, month flow, attention queue, recent rows
-- `ui/feed/HomeRunway.kt` — runway and the next declared payday
+- `ui/feed/CashRunway.kt` — normalized own spending, recurring separation and complete Home cash reading
+- `ui/feed/HomeRunway.kt` — dated cash consumption and the next declared payday
 - `data/rates/SpendableSource.kt` — spendable money in the display currency
 - `data/recurring/RecurringCharges.kt` — monthly obligations from history

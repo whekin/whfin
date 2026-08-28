@@ -96,6 +96,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,6 +108,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -162,6 +164,7 @@ import dev.whekin.whfin.core.ui.WhfinSkeletonBlock
 import dev.whekin.whfin.core.ui.WhfinSkeletonLedgerRow
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.recurring.RecurringCharge
+import dev.whekin.whfin.data.recurring.RecurringOccurrence
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
 import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
 import androidx.compose.ui.tooling.preview.Preview
@@ -300,16 +303,14 @@ fun FeedScreen(
     val recent by viewModel.recentActivity.collectAsState()
     val spendable by viewModel.spendable.collectAsState()
     val accountBalances by viewModel.accountBalances.collectAsState()
-    val recurringDue by viewModel.recurringDue.collectAsState()
+    val cashForecast by viewModel.cashForecast.collectAsState()
+    val recurringDue = cashForecast?.stillDue.orEmpty()
     val debtsOwed by viewModel.debtsOwed.collectAsState()
-    val incomeSources by viewModel.incomeSources.collectAsState()
     val homeAnalytics = (homeAnalyticsState?.state as? AnalyticsUiState.Content)?.data
     val income = homeAnalytics?.incomeMinor ?: monthFlow?.incomeMinor ?: 0L
     val expenses = homeAnalytics?.expenseMinor ?: monthFlow?.expenseMinor ?: 0L
     val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
-    val runway = remember(spendable, homeAnalytics, incomeSources) {
-        homeRunway(spendable?.pivotMinor, homeAnalytics, incomeSources, LocalDate.now())
-    }
+    val runway = cashForecast?.runway
     val visibleItems = items.filter { item ->
         val matchesType = when (filter) {
             FeedFilter.ALL -> true
@@ -2249,6 +2250,9 @@ internal fun HomeRunwayRow(
     runway: HomeRunway,
     onOpenAccounts: () -> Unit,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
     val accent = if (runway.shortOfIncome) {
         WhfinThemeTokens.colors.warning
     } else {
@@ -2261,32 +2265,78 @@ internal fun HomeRunwayRow(
     val payday = runway.nextIncome?.let { window ->
         stringResource(R.string.home_runway_income, incomeWindowLabel(window))
     }
+    val firstOccurrence = runway.recurringOccurrences.firstOrNull()?.let { occurrence ->
+        val date = occurrence.dueDate.format(dateFormat)
+        stringResource(
+            R.string.home_runway_recurring,
+            occurrence.charge.label,
+            formatMinor(occurrence.amountMinor, "GEL"),
+            date,
+        )
+    }
+    val moreOccurrences = (runway.recurringOccurrences.size - 1).takeIf { it > 0 }?.let { count ->
+        pluralStringResource(R.plurals.home_recurring_more, count, count)
+    }
+    val obligations = listOfNotNull(firstOccurrence, moreOccurrences).joinToString(" · ")
+        .takeIf(String::isNotEmpty)
     WhfinLedgerGroup(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
             .testTag("home-runway"),
         tonal = true,
     ) {
         WhfinLedgerRow(
-            title = pluralStringResource(
-                if (runway.shortOfIncome) R.plurals.home_runway_days_short else R.plurals.home_runway_days,
-                runway.daysLeft,
-                runway.daysLeft,
-            ),
-            titleMaxLines = 2,
-            supportingText = listOfNotNull(burn, payday).joinToString(" · "),
-            supportingMaxLines = 2,
+            title = runway.shortfallMinor?.let { shortfall ->
+                stringResource(R.string.home_runway_shortfall, formatMinor(shortfall, "GEL"))
+            } ?: if (runway.nextIncome != null) stringResource(R.string.home_runway_enough)
+                else pluralStringResource(
+                    R.plurals.home_runway_days,
+                    runway.daysLeft ?: 0,
+                    runway.daysLeft ?: 0,
+                ),
+            titleMaxLines = Int.MAX_VALUE,
+            supportingText = listOfNotNull(burn, obligations, payday).joinToString(" · "),
+            supportingMaxLines = Int.MAX_VALUE,
             icon = Icons.Outlined.Schedule,
             iconTint = accent,
             markerColor = if (runway.shortOfIncome) accent else null,
             trailing = {
                 Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = stringResource(R.string.home_runway_calculation),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
-            onClick = onOpenAccounts,
+            onClick = { expanded = !expanded },
         )
+        if (expanded) {
+            runway.recurringOccurrences.forEach { occurrence ->
+                WhfinLedgerRow(
+                    title = occurrence.charge.label,
+                    titleMaxLines = Int.MAX_VALUE,
+                    supportingText = stringResource(R.string.home_runway_expected_payment,
+                        formatMinor(occurrence.amountMinor, "GEL"),
+                        occurrence.dueDate.format(dateFormat)),
+                    supportingMaxLines = Int.MAX_VALUE,
+                )
+            }
+            runway.expectedExpenseMinor?.let { expected ->
+                WhfinLedgerRow(
+                    title = stringResource(R.string.home_runway_expected_total, formatMinor(expected, "GEL")),
+                    titleMaxLines = Int.MAX_VALUE,
+                    supportingText = runway.remainingMinor?.takeIf { it >= 0L }?.let {
+                        stringResource(R.string.home_runway_remaining, formatMinor(it, "GEL"))
+                    },
+                    supportingMaxLines = Int.MAX_VALUE,
+                )
+            }
+            Text(stringResource(R.string.home_runway_method),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onOpenAccounts, modifier = Modifier.padding(horizontal = 8.dp)) {
+                Text(stringResource(R.string.tab_accounts))
+            }
+        }
     }
 }
 
@@ -2407,7 +2457,8 @@ internal fun HomeDebtsOwedRow(
 /** A declared window reads as one span: "5–10 Sep", or two dates when it crosses a month. */
 @Composable
 private fun incomeWindowLabel(window: NextIncomeWindow): String {
-    val dayMonth = remember { DateTimeFormatter.ofPattern("d MMM") }
+    val locale = LocalConfiguration.current.locales[0]
+    val dayMonth = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
     return when {
         window.from == window.to -> window.from.format(dayMonth)
         window.from.month == window.to.month ->
@@ -3129,6 +3180,19 @@ private fun FeedContentPreview() {
                             LocalDate.now().withDayOfMonth(10).plusMonths(1),
                         ),
                         shortOfIncome = true,
+                        shortfallMinor = 98_600,
+                        recurringOccurrences = listOf(
+                            RecurringOccurrence(
+                                RecurringCharge(
+                                    "iban:GE00CD0000000000000009",
+                                    "Landlord",
+                                    120_000,
+                                    3,
+                                    LocalDate.now().minusMonths(1),
+                                ),
+                                LocalDate.now().withDayOfMonth(3).plusMonths(1),
+                            ),
+                        ),
                     ),
                     {},
                 )

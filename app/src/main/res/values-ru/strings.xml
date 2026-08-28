@@ -101,14 +101,16 @@
         <item quantity="many">Хватит на %d дней</item>
         <item quantity="other">Хватит на %d дня</item>
     </plurals>
-    <plurals name="home_runway_days_short">
-        <item quantity="one">Хватит только на %d день</item>
-        <item quantity="few">Хватит только на %d дня</item>
-        <item quantity="many">Хватит только на %d дней</item>
-        <item quantity="other">Хватит только на %d дня</item>
-    </plurals>
-    <string name="home_runway_burn">Обычно %1$s в день</string>
+    <string name="home_runway_burn">Повседневное: ~%1$s в день</string>
     <string name="home_runway_income">выплата %1$s</string>
+    <string name="home_runway_shortfall">Может не хватить %1$s</string>
+    <string name="home_runway_enough">Должно хватить до выплаты</string>
+    <string name="home_runway_calculation">Как рассчитано</string>
+    <string name="home_runway_expected_payment">~%1$s · ожидается %2$s</string>
+    <string name="home_runway_expected_total">До выплаты ожидается: %1$s</string>
+    <string name="home_runway_remaining">Расчётный остаток: %1$s</string>
+    <string name="home_runway_method">Повседневный темп — расходы этого месяца без распознанных ежемесячных платежей и необычно крупных покупок. Ожидаемые платежи взяты из истории, а не из подтверждённого расписания. Будущие разовые покупки не предсказываются.</string>
+    <string name="home_runway_recurring">%1$s %2$s — %3$s</string>
     <plurals name="home_notices_folded">
         <item quantity="one">Ещё %d сообщение</item>
         <item quantity="few">Ещё %d сообщения</item>

@@ -22,6 +22,7 @@ internal data class RecurringObservation(
     val day: LocalDate,
     /** Positive amount spent, in pivot minor units. */
     val amountMinor: Long,
+    val transactionId: Long = 0,
 )
 
 /**
@@ -41,6 +42,14 @@ internal data class RecurringCharge(
     val lastSeen: LocalDate,
 )
 
+/** One expected occurrence of a proven monthly charge inside a future cash horizon. */
+internal data class RecurringOccurrence(
+    val charge: RecurringCharge,
+    /** The charge's usual calendar date; an overdue occurrence keeps its original date. */
+    val dueDate: LocalDate,
+    val amountMinor: Long = charge.typicalMinor,
+)
+
 /**
  * Turns ledger rows into observations, keeping only the person's own outgoing money.
  *
@@ -51,6 +60,7 @@ internal fun recurringObservations(
     transactions: List<TransactionEntity>,
     merchants: List<MerchantEntity>,
     zone: ZoneId,
+    ownExpenseMinor: Map<Long, Long?>? = null,
 ): List<RecurringObservation> {
     val merchantById = merchants.associateBy { it.id }
     return transactions.mapNotNull { transaction ->
@@ -58,11 +68,14 @@ internal fun recurringObservations(
         if (transaction.isVoided || transaction.isOpeningBalanceAnchor()) return@mapNotNull null
         if (transaction.source == TxSource.ADJUSTMENT) return@mapNotNull null
         if (transaction.amountMinor >= 0L) return@mapNotNull null
-        val pivotMinor = if (transaction.currency.equals(PIVOT, ignoreCase = true)) {
-            transaction.amountMinor
+        val expenseMinor = if (ownExpenseMinor != null) {
+            ownExpenseMinor[transaction.id] ?: return@mapNotNull null
+        } else if (transaction.currency.equals(PIVOT, ignoreCase = true)) {
+            -transaction.amountMinor
         } else {
-            transaction.gelValueMinor ?: return@mapNotNull null
+            -(transaction.gelValueMinor ?: return@mapNotNull null)
         }
+        if (expenseMinor <= 0L) return@mapNotNull null
         val merchant = transaction.merchantId?.let(merchantById::get)
         val key = when {
             merchant != null -> "merchant:${merchant.id}"
@@ -76,7 +89,8 @@ internal fun recurringObservations(
             key = key,
             label = label,
             day = Instant.ofEpochMilli(transaction.occurredAt).atZone(zone).toLocalDate(),
-            amountMinor = -pivotMinor,
+            amountMinor = expenseMinor,
+            transactionId = transaction.id,
         )
     }
 }
@@ -131,12 +145,52 @@ internal fun detectRecurringCharges(
 internal fun recurringDue(
     observations: List<RecurringObservation>,
     today: LocalDate,
-): List<RecurringCharge> {
-    val month = YearMonth.from(today)
-    val paidKeys = observations
-        .filter { YearMonth.from(it.day) == month }
-        .mapTo(mutableSetOf(), RecurringObservation::key)
-    return detectRecurringCharges(observations, today).filterNot { it.key in paidKeys }
+): List<RecurringCharge> = recurringOccurrences(
+    observations = observations,
+    today = today,
+    through = YearMonth.from(today).atEndOfMonth(),
+).map { it.charge.copy(typicalMinor = it.amountMinor) }
+
+/**
+ * Schedules proven monthly charges between now and a cash-planning horizon.
+ *
+ * A sufficient payment in a calendar month settles that month's occurrence. An unpaid current
+ * occurrence remains visible after its usual day, while later months are included only when their
+ * expected date falls inside [through]. This lets Home look across a month boundary to payday
+ * without turning a recurring rent payment into an everyday spending rate.
+ */
+internal fun recurringOccurrences(
+    observations: List<RecurringObservation>,
+    today: LocalDate,
+    through: LocalDate,
+): List<RecurringOccurrence> {
+    if (through < today) return emptyList()
+    val firstMonth = YearMonth.from(today)
+    val lastMonth = YearMonth.from(through)
+    val paidByMonth = observations.filter { it.day <= today }
+        .groupBy { YearMonth.from(it.day) }
+        .mapValues { (_, rows) ->
+            rows.groupBy(RecurringObservation::key)
+                .mapValues { (_, payments) -> payments.sumOf(RecurringObservation::amountMinor) }
+        }
+    val charges = detectRecurringCharges(observations, today)
+    return generateSequence(firstMonth) { month -> month.plusMonths(1) }
+        .takeWhile { it <= lastMonth }
+        .flatMap { month ->
+            val paidAmounts = paidByMonth[month].orEmpty()
+            charges.asSequence().mapNotNull { charge ->
+                val paid = paidAmounts[charge.key] ?: 0L
+                // The detector already allows 40% monthly variation. A token/partial payment is
+                // not evidence that a whole bill was settled; reserve the remaining typical sum.
+                if (paid >= charge.typicalMinor - charge.typicalMinor * MAX_DRIFT_PERCENT / 100L) {
+                    return@mapNotNull null
+                }
+                val dueDate = month.atDay(charge.expectedDay.coerceAtMost(month.lengthOfMonth()))
+                if (dueDate > through) null else RecurringOccurrence(charge, dueDate, charge.typicalMinor - paid)
+            }
+        }
+        .sortedWith(compareBy(RecurringOccurrence::dueDate).thenByDescending { it.charge.typicalMinor })
+        .toList()
 }
 
 private fun median(values: List<Long>): Long {

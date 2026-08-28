@@ -1,14 +1,9 @@
 package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.data.db.IncomeSourceEntity
-import dev.whekin.whfin.ui.analytics.AnalyticsData
-import dev.whekin.whfin.ui.analytics.AnalyticsMonthValue
-import dev.whekin.whfin.ui.analytics.AnalyticsPace
-import dev.whekin.whfin.ui.analytics.AnalyticsPeriod
-import dev.whekin.whfin.ui.analytics.AnalyticsScale
-import dev.whekin.whfin.ui.analytics.AnalyticsTrendFilter
+import dev.whekin.whfin.data.recurring.RecurringCharge
+import dev.whekin.whfin.data.recurring.RecurringOccurrence
 import java.time.LocalDate
-import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -21,11 +16,10 @@ class HomeRunwayTest {
     private val today = LocalDate.of(2026, 8, 25)
 
     @Test
-    fun `runway divides spendable money by the projected daily rate`() {
-        // 310 000 minor projected over 31 days is 10 000 a day; 120 000 lasts twelve of them.
+    fun `runway divides spendable money by future ordinary spending`() {
         val runway = homeRunway(
             spendablePivotMinor = 120_000,
-            analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+            ordinaryDailyMinor = 10_000,
             incomeSources = emptyList(),
             today = today,
         )
@@ -42,7 +36,7 @@ class HomeRunwayTest {
         assertNull(
             homeRunway(
                 spendablePivotMinor = 120_000,
-                analytics = analytics(AnalyticsPace(3, 31, 310_000, 300_000)),
+                ordinaryDailyMinor = null,
                 incomeSources = emptyList(),
                 today = today,
             ),
@@ -50,19 +44,11 @@ class HomeRunwayTest {
     }
 
     @Test
-    fun `nothing spendable is not a runway of zero days`() {
-        assertNull(
-            homeRunway(
-                spendablePivotMinor = 0,
-                analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
-                incomeSources = emptyList(),
-                today = today,
-            ),
-        )
+    fun `missing spendable value stays unavailable`() {
         assertNull(
             homeRunway(
                 spendablePivotMinor = null,
-                analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+                ordinaryDailyMinor = 10_000,
                 incomeSources = emptyList(),
                 today = today,
             ),
@@ -74,7 +60,7 @@ class HomeRunwayTest {
         assertNull(
             homeRunway(
                 spendablePivotMinor = 2_000_000,
-                analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+                ordinaryDailyMinor = 10_000,
                 incomeSources = emptyList(),
                 today = today,
             ),
@@ -85,7 +71,7 @@ class HomeRunwayTest {
     fun `money that runs out before the declared window closes is called short`() {
         val runway = homeRunway(
             spendablePivotMinor = 40_000,
-            analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+            ordinaryDailyMinor = 10_000,
             incomeSources = listOf(source(expectedDayFrom = 5, expectedDayTo = 10)),
             today = today,
         )
@@ -98,24 +84,39 @@ class HomeRunwayTest {
     }
 
     @Test
-    fun `a declared payday does not make a comfortable runway speak`() {
-        // A declared window is never further out than the next month, so money that comfortably
-        // outlasts the quiet threshold has already outlasted the wait for it.
-        assertNull(
-            homeRunway(
-                spendablePivotMinor = 500_000,
-                analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
-                incomeSources = listOf(source(expectedDayFrom = 5, expectedDayTo = 10)),
-                today = today,
+    fun `a regular large payment is charged on its due day instead of diluted into daily burn`() {
+        val paydayToday = LocalDate.of(2026, 8, 25)
+        val rent = RecurringOccurrence(
+            charge = RecurringCharge(
+                key = "iban:landlord",
+                label = "Landlord",
+                typicalMinor = 120_000,
+                expectedDay = 3,
+                lastSeen = LocalDate.of(2026, 8, 3),
             ),
+            dueDate = LocalDate.of(2026, 9, 3),
         )
+
+        val runway = homeRunway(
+            spendablePivotMinor = 150_000,
+            ordinaryDailyMinor = 10_000,
+            incomeSources = listOf(source(expectedDayFrom = 5, expectedDayTo = 10)),
+            recurringOccurrences = listOf(rent),
+            today = paydayToday,
+        )
+
+        assertNotNull(runway)
+        assertEquals(10_000L, runway!!.dailyBurnMinor)
+        assertEquals(9, runway.daysLeft)
+        assertEquals(130_000L, runway.shortfallMinor)
+        assertEquals(listOf(rent), runway.recurringOccurrences)
     }
 
     @Test
     fun `an open window is the answer until it closes`() {
         val runway = homeRunway(
             spendablePivotMinor = 40_000,
-            analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+            ordinaryDailyMinor = 10_000,
             incomeSources = listOf(source(expectedDayFrom = 20, expectedDayTo = 27)),
             today = today,
         )
@@ -128,7 +129,7 @@ class HomeRunwayTest {
     fun `a source whose era ended does not promise a payday`() {
         val runway = homeRunway(
             spendablePivotMinor = 40_000,
-            analytics = analytics(AnalyticsPace(25, 31, 310_000, 300_000)),
+            ordinaryDailyMinor = 10_000,
             incomeSources = listOf(
                 source(
                     expectedDayFrom = 5,
@@ -147,16 +148,66 @@ class HomeRunwayTest {
     fun `a month-end window is clamped to a day the month actually has`() {
         val runway = homeRunway(
             spendablePivotMinor = 40_000,
-            analytics = analytics(
-                AnalyticsPace(25, 28, 280_000, 300_000),
-                month = YearMonth.of(2026, 2),
-            ),
+            ordinaryDailyMinor = 10_000,
             incomeSources = listOf(source(expectedDayFrom = 30, expectedDayTo = 31)),
             today = LocalDate.of(2026, 2, 25),
         )
 
         assertEquals(LocalDate.of(2026, 2, 28), runway?.nextIncome?.from)
         assertEquals(LocalDate.of(2026, 2, 28), runway?.nextIncome?.to)
+    }
+
+    @Test fun `no deficit at the exact horizon cost and a deficit one minor unit below`() {
+        fun reading(balance: Long) = homeRunway(balance, 10_000,
+            listOf(source(5, 10)), today)
+        assertFalse(reading(160_000)!!.shortOfIncome)
+        assertEquals(0L, reading(160_000)!!.remainingMinor)
+        assertEquals(1L, reading(159_999)!!.shortfallMinor)
+    }
+
+    @Test fun `comfortable money answers payday without claiming an unbounded number of days`() {
+        val result = homeRunway(2_000_000, 10_000, listOf(source(5, 10)), today)!!
+        assertFalse(result.shortOfIncome)
+        assertEquals(1_840_000L, result.remainingMinor)
+    }
+
+    @Test fun `zero and negative balances are not silently comfortable`() {
+        assertEquals(160_000L, homeRunway(0, 10_000, listOf(source(5, 10)), today)!!.shortfallMinor)
+        assertEquals(170_000L, homeRunway(-10_000, 10_000, listOf(source(5, 10)), today)!!.shortfallMinor)
+    }
+
+    @Test fun `multiple same day bills and an overdue bill consume cash once each`() {
+        val bill = RecurringCharge("merchant:1", "Bill", 5_000, 1, today.minusMonths(1))
+        val result = homeRunway(30_000, 1_000, listOf(source(5, 10)), today,
+            listOf(RecurringOccurrence(bill, today.minusDays(1)),
+                RecurringOccurrence(bill, today.plusDays(1)),
+                RecurringOccurrence(bill.copy(key = "merchant:2"), today.plusDays(1))))!!
+        assertEquals(31_000L, result.expectedExpenseMinor)
+        assertEquals(1_000L, result.shortfallMinor)
+        assertEquals(15, result.daysLeft)
+    }
+
+    @Test fun `bill after payday is not an expense before payday`() {
+        val bill = RecurringCharge("merchant:1", "Bill", 500_000, 20, today.minusMonths(1))
+        val result = homeRunway(200_000, 10_000, listOf(source(5, 10)), today,
+            listOf(RecurringOccurrence(bill, LocalDate.of(2026, 9, 20))))!!
+        assertEquals(160_000L, result.expectedExpenseMinor)
+        assertTrue(result.recurringOccurrences.isEmpty())
+    }
+
+    @Test fun `overflow cannot produce a negative expense or a comfortable gap`() {
+        val result = homeRunway(100, Long.MAX_VALUE, listOf(source(5, 10)), today)!!
+        assertTrue(result.shortOfIncome)
+        assertTrue(result.expectedExpenseMinor!! > 0)
+        assertTrue(result.shortfallMinor!! > 0)
+    }
+
+    @Test fun `zero daily rate can still forecast a bill without division by zero`() {
+        val bill = RecurringCharge("merchant:1", "Bill", 500_000, 3, today.minusMonths(1))
+        val result = homeRunway(100_000, 0, listOf(source(5, 10)), today,
+            listOf(RecurringOccurrence(bill, today.plusDays(2))))!!
+        assertEquals(2, result.daysLeft)
+        assertEquals(400_000L, result.shortfallMinor)
     }
 
     private fun source(
@@ -176,22 +227,5 @@ class HomeRunwayTest {
         createdAt = 0,
     )
 
-    private fun analytics(
-        pace: AnalyticsPace,
-        month: YearMonth = YearMonth.of(2026, 8),
-    ) = AnalyticsData(
-        period = AnalyticsPeriod.month(month),
-        incomeMinor = 0,
-        expenseMinor = pace.projectedExpenseMinor * pace.daysElapsed / pace.daysTotal,
-        categoryValues = emptyList(),
-        trendFilter = AnalyticsTrendFilter.All,
-        trendFilterName = null,
-        trendValues = listOf(AnalyticsMonthValue(month, 0)),
-        previousTrendExpenseMinor = 0,
-        unaccountedNetMinor = 0,
-        otherCurrencyExpenses = emptyList(),
-        pendingCount = 0,
-        hasAnyTransactions = true,
-        pace = pace,
-    ).also { require(it.period.scale == AnalyticsScale.MONTH) }
+
 }

@@ -94,6 +94,48 @@ class RecurringChargesTest {
     }
 
     @Test
+    fun `a paid current bill is scheduled again when it falls before next payday`() {
+        val observations = monthly(
+            key = "merchant:1",
+            label = "Landlord",
+            months = listOf(4, 5, 6, 7, 8),
+            day = 3,
+            amountMinor = 120_000,
+        )
+
+        val expected = recurringOccurrences(
+            observations = observations,
+            today = LocalDate.of(2026, 8, 28),
+            through = LocalDate.of(2026, 9, 10),
+        )
+
+        assertEquals(listOf(LocalDate.of(2026, 9, 3)), expected.map { it.dueDate })
+        assertEquals(listOf(120_000L), expected.map { it.charge.typicalMinor })
+    }
+
+    @Test
+    fun `an unpaid bill remains due even after its expected day`() {
+        val observations = monthly(
+            key = "merchant:1",
+            label = "Landlord",
+            months = listOf(4, 5, 6, 7),
+            day = 3,
+            amountMinor = 120_000,
+        )
+
+        val expected = recurringOccurrences(
+            observations = observations,
+            today = LocalDate.of(2026, 8, 28),
+            through = LocalDate.of(2026, 9, 10),
+        )
+
+        assertEquals(
+            listOf(LocalDate.of(2026, 8, 3), LocalDate.of(2026, 9, 3)),
+            expected.map { it.dueDate },
+        )
+    }
+
+    @Test
     fun `observations keep own spending and its stable identity`() {
         val merchant = MerchantEntity(id = 7, normalizedKey = "landlord", displayName = "Landlord")
         val transactions = listOf(
@@ -136,6 +178,27 @@ class RecurringChargesTest {
         )
 
         assertEquals(listOf(2_700L), charges.map { it.typicalMinor })
+    }
+
+    @Test fun `only occurrences inside the horizon are included`() {
+        val observations = monthly("merchant:1", "Bill", listOf(4, 5, 6, 7, 8), 12, 6_000)
+        assertTrue(recurringOccurrences(observations, today, LocalDate.of(2026, 9, 10)).isEmpty())
+    }
+
+    @Test fun `month end bills clamp in leap February`() {
+        val observations = (10..12).map { month ->
+            RecurringObservation("merchant:1", "Bill", LocalDate.of(2027, month, 28), 6_000)
+        } + RecurringObservation("merchant:1", "Bill", LocalDate.of(2028, 1, 31), 6_000)
+        val lastDay = observations.map { it.copy(day = java.time.YearMonth.from(it.day).atEndOfMonth()) }
+        assertEquals(listOf(LocalDate.of(2028, 2, 29)), recurringOccurrences(lastDay,
+            LocalDate.of(2028, 2, 25), LocalDate.of(2028, 3, 2)).map { it.dueDate })
+    }
+
+    @Test fun `token payment does not settle a whole bill`() {
+        val observations = monthly("merchant:1", "Rent", listOf(4, 5, 6, 7), 3, 120_000) +
+            RecurringObservation("merchant:1", "Rent", today, 1_000)
+        assertEquals(119_000L, recurringOccurrences(observations, today,
+            LocalDate.of(2026, 8, 31)).single().amountMinor)
     }
 
     private fun monthly(

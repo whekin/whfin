@@ -14,7 +14,6 @@ import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.data.rates.SpendableMoney
 import dev.whekin.whfin.data.rates.SpendableSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
-import dev.whekin.whfin.data.db.IncomeSourceEntity
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
@@ -38,9 +37,6 @@ import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.backup.LedgerRestoreState
 import dev.whekin.whfin.data.categorization.CategorySuggester
-import dev.whekin.whfin.data.recurring.RecurringCharge
-import dev.whekin.whfin.data.recurring.recurringDue
-import dev.whekin.whfin.data.recurring.recurringObservations
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.mutation.AllocationMutation
 import dev.whekin.whfin.data.mutation.ManualMutation
@@ -56,6 +52,7 @@ import dev.whekin.whfin.ui.sms.SmsRoutingAccount
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -94,8 +91,13 @@ internal fun credoSyncReminder(
 
 private const val MILLIS_PER_DAY = 86_400_000L
 
-/** Enough months for a monthly obligation to prove itself, plus the running one. */
-private const val RECURRING_MONTHS = 5L
+/** Related ledger inputs are published together before deriving a cash reading. */
+private data class CashInputs(
+    val transactions: List<TransactionEntity>,
+    val categories: List<CategoryEntity>,
+    val merchants: List<MerchantEntity>,
+    val allocations: List<TransactionAllocationEntity>,
+)
 private const val CREDO_SYNC_REMINDER_DAYS = 30
 
 data class FeedItem(
@@ -517,24 +519,31 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         .map { rows -> rows.associate { it.accountId to it.totalMinor } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /**
-     * Monthly obligations the running month has not seen yet.
-     *
-     * Read over its own window rather than the feed's: recurrence is a claim about months, and the
-     * newest few hundred rows cannot say whether something happens every month.
-     */
-    internal val recurringDue: StateFlow<List<RecurringCharge>> = combine(
-        db.transactionDao().observeRange(
-            LocalDate.now(zone).withDayOfMonth(1).minusMonths(RECURRING_MONTHS)
-                .atStartOfDay(zone).toInstant().toEpochMilli(),
-            Long.MAX_VALUE,
-        ),
+    private val cashInputs = combine(
+        db.transactionDao().observeAllActive(),
+        db.categoryDao().observeAll(),
         db.merchantDao().observeAll(),
-    ) { transactions, merchants ->
-        recurringDue(recurringObservations(transactions, merchants, zone), LocalDate.now(zone))
+        db.transactionAllocationDao().observeAll(),
+    ) { transactions, categories, merchants, allocations ->
+        CashInputs(transactions, categories, merchants, allocations)
+    }
+
+    /** Re-evaluate calendar boundaries even if the ledger stays unchanged overnight. */
+    private val cashToday = kotlinx.coroutines.flow.flow {
+        while (true) {
+            emit(LocalDate.now(zone))
+            kotlinx.coroutines.delay(30_000)
+        }
+    }.distinctUntilChanged()
+
+    internal val cashForecast: StateFlow<HomeCashForecast?> = combine(
+        cashInputs, spendable, db.incomeSourceDao().observeAll(), cashToday,
+    ) { input, balance, sources, today ->
+        cashForecast(balance?.pivotMinor, input.transactions, input.categories, input.merchants,
+            input.allocations, sources, today, zone)
     }
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Borrowed money that the balances still count as the person's own. */
     internal val debtsOwed: StateFlow<List<HomeDebt>> = combine(
@@ -545,9 +554,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Declared entry points of money; they explain rows and never create them. */
-    val incomeSources: StateFlow<List<IncomeSourceEntity>> = db.incomeSourceDao().observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val displayCurrency: StateFlow<String> = preferences.displayCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)

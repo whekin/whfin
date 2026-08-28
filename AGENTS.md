@@ -22,6 +22,17 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Home cash runway (2026-08-28): будущие расходы отделены от месячного прогноза Statistics.
+  `CashRunway` сначала исключает доказанные ежемесячные платежи из дневного темпа, затем крупные
+  разовые покупки; аренда/подписки учитываются по ожидаемым датам до конца окна выплаты, включая
+  следующий месяц. Оплаченное не дублируется, частичный платёж уменьшает ожидаемый остаток.
+  Общая оценка расходов сохраняет доли и FX-funding; loan/repayment не создают ложную регулярность,
+  неоценённые текущие расходы и короткая история не дают уверенного прогноза. Home показывает
+  ожидаемый дефицит либо «Должно хватить до выплаты» и раскрывает все платежи, итог и ограничения.
+  706 JVM/Compose tests passed, 1 skipped; 4 UIAutomator visual tests прошли на disposable Pixel
+  (EN light/dark, RU dark/font 1.5/400×640dp, раскрытие/scroll/Accounts callback), общие screenshot
+  references проверены. Debug-only QA host не экспортирован и не входит в release. Схема БД не
+  менялась; S25 не обновлялся. Контракт: `docs/home-screen.md`.
 - [x] Savings bank launcher (2026-08-28): Home намеренно не получил «пополнить резерв». Personal
   Savings показывает `Open MyCredo` / `Open TBC Bank` только когда выбранная валюта Reserve принадлежит
   соответствующему bank group, официальный consumer package установлен и имеет launch activity.

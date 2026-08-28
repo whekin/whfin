@@ -109,22 +109,19 @@ private data class Funding(
     val currency: String,
 )
 
-internal fun calculateAnalytics(
+private fun analyticsSlices(
     transactions: List<TransactionEntity>,
     categories: List<CategoryEntity>,
     allocations: List<TransactionAllocationEntity>,
-    period: AnalyticsPeriod,
-    trendFilter: AnalyticsTrendFilter,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-    today: LocalDate = LocalDate.now(zoneId),
-): AnalyticsData {
+    zoneId: ZoneId,
+): List<AnalyticsSlice> {
     val categoryById = categories.associateBy { it.id }
     val tree = CategoryTree(categories)
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
-    val fundingByPurchase = findConversionFunding(transactions, zoneId)
-    val slices = transactions
+    val fundingByPurchase = findConversionFunding(transactions.filterNot { it.isVoided }, zoneId)
+    return transactions
         .asSequence()
-        .filterNot { it.isOpeningBalanceAnchor() || it.isTransfer || it.transferGroupId != null }
+        .filterNot { it.isVoided || it.isOpeningBalanceAnchor() || it.isTransfer || it.transferGroupId != null }
         .flatMap { transaction ->
             val transactionAllocations = allocationsByTransaction[transaction.id].orEmpty()
             val includedParts = if (transactionAllocations.isEmpty()) {
@@ -136,7 +133,10 @@ internal fun calculateAnalytics(
             }
             val funding = fundingByPurchase[transaction.id]
             val parts = if (funding != null && transaction.amountMinor < 0L && includedParts.isNotEmpty()) {
-                scaleExpenseParts(includedParts, funding.amountMinor).map { (amount, categoryId) ->
+                val ownFundingMinor = BigDecimal(funding.amountMinor)
+                    .multiply(BigDecimal(includedParts.sumOf { it.first }))
+                    .divide(BigDecimal(transaction.amountMinor), 0, RoundingMode.HALF_UP).toLong()
+                scaleExpenseParts(includedParts, ownFundingMinor).map { (amount, categoryId) ->
                     Triple(amount, categoryId, funding.currency)
                 }
             } else {
@@ -174,6 +174,46 @@ internal fun calculateAnalytics(
             }
         }
         .toList()
+}
+
+/**
+ * Same own-expense valuation as Statistics, including splits and conversion-funded purchases.
+ * Null means an expense has not been priced, not that it cost nothing.
+ */
+internal fun ownExpenseAmounts(
+    transactions: List<TransactionEntity>,
+    categories: List<CategoryEntity>,
+    allocations: List<TransactionAllocationEntity>,
+    zoneId: ZoneId,
+): Map<Long, Long?> {
+    val priced = analyticsSlices(transactions, categories, allocations, zoneId)
+        .filter { !it.unaccounted && it.amountMinor < 0L }
+        .groupBy(AnalyticsSlice::transactionId)
+        .mapValues { (_, slices) ->
+            if (slices.any { it.gelMinor == null }) null else runCatching {
+                Math.negateExact(slices.fold(0L) { sum, slice -> Math.addExact(sum, slice.gelMinor!!) })
+            }.getOrNull()
+        }
+    // FX SMS stores a positive original amount while its signed ledger delta can still be zero
+    // awaiting settlement. Missing valuation is never evidence of a free purchase.
+    val awaitingSettlement = transactions.filter {
+        !it.isVoided && !it.isTransfer && it.transferGroupId == null && it.source == TxSource.SMS &&
+            it.amountMinor == 0L && (it.origAmountMinor ?: 0L) != 0L
+    }.associate { it.id to null }
+    return priced + awaitingSettlement
+}
+
+internal fun calculateAnalytics(
+    transactions: List<TransactionEntity>,
+    categories: List<CategoryEntity>,
+    allocations: List<TransactionAllocationEntity>,
+    period: AnalyticsPeriod,
+    trendFilter: AnalyticsTrendFilter,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate = LocalDate.now(zoneId),
+): AnalyticsData {
+    val categoryById = categories.associateBy { it.id }
+    val slices = analyticsSlices(transactions, categories, allocations, zoneId)
 
     // Anything with a booked lari value counts, whatever currency it was spent in.
     val baseSlices = slices.filter { it.gelMinor != null && !it.unaccounted }
@@ -196,14 +236,15 @@ internal fun calculateAnalytics(
     val pace = if (period.isCurrent(today)) {
         val daysElapsed = period.daysElapsed(today)
         val daysTotal = period.daysTotal(today)
+        val projection = projectCurrentExpenses(
+            selectedBase.filter { it.gelMinor!! < 0L },
+            daysElapsed,
+            daysTotal,
+        )
         AnalyticsPace(
             daysElapsed = daysElapsed,
             daysTotal = daysTotal,
-            projectedExpenseMinor = projectCurrentExpenses(
-                selectedBase.filter { it.gelMinor!! < 0L },
-                daysElapsed,
-                daysTotal,
-            ),
+            projectedExpenseMinor = projection,
             previousPeriodExpenseMinor = previousExpenses,
         )
     } else {
@@ -342,12 +383,25 @@ private fun projectCurrentExpenses(
         return actual * daysInMonth / daysElapsed.coerceAtLeast(1)
     }
 
-    val sorted = byTransaction.sorted()
-    val median = sorted[sorted.lastIndex / 2]
-    val oneOffThreshold = maxOf(median * ONE_OFF_MEDIAN_MULTIPLIER, MIN_ONE_OFF_MINOR)
-    val ordinary = byTransaction.filter { it <= oneOffThreshold }.sum()
+    val ordinary = ordinaryExpenseTotal(byTransaction)
     val oneOffs = actual - ordinary
     return oneOffs + ordinary * daysInMonth / daysElapsed.coerceAtLeast(1)
+}
+
+/** No assertion about a spending habit from fewer than five non-recurring observations. */
+internal fun ordinaryExpenseDaily(amounts: List<Long>, daysElapsed: Int): Long? {
+    if (daysElapsed < 5 || amounts.size < MIN_EXPENSES_FOR_ROBUST_PROJECTION) return null
+    return ordinaryExpenseTotal(amounts) / daysElapsed
+}
+
+private fun ordinaryExpenseTotal(amounts: List<Long>): Long {
+    val sorted = amounts.sorted()
+    val median = sorted[sorted.lastIndex / 2]
+    val threshold = maxOf(
+        median.coerceAtMost(Long.MAX_VALUE / ONE_OFF_MEDIAN_MULTIPLIER) * ONE_OFF_MEDIAN_MULTIPLIER,
+        MIN_ONE_OFF_MINOR,
+    )
+    return amounts.filter { it <= threshold }.sum()
 }
 
 private const val MIN_EXPENSES_FOR_ROBUST_PROJECTION = 5
