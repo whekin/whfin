@@ -183,7 +183,9 @@
     <string name="account_settings_hint">Applies to every currency of this account.</string>
     <string name="account_iban">IBAN</string>
     <string name="account_card_last4">Card last 4 digits</string>
-    <string name="account_card_last4_hint">Separate multiple cards with commas</string>
+    <string name="account_card_last4_placeholder">1234</string>
+    <string name="account_card_add">Add</string>
+    <string name="account_card_remove">Remove card ••%1$s</string>
     <string name="account_virtual_card_last4">Virtual card last 4 digits</string>
     <string name="account_card_kind">Card type for this account</string>
     <string name="account_card_label">Card ••%1$s</string>

@@ -197,7 +197,9 @@
     <string name="account_settings_hint">Действует для всех валют этого счёта.</string>
     <string name="account_iban">IBAN</string>
     <string name="account_card_last4">Последние 4 цифры карты</string>
-    <string name="account_card_last4_hint">Несколько карт укажи через запятую</string>
+    <string name="account_card_last4_placeholder">1234</string>
+    <string name="account_card_add">Добавить</string>
+    <string name="account_card_remove">Удалить карту ••%1$s</string>
     <string name="account_virtual_card_last4">Последние 4 цифры виртуальной карты</string>
     <string name="account_card_kind">Тип карты для этого счёта</string>
     <string name="account_card_label">Карта ••%1$s</string>

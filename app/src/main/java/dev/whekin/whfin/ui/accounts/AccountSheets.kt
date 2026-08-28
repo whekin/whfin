@@ -2,6 +2,12 @@ package dev.whekin.whfin.ui.accounts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.outlined.Close
+import dev.whekin.whfin.core.ui.WhfinActionStyle
+import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinIconButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -383,17 +389,23 @@ private fun FundRoleSelector(
         FundRole.AVAILABLE to R.string.account_fund_available,
         FundRole.RESERVE to R.string.account_purpose_reserve,
     )
-    WhfinChoiceRail {
-        items(options, key = { it.second }) { (mode, label) ->
+    // Two answers to one question divide the width between them, the way the theme choice in
+    // Settings does. Sized to their own text they sat as two loose buttons at the left of an empty
+    // row, and nothing said they were alternatives rather than two things you could press.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { (mode, label) ->
             WhfinFilterPill(
                 label = stringResource(label),
                 selected = selected == mode,
                 onClick = { onSelect(mode) },
+                centered = true,
+                modifier = Modifier.weight(1f),
             )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BankProductSelector(
     selected: BankProduct?,
@@ -405,8 +417,16 @@ private fun BankProductSelector(
         BankProduct.DEMAND_DEPOSIT to R.string.account_product_demand_deposit,
         BankProduct.TERM_DEPOSIT to R.string.account_product_term_deposit,
     )
-    WhfinChoiceRail {
-        items(options, key = { it.second }) { (product, label) ->
+    // Four longish labels do not fit one line, and on a rail the fourth was simply off the screen
+    // with nothing to say it was there: "Term deposit" could not be chosen without discovering that
+    // the row scrolled. A form is read top to bottom, so the options wrap instead of scrolling and
+    // every one of them is on the screen at once, in RU and at large font too.
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (product, label) ->
             WhfinFilterPill(
                 label = stringResource(label),
                 selected = selected == product,
@@ -501,8 +521,9 @@ fun BankMappingSheet(
         mutableStateOf(account.bankProduct)
     }
     var cards by remember(account.id, existingCards, existingVirtualCards) {
-        mutableStateOf((existingCards + existingVirtualCards).distinct().joinToString(", "))
+        mutableStateOf((existingCards + existingVirtualCards).distinct())
     }
+    var pendingCard by remember(account.id) { mutableStateOf("") }
     var cardTypes by remember(account.id, existingCards, existingVirtualCards) {
         mutableStateOf(
             buildMap {
@@ -512,7 +533,7 @@ fun BankMappingSheet(
         )
     }
     var primaryCard by remember(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
-    val validCards = parseCardMasks(cards)
+    val validCards = cards
 
     FormSheet(
         title = stringResource(R.string.account_settings_title),
@@ -558,20 +579,41 @@ fun BankMappingSheet(
             selected = bankProduct,
             onSelect = { bankProduct = it },
         )
-        WhfinField(
-            value = cards,
-            onValueChange = { value ->
-                cards = value.filter { ch -> ch.isDigit() || ch == ',' || ch == ' ' }
-                val masks = parseCardMasks(cards)
-                cardTypes = masks.associateWith { mask ->
-                    cardTypes[mask] ?: PaymentInstrumentType.PHYSICAL_CARD
-                }
-                if (primaryCard !in masks) primaryCard = null
-            },
-            label = stringResource(R.string.account_card_last4),
-            supportingText = stringResource(R.string.account_card_last4_hint),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Cards were a comma-separated list the person had to keep in their own head and retype to
+        // change: adding one meant editing a sentence, removing one meant deleting the right comma.
+        // Four digits go in and a card comes out; each one is then an object below with its own
+        // answers and its own way of leaving.
+        val canAddCard = pendingCard.length == CARD_MASK_LENGTH && pendingCard !in cards
+        val addPendingCard = {
+            if (canAddCard) {
+                cards = cards + pendingCard
+                cardTypes = cardTypes + (pendingCard to PaymentInstrumentType.PHYSICAL_CARD)
+                pendingCard = ""
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            WhfinField(
+                value = pendingCard,
+                onValueChange = { value ->
+                    pendingCard = value.filter(Char::isDigit).take(CARD_MASK_LENGTH)
+                },
+                label = stringResource(R.string.account_card_last4),
+                placeholder = stringResource(R.string.account_card_last4_placeholder),
+                keyboardType = KeyboardType.Number,
+                modifier = Modifier.weight(1f).testTag("card-input"),
+            )
+            WhfinButton(
+                label = stringResource(R.string.account_card_add),
+                onClick = addPendingCard,
+                enabled = canAddCard,
+                style = WhfinActionStyle.Secondary,
+                modifier = Modifier.testTag("card-add"),
+            )
+        }
         validCards.forEach { mask ->
             val physicalLabel = stringResource(R.string.account_card_physical)
             val virtualLabel = stringResource(R.string.account_card_virtual)
@@ -601,6 +643,17 @@ fun BankMappingSheet(
                                 contentDescription = primaryLabel + " ••" + mask
                                 selected = primaryCard == mask
                             },
+                        )
+                        WhfinIconButton(
+                            icon = Icons.Outlined.Close,
+                            contentDescription = stringResource(R.string.account_card_remove, mask),
+                            onClick = {
+                                cards = cards - mask
+                                cardTypes = cardTypes - mask
+                                if (primaryCard == mask) primaryCard = null
+                            },
+                            outlined = false,
+                            modifier = Modifier.testTag("card-$mask-remove"),
                         )
                     }
                     WhfinFieldLabel(stringResource(R.string.account_card_kind))
@@ -633,11 +686,7 @@ fun BankMappingSheet(
     }
 }
 
-internal fun parseCardMasks(value: String): List<String> = value
-    .split(',', ' ')
-    .map(String::trim)
-    .filter { it.matches(Regex("\\d{4}")) }
-    .distinct()
+private const val CARD_MASK_LENGTH = 4
 
 @Preview(name = "Bank details", widthDp = 400, heightDp = 760, showBackground = true)
 @Preview(name = "Bank details dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)

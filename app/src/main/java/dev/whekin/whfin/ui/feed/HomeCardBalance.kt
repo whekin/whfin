@@ -1,5 +1,13 @@
 package dev.whekin.whfin.ui.feed
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,7 +31,6 @@ import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinAmount
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
-import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceStatus
 import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
@@ -50,38 +57,85 @@ internal fun HomePhysicalCardBalance(
         shown.forEachIndexed { index, balance ->
             val critical = physicalCardBalanceStatus(balance.balanceMinor) == PhysicalCardBalanceStatus.Critical
             val accent = if (critical) MaterialTheme.colorScheme.error else WhfinThemeTokens.colors.warning
-            val masks = balance.cardLast4s.joinToString(" · ") { "••$it" }
-            WhfinLedgerRow(
-                modifier = Modifier.testTag("home-card-${balance.accountId}"),
-                title = stringResource(R.string.home_card_balance_identity, balance.bankName ?: balance.accountName, masks),
-                titleMaxLines = Int.MAX_VALUE,
-                supportingText = stringResource(if (critical) R.string.home_card_balance_critical else R.string.home_card_balance_low),
-                supportingMaxLines = Int.MAX_VALUE,
-                icon = Icons.Outlined.CreditCard,
-                iconTint = accent,
-                trailing = {
-                    WhfinAmount(formatMinor(balance.balanceMinor, "GEL"), symbol = currencySymbol("GEL"),
-                        color = accent, style = MaterialTheme.typography.titleLarge)
-                },
-                onClick = onOpenAccounts,
-            )
+            val masks = balance.cardLast4s.joinToString(" · ") { "\u2022\u2022$it" }
             val bank = balance.bankApp?.takeIf { !demo && isBankLaunchable(it) }
-            if (bank != null) {
-                var launchFailed by remember(bank) { mutableStateOf(false) }
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
-                    WhfinButton(
-                        label = stringResource(R.string.home_card_open_bank, bank.displayName),
-                        onClick = { launchFailed = !onOpenBank(bank) },
-                        style = WhfinActionStyle.Quiet,
-                        leadingIcon = Icons.AutoMirrored.Filled.OpenInNew,
-                    )
-                    if (launchFailed) Text(stringResource(R.string.home_card_bank_unavailable),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(vertical = 4.dp))
+            var launchFailed by remember(bank) { mutableStateOf(false) }
+            // A shared ledger row centres its trailing value against the whole text block. That is
+            // right for one or two lines and wrong here: the sentence explaining the risk wraps, so
+            // the balance floated against the middle of a paragraph and the second line ran on
+            // underneath it, leaving a notch where the number should have been anchored.
+            //
+            // The card is built to its own shape instead — the balance is pinned to the line that
+            // names the card, the sentence spans the full width beneath both, and the bank action
+            // starts on the same left edge as the text rather than on a third one.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAccounts)
+                    .testTag("home-card-${balance.accountId}")
+                    .padding(horizontal = 16.dp, vertical = 13.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier
+                            .size(WhfinThemeTokens.sizes.iconContainer)
+                            .background(accent.copy(alpha = .11f), MaterialTheme.shapes.small),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.CreditCard,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(
+                                    R.string.home_card_balance_identity,
+                                    balance.bankName ?: balance.accountName,
+                                    masks,
+                                ),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            WhfinAmount(
+                                formatMinor(balance.balanceMinor, "GEL"),
+                                symbol = currencySymbol("GEL"),
+                                color = accent,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                        }
+                        Text(
+                            stringResource(
+                                if (critical) R.string.home_card_balance_critical
+                                else R.string.home_card_balance_low,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (bank != null) {
+                            WhfinButton(
+                                label = stringResource(R.string.home_card_open_bank, bank.displayName),
+                                onClick = { launchFailed = !onOpenBank(bank) },
+                                style = WhfinActionStyle.Quiet,
+                                leadingIcon = Icons.AutoMirrored.Filled.OpenInNew,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            if (launchFailed) Text(
+                                stringResource(R.string.home_card_bank_unavailable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
                 }
             }
-            if (index != shown.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant)
+            if (index != shown.lastIndex) HorizontalDivider(
+                Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
         }
         if (!notificationsEnabled && !demo) {
             WhfinButton(

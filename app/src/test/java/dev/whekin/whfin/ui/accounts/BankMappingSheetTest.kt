@@ -4,6 +4,9 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -188,6 +191,65 @@ class BankMappingSheetTest {
         compose.runOnIdle {
             assertEquals("GE00CD0000000000000001", savedIban)
             assertEquals(BankProduct.TERM_DEPOSIT, savedProduct)
+        }
+    }
+
+    @Test
+    fun aCardIsAddedByItsFourDigitsRatherThanByEditingAList() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var physical = emptyList<String>()
+        compose.setContent {
+            WhfinTheme {
+                BankMappingSheet(
+                    account = AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK, currency = "GEL"),
+                    existingCards = listOf("0001"),
+                    existingVirtualCards = emptyList(),
+                    onDismiss = {},
+                    onConfirm = { _, _, _, _, savedPhysical, _, _ -> physical = savedPhysical },
+                )
+            }
+        }
+
+        // Three digits are not a card yet, so there is nothing to add.
+        val cardField = context.getString(R.string.account_card_last4)
+        compose.onNodeWithContentDescription(cardField).performScrollTo().performTextInput("000")
+        compose.onNodeWithTag("card-add").assertIsNotEnabled()
+        compose.onNodeWithContentDescription(cardField).performTextInput("2")
+        compose.onNodeWithTag("card-add").performClick()
+
+        compose.onNodeWithText(context.getString(R.string.account_card_label, "0002")).assertExists()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        compose.runOnIdle { assertEquals(listOf("0001", "0002"), physical) }
+    }
+
+    @Test
+    fun removingACardTakesItsPrimaryMarkWithIt() {
+        var physical = listOf("keep")
+        var primary: String? = "unset"
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                BankMappingSheet(
+                    account = AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK, currency = "GEL"),
+                    existingCards = listOf("0001", "0002"),
+                    existingVirtualCards = emptyList(),
+                    existingPrimaryCard = "0002",
+                    onDismiss = {},
+                    onConfirm = { _, _, _, _, savedPhysical, _, savedPrimary ->
+                        physical = savedPhysical
+                        primary = savedPrimary
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("card-0002-remove").performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.account_card_label, "0002")).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        compose.runOnIdle {
+            assertEquals(listOf("0001"), physical)
+            // A primary card that no longer exists must not survive as a dangling mask.
+            assertEquals(null, primary)
         }
     }
 }

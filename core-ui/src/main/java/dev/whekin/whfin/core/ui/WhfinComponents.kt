@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -1057,27 +1058,55 @@ fun WhfinFormSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(bottom = 12.dp),
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        // The sheet is measured against the room it actually has, not against a constant.
+        //
+        // A fixed 620 dp knew nothing about the screen — too tall for a small phone, short of the
+        // room there is on a tall one — and, worse, it did not move when the keyboard did. The
+        // sheet's window is resized by the keyboard, so a fixed content height kept its size inside
+        // a window that had shrunk, and the sheet rode up to cover the whole screen. Swiping it
+        // closed then slid it down while the keyboard was giving the window its height back, and
+        // the sheet lurched: two movements at once, in opposite directions.
+        //
+        // Taking the cap from the live available height makes the sheet lose exactly what the window
+        // loses, so its top edge stays where it was and only the scrollable area changes.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // Unbounded happens in tests and in previews, where there is no window to take a share
+            // of; the old constant is the right answer there and nowhere else.
+            val scrollCap = if (constraints.hasBoundedHeight) maxHeight * SHEET_MAX_HEIGHT_FRACTION else 620.dp
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp),
             ) {
-                Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                WhfinButton(
-                    label = primaryLabel,
-                    onClick = onPrimary,
-                    enabled = primaryEnabled,
-                    style = WhfinActionStyle.Quiet,
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                    WhfinButton(
+                        label = primaryLabel,
+                        onClick = onPrimary,
+                        enabled = primaryEnabled,
+                        style = WhfinActionStyle.Quiet,
+                    )
+                }
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        // A cap rather than a weight: a weight needs a bounded parent, and this one
+                        // is unbounded wherever there is no window — a short form would then have
+                        // been measured to nothing instead of to its own height.
+                        .heightIn(max = scrollCap)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    content = content,
                 )
             }
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                content = content,
-            )
         }
     }
 }
+
+/** How much of its window a form sheet may take, leaving the page it came from visible above it. */
+private const val SHEET_MAX_HEIGHT_FRACTION = .72f
