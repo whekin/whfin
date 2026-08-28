@@ -10,6 +10,9 @@ import dev.whekin.whfin.data.recurring.detectRecurringCharges
 import dev.whekin.whfin.data.recurring.recurringDue
 import dev.whekin.whfin.data.recurring.recurringObservations
 import dev.whekin.whfin.data.recurring.recurringOccurrences
+import dev.whekin.whfin.data.income.IncomeExpectations
+import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.ui.analytics.ordinaryExpenseDaily
 import dev.whekin.whfin.ui.analytics.ownExpenseAmounts
 import java.time.Instant
@@ -30,8 +33,32 @@ internal fun cashForecast(
     today: LocalDate,
     zone: ZoneId,
 ): HomeCashForecast {
-    val through = nextIncomeWindow(incomeSources, today)?.to ?: today.plusDays(45)
     val active = transactions.filter { !it.isVoided && it.day(zone) <= today }
+    val currentMonth = YearMonth.from(today)
+    val debtIds = allocations.filter { it.purpose == AllocationPurpose.LOAN || it.purpose == AllocationPurpose.REPAYMENT }
+        .mapTo(mutableSetOf()) { it.transactionId }
+    val systemCategories = categories.filter { it.isSystem }.mapTo(mutableSetOf()) { it.id }
+    val activeSources = incomeSources.filter { IncomeExpectations.covers(it, currentMonth) }
+    // An arbitrary credit/refund on the receiving account is not proof of salary. Only a unique
+    // declared source with an exact amount/currency near its payday can settle the month here.
+    val arrivedSourceMonths = activeSources.filter { source ->
+        val accountId = source.accountId ?: return@filter false
+        if (source.amountMinor <= 0L || activeSources.count {
+                it.accountId == accountId && it.currency == source.currency
+            } != 1) return@filter false
+        val usual = currentMonth.atDay(source.expectedDayFrom.coerceIn(1, currentMonth.lengthOfMonth()))
+        val deadline = currentMonth.atDay(source.expectedDayTo.coerceIn(usual.dayOfMonth, currentMonth.lengthOfMonth()))
+        val earliest = maxOf(usual.minusDays(3), currentMonth.atDay(1), LocalDate.ofEpochDay(source.startedOn))
+        active.any { transaction ->
+            transaction.accountId == accountId && transaction.currency == source.currency &&
+                transaction.amountMinor == source.amountMinor && !transaction.isTransfer &&
+                transaction.transferGroupId == null && transaction.source != TxSource.ADJUSTMENT &&
+                transaction.id !in debtIds && transaction.categoryId !in systemCategories &&
+                transaction.day(zone) in earliest..deadline
+        }
+    }.mapTo(mutableSetOf()) { it.id to currentMonth }
+    val through = nextIncomeWindow(incomeSources, today, arrivedSourceMonths)?.deadline
+        ?: today.plusDays(45)
     val amounts = ownExpenseAmounts(active, categories, allocations, zone)
     val observations = recurringObservations(active, merchants, zone, amounts)
     val recurringKeys = detectRecurringCharges(observations, today).mapTo(mutableSetOf()) { it.key }
@@ -42,7 +69,8 @@ internal fun cashForecast(
         ordinaryExpenseDaily(currentAmounts.filterNotNull(), today.dayOfMonth)
     return HomeCashForecast(
         runway = homeRunway(spendableMinor, daily, incomeSources, today,
-            recurringOccurrences(observations, today, through)),
+            recurringOccurrences = recurringOccurrences(observations, today, through),
+            arrivedSourceMonths = arrivedSourceMonths),
         stillDue = recurringDue(observations, today),
     )
 }

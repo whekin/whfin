@@ -61,7 +61,7 @@ class IncomeExpectationsTest {
     }
 
     @Test
-    fun `a month still inside the window is not called late`() {
+    fun `passing the usual payday but not the deadline is not called late`() {
         val result = IncomeExpectations.of(
             listOf(source()),
             emptyList(),
@@ -75,7 +75,7 @@ class IncomeExpectationsTest {
     }
 
     @Test
-    fun `a window that has fully passed with nothing received is late`() {
+    fun `a payday deadline that passed with nothing received is late`() {
         val result = IncomeExpectations.of(
             listOf(source()),
             emptyList(),

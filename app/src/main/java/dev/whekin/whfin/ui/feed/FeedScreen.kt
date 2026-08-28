@@ -109,6 +109,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import dev.whekin.whfin.ui.bank.canLaunch
+import dev.whekin.whfin.ui.bank.launchBank
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -239,6 +242,7 @@ fun FeedScreen(
     onAddRequestConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
     val homeAnalyticsState = collectHomeAnalyticsState(mode == FeedMode.HOME)
     val items by viewModel.items.collectAsState()
     val netWorth by viewModel.netWorth.collectAsState()
@@ -543,6 +547,8 @@ fun FeedScreen(
                         notificationsEnabled = hasLowBalanceNotificationPermission,
                         onOpenAccounts = onOpenAccounts,
                         onEnableNotifications = onRequestLowBalanceNotificationPermission,
+                        isBankLaunchable = context::canLaunch,
+                        onOpenBank = context::launchBank,
                     )
                     HomeNotice.SETUP -> SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
                     // Technical state stays quiet unless the ledger contradicts itself; everything
@@ -958,75 +964,6 @@ fun FeedScreen(
     }
 }
 
-@Composable
-internal fun HomePhysicalCardBalance(
-    balances: List<PhysicalCardHomeBalance>,
-    notificationsEnabled: Boolean,
-    onOpenAccounts: () -> Unit,
-    onEnableNotifications: () -> Unit,
-) {
-    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-            balances.take(2).forEachIndexed { index, balance ->
-                val status = physicalCardBalanceStatus(balance.balanceMinor)
-                val accent = when (status) {
-                    PhysicalCardBalanceStatus.Critical -> MaterialTheme.colorScheme.error
-                    PhysicalCardBalanceStatus.Low -> WhfinThemeTokens.colors.warning
-                    PhysicalCardBalanceStatus.Enough -> MaterialTheme.colorScheme.onSurface
-                }
-                val title = stringResource(
-                    if (status == PhysicalCardBalanceStatus.Critical) {
-                        R.string.home_card_balance_critical
-                    } else {
-                        R.string.home_card_balance_low
-                    },
-                )
-                val masks = balance.cardLast4s.joinToString(" · ") { "••$it" }
-                val identity = stringResource(
-                    R.string.home_card_balance_identity,
-                    balance.accountName,
-                    masks,
-                )
-                val supporting = if (notificationsEnabled) identity else {
-                    "$identity · ${stringResource(R.string.home_card_balance_enable_alerts)}"
-                }
-                Column(
-                    Modifier.fillMaxWidth().clickable(
-                        onClick = if (notificationsEnabled) onOpenAccounts else onEnableNotifications,
-                    ),
-                ) {
-                    WhfinLedgerRow(
-                        title = title,
-                        titleMaxLines = 3,
-                        supportingText = supporting,
-                        supportingMaxLines = 4,
-                        icon = Icons.Outlined.CreditCard,
-                        iconTint = accent,
-                        markerColor = accent,
-                    )
-                    // Moving money onto the card is a bank action, not one this app can perform, so
-                    // the row states the balance and leaves the doing to Accounts and the bank app.
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, bottom = 13.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Spacer(Modifier.weight(1f))
-                        WhfinAmount(
-                            text = formatMinor(balance.balanceMinor, "GEL"),
-                            symbol = currencySymbol("GEL"),
-                            color = accent,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                    if (index != balances.take(2).lastIndex) HorizontalDivider(
-                        Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun collectHomeAnalyticsState(enabled: Boolean): AnalyticsUiModel? {
@@ -2253,6 +2190,7 @@ internal fun HomeRunwayRow(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val locale = LocalConfiguration.current.locales[0]
     val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
+    val weekdayFormat = remember(locale) { DateTimeFormatter.ofPattern("EEE", locale) }
     val accent = if (runway.shortOfIncome) {
         WhfinThemeTokens.colors.warning
     } else {
@@ -2263,9 +2201,12 @@ internal fun HomeRunwayRow(
         formatMinor(runway.dailyBurnMinor, "GEL"),
     )
     val payday = runway.nextIncome?.let { window ->
-        stringResource(R.string.home_runway_income, incomeWindowLabel(window))
+        incomeTimingLabel(window, dateFormat, weekdayFormat)
     }
-    val firstOccurrence = runway.recurringOccurrences.firstOrNull()?.let { occurrence ->
+    val primaryOccurrences = runway.recurringOccurrences.filter { occurrence ->
+        runway.nextIncome?.let { occurrence.dueDate <= it.expected } ?: true
+    }
+    val firstOccurrence = primaryOccurrences.firstOrNull()?.let { occurrence ->
         val date = occurrence.dueDate.format(dateFormat)
         stringResource(
             R.string.home_runway_recurring,
@@ -2274,7 +2215,7 @@ internal fun HomeRunwayRow(
             date,
         )
     }
-    val moreOccurrences = (runway.recurringOccurrences.size - 1).takeIf { it > 0 }?.let { count ->
+    val moreOccurrences = (primaryOccurrences.size - 1).takeIf { it > 0 }?.let { count ->
         pluralStringResource(R.plurals.home_recurring_more, count, count)
     }
     val obligations = listOfNotNull(firstOccurrence, moreOccurrences).joinToString(" · ")
@@ -2286,9 +2227,26 @@ internal fun HomeRunwayRow(
     ) {
         WhfinLedgerRow(
             title = runway.shortfallMinor?.let { shortfall ->
-                stringResource(R.string.home_runway_shortfall, formatMinor(shortfall, "GEL"))
-            } ?: if (runway.nextIncome != null) stringResource(R.string.home_runway_enough)
-                else pluralStringResource(
+                val target = runway.nextIncome?.expected?.format(dateFormat).orEmpty()
+                stringResource(
+                    if (runway.nextIncome?.usingDeadline == true) {
+                        R.string.home_runway_shortfall_latest
+                    } else {
+                        R.string.home_runway_shortfall
+                    },
+                    formatMinor(shortfall, "GEL"),
+                    target,
+                )
+            } ?: runway.nextIncome?.let { income ->
+                stringResource(
+                    if (income.usingDeadline) {
+                        R.string.home_runway_enough_latest
+                    } else {
+                        R.string.home_runway_enough
+                    },
+                    income.expected.format(dateFormat),
+                )
+            } ?: pluralStringResource(
                     R.plurals.home_runway_days,
                     runway.daysLeft ?: 0,
                     runway.daysLeft ?: 0,
@@ -2309,7 +2267,7 @@ internal fun HomeRunwayRow(
             onClick = { expanded = !expanded },
         )
         if (expanded) {
-            runway.recurringOccurrences.forEach { occurrence ->
+            primaryOccurrences.forEach { occurrence ->
                 WhfinLedgerRow(
                     title = occurrence.charge.label,
                     titleMaxLines = Int.MAX_VALUE,
@@ -2321,13 +2279,56 @@ internal fun HomeRunwayRow(
             }
             runway.expectedExpenseMinor?.let { expected ->
                 WhfinLedgerRow(
-                    title = stringResource(R.string.home_runway_expected_total, formatMinor(expected, "GEL")),
+                    title = stringResource(
+                        if (runway.nextIncome?.usingDeadline == true) {
+                            R.string.home_runway_expected_total_latest
+                        } else {
+                            R.string.home_runway_expected_total
+                        },
+                        formatMinor(expected, "GEL"),
+                    ),
                     titleMaxLines = Int.MAX_VALUE,
                     supportingText = runway.remainingMinor?.takeIf { it >= 0L }?.let {
                         stringResource(R.string.home_runway_remaining, formatMinor(it, "GEL"))
                     },
                     supportingMaxLines = Int.MAX_VALUE,
                 )
+            }
+            runway.deadlineExpectedExpenseMinor?.let { expected ->
+                val deadline = runway.nextIncome?.deadline?.format(dateFormat).orEmpty()
+                val shortfall = runway.deadlineShortfallMinor
+                WhfinLedgerRow(
+                    title = if (shortfall != null) {
+                        stringResource(
+                            R.string.home_runway_deadline_shortfall,
+                            deadline,
+                            formatMinor(shortfall, "GEL"),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.home_runway_deadline_remaining,
+                            deadline,
+                            formatMinor(runway.deadlineRemainingMinor ?: 0L, "GEL"),
+                        )
+                    },
+                    titleMaxLines = Int.MAX_VALUE,
+                    supportingText = stringResource(
+                        R.string.home_runway_deadline_expected,
+                        formatMinor(expected, "GEL"),
+                    ),
+                    supportingMaxLines = Int.MAX_VALUE,
+                )
+                runway.recurringOccurrences.filter { occurrence ->
+                    runway.nextIncome?.let { occurrence.dueDate > it.expected } == true
+                }.forEach { occurrence ->
+                    WhfinLedgerRow(
+                        title = occurrence.charge.label,
+                        titleMaxLines = Int.MAX_VALUE,
+                        supportingText = stringResource(R.string.home_runway_expected_payment,
+                            formatMinor(occurrence.amountMinor, "GEL"), occurrence.dueDate.format(dateFormat)),
+                        supportingMaxLines = Int.MAX_VALUE,
+                    )
+                }
             }
             Text(stringResource(R.string.home_runway_method),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -2454,16 +2455,34 @@ internal fun HomeDebtsOwedRow(
     }
 }
 
-/** A declared window reads as one span: "5–10 Sep", or two dates when it crosses a month. */
 @Composable
-private fun incomeWindowLabel(window: NextIncomeWindow): String {
-    val locale = LocalConfiguration.current.locales[0]
-    val dayMonth = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
+private fun incomeTimingLabel(
+    window: NextIncomeWindow,
+    format: DateTimeFormatter,
+    weekdayFormat: DateTimeFormatter,
+): String {
+    val usual = window.usual.format(format)
+    val expected = window.expected.format(format)
+    val deadline = window.deadline.format(format)
     return when {
-        window.from == window.to -> window.from.format(dayMonth)
-        window.from.month == window.to.month ->
-            "${window.from.dayOfMonth}–${window.to.format(dayMonth)}"
-        else -> "${window.from.format(dayMonth)} – ${window.to.format(dayMonth)}"
+        window.usualDatePassed -> stringResource(
+            R.string.home_runway_income_late,
+            usual,
+            deadline,
+        )
+        window.weekendAdjusted -> stringResource(
+            R.string.home_runway_income_weekend,
+            usual,
+            window.usual.format(weekdayFormat),
+            expected,
+            deadline,
+        )
+        window.expected < window.deadline -> stringResource(
+            R.string.home_runway_income_usual,
+            expected,
+            deadline,
+        )
+        else -> stringResource(R.string.home_runway_income, expected)
     }
 }
 
@@ -3176,8 +3195,11 @@ private fun FeedContentPreview() {
                         daysLeft = 4,
                         dailyBurnMinor = 9_500,
                         nextIncome = NextIncomeWindow(
-                            LocalDate.now().withDayOfMonth(5).plusMonths(1),
-                            LocalDate.now().withDayOfMonth(10).plusMonths(1),
+                            usual = LocalDate.of(2026, 9, 5),
+                            expected = LocalDate.of(2026, 9, 7),
+                            deadline = LocalDate.of(2026, 9, 10),
+                            weekendAdjusted = true,
+                            usingDeadline = false,
                         ),
                         shortOfIncome = true,
                         shortfallMinor = 98_600,

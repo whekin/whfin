@@ -14,6 +14,8 @@ import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.data.rates.SpendableMoney
 import dev.whekin.whfin.data.rates.SpendableSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
+import dev.whekin.whfin.ui.bank.SupportedBankApp
+import dev.whekin.whfin.ui.bank.bankAppForGroup
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.MerchantEntity
@@ -136,6 +138,8 @@ data class PhysicalCardHomeBalance(
     val accountName: String,
     val balanceMinor: Long,
     val cardLast4s: List<String>,
+    val bankName: String? = null,
+    val bankApp: SupportedBankApp? = null,
 )
 
 /** Одна доля разбивки: сколько потрачено на человека и с каким смыслом. */
@@ -382,7 +386,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         db.transactionDao().observeAccountBalances(),
         db.paymentInstrumentDao().observeActive(),
         db.paymentInstrumentDao().observeLinks(),
-    ) { accounts, balances, instruments, links ->
+        db.financialGroupDao().observeActive(),
+    ) { accounts, balances, instruments, links, groups ->
+        val groupById = groups.associateBy { it.id }
         val balanceByAccount = balances.associate { it.accountId to it.totalMinor }
         val physicalById = focusedPhysicalCards(
             instruments,
@@ -400,6 +406,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                         accountName = account.name,
                         balanceMinor = balanceByAccount[account.id] ?: 0L,
                         cardLast4s = cards,
+                        bankName = account.groupId?.let(groupById::get)?.name,
+                        bankApp = bankAppForGroup(account.groupId?.let(groupById::get)),
                     )
                 }
             }

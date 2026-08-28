@@ -4,13 +4,22 @@ import dev.whekin.whfin.data.db.IncomeSourceEntity
 import dev.whekin.whfin.data.income.IncomeExpectations
 import dev.whekin.whfin.data.recurring.RecurringOccurrence
 import java.time.LocalDate
+import java.time.DayOfWeek
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 
 /** The window a declared source says money arrives in, resolved to actual dates. */
 internal data class NextIncomeWindow(
-    val from: LocalDate,
-    val to: LocalDate,
+    /** The day the owner says money normally arrives, before calendar adjustment. */
+    val usual: LocalDate,
+    /** Conservative ordinary case: [usual], or the next weekday when it falls on a weekend. */
+    val expected: LocalDate,
+    /** Rare outer bound declared by the owner. */
+    val deadline: LocalDate,
+    val weekendAdjusted: Boolean,
+    /** The ordinary date has already passed, so the outer bound is now the live scenario. */
+    val usingDeadline: Boolean,
+    val usualDatePassed: Boolean = false,
 )
 
 /**
@@ -32,6 +41,9 @@ internal data class HomeRunway(
     val recurringOccurrences: List<RecurringOccurrence> = emptyList(),
     val expectedExpenseMinor: Long? = null,
     val remainingMinor: Long? = null,
+    val deadlineExpectedExpenseMinor: Long? = null,
+    val deadlineRemainingMinor: Long? = null,
+    val deadlineShortfallMinor: Long? = null,
 )
 
 /**
@@ -48,13 +60,14 @@ internal fun homeRunway(
     incomeSources: List<IncomeSourceEntity>,
     today: LocalDate,
     recurringOccurrences: List<RecurringOccurrence> = emptyList(),
+    arrivedSourceMonths: Set<Pair<Long, YearMonth>> = emptySet(),
     quietAboveDays: Int = QUIET_ABOVE_DAYS,
 ): HomeRunway? {
     if (spendablePivotMinor == null) return null
     val dailyBurn = ordinaryDailyMinor?.takeIf { it >= 0L } ?: return null
-    val nextIncome = nextIncomeWindow(incomeSources, today)
+    val nextIncome = nextIncomeWindow(incomeSources, today, arrivedSourceMonths)
     val horizonOccurrences = recurringOccurrences
-        .filter { occurrence -> nextIncome == null || occurrence.dueDate <= nextIncome.to }
+        .filter { occurrence -> nextIncome == null || occurrence.dueDate <= nextIncome.deadline }
         .sortedBy(RecurringOccurrence::dueDate)
     val daysLeft = daysUntilExhausted(
         spendableMinor = spendablePivotMinor,
@@ -63,15 +76,17 @@ internal fun homeRunway(
         today = today,
     )
     val expectedExpense = nextIncome?.let { window ->
-        val daysToWindowEnd = ChronoUnit.DAYS.between(today, window.to).coerceAtLeast(0L)
-        val ordinary = saturatingMultiply(dailyBurn, daysToWindowEnd)
-        val obligations = horizonOccurrences.sumOfSaturated { it.amountMinor }
-        saturatingAdd(ordinary, obligations)
+        expectedExpenseUntil(today, window.expected, dailyBurn, horizonOccurrences)
     }
-    val remaining = expectedExpense?.let { expense ->
-        runCatching { Math.subtractExact(spendablePivotMinor, expense) }.getOrElse { Long.MIN_VALUE }
-    }
+    val remaining = expectedExpense?.let { expense -> remaining(spendablePivotMinor, expense) }
     val shortfall = remaining?.let { -it.coerceAtLeast(-Long.MAX_VALUE).coerceAtMost(0L) }
+    val deadlineExpense = nextIncome
+        ?.takeIf { it.deadline > it.expected }
+        ?.let { window -> expectedExpenseUntil(today, window.deadline, dailyBurn, horizonOccurrences) }
+    val deadlineRemaining = deadlineExpense?.let { expense -> remaining(spendablePivotMinor, expense) }
+    val deadlineShortfall = deadlineRemaining
+        ?.let { -it.coerceAtLeast(-Long.MAX_VALUE).coerceAtMost(0L) }
+        ?.takeIf { it > 0L }
     val shortOfIncome = shortfall?.let { it > 0L } ?: false
     if (nextIncome == null && (daysLeft == null || daysLeft > quietAboveDays)) return null
     return HomeRunway(
@@ -83,8 +98,28 @@ internal fun homeRunway(
         recurringOccurrences = horizonOccurrences,
         expectedExpenseMinor = expectedExpense,
         remainingMinor = remaining,
+        deadlineExpectedExpenseMinor = deadlineExpense,
+        deadlineRemainingMinor = deadlineRemaining,
+        deadlineShortfallMinor = deadlineShortfall,
     )
 }
+
+private fun expectedExpenseUntil(
+    today: LocalDate,
+    through: LocalDate,
+    dailyBurnMinor: Long,
+    occurrences: List<RecurringOccurrence>,
+): Long {
+    val ordinaryDays = ChronoUnit.DAYS.between(today, through).coerceAtLeast(0L)
+    val ordinary = saturatingMultiply(dailyBurnMinor, ordinaryDays)
+    val obligations = occurrences
+        .filter { it.dueDate <= through }
+        .sumOfSaturated(RecurringOccurrence::amountMinor)
+    return saturatingAdd(ordinary, obligations)
+}
+
+private fun remaining(spendableMinor: Long, expectedExpenseMinor: Long): Long =
+    runCatching { Math.subtractExact(spendableMinor, expectedExpenseMinor) }.getOrElse { Long.MIN_VALUE }
 
 /** Walks only proven payment dates; ordinary days between them remain one arithmetic step. */
 private fun daysUntilExhausted(
@@ -142,22 +177,51 @@ private inline fun <T> Iterable<T>.sumOfSaturated(value: (T) -> Long): Long =
 internal fun nextIncomeWindow(
     sources: List<IncomeSourceEntity>,
     today: LocalDate,
+    arrivedSourceMonths: Set<Pair<Long, YearMonth>> = emptySet(),
 ): NextIncomeWindow? = sources
     .asSequence()
     .flatMap { source ->
         val month = YearMonth.from(today)
         sequenceOf(month, month.plusMonths(1))
             .filter { IncomeExpectations.covers(source, it) }
-            .map { source.windowIn(it) }
+            .filterNot { source.id to it in arrivedSourceMonths }
+            .mapNotNull { source.windowIn(it) }
     }
-    .filter { it.to >= today }
-    .minByOrNull { it.from }
+    .filter { it.deadline >= today }
+    .map { window ->
+        if (window.expected >= today) window else window.copy(
+            expected = window.deadline,
+            usingDeadline = true,
+            usualDatePassed = true,
+        )
+    }
+    .minWithOrNull(compareBy(NextIncomeWindow::expected).thenBy(NextIncomeWindow::deadline))
 
-private fun IncomeSourceEntity.windowIn(month: YearMonth): NextIncomeWindow {
+private fun IncomeSourceEntity.windowIn(month: YearMonth): NextIncomeWindow? {
     val length = month.lengthOfMonth()
-    val from = expectedDayFrom.coerceIn(1, length)
-    val to = expectedDayTo.coerceIn(from, length)
-    return NextIncomeWindow(month.atDay(from), month.atDay(to))
+    val usual = month.atDay(expectedDayFrom.coerceIn(1, length))
+    val started = LocalDate.ofEpochDay(startedOn)
+    val ended = endedOn?.let(LocalDate::ofEpochDay)
+    // A new/ended source whose first month does not reach its usual payday must not promise a
+    // special first payment: the declaration explicitly says that first payments may not fit.
+    if (started > usual || ended?.let { it < usual } == true) return null
+    val deadline = month.atDay(expectedDayTo.coerceIn(usual.dayOfMonth, length))
+    val shiftedWeekday = usual.nextWeekday()
+    val weekendFits = shiftedWeekday <= deadline
+    val forecast = shiftedWeekday.coerceAtMost(deadline)
+    return NextIncomeWindow(
+        usual = usual,
+        expected = forecast,
+        deadline = deadline,
+        weekendAdjusted = shiftedWeekday != usual && weekendFits,
+        usingDeadline = shiftedWeekday > deadline,
+    )
+}
+
+private fun LocalDate.nextWeekday(): LocalDate = when (dayOfWeek) {
+    DayOfWeek.SATURDAY -> plusDays(2)
+    DayOfWeek.SUNDAY -> plusDays(1)
+    else -> this
 }
 
 private const val QUIET_ABOVE_DAYS = 45

@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.savings
 
+import dev.whekin.whfin.ui.bank.SupportedBankApp
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.v2.createComposeRule

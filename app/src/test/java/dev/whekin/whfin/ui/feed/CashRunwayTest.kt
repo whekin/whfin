@@ -10,6 +10,7 @@ import dev.whekin.whfin.data.db.TxStatus
 import java.time.LocalDate
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,8 +26,10 @@ class CashRunwayTest {
     @Test fun `paid small recurring bill is excluded from daily rate but next occurrence is forecast`() {
         val result = forecast(ordinary + rent)
         assertEquals(7_200L, result.runway!!.dailyBurnMinor)
-        assertEquals(123_600L, result.runway.expectedExpenseMinor)
-        assertEquals(8_600L, result.runway.shortfallMinor)
+        assertEquals(102_000L, result.runway.expectedExpenseMinor)
+        assertEquals(13_000L, result.runway.remainingMinor)
+        assertEquals(123_600L, result.runway.deadlineExpectedExpenseMinor)
+        assertEquals(8_600L, result.runway.deadlineShortfallMinor)
         assertEquals(listOf(LocalDate.of(2026, 9, 3)), result.runway.recurringOccurrences.map { it.dueDate })
     }
 
@@ -39,7 +42,8 @@ class CashRunwayTest {
     @Test fun `large rent is not discarded as a one off`() {
         val result = forecast(ordinary + rent.map { it.copy(amountMinor = -120_000) })
         assertEquals(7_200L, result.runway!!.dailyBurnMinor)
-        assertEquals(213_600L, result.runway.expectedExpenseMinor)
+        assertEquals(192_000L, result.runway.expectedExpenseMinor)
+        assertEquals(213_600L, result.runway.deadlineExpectedExpenseMinor)
     }
 
     @Test fun `unknown current expense value suppresses an optimistic runway`() {
@@ -69,6 +73,39 @@ class CashRunwayTest {
     @Test fun `beginning of the month does not extrapolate three days`() {
         assertNull(cashForecast(115_000, ordinary.take(3), emptyList(), merchants, emptyList(),
             listOf(salary), today.withDayOfMonth(3), ZoneOffset.UTC).runway)
+    }
+
+    @Test fun `an early received salary skips the current deadline while an unpaid one still uses it`() {
+        val day = LocalDate.of(2026, 8, 7)
+        val rows = ordinary.take(7) + rent.filter { it.occurredAt <= day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+        val unpaid = cashForecast(115_000, rows, emptyList(), merchants, emptyList(),
+            listOf(salary), day, ZoneOffset.UTC).runway!!
+        val received = rows + tx(300, 1, LocalDate.of(2026, 8, 4)).copy(
+            amountMinor = 420_000,
+            merchantId = null,
+        )
+        val paid = cashForecast(115_000, received, emptyList(), merchants, emptyList(),
+            listOf(salary), day, ZoneOffset.UTC).runway!!
+
+        assertEquals(LocalDate.of(2026, 8, 10), unpaid.nextIncome?.expected)
+        assertTrue(unpaid.nextIncome?.usingDeadline == true)
+        assertEquals(LocalDate.of(2026, 9, 7), paid.nextIncome?.expected)
+        assertFalse(paid.nextIncome?.usingDeadline == true)
+    }
+
+    @Test fun `unrelated credits and opening adjustments cannot skip a payday`() {
+        val day = LocalDate.of(2026, 8, 7)
+        val inputs = listOf(
+            tx(300, -500, day),
+            tx(301, -420_000, day).copy(source = TxSource.ADJUSTMENT),
+            tx(302, -420_000, day).copy(isTransfer = true),
+            tx(303, -420_000, day).copy(currency = "USD"),
+        )
+        inputs.forEach { credit ->
+            val result = cashForecast(115_000, ordinary.take(7) + credit, emptyList(), merchants,
+                emptyList(), listOf(salary), day, ZoneOffset.UTC).runway!!
+            assertEquals(LocalDate.of(2026, 8, 10), result.nextIncome?.expected)
+        }
     }
 
     @Test fun `partial debt split uses only the spending share for recurring evidence`() {

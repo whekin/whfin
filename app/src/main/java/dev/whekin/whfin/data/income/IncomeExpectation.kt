@@ -23,7 +23,7 @@ data class IncomeExpectation(
     /** Sum actually received on the declared account within the month, in that account's currency. */
     val receivedMinor: Long,
     val receivedCount: Int,
-    /** True once the month has moved past the window and nothing arrived. */
+    /** True once the month has moved past the payday deadline and nothing arrived. */
     val overdue: Boolean,
     /**
      * Whether the answer came from a chain read that failed.
@@ -70,14 +70,13 @@ object IncomeExpectations {
             source = source,
             receivedMinor = received.sumOf { it.amountMinor },
             receivedCount = received.size,
-            // Only a window that has fully passed can be late. A month still inside it is simply
-            // not there yet, and saying otherwise every month until the 10th would train the user
-            // to ignore the line.
-            overdue = received.isEmpty() && isWindowPast(source, month, today),
+            // Only the declared outer deadline can call a payment late. The usual payday may pass
+            // in a delayed month without turning the whole declaration into an error.
+            overdue = received.isEmpty() && isDeadlinePast(source, month, today),
         )
     }
 
-    private fun isWindowPast(source: IncomeSourceEntity, month: YearMonth, today: LocalDate): Boolean {
+    private fun isDeadlinePast(source: IncomeSourceEntity, month: YearMonth, today: LocalDate): Boolean {
         val lastDay = source.expectedDayTo.coerceIn(1, month.lengthOfMonth())
         return today > month.atDay(lastDay)
     }

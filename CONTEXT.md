@@ -99,6 +99,23 @@ The single payment instrument the owner treats as their everyday default across 
 It may be physical or virtual; when it is physical, its linked GEL ledger owns the grocery balance warning.
 _Avoid_: Main account, default bank, primary ledger
 
+### Income
+
+**Payday timing**:
+The owner's declaration of one usual payday and one rare outer deadline. The dates are not an equally
+likely window.
+_Avoid_: Payday window, payday range
+
+**Usual payday**:
+The calendar day income normally arrives. When it falls on Saturday or Sunday, the conservative normal
+estimate is the following Monday; an earlier arrival remains possible.
+_Avoid_: Earliest payday, window start
+
+**Payday deadline**:
+The latest date by which income is expected in a delayed month. It is a fallback scenario, not the date
+that leads the ordinary cash forecast.
+_Avoid_: Usual payday, window end
+
 ### Savings
 
 **Savings plan**:

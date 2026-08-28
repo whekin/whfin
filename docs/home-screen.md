@@ -64,12 +64,19 @@ Consequences of keeping the monthly projection and the forward cash reading sepa
 - Statistics can still state the honest projected total for the whole month;
 - a short runway names the expected gap and the first recurring payment behind it.
 
-With a payday the row answers `Should last until payday` or `May be X short`; without one it reports
-at most 45 days, using bills scheduled over that same horizon. It never extrapolates a reassuring number
-of days beyond a payday for which later bills have not been scheduled. Zero and negative available
-balances remain warnings, not missing input. Daily spending covers the number of days from today to
-the last payday date; bills due on that last date are included conservatively. No incoming salary is
-added to the current balance.
+Payday timing is not a uniform window. `expectedDayFrom` is the **usual payday**;
+`expectedDayTo` is the rare **payday deadline**. The main row answers `Should last until the usual
+payday` or `May be X short by the usual payday`. A usual Saturday/Sunday moves the conservative normal
+estimate to Monday, capped by the declared deadline. Public holidays are not inferred, and an earlier
+arrival remains upside rather than a promise. If the ordinary date has already passed without an
+observed arrival, the deadline becomes the live scenario.
+
+The deadline stays visible as a separate fallback in the expanded calculation: `If delayed until D`.
+It never controls the main warning while the usual scenario is still live. Without a payday the row
+reports at most 45 days, using bills scheduled over that same horizon. It never extrapolates a
+reassuring number of days beyond a payday for which later bills have not been scheduled. Zero and
+negative available balances remain warnings, not missing input. Bills due on a scenario's date are
+included conservatively. No incoming salary is added to the current balance.
 
 The row expands to show every expected bill, the total needed until payday, any remaining balance and
 the limits of the estimate. New one-off purchases cannot be predicted. Monthly recurrence and the
@@ -77,8 +84,15 @@ large-purchase threshold are heuristics, not a user-confirmed schedule or a guar
 have answered before a forecast appears; the ViewModel publishes the forecast and `Still due` together,
 off the UI thread, and re-evaluates when the calendar date changes.
 
-Paydays come from declared `income_sources`. A window that has not closed yet is still the answer — a
-payment inside its own window is not late. A source whose era has ended promises nothing.
+Payday timing comes from declared `income_sources`. Once a matching ledger arrival is visible, the
+current month's timing is skipped and the next covered month becomes the answer. A source that starts
+after its usual payday does not invent a special first payment, and a source whose era ended promises
+nothing.
+
+An arrival can settle the forecast only for a unique source on the declared account/currency, at the
+exact declared amount, between three days before the usual date and the deadline. Transfers, balance
+adjustments, debt allocations and system-category rows cannot do so. Other credits are not assumed to
+be salary; without stronger evidence the declared timing remains in force.
 
 ## Still due
 
@@ -163,10 +177,12 @@ Two render fully; the rest collapse into one quiet row that says how many are hi
 overflowing notice is shown instead of folded: hiding one block behind a row that says one block is
 hidden costs the same glance and adds a tap.
 
-The low-card notice states the balance and does not offer to top the card up. WHFIN records money, it
-does not move it: a transfer written here would be a claim about a movement the bank has not made, and
-the card would still be empty. Moving money is the bank's job — the row opens Accounts, and the bank
-app is launched from Personal savings, where the reserve actually lives.
+The low-card notice leads with the bank/card identity and balance on the same row, with a short risk
+label underneath. The row opens Accounts regardless of notification permission. A separate action
+opens the installed official app for that card ledger's bank group; another explicitly requests
+low-balance alerts when needed. Neither action writes a transfer or prefills a bank operation.
+Launch failure is shown inline. Demo suppresses both real bank launch and permission actions.
+Home and Savings share the same provider catalog and plain Android launcher implementation.
 
 ## Where the work happens
 

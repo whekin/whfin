@@ -1,10 +1,24 @@
 package dev.whekin.whfin.ui.savings
 
+import dev.whekin.whfin.ui.bank.SupportedBankApp
+import dev.whekin.whfin.ui.bank.supportedBankApp
+import dev.whekin.whfin.ui.bank.bankAppsForReserve
+import dev.whekin.whfin.ui.bank.bankAppForGroup
+
 import dev.whekin.whfin.data.db.*
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BankAppLauncherTest {
+    @Test fun `only the card ledger bank group decides the launcher`() {
+        val credo = FinancialGroupEntity(1, "My bank", FinancialGroupType.BANK, "Credo")
+        assertEquals(SupportedBankApp.CREDO, bankAppForGroup(credo))
+        assertEquals(SupportedBankApp.TBC, bankAppForGroup(credo.copy(provider = "TBC Bank")))
+        assertEquals(null, bankAppForGroup(credo.copy(provider = "Unsupported")))
+        assertEquals(null, bankAppForGroup(credo.copy(type = FinancialGroupType.WALLET)))
+        assertEquals(null, bankAppForGroup(credo.copy(isArchived = true)))
+        assertEquals(null, bankAppForGroup(null))
+    }
     @Test fun `catalog recognizes only official supported providers`() {
         assertEquals(SupportedBankApp.CREDO, supportedBankApp("Credo Bank"))
         assertEquals(SupportedBankApp.TBC, supportedBankApp("TBC Bank"))
