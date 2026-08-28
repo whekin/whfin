@@ -633,7 +633,7 @@ private fun SummaryColumn(
 }
 
 @Composable
-private fun AccountGroupCard(
+internal fun AccountGroupCard(
     name: String,
     accounts: List<AccountWithBalance>,
     containerTotals: Map<String, ConvertedTotal> = emptyMap(),
