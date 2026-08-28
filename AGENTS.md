@@ -186,6 +186,15 @@ This is a single-context repository with root domain documentation and system-wi
   `base.apk` совпали с новой сборкой; `firstInstallTime` (2026-08-16), `READ_SMS`, `RECEIVE_SMS` и
   `POST_NOTIFICATIONS` сохранились. Telegram остался foreground; WHFIN и банковские приложения
   намеренно не запускались. Схема БД не менялась.
+  Dogfood `0.3.16 (28)` установлен signed in-place upgrade поверх `0.3.15 (27)` на Samsung S25:
+  full unit suite (733 passed, 1 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` сверены до установки — digest установленного `base.apk` совпал. После `install -r`
+  version/certificate и SHA-256 установленного `base.apk` (`0173395a…3dd3bd62`) совпали с новой
+  сборкой; `firstInstallTime` (2026-08-16) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS`
+  остались выданы. Foreground владельца (launcher) не перекрывался: WHFIN намеренно не запускался,
+  процесс поднялся сам по `MY_PACKAGE_REPLACED` для обновления Glance-виджета и работает без FATAL в
+  logcat. Схема БД не менялась; визуальную проверку нового Home/Счетов/Настроек на личных данных
+  делает владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
