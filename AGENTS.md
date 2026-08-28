@@ -33,7 +33,7 @@ This is a single-context repository with root domain documentation and system-wi
   отдельная кнопка, тап по строке всегда открывает Accounts. Ошибка запуска объясняется inline.
   Full suite: 722 passed, 1 skipped; 10 UI-only сценариев на disposable Pixel (EN light/dark,
   RU/font 1.5/640dp, Demo, bank callback/failure, раскрытие payday). Screenshots просмотрены,
-  shared references прошли. S25 в этой итерации не обновлялся; там остаётся `0.3.14 (26)`.
+  shared references прошли. Изменения установлены на S25 в dogfood `0.3.15 (27)`.
 - [x] Home cash runway (2026-08-28): будущие расходы отделены от месячного прогноза Statistics.
   `CashRunway` сначала исключает доказанные ежемесячные платежи из дневного темпа, затем крупные
   разовые покупки; аренда/подписки учитываются по ожидаемым датам до конца окна выплаты, включая
@@ -132,6 +132,12 @@ This is a single-context repository with root domain documentation and system-wi
   SHA-256 установленного `base.apk` совпали с новой сборкой; `firstInstallTime` (2026-08-16) и
   `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` сохранились. Активный Kojoribus остался foreground,
   WHFIN намеренно не запускался поверх него; новый Home на личных данных проверяет владелец.
+  Dogfood `0.3.15 (27)` установлен signed in-place upgrade поверх `0.3.14 (26)` на Samsung S25:
+  full unit suite (722 passed, 1 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` проверены до установки. После `install -r` version/certificate и SHA-256 установленного
+  `base.apk` совпали с новой сборкой; `firstInstallTime` (2026-08-16), `READ_SMS`, `RECEIVE_SMS` и
+  `POST_NOTIFICATIONS` сохранились. Telegram остался foreground; WHFIN и банковские приложения
+  намеренно не запускались. Схема БД не менялась.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
