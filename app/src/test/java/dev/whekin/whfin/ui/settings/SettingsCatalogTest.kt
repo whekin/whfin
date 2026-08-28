@@ -19,8 +19,19 @@ class SettingsCatalogTest {
             id = "data",
             label = "Данные и безопасность",
             rows = listOf(
-                SettingsRow(id = "app-lock", title = "Блокировка входа", keywords = "пин код отпечаток"),
-                SettingsRow(id = "backup", title = "Бэкап", summary = "Только вручную", keywords = "копия восстановление"),
+                SettingsRow(
+                    id = "app-lock",
+                    title = "Блокировка входа",
+                    keywords = "пин код отпечаток",
+                    inside = listOf("Биометрия", "Таймаут блокировки"),
+                ),
+                SettingsRow(
+                    id = "backup",
+                    title = "Бэкап",
+                    summary = "Только вручную",
+                    keywords = "копия восстановление",
+                    inside = listOf("Google Drive", "Зашифрованная копия", "Экспорт JSON"),
+                ),
             ),
         ),
     )
@@ -88,5 +99,40 @@ class SettingsCatalogTest {
 
         assertEquals(1, filterSettings(sections, "темная").flatMap { it.rows }.size)
         assertEquals(1, filterSettings(sections, "ТЁМНАЯ").flatMap { it.rows }.size)
+    }
+
+    @Test
+    fun `search reaches what lives behind a door, not only the door`() {
+        val found = filterSettings(catalog, "drive").flatMap { it.rows }
+
+        assertEquals(listOf("backup"), found.map { it.id })
+        assertEquals(listOf("Google Drive"), found.single().insideMatches)
+    }
+
+    @Test
+    fun `a row reached through its contents says which one was reached`() {
+        val row = filterSettings(catalog, "json").flatMap { it.rows }.single()
+
+        assertEquals(listOf("Экспорт JSON"), row.insideMatches)
+    }
+
+    @Test
+    fun `a row found by its own words is left as it is`() {
+        val row = filterSettings(catalog, "копия").flatMap { it.rows }.single()
+
+        assertEquals("backup", row.id)
+        assertTrue(row.insideMatches.isEmpty())
+    }
+
+    @Test
+    fun `every word has to reach the same entry inside`() {
+        // "Drive" and "JSON" are two different things behind the same door: asking for both
+        // describes nothing that exists, and must not be answered by the door itself.
+        assertTrue(filterSettings(catalog, "drive json").isEmpty())
+    }
+
+    @Test
+    fun `contents do not widen a query beyond the row that owns them`() {
+        assertTrue(filterSettings(catalog, "биометрия").flatMap { it.rows }.map { it.id } == listOf("app-lock"))
     }
 }

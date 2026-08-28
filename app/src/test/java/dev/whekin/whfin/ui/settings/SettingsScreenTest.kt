@@ -5,6 +5,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -597,5 +602,68 @@ class SettingsScreenTest {
         compose.onNodeWithText(
             context.resources.getQuantityString(R.plurals.settings_data_health_issues, 2, 2),
         ).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theSearchFieldLeavesOnTheWayDownAndComesBackOnTheFirstMoveUp() {
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithTag("settings-search").assertIsDisplayed()
+        compose.onNodeWithTag("settings-catalog").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("settings-search").assertIsNotDisplayed()
+        compose.onNodeWithTag("settings-catalog").performTouchInput { swipeDown() }
+        compose.onNodeWithTag("settings-search").assertIsDisplayed()
+    }
+
+    @Test
+    fun searchReachesAScreensContentsAndSaysWhatItReached() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        // "Passphrase" is spelled nowhere in Settings: it lives inside Backup, and before the index
+        // reached one level down this query answered that no such setting existed.
+        compose.onNode(hasSetTextAction()).performTextInput("passphrase")
+        compose.onNodeWithText(context.getString(R.string.backup_title)).assertIsDisplayed()
+        compose.onNodeWithText(
+            context.getString(R.string.settings_inside_label, "Passphrase"),
+        ).assertIsDisplayed()
     }
 }

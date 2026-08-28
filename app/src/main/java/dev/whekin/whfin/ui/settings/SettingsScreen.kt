@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,9 +31,12 @@ import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.core.ui.WhfinCollapsingHeader
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -149,6 +154,7 @@ fun SettingsScreen(
     )
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsContent(
     status: SettingsStatus = SettingsStatus(),
@@ -237,30 +243,43 @@ internal fun SettingsContent(
     val visible = remember(sections, query) { filterSettings(sections, query) }
     val searching = query.isNotBlank()
 
-    // The search stays put while the catalogue scrolls under it: a field that scrolls away is a
-    // field you have to go back for, and this screen is long by nature.
-    Column(
-        Modifier
+    // The field is worth its height while you are looking for something and worth nothing while you
+    // are reading the list. Under the shell's title bar and the status bar it was the third fixed
+    // strip before any setting, so it leaves on the way down and returns on the first move up — the
+    // same movement the balance headers on Home and Accounts make.
+    val searchBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    // A new result set is a new list, and it must be searchable without having to scroll a list that
+    // may now be one row long.
+    LaunchedEffect(visible.size) { searchBehavior.state.heightOffset = 0f }
+    WhfinCollapsingHeader(
+        modifier = Modifier
             .fillMaxSize()
             .navigationBarsPadding()
             .imePadding(),
-    ) {
-        WhfinField(
-            value = query,
-            onValueChange = { query = it },
-            label = null,
-            leadingIcon = Icons.Default.Search,
-            placeholder = stringResource(R.string.settings_search_hint),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-                .testTag("settings-search"),
-        )
+        scrollBehavior = searchBehavior,
+        header = {
+            WhfinField(
+                value = query,
+                onValueChange = { query = it },
+                label = null,
+                leadingIcon = Icons.Default.Search,
+                placeholder = stringResource(R.string.settings_search_hint),
+                // The catalogue passes under this field, so it carries the screen's own ground with
+                // it; transparent, the rows read straight through the search box.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .testTag("settings-search"),
+            )
+        },
+    ) { headerPadding ->
         Column(
             Modifier
-                .fillMaxWidth()
-                .weight(1f)
+                .fillMaxSize()
+                .testTag("settings-catalog")
                 .verticalScroll(rememberScrollState())
+                .padding(headerPadding)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -360,7 +379,12 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
     val control = row.control
     WhfinLedgerRow(
         title = row.title,
-        supportingText = row.summary,
+        // Reached through its contents, the row answers with what was found in there. Its usual
+        // status — when a copy last ran, how long the lock waits — is true but is not the answer to
+        // what was asked, and printed here it reads as a refusal to have understood the question.
+        supportingText = row.insideMatches.takeIf { it.isNotEmpty() }
+            ?.let { stringResource(R.string.settings_inside_label, it.joinToString(" · ")) }
+            ?: row.summary,
         icon = row.icon,
         iconTint = when {
             row.destructive -> MaterialTheme.colorScheme.error
@@ -476,6 +500,7 @@ private fun buildSettingsSections(
                     else -> stringResource(R.string.settings_credo_never)
                 },
                 keywords = stringResource(R.string.settings_keywords_credo),
+                inside = settingsInside(R.string.settings_inside_credo),
                 icon = Icons.Default.CloudSync,
                 enabled = !demoMode,
                 onClick = onOpenCredoSync,
@@ -487,6 +512,7 @@ private fun buildSettingsSections(
                     ?.let { stringResource(R.string.settings_statements_last, relativeDay(it)) }
                     ?: stringResource(R.string.statements_settings_summary),
                 keywords = stringResource(R.string.settings_keywords_statements),
+                inside = settingsInside(R.string.settings_inside_statements),
                 icon = Icons.Default.Description,
                 onClick = onOpenStatements,
             ),
@@ -501,6 +527,7 @@ private fun buildSettingsSections(
                     else -> stringResource(R.string.settings_sms_state_on)
                 },
                 keywords = stringResource(R.string.settings_keywords_sms),
+                inside = settingsInside(R.string.settings_inside_sms),
                 icon = Icons.Default.Sms,
                 enabled = !demoMode,
                 onClick = onOpenSmsDiagnostics,
@@ -529,6 +556,7 @@ private fun buildSettingsSections(
                 title = stringResource(R.string.categories_title),
                 summary = stringResource(R.string.categories_settings_summary),
                 keywords = stringResource(R.string.settings_keywords_categories),
+                inside = settingsInside(R.string.settings_inside_categories),
                 icon = Icons.Default.Category,
                 onClick = onOpenCategories,
             ),
@@ -537,6 +565,7 @@ private fun buildSettingsSections(
                 title = stringResource(R.string.category_intelligence_title),
                 summary = stringResource(R.string.category_intelligence_settings_summary),
                 keywords = stringResource(R.string.settings_keywords_category_intelligence),
+                inside = settingsInside(R.string.settings_inside_category_intelligence),
                 icon = Icons.Default.AutoAwesome,
                 onClick = onOpenCategoryIntelligence,
             ),
@@ -551,6 +580,7 @@ private fun buildSettingsSections(
                 id = "people",
                 title = stringResource(R.string.people_title),
                 keywords = stringResource(R.string.settings_keywords_people),
+                inside = settingsInside(R.string.settings_inside_people),
                 icon = Icons.Default.Group,
                 onClick = onOpenPeople,
             ),
@@ -568,6 +598,7 @@ private fun buildSettingsSections(
                     stringResource(appLockTimeout.labelResource()),
                 ),
                 keywords = stringResource(R.string.settings_keywords_app_lock),
+                inside = settingsInside(R.string.settings_inside_app_lock),
                 icon = Icons.Default.Lock,
                 onClick = onOpenAppLock,
             ),
@@ -582,6 +613,7 @@ private fun buildSettingsSections(
                     else -> stringResource(R.string.settings_backup_manual)
                 },
                 keywords = stringResource(R.string.settings_keywords_backup),
+                inside = settingsInside(R.string.settings_inside_backup),
                 icon = Icons.Default.SaveAlt,
                 enabled = !demoMode,
                 onClick = onOpenBackup,
@@ -599,6 +631,7 @@ private fun buildSettingsSections(
                     stringResource(R.string.settings_data_health_clean)
                 },
                 keywords = stringResource(R.string.settings_keywords_data_health),
+                inside = settingsInside(R.string.settings_inside_data_health),
                 icon = Icons.Default.HealthAndSafety,
                 onClick = onOpenDataHealth,
             ),
@@ -615,6 +648,7 @@ private fun buildSettingsSections(
                 title = stringResource(R.string.privacy_title),
                 summary = stringResource(R.string.privacy_settings_summary),
                 keywords = stringResource(R.string.settings_keywords_privacy),
+                inside = settingsInside(R.string.settings_inside_privacy),
                 icon = Icons.Default.PrivacyTip,
                 onClick = onOpenPrivacy,
             ),
@@ -685,6 +719,7 @@ private fun buildSettingsSections(
                 title = stringResource(R.string.about_title),
                 summary = appVersion,
                 keywords = stringResource(R.string.settings_keywords_about),
+                inside = settingsInside(R.string.settings_inside_about),
                 icon = Icons.Default.Info,
                 onClick = onOpenAbout,
             ),
@@ -729,6 +764,18 @@ private fun relativeDay(millis: Long): String {
             DateUtils.HOUR_IN_MILLIS,
         ).toString()
     }
+}
+
+/**
+ * The contents of a screen, written as one comma-separated string and read back as a list.
+ *
+ * One resource per door keeps the index reviewable next to the words it mirrors, and keeps a
+ * translator changing one string instead of six.
+ */
+@Composable
+private fun settingsInside(@StringRes resource: Int): List<String> {
+    val raw = stringResource(resource)
+    return remember(raw) { raw.split(',').map(String::trim).filter(String::isNotEmpty) }
 }
 
 private const val SECTION_BANK = "bank"

@@ -1,11 +1,20 @@
 package dev.whekin.whfin.core.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -18,13 +27,17 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -146,6 +159,18 @@ fun WhfinWorkspaceStrip(
     }
 }
 
+/**
+ * The one switch WHFIN uses, in the same two states its pills already speak in.
+ *
+ * Material's own switch was the last stock control on the screen: a wide grey capsule with a large
+ * floating thumb, drawn in a weight nothing else here uses. Beside a row of [WhfinFilterPill]s —
+ * outline when off, filled when on — it read as a control borrowed from another app. This one says
+ * the same two states in that same language: an empty outlined track, or a filled one.
+ *
+ * The thumb also changes size, not only place. Position alone is a weak signal at a glance and no
+ * signal at all to someone who cannot separate the two track colours, and the extra weight arriving
+ * with "on" is the cheapest second way to say it.
+ */
 @Composable
 fun WhfinSwitch(
     checked: Boolean,
@@ -155,21 +180,94 @@ fun WhfinSwitch(
     enabled: Boolean = true,
 ) {
     val haptics = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+
+    val trackColor by animateColorAsState(
+        targetValue = when {
+            checked -> MaterialTheme.colorScheme.primary
+            else -> Color.Transparent
+        },
+        animationSpec = WhfinMotion.quick(),
+        label = "whfin-switch-track",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        animationSpec = WhfinMotion.quick(),
+        label = "whfin-switch-border",
+    )
+    val thumbColor by animateColorAsState(
+        targetValue = if (checked) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.outline,
+        animationSpec = WhfinMotion.quick(),
+        label = "whfin-switch-thumb",
+    )
+    // Pressed, the thumb stretches towards the side it is about to travel to, the way the pills
+    // answer a press by changing shape. It is the only affordance a deliberately quiet palette has.
+    val thumbWidth by animateDpAsState(
+        targetValue = when {
+            pressed -> SWITCH_THUMB_ON + 4.dp
+            checked -> SWITCH_THUMB_ON
+            else -> SWITCH_THUMB_OFF
+        },
+        animationSpec = WhfinMotion.standard(),
+        label = "whfin-switch-thumb-width",
+    )
+    val thumbHeight by animateDpAsState(
+        targetValue = if (checked) SWITCH_THUMB_ON else SWITCH_THUMB_OFF,
+        animationSpec = WhfinMotion.standard(),
+        label = "whfin-switch-thumb-height",
+    )
+    val travel = SWITCH_TRACK_WIDTH - thumbWidth - SWITCH_TRACK_INSET * 2
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) travel else 0.dp,
+        animationSpec = WhfinMotion.standard(),
+        label = "whfin-switch-thumb-offset",
+    )
+
     Box(
-        modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+        modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                interactionSource = interactionSource,
+                indication = null,
+                onValueChange = { value ->
+                    haptics.performHapticFeedback(WhfinHaptics.toggle(value))
+                    onCheckedChange(value)
+                },
+            )
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        Switch(
-            checked = checked,
-            onCheckedChange = { enabled ->
-                haptics.performHapticFeedback(WhfinHaptics.toggle(enabled))
-                onCheckedChange(enabled)
-            },
-            enabled = enabled,
-            modifier = Modifier.semantics { this.contentDescription = contentDescription },
-        )
+        Box(
+            Modifier
+                .graphicsLayer { alpha = if (enabled) 1f else DISABLED_ALPHA }
+                .size(SWITCH_TRACK_WIDTH, SWITCH_TRACK_HEIGHT)
+                .clip(CircleShape)
+                .background(trackColor)
+                .border(1.5.dp, borderColor, CircleShape)
+                .padding(SWITCH_TRACK_INSET),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(
+                Modifier
+                    .offset(x = thumbOffset)
+                    .size(thumbWidth, thumbHeight)
+                    .clip(CircleShape)
+                    .background(thumbColor),
+            )
+        }
     }
 }
+
+private val SWITCH_TRACK_WIDTH = 50.dp
+private val SWITCH_TRACK_HEIGHT = 30.dp
+private val SWITCH_TRACK_INSET = 4.dp
+private val SWITCH_THUMB_OFF = 14.dp
+private val SWITCH_THUMB_ON = 22.dp
+private const val DISABLED_ALPHA = .38f
 
 /**
  * The one shape WHFIN uses to say "working".

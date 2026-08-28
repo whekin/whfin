@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertIsDisplayed
 import org.junit.Assert.assertEquals
 import dev.whekin.whfin.data.db.SavingsPlanEntity
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -139,6 +140,30 @@ class SavingsScreenTest {
             .assertTextEquals("Goal around Feb 27, 2027 at this pace")
     }
 
+    @Test
+    fun aRangeThatWouldRedrawTheSameChartIsNotOffered() {
+        // Twelve months of history IS the last year: two pills, one chart, and the only visible
+        // effect of pressing the second one is worse labels.
+        compose.setContent { content(data(plan = plan())) }
+
+        compose.onNodeWithTag("savings-list").performScrollToIndex(2)
+        compose.onNodeWithText("Pace").performClick()
+        compose.onNodeWithText("All time").assertDoesNotExist()
+        compose.onNodeWithText("Year").assertDoesNotExist()
+    }
+
+    @Test
+    fun longerHistoryOffersAllTimeAndMarksTheYearItStartsIn() {
+        compose.setContent { content(data(plan = plan(), months = 18)) }
+
+        compose.onNodeWithTag("savings-list").performScrollToIndex(2)
+        compose.onNodeWithText("Pace").performClick()
+        compose.onNodeWithText("All time").performClick()
+        compose.onNodeWithTag("savings-list").performScrollToIndex(3)
+        // Eighteen initials would be М, М, И, И, А, А twice over; the axis marks the year instead.
+        compose.onNodeWithText("2026").assertExists()
+    }
+
     @androidx.compose.runtime.Composable
     private fun content(value: SavingsScreenData) {
         WhfinTheme {
@@ -148,12 +173,14 @@ class SavingsScreenTest {
         }
     }
 
-    private fun data(plan: SavingsPlanEntity?): SavingsScreenData {
-        val months = (1..12).map { month ->
+    private fun data(plan: SavingsPlanEntity?, months: Int = 12): SavingsScreenData {
+        val last = YearMonth.of(2026, 12)
+        val months = (0 until months).map { back ->
+            val month = last.minusMonths((months - 1 - back).toLong())
             SavingsMonthUi(
-                month = YearMonth.of(2026, month),
-                reserveBalanceMinor = 1_000_000L + month * 20_000L,
-                paceMinor = if (month == 4) -10_000L else month * 2_000L,
+                month = month,
+                reserveBalanceMinor = 1_000_000L + (back + 1) * 20_000L,
+                paceMinor = if (month.monthValue == 4) -10_000L else month.monthValue * 2_000L,
                 targetMinor = plan?.monthlyTargetMinor,
             )
         }

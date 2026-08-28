@@ -23,6 +23,20 @@ internal data class SettingsRow(
      * never has to carry synonyms it does not need.
      */
     val keywords: String = "",
+    /**
+     * What is named on the screen this row opens.
+     *
+     * Search used to stop at the door. "Drive" is a thing WHFIN does, but it is spelled nowhere in
+     * Settings: it lives two taps inside Backup, so the person who searched for it was told there
+     * was no such setting. Listing what is behind a door lets the query reach it, and lets the row
+     * answer with the name that was actually looked for instead of its own unrelated status.
+     *
+     * These are labels, not destinations: WHFIN cannot open a sub-screen at a particular row, so the
+     * row promises only what it can keep — the door the thing is behind.
+     */
+    val inside: List<String> = emptyList(),
+    /** Filled by [filterSettings]: the entries of [inside] the current query actually reached. */
+    val insideMatches: List<String> = emptyList(),
     val icon: ImageVector? = null,
     val control: SettingsControl = SettingsControl.Navigate,
     val enabled: Boolean = true,
@@ -61,22 +75,39 @@ internal fun filterSettings(sections: List<SettingsSection>, query: String): Lis
     val terms = normalizeSettingsQuery(query).split(' ').filter(String::isNotEmpty)
     if (terms.isEmpty()) return sections
     return sections.mapNotNull { section ->
-        val rows = section.rows.filter { row -> matchesSettingsQuery(row, section.label, terms) }
+        val rows = section.rows.mapNotNull { row -> matchSettingsRow(row, section.label, terms) }
         if (rows.isEmpty()) null else section.copy(rows = rows)
     }
 }
 
-private fun matchesSettingsQuery(
+/**
+ * The row as this query found it, or null if the query never reached it.
+ *
+ * A row can be reached two ways, and they are not the same answer. Reached by its own words, it is
+ * shown as it always is. Reached only through something inside it, it is shown saying what was found
+ * in there — otherwise the screen answers "Google Drive" with a row titled "Backup" whose subtitle
+ * talks about a scheduled copy, and the person cannot tell whether they were understood.
+ *
+ * The section label is part of the haystack: "данные" should find what lives under Data, even when
+ * the row itself never repeats the word.
+ */
+private fun matchSettingsRow(
     row: SettingsRow,
     sectionLabel: String,
     terms: List<String>,
-): Boolean {
-    // The section label is part of the haystack: "данные" should find what lives under Data, even
-    // when the row itself never repeats the word.
-    val haystack = normalizeSettingsQuery(
+): SettingsRow? {
+    val own = normalizeSettingsQuery(
         listOfNotNull(row.title, row.summary, row.keywords, sectionLabel).joinToString(" "),
     )
-    return terms.all(haystack::contains)
+    if (terms.all(own::contains)) return row
+    // Every term still has to land in one and the same entry: a query describes one thing, and
+    // letting two words match two different entries would make "drive restore" find every screen
+    // that happens to contain either of them.
+    val reached = row.inside.filter { entry ->
+        val haystack = normalizeSettingsQuery("$own $entry")
+        terms.all(haystack::contains)
+    }
+    return if (reached.isEmpty()) null else row.copy(insideMatches = reached)
 }
 
 /**

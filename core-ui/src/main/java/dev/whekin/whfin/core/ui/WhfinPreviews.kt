@@ -237,13 +237,28 @@ fun WhfinInputChoiceGallery() {
                 keyboardType = KeyboardType.Text,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
+            // Both states side by side: the switch has to read as the same family as the pills
+            // above it, and off has to be visibly off rather than merely paler.
+            WhfinLedgerGroup(Modifier.padding(horizontal = 20.dp)) {
+                WhfinLedgerRow(
+                    title = "Bank messages",
+                    supportingText = "Read Credo SMS as they arrive",
+                    trailing = { WhfinSwitch(true, {}, "Bank messages") },
+                    divider = true,
+                )
+                WhfinLedgerRow(
+                    title = "System colours",
+                    supportingText = "Follow the wallpaper palette",
+                    trailing = { WhfinSwitch(false, {}, "System colours") },
+                )
+            }
         }
     }
 }
 
-@Preview(name = "Inputs and choices", widthDp = 400, heightDp = 390, showBackground = true)
-@Preview(name = "Inputs and choices dark", widthDp = 400, heightDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Inputs and choices font 1.5", widthDp = 400, heightDp = 500, fontScale = 1.5f, showBackground = true)
+@Preview(name = "Inputs and choices", widthDp = 400, heightDp = 640, showBackground = true)
+@Preview(name = "Inputs and choices dark", widthDp = 400, heightDp = 640, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Inputs and choices font 1.5", widthDp = 400, heightDp = 820, fontScale = 1.5f, showBackground = true)
 @Composable
 private fun WhfinInputChoicePreview() {
     WhfinTheme { WhfinInputChoiceGallery() }

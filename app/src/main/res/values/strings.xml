@@ -216,6 +216,20 @@
     <string name="settings_title">Settings</string>
     <string name="settings_search_hint">Find a setting</string>
     <string name="settings_search_empty">Nothing matches that</string>
+    <!-- What each Settings door has behind it, in the words those screens use. Comma-separated:
+         search reads them, and a row answers with the ones a query actually reached. -->
+    <string name="settings_inside_label">Inside: %1$s</string>
+    <string name="settings_inside_credo">Load full history, Saved sign-in, Forget MyCredo sign-in, One-time code</string>
+    <string name="settings_inside_statements">Import history, Coverage per account, Needs review, Gaps</string>
+    <string name="settings_inside_sms">Cards &amp; accounts, Needs action, Check recent messages, Skipped messages</string>
+    <string name="settings_inside_categories">New category, Groups, Icon and colour, Delete category</string>
+    <string name="settings_inside_category_intelligence">Coverage, Suggestions, Category sets, Merchants, Counterparties, Decisions</string>
+    <string name="settings_inside_people">Debts, Shares, Archive a person</string>
+    <string name="settings_inside_app_lock">WHFIN code, Change code, Biometrics, Auto-lock timeout</string>
+    <string name="settings_inside_backup">Google Drive, Encrypted backup, Passphrase, Export JSON, Restore from JSON</string>
+    <string name="settings_inside_data_health">Run the check, Rebuild transfer pairs, Rule codes</string>
+    <string name="settings_inside_privacy">Permissions, Crypto endpoints, What leaves the device</string>
+    <string name="settings_inside_about">Version, Author, Third-party licences, Developer mode</string>
     <string name="settings_section_bank">Bank and import</string>
     <string name="settings_section_data">Data and security</string>
     <string name="settings_section_app">App</string>

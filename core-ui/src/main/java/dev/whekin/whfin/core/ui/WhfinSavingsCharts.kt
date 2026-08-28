@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 /**
  * One ordered period in a savings pace chart.
@@ -55,6 +57,14 @@ data class WhfinSavingsPaceBar(
     val valueDescription: String,
     val periodDescription: String = periodLabel,
     val selected: Boolean = false,
+    /**
+     * Marks the first period of a larger group — the first month of a year on a multi-year chart.
+     *
+     * Over that length the axis can only label a few periods without becoming unreadable, and a few
+     * labels over many bars look like labels that went missing. A rule at each boundary says the
+     * gaps are the point: these bars belong to that year, those to the next.
+     */
+    val startsGroup: Boolean = false,
 )
 
 /** One ordered balance observation for the non-interactive savings balance line. */
@@ -89,6 +99,23 @@ fun WhfinSavingsPaceChart(
 
     val dense = fitToWidth && bars.size <= SAVINGS_CHART_DENSE_PERIOD_LIMIT && LocalDensity.current.fontScale <= 1.2f
     val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    val selectedIndex = bars.indexOfFirst { it.selected }
+    // A range too long to fit starts at its oldest period, and the reading under the chart is about
+    // the selected one — so switching to a multi-year range showed the beginning of history while
+    // talking about a month that was not on screen. Only a selection that cannot be seen is scrolled
+    // to: tapping a bar that is already visible must not shove the chart sideways under the finger.
+    LaunchedEffect(dense, selectedIndex, scrollState.maxValue, scrollState.viewportSize) {
+        if (dense || selectedIndex < 0 || scrollState.maxValue <= 0 || scrollState.viewportSize <= 0) {
+            return@LaunchedEffect
+        }
+        val slot = with(density) { SAVINGS_CHART_PERIOD_WIDTH.toPx() }
+        val start = slot * selectedIndex
+        val visible = start >= scrollState.value && start + slot <= scrollState.value + scrollState.viewportSize
+        if (visible) return@LaunchedEffect
+        val centred = start + slot / 2f - scrollState.viewportSize / 2f
+        scrollState.animateScrollTo(centred.roundToInt().coerceIn(0, scrollState.maxValue))
+    }
     val contentModifier = if (dense) {
         Modifier.fillMaxWidth()
     } else {
@@ -206,6 +233,13 @@ private fun SavingsPaceBarSlot(
                     .fillMaxWidth()
                     .height(SAVINGS_CHART_PLOT_HEIGHT),
             ) {
+                if (bar.startsGroup) Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+                )
                 val value = bar.valueMinor
                 if (value == null) {
                     // Missing is deliberately different from a known zero: a quiet dash at the

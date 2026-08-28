@@ -154,9 +154,13 @@ private fun SavingsContent(
     val mode = SavingsChartMode.valueOf(modeName).let {
         if (it == SavingsChartMode.Projection && data.currentPlan == null) SavingsChartMode.Pace else it
     }
-    val range = SavingsChartRange.valueOf(rangeName)
+    // Twelve months or fewer and "All time" IS the last year: the same bars, relabelled. Offering a
+    // choice between two identical charts is how a working control comes to look broken — you press
+    // it, the numbers do not move, and the only visible change is that the labels got worse.
+    val rangeIsAChoice = data.months.size > SAVINGS_YEAR_MONTHS
+    val range = SavingsChartRange.valueOf(rangeName).takeIf { rangeIsAChoice } ?: SavingsChartRange.Year
     val shownMonths = when (range) {
-        SavingsChartRange.Year -> data.months.takeLast(12)
+        SavingsChartRange.Year -> data.months.takeLast(SAVINGS_YEAR_MONTHS)
         SavingsChartRange.All -> data.months
     }
     val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -218,7 +222,7 @@ private fun SavingsContent(
                         centered = true, modifier = Modifier.weight(1f),
                     )
                 }
-                if (mode != SavingsChartMode.Projection) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mode != SavingsChartMode.Projection && rangeIsAChoice) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WhfinFilterPill(
                         label = stringResource(R.string.savings_range_year),
                         selected = range == SavingsChartRange.Year,
@@ -401,9 +405,10 @@ private fun SavingsChart(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val paceLabels = remember(months, range, locale) { savingsPeriodLabels(months, range, locale) }
                 when (mode) {
                     SavingsChartMode.Pace -> WhfinSavingsPaceChart(
-                        bars = months.map { point ->
+                        bars = months.mapIndexed { index, point ->
                             val targetSuffix = point.targetMinor?.takeIf { it != commonTarget }?.let { target ->
                                 ", " + stringResource(
                                     R.string.savings_target_description,
@@ -411,7 +416,7 @@ private fun SavingsChart(
                                 )
                             }.orEmpty()
                             WhfinSavingsPaceBar(
-                                periodLabel = savingsPeriodLabel(point.month, range, locale),
+                                periodLabel = paceLabels[index],
                                 valueMinor = point.paceMinor,
                                 valueDescription = formatMinor(
                                     point.paceMinor,
@@ -420,6 +425,8 @@ private fun SavingsChart(
                                 ) + targetSuffix,
                                 periodDescription = point.month.atDay(1).format(periodFormatter),
                                 selected = point == selected,
+                                startsGroup = range == SavingsChartRange.All &&
+                                    index > 0 && paceLabels[index].isNotEmpty(),
                             )
                         },
                         targetMinor = commonTarget,
@@ -433,9 +440,13 @@ private fun SavingsChart(
                         onBarClick = { index -> selectedMonth = months[index].month.toString() },
                     )
                     SavingsChartMode.Balance -> WhfinSavingsBalanceChart(
-                        points = months.map { point ->
+                        points = months.mapIndexed { index, point ->
                             WhfinSavingsBalancePoint(
-                                periodLabel = savingsPeriodLabel(point.month, range, locale),
+                                periodLabel = if (range == SavingsChartRange.All) {
+                                    savingsSparsePeriodLabel(point.month, locale)
+                                } else {
+                                    paceLabels[index]
+                                },
                                 balanceMinor = point.reserveBalanceMinor,
                                 balanceDescription = formatMinor(point.reserveBalanceMinor, data.currency),
                                 periodDescription = point.month.atDay(1).format(periodFormatter),
@@ -488,18 +499,34 @@ private fun SavingsChart(
     }
 }
 
-private fun savingsPeriodLabel(
-    month: YearMonth,
+/**
+ * The x-axis of a chart that shows every month it has.
+ *
+ * Over one year a bare initial is enough, because the twelve are read as a year and the panel below
+ * names the selected month in full anyway. Over several years the initials stop being a scale: in
+ * Russian they are М, М, И, И, А, А twice over, and stacking a two-digit year under each one turned
+ * a row of bars into a wall of two-line labels that still could not be told apart. Years are the
+ * only division that means anything at that length, so the axis marks where each one starts and
+ * leaves the rest of the slots to the bars.
+ */
+private fun savingsPeriodLabels(
+    months: List<SavingsMonthUi>,
     range: SavingsChartRange,
     locale: Locale,
-): String = when (range) {
-    SavingsChartRange.Year -> month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale)
-    SavingsChartRange.All -> buildString {
-        append(month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale))
-        append('\n')
-        append(month.year.toString().takeLast(2))
+): List<String> = when (range) {
+    SavingsChartRange.Year ->
+        months.map { it.month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale) }
+    SavingsChartRange.All -> months.mapIndexed { index, point ->
+        val previousYear = months.getOrNull(index - 1)?.month?.year
+        if (previousYear == point.month.year) "" else point.month.year.toString()
     }
 }
+
+/** A label for an axis that samples a few points rather than showing them all. */
+private fun savingsSparsePeriodLabel(month: YearMonth, locale: Locale): String =
+    month.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale) + "\n" + month.year
+
+private const val SAVINGS_YEAR_MONTHS = 12
 
 private val previewMonths = (1..12).map { month ->
     SavingsMonthUi(

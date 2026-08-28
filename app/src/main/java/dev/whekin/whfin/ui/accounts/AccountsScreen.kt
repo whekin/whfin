@@ -37,6 +37,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -283,9 +284,14 @@ fun AccountsScreen(
                     ).forEach { (sectionLabel, sectionAccounts) ->
                         if (sectionAccounts.isNotEmpty()) {
                             item(key = "account-section-$sectionLabel") {
+                                // Uniform gaps put the same distance between two accounts of one
+                                // bank and between everyday money and savings. A section is the
+                                // larger break of the two and now reads as one.
                                 WhfinSectionLabel(
                                     stringResource(sectionLabel),
-                                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                                    Modifier.fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(top = 20.dp, bottom = 2.dp),
                                 )
                             }
                             sectionAccounts.groupBy { it.groupName ?: cashHeading }
@@ -516,13 +522,25 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
     val reserve = accounts.filter { it.account.fundRole == FundRole.RESERVE }
         .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    // Two naked columns set in the same size as a balance four levels below them: the two numbers
+    // the screen exists to answer had the least weight on it. They get a surface of their own and a
+    // step up in size, so the descent from here down is readable — net worth, then these, then an
+    // account, then a ledger.
+    WhfinLedgerGroup(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), tonal = true) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             SummaryColumn(
                 stringResource(R.string.accounts_available),
                 formatMinor(available["GEL"] ?: 0L, "GEL"),
                 currencySymbol("GEL"),
                 Modifier.weight(1f),
+            )
+            VerticalDivider(
+                Modifier.height(38.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
             SummaryColumn(
                 stringResource(R.string.accounts_reserve),
@@ -547,6 +565,7 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        }
     }
 }
 
@@ -563,7 +582,10 @@ private fun SummaryColumn(
             Modifier.fillMaxWidth().padding(vertical = 5.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Both labels sit on one line whether or not the column can be opened: the chevron is
+            // taller than the label it stands beside, so a row that merely wrapped its content put
+            // the two headings — and the two amounts under them — at different heights.
+            Row(Modifier.height(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 WhfinFieldLabel(label, Modifier.weight(1f))
                 if (onClick != null) Icon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -572,7 +594,7 @@ private fun SummaryColumn(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            WhfinAmount(value, symbol = symbol, style = MaterialTheme.typography.titleMedium)
+            WhfinAmount(value, symbol = symbol, style = MaterialTheme.typography.headlineSmall)
         }
     }
     if (onClick == null) Box(modifier, contentAlignment = Alignment.CenterStart) {
@@ -597,11 +619,33 @@ private fun AccountGroupCard(
     onOpenGroupDetails: () -> Unit,
 ) {
     val containers = orderedAccountContainers(accounts)
-    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // A bank is not a screen title. Set in the editorial serif it outweighed the balance it
             // belongs to, and repeated once per section it made one bank read as two — the serif is
             // reserved for screen titles, key totals and rare landmarks.
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // The mark that says what kind of money this is belongs to the source, which is the
+                // level where the answer changes. Repeated on every account of one bank it said
+                // "bank" three times under a heading already reading "Credo", and it left the
+                // deepest level of the screen as the only one with a colour anchor on it.
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            accountTypeIcon(accounts.first().account.type),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                }
                 Column(Modifier.weight(1f)) {
                     Text(name, style = MaterialTheme.typography.titleMedium)
                     // Счётчик показываем только когда у банка правда несколько счетов: «1 счёт ·
@@ -750,7 +794,10 @@ private fun IbanCard(
     onAdjustBalance: (AccountWithBalance) -> Unit,
 ) {
     val iban = accounts.first().account.iban
-    WhfinLedgerGroup {
+    // Outlined on outlined on outlined, every level of this screen was a 1 dp rectangle on the same
+    // ground, and the eye had no way to tell which level it was reading. An account is the thing you
+    // actually point at here, so it is the one that gets a surface.
+    WhfinLedgerGroup(tonal = true) {
         Column(Modifier.fillMaxWidth()) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 13.dp, bottom = 8.dp),
@@ -768,20 +815,6 @@ private fun IbanCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(38.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    accountTypeIcon(accounts.first().account.type),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(19.dp),
-                                )
-                            }
-                        }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 accounts.first().account.name,
@@ -803,11 +836,12 @@ private fun IbanCard(
                             )
                         }
                         val headlineTotal = when {
+                            // A sum is worth printing when it is a sum. With one currency ledger the
+                            // "total" is that ledger's own balance, which the row below already
+                            // shows — the same number twice, in the same size, two lines apart.
+                            accounts.size == 1 -> null
                             total?.isComplete == true && total.amount != null ->
                                 formatDecimal(total.amount, total.currency) to total.currency
-                            accounts.size == 1 -> accounts.first().let { only ->
-                                formatMinor(only.balanceMinor, only.account.currency) to only.account.currency
-                            }
                             // Several currencies without a full set of rates: the rows below say
                             // each one honestly, and a partial sum here would be a wrong number.
                             else -> null
@@ -815,7 +849,7 @@ private fun IbanCard(
                         if (headlineTotal != null) WhfinAmount(
                             text = headlineTotal.first,
                             symbol = currencySymbol(headlineTotal.second),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                         )
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
