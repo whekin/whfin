@@ -32,7 +32,7 @@ This is a single-context repository with root domain documentation and system-wi
   706 JVM/Compose tests passed, 1 skipped; 4 UIAutomator visual tests прошли на disposable Pixel
   (EN light/dark, RU dark/font 1.5/400×640dp, раскрытие/scroll/Accounts callback), общие screenshot
   references проверены. Debug-only QA host не экспортирован и не входит в release. Схема БД не
-  менялась; S25 не обновлялся. Контракт: `docs/home-screen.md`.
+  менялась; исправление установлено на S25 в dogfood `0.3.14 (26)`. Контракт: `docs/home-screen.md`.
 - [x] Savings bank launcher (2026-08-28): Home намеренно не получил «пополнить резерв». Personal
   Savings показывает `Open MyCredo` / `Open TBC Bank` только когда выбранная валюта Reserve принадлежит
   соответствующему bank group, официальный consumer package установлен и имеет launch activity.
@@ -114,6 +114,12 @@ This is a single-context repository with root domain documentation and system-wi
   `firstInstallTime` (2026-08-16) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались
   выданы, процесс запустился без FATAL. Запуск перекрыл чужое foreground-приложение владельца —
   впредь сначала сверять ResumedActivity. Проверку самого routing на живом SMS делает владелец.
+  Dogfood `0.3.14 (26)` установлен signed in-place upgrade поверх `0.3.13 (25)` на Samsung S25:
+  full unit suite (706 passed, 1 skipped), R8/lintVital и package/version проверены; release certificate
+  `af6009…fae92` сверен с установленным APK до обновления. После `install -r` version/certificate и
+  SHA-256 установленного `base.apk` совпали с новой сборкой; `firstInstallTime` (2026-08-16) и
+  `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` сохранились. Активный Kojoribus остался foreground,
+  WHFIN намеренно не запускался поверх него; новый Home на личных данных проверяет владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
