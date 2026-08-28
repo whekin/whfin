@@ -666,4 +666,38 @@ class SettingsScreenTest {
             context.getString(R.string.settings_inside_label, "Passphrase"),
         ).assertIsDisplayed()
     }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru")
+    fun searchReachesContentsInRussianToo() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Версия 0.1.0 (1)",
+                )
+            }
+        }
+
+        // The auto-lock timeout is named only inside App Lock; the row's own words are about a code
+        // and biometrics. Reaching it in Russian exercises the same index the English test does.
+        compose.onNode(hasSetTextAction()).performTextInput("таймаут")
+        compose.onNodeWithText(context.getString(R.string.app_lock_title)).assertIsDisplayed()
+        compose.onNodeWithText(
+            context.getString(R.string.settings_inside_label, "Таймаут блокировки"),
+        ).assertIsDisplayed()
+    }
 }

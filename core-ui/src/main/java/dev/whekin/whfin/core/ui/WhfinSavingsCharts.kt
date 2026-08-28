@@ -77,6 +77,14 @@ data class WhfinSavingsBalancePoint(
     val isProjected: Boolean = false,
     /** Optional common-axis position, e.g. an epoch day. All points must supply it to use it. */
     val position: Long? = null,
+    /**
+     * Marks the first period of a larger group — see [WhfinSavingsPaceBar.startsGroup].
+     *
+     * The line chart samples a few labels out of a long range, so without these its years are
+     * invisible: the same run of months reads as one undivided stretch here and as two years on the
+     * bars beside it.
+     */
+    val startsGroup: Boolean = false,
 )
 
 /**
@@ -283,7 +291,9 @@ private fun SavingsPaceBarSlot(
                     .fillMaxWidth()
                     .height(SAVINGS_CHART_LABEL_HEIGHT)
                     .padding(horizontal = 2.dp),
-                contentAlignment = Alignment.TopCenter,
+                // A label that names a boundary sits on it. Centred in its slot, the year floated
+                // half a month to the right of the rule it was labelling.
+                contentAlignment = if (bar.startsGroup) Alignment.TopStart else Alignment.TopCenter,
             ) {
                 Text(
                     text = bar.periodLabel,
@@ -464,6 +474,15 @@ private fun SavingsBalanceChartContent(
                         androidx.compose.ui.geometry.Offset(xFor(anchor), plotHeightPx), strokeWidth = 1.dp.toPx())
                     drawCircle(balanceColor, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(anchor), yFor(points[anchor].balanceMinor.toDouble())))
                 }
+            }
+            points.forEachIndexed { index, point ->
+                if (!point.startsGroup || index == 0) return@forEachIndexed
+                drawLine(
+                    color = guideColor,
+                    start = androidx.compose.ui.geometry.Offset(xFor(index), 0f),
+                    end = androidx.compose.ui.geometry.Offset(xFor(index), plotHeightPx),
+                    strokeWidth = 1.dp.toPx(),
+                )
             }
             selectedIndex?.takeIf { it in points.indices }?.let { index ->
                 drawCircle(balanceColor, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(index), yFor(points[index].balanceMinor.toDouble())))

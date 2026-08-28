@@ -450,6 +450,8 @@ private fun SavingsChart(
                                 balanceMinor = point.reserveBalanceMinor,
                                 balanceDescription = formatMinor(point.reserveBalanceMinor, data.currency),
                                 periodDescription = point.month.atDay(1).format(periodFormatter),
+                                startsGroup = range == SavingsChartRange.All &&
+                                    index > 0 && paceLabels[index].isNotEmpty(),
                             )
                         },
                         goalMinor = data.currentPlan?.goalMinor,
