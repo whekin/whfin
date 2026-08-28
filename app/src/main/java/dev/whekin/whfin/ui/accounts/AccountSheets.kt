@@ -18,12 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CurrencyBitcoin
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +64,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -386,18 +389,19 @@ private fun FundRoleSelector(
     onSelect: (FundRole) -> Unit,
 ) {
     val options = listOf(
-        FundRole.AVAILABLE to R.string.account_fund_available,
-        FundRole.RESERVE to R.string.account_purpose_reserve,
+        Triple(FundRole.AVAILABLE, R.string.account_fund_available, Icons.Outlined.AccountBalanceWallet),
+        Triple(FundRole.RESERVE, R.string.account_purpose_reserve, Icons.Outlined.Savings),
     )
     // Two answers to one question divide the width between them, the way the theme choice in
     // Settings does. Sized to their own text they sat as two loose buttons at the left of an empty
     // row, and nothing said they were alternatives rather than two things you could press.
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { (mode, label) ->
+        options.forEach { (mode, label, icon) ->
             WhfinFilterPill(
                 label = stringResource(label),
                 selected = selected == mode,
                 onClick = { onSelect(mode) },
+                leadingIcon = icon,
                 centered = true,
                 modifier = Modifier.weight(1f),
             )
@@ -467,6 +471,7 @@ private fun EditBankProfilePreview() {
             existingCards = listOf("0000"),
             existingVirtualCards = emptyList(),
             existingPrimaryCard = "0000",
+            currencies = listOf("GEL", "USD"),
             onDismiss = {},
             onConfirm = { _, _, _, _, _, _, _ -> },
         )
@@ -511,6 +516,8 @@ fun BankMappingSheet(
     existingCards: List<String>,
     existingVirtualCards: List<String>,
     existingPrimaryCard: String? = null,
+    /** The ledgers this one answer applies to, named so the claim above is verifiable on sight. */
+    currencies: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
 ) {
@@ -552,21 +559,49 @@ fun BankMappingSheet(
             )
         },
     ) {
-        Text(
-            stringResource(R.string.account_settings_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // One sentence of context, and the ledgers it is a claim about. A form whose every control
+        // carried the same weight read as a pile of settings; the scope belongs at the top, once.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp).padding(top = 2.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    stringResource(R.string.account_settings_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (currencies.isNotEmpty()) Text(
+                    stringResource(
+                        R.string.account_settings_currencies,
+                        currencies.joinToString(" · "),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         WhfinField(
             value = name,
             onValueChange = { name = it },
             label = stringResource(R.string.account_name),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.account_fund_role), style = MaterialTheme.typography.labelLarge)
+        WhfinFieldLabel(stringResource(R.string.account_fund_role))
         FundRoleSelector(
             selected = fundRole,
             onSelect = { fundRole = it },
+        )
+        WhfinSectionLabel(
+            stringResource(R.string.account_section_bank),
+            Modifier.padding(top = 6.dp),
+            icon = Icons.Outlined.AccountBalance,
         )
         WhfinField(
             value = iban,
@@ -574,10 +609,15 @@ fun BankMappingSheet(
             label = stringResource(R.string.account_iban),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
+        WhfinFieldLabel(stringResource(R.string.account_bank_product))
         BankProductSelector(
             selected = bankProduct,
             onSelect = { bankProduct = it },
+        )
+        WhfinSectionLabel(
+            stringResource(R.string.account_cards),
+            Modifier.padding(top = 6.dp),
+            icon = Icons.Outlined.CreditCard,
         )
         // Cards were a comma-separated list the person had to keep in their own head and retype to
         // change: adding one meant editing a sentence, removing one meant deleting the right comma.
@@ -620,14 +660,20 @@ fun BankMappingSheet(
             val primaryLabel = stringResource(R.string.account_card_primary)
             WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
                 Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(
                         Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        Icon(
+                            Icons.Outlined.CreditCard,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Text(
                             stringResource(R.string.account_card_label, mask),
                             modifier = Modifier.weight(1f),
@@ -656,9 +702,10 @@ fun BankMappingSheet(
                             modifier = Modifier.testTag("card-$mask-remove"),
                         )
                     }
-                    WhfinFieldLabel(stringResource(R.string.account_card_kind))
+                    // The two pills name the question they answer, so a label above them repeated
+                    // the word "card" for a third time inside a block that is already one card.
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth().padding(end = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         WhfinFilterPill(
@@ -707,6 +754,7 @@ private fun BankMappingPreview() {
             existingCards = listOf("0001"),
             existingVirtualCards = listOf("0002"),
             existingPrimaryCard = "0001",
+            currencies = listOf("GEL", "EUR", "USD"),
             onDismiss = {},
             onConfirm = { _, _, _, _, _, _, _ -> },
         )

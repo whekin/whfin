@@ -425,3 +425,47 @@ modal window. The calendar footer recomputes the selected-date result live; Back
 unchanged editor draft and Done accepts only the date. The editor itself previews growth and the
 goal date before Save. Forecast extends the balance chart with a dashed, distinct-color future
 segment and a visible present boundary; `WhfinTimelineScrubber` exposes precise monthly values.
+
+## Accounts: currencies are numbers, not rows
+
+An account holds two or three currencies and each of them is one short number. Given a full ledger
+row apiece — name, purpose, amount — three of them filled a third of the screen restating what the
+card above had already said, and a statement makes that worse: it names every ledger it creates
+`<Bank> <CUR> •<last4>`, so the same bank and the same account number were printed once per currency
+under a heading already carrying both.
+
+`AccountCurrencies` puts two or three balances side by side as one strip of equal cells, each its own
+48 dp target opening that ledger's activity, with the empty ones set in the quiet ink so the eye
+lands on money that exists. A card-backed lari ledger that is running out keeps its warning icon and
+colour in the cell and its sentence in the accessibility description. Four or more currencies, or a
+font scale at or above 1.3, fall back to stacked rows, because a cell would then have to truncate the
+amount it exists to show. A single currency is not a strip at all: it collapses into the account
+heading, which becomes that balance's own row.
+
+`ledgerOwnName` removes the source name, the currency token and the IBAN tail from a ledger's name;
+what survives is the part a person chose. The container heading uses it, falls back to the account
+number (`Account •0001`), then to the bank product, then to the account type. A cell repeats none of
+it: it is labelled by its own surviving name (`Travel`) or by its currency code. Each card has two
+doors with two affordances — a balance opens the ledger, a pencil opens the account editor. The
+chevron that used to open that editor promised a page and delivered a form.
+
+Balance adjustment left the list with the amount it hung on; it stays one level in, in Account
+activity, beside Edit account and bank details.
+
+The account editor is a form with landmarks rather than a stack of equal controls: scope
+(`Applies to every currency of this account` plus the currencies themselves), then name and fund
+role, then `BANK DETAILS` with IBAN and product, then `CARDS`. A card block is a glyph, its mask, its
+`Primary` pill and its removal on one line, with physical/virtual below — the two pills name the
+question, so the label above them said "card" for a third time inside a block that is already one
+card.
+
+Section labels can carry a marker: `WhfinSectionLabel(icon = …)` sets a 15 dp glyph in the same quiet
+ink before the caps line, used on Home (this month, needs attention, today/recent, outlook) and
+Accounts (everyday, savings, crypto, debts, archived).
+
+The Home low-balance card keeps its balance pinned to the line naming the card, and moves the bank
+launch out of the text column onto its own rail under a hairline, starting where the card starts.
+Inside the column it began on a third left edge and read as part of the sentence. A severity marker
+matches the other standing conditions on Home. Verified on a disposable Pixel emulator: EN light and
+dark, RU at font scale 1.5 (Accounts strip falling back to rows, the editor, the card with both
+action rails), plus the existing `HomeRunwayVisualTest` renders.

@@ -789,15 +789,45 @@ fun WhfinChoiceRail(
     )
 }
 
+/**
+ * A landmark in the register — a day, a screen section.
+ *
+ * The optional [icon] is a marker, not decoration: it lets a long list of sections be told apart at
+ * a glance, in the same quiet ink as the words. It stays small enough that the caps line, not the
+ * glyph, remains the thing being read.
+ */
 @Composable
-fun WhfinSectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text.uppercase(),
+fun WhfinSectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+) {
+    val label: @Composable (Modifier) -> Unit = { textModifier ->
+        Text(
+            text.uppercase(),
+            textModifier,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 1.1.sp,
+        )
+    }
+    if (icon == null) {
+        label(modifier)
+        return
+    }
+    Row(
         modifier,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 1.1.sp,
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(15.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        label(Modifier)
+    }
 }
 
 /**

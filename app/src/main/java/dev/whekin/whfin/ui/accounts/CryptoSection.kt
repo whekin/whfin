@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -75,7 +76,10 @@ internal fun CryptoPortfolioSection(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Crypto is a peer of the bank sections, not a bigger thing: it carries the same caps label
         // they do. Set as an editorial heading it read as the more important half of the screen.
-        WhfinSectionLabel(stringResource(R.string.crypto_section))
+        WhfinSectionLabel(
+            stringResource(R.string.crypto_section),
+            icon = Icons.Outlined.CurrencyBitcoin,
+        )
         // The subtotal is already inside the balance at the top of the screen, so it is a reading of
         // this section, not a second headline: it sits on the section's own line, at the section's
         // own weight, where it can still be tapped to change display currency.

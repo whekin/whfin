@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,7 +49,10 @@ fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
     val mine = open.filter { it.debt.direction == DebtDirection.THEY_OWE_ME }.groupBy { it.debt.currency }
     val theirs = open.filter { it.debt.direction == DebtDirection.I_OWE_THEM }.groupBy { it.debt.currency }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        WhfinSectionLabel(stringResource(R.string.debts_title))
+        WhfinSectionLabel(
+            stringResource(R.string.debts_title),
+            icon = Icons.Outlined.Handshake,
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (open.isEmpty()) stringResource(R.string.debts_none) else stringResource(R.string.debts_open_count, open.size),

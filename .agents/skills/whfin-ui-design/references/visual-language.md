@@ -86,7 +86,16 @@ confirmation.
 
 ### Accounts
 
-Show primary-currency net worth first, foreign balances as compact secondary figures, then available/reserve. Represent the real hierarchy as bank heading → IBAN group → currency ledger rows. Cash and wallets use the same container→balances grammar.
+Show primary-currency net worth first, foreign balances as compact secondary figures, then available/reserve. Represent the real hierarchy as bank heading → IBAN group → currency balances. Cash and wallets use the same container→balances grammar.
+
+An account's currencies are short numbers, not rows of prose: two or three sit side by side as one
+strip of equal cells, and one collapses into the account heading itself. Fall back to stacked rows
+only where a cell would have to truncate its own amount — four or more currencies, or a large font
+scale. A ledger's label repeats nothing the heading above it already carries: an imported name is
+written by the bank out of the bank, the currency and the account number, so what remains after
+removing those three is the only part a person chose, and where nothing remains the account number
+is the honest name. Two doors per account, each with its own affordance: a balance opens that
+ledger's activity, a pencil opens the account editor. A chevron would promise a page and open a form.
 
 Account overview is a balance explanation, not monthly analytics. Compare assets, liabilities, available money, reserve, and source distribution only inside the primary currency. Until exchange rates and their timestamps exist, show other currencies as native amounts without percentages, converted totals, or donut segments.
 

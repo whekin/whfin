@@ -36,6 +36,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material.icons.outlined.PendingActions
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -103,6 +108,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -586,6 +592,7 @@ fun FeedScreen(
                         title = stringResource(R.string.home_needs_attention),
                         action = stringResource(R.string.home_review_all),
                         onAction = onOpenHistory,
+                        icon = Icons.Outlined.PendingActions,
                     )
                 }
                 items(attention.take(3), key = {
@@ -623,6 +630,7 @@ fun FeedScreen(
                         action = stringResource(R.string.home_all_transactions),
                         onAction = onOpenHistory,
                         metricMinor = recent.expenseMinor,
+                        icon = if (recent.isToday) Icons.Outlined.Today else Icons.Outlined.History,
                     )
                 }
                 items(recent.items, key = { "home-recent-${it.tx.id}" }) { item ->
@@ -2158,13 +2166,14 @@ private fun HomeSectionHeader(
     action: String,
     onAction: () -> Unit,
     metricMinor: Long? = null,
+    icon: ImageVector? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 22.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        WhfinSectionLabel(title, Modifier.weight(1f))
+        WhfinSectionLabel(title, Modifier.weight(1f), icon = icon)
         // The day's own total belongs to the day's label: it is the same fact, said once.
         if (metricMinor != null) WhfinAmount(
             text = formatMinor(-metricMinor, "GEL", withSign = true),
@@ -2558,7 +2567,10 @@ private fun HomeInsightsSection(
         Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        WhfinSectionLabel(stringResource(R.string.home_insights_title))
+        WhfinSectionLabel(
+            stringResource(R.string.home_insights_title),
+            icon = Icons.AutoMirrored.Outlined.TrendingUp,
+        )
         WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
             insights.forEachIndexed { index, insight ->
                 HomeInsightRow(insight, onOpenAnalytics)
@@ -2657,7 +2669,11 @@ private fun MonthlyFlowSummary(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                WhfinSectionLabel(stringResource(R.string.feed_this_month), Modifier.weight(1f))
+                WhfinSectionLabel(
+                    stringResource(R.string.feed_this_month),
+                    Modifier.weight(1f),
+                    icon = Icons.Outlined.CalendarMonth,
+                )
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = stringResource(R.string.analytics_open),

@@ -285,6 +285,7 @@ internal fun AccountTransactionsScreen(
             existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = containerRows.flatMap { it.virtualCardMasks }.distinct(),
             existingPrimaryCard = containerRows.flatMap { it.primaryCardMasks }.firstOrNull(),
+            currencies = containerRows.map { it.account.currency }.distinct().sorted(),
             onDismiss = { editAccount = false },
             onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, primaryCard ->
                 accountsViewModel.updateBankMapping(

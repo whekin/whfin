@@ -181,8 +181,10 @@
     <!-- One IBAN spans every currency ledger under it, so this sheet is the account itself. -->
     <string name="account_settings_title">Account</string>
     <string name="account_settings_hint">Applies to every currency of this account.</string>
+    <string name="account_settings_currencies">Currencies: %1$s</string>
+    <string name="account_section_bank">Bank details</string>
     <string name="account_iban">IBAN</string>
-    <string name="account_card_last4">Card last 4 digits</string>
+    <string name="account_card_last4">Last 4 digits</string>
     <string name="account_card_last4_placeholder">1234</string>
     <string name="account_card_add">Add</string>
     <string name="account_card_remove">Remove card ••%1$s</string>

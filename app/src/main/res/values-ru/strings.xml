@@ -195,8 +195,10 @@
     <string name="action_enable_sms">Включить автоматический импорт SMS</string>
     <string name="account_settings_title">Счёт</string>
     <string name="account_settings_hint">Действует для всех валют этого счёта.</string>
+    <string name="account_settings_currencies">Валюты: %1$s</string>
+    <string name="account_section_bank">Реквизиты банка</string>
     <string name="account_iban">IBAN</string>
-    <string name="account_card_last4">Последние 4 цифры карты</string>
+    <string name="account_card_last4">Последние 4 цифры</string>
     <string name="account_card_last4_placeholder">1234</string>
     <string name="account_card_add">Добавить</string>
     <string name="account_card_remove">Удалить карту ••%1$s</string>

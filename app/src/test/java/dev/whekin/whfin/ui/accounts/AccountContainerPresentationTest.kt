@@ -34,6 +34,28 @@ class AccountContainerPresentationTest {
         assertEquals(listOf("3241"), ordered.first().first().cardMasks)
     }
 
+    /**
+     * A statement names what it creates after the bank, the currency and the account number, all
+     * three of which the screen has already printed above the ledger. Nothing of that name is the
+     * account's own, so the card must not repeat it once per currency.
+     */
+    @Test
+    fun anImportedLedgerNameCarriesNothingTheScreenHasNotSaid() {
+        val imported = row(1, "Credo GEL •0001", "GEL", "GE00CD0000000000000001")
+
+        assertEquals(null, ledgerOwnName(imported, "Credo"))
+    }
+
+    @Test
+    fun aNameThePersonChoseSurvivesTheSameRemoval() {
+        val named = row(1, "Travel", "EUR", "GE00CD0000000000000001")
+        val seeded = row(2, "Cash", "GEL", iban = "")
+
+        assertEquals("Travel", ledgerOwnName(named, "Credo"))
+        // WHFIN wrote this one itself, in whatever language was current; it names nothing.
+        assertEquals(null, ledgerOwnName(seeded.copy(account = seeded.account.copy(iban = null)), "Cash"))
+    }
+
     @Test
     fun eachIbanGetsOneConvertedTotalAcrossItsCurrencyLedgers() {
         val rows = listOf(
