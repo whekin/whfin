@@ -302,6 +302,14 @@ This is a single-context repository with root domain documentation and system-wi
   запускался. Схема БД не менялась; валютную полосу, редактор счёта и карточку низкого баланса на
   личных данных (три валюты под одним IBAN — тот самый случай, ради которого полоса и делалась)
   проверяет владелец.
+  Dogfood `0.3.19 (31)` установлен signed in-place upgrade поверх `0.3.18 (30)` на Samsung S25:
+  full unit suite (746 passed, 1 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` сверены до установки по вытянутому `base.apk`. После `install -r` version/certificate
+  и SHA-256 установленного `base.apk` (`7a0e1397…d37f1f48`) совпали с собранным APK; `firstInstallTime`
+  (2026-08-16 19:13:46) сохранился, `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы,
+  процесс поднялся сам без FATAL в logcat. Владелец в этот момент был в системном менеджере
+  разрешений — WHFIN намеренно не запускался поверх него. Схема БД не менялась; выравнивание карточки
+  низкого баланса и ввод контрагента («Кому» / «От кого») на личных данных проверяет владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
