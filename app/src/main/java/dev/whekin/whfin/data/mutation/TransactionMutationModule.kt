@@ -19,6 +19,17 @@ data class ManualMutation(
     val categoryId: Long? = null,
     val note: String? = null,
     val occurredAt: Long,
+    /**
+     * Who the money went to or came from, in the same two fields a statement fills.
+     *
+     * A hand-written row had no counterparty at all, so paying the same person in cash every month
+     * was a name typed into a note nobody could learn from. Written here it is the same identity a
+     * card payment has: the feed reads it, the merchant dictionary remembers its category, and the
+     * next payment to that name is one tap. A transfer between own accounts never carries one —
+     * filing yourself as a counterparty would teach the dictionary nonsense.
+     */
+    val merchantId: Long? = null,
+    val rawCounterparty: String? = null,
 )
 
 data class AllocationMutation(
@@ -144,6 +155,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                         occurredAt = occurredAt,
                         transferGroupId = null,
                         createdAt = now,
+                        merchantId = input.merchantId,
+                        rawCounterparty = input.rawCounterparty,
                     ),
                 )
                 check(id > 0) { "Could not create transaction." }
@@ -181,6 +194,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                     categoryId = input.categoryId,
                     note = input.note,
                     occurredAt = input.occurredAt,
+                    merchantId = input.merchantId,
+                    rawCounterparty = input.rawCounterparty,
                 ),
             )
         } else {
@@ -527,6 +542,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         occurredAt: Long,
         transferGroupId: Long?,
         createdAt: Long,
+        merchantId: Long? = null,
+        rawCounterparty: String? = null,
     ) = TransactionEntity(
         accountId = accountId,
         amountMinor = amountMinor,
@@ -534,6 +551,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         occurredAt = occurredAt,
         categoryId = categoryId,
         note = note,
+        merchantId = merchantId,
+        rawCounterparty = rawCounterparty,
         status = TxStatus.MANUAL,
         source = TxSource.MANUAL,
         transferGroupId = transferGroupId,

@@ -1082,6 +1082,11 @@
     <string name="new_expense">Новый расход</string>
     <string name="new_income">Новый доход</string>
     <string name="new_transfer">Новый перевод</string>
+    <string name="tx_counterparty_out">Кому</string>
+    <string name="tx_counterparty_in">От кого</string>
+    <string name="tx_counterparty_add">Указать имя</string>
+    <string name="tx_counterparty_search">Поиск по имени</string>
+    <string name="tx_counterparty_create">Добавить «%1$s»</string>
     <string name="income_source">Источник</string>
     <string name="from_account">Со счёта</string>
     <string name="to_account">На счёт</string>

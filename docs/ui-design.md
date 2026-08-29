@@ -469,3 +469,40 @@ Inside the column it began on a third left edge and read as part of the sentence
 matches the other standing conditions on Home. Verified on a disposable Pixel emulator: EN light and
 dark, RU at font scale 1.5 (Accounts strip falling back to rows, the editor, the card with both
 action rails), plus the existing `HomeRunwayVisualTest` renders.
+
+## Who was paid: the composer's second rail
+
+A statement writes a counterparty on every row it imports, so "who was this?" is already answered for
+hundreds of names. Money handed over in cash was the one case where it never was: the name went into
+a note, the category was chosen by hand every month, and nothing was learned from either.
+
+The composer asks it in the same grammar the categories use — a ranked rail of the likely few, with
+a door to all of them. `Paid to` on an expense, `Received from` on income; a transfer has no
+counterparty, because both of its sides are the person's own accounts and naming one would teach the
+merchant dictionary about themselves.
+
+The choice is written as `merchantId` + `rawCounterparty` — the same two fields a statement fills, so
+the feed row reads the name, statistics see an ordinary merchant, and `MerchantCategorizer` remembers
+the pair on save. No new table, no second mechanism.
+
+The two rails answer each other. Picking a name fills the category it is usually filed under, but
+only while the category is still empty: a remembered category is an offer, never a correction.
+Picking a category first lifts the names usually filed there to the front of the rail. Tapping the
+chosen name again clears it.
+
+`CounterpartySuggester` ranks by frequency decayed over a 60-day half-life — the same shape the
+category suggester uses — plus a separate short-half-life recency term, because habits cluster in
+time and whoever was paid this morning is a likelier answer than the shop of many quiet months. A
+person who exists in the people table but has never been paid keeps a small floor: findable, never
+ahead of someone actually paid. A name only ever seen on the other side of the ledger is not offered
+here — an employer is not somebody you pay — but search still reaches it.
+
+The door to the full list sits on the section label rather than at the end of the rail: a rail
+scrolls, and a door that has to be scrolled to is a door most people never find. The full screen
+searches by name (case- and `ё`-insensitive), shows each name with its usual category, and offers
+`Add "…"` for a name the ledger has never seen — which becomes a merchant on save, so the second
+cash payment to the same person is one tap.
+
+Naming who was paid stays one dimension of three, and only the third moves any number: the category
+says what the money was for, the counterparty says who received it, and a share or a debt — still an
+explicit action in transaction details — says whose money it really was.

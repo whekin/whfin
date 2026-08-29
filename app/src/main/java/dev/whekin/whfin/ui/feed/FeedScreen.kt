@@ -257,6 +257,7 @@ fun FeedScreen(
     val categoriesByUsage by viewModel.categoriesByUsage.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val people by viewModel.people.collectAsState()
+    val counterparties by viewModel.counterparties.collectAsState()
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val rejected by viewModel.rejected.collectAsState()
     val integrityIssues by viewModel.integrityIssues.collectAsState()
@@ -845,6 +846,7 @@ fun FeedScreen(
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
+            counterparties = counterparties,
         )
     }
 
@@ -861,6 +863,7 @@ fun FeedScreen(
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
+            counterparties = counterparties,
         )
     }
 

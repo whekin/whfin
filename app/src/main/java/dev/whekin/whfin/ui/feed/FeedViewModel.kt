@@ -18,6 +18,7 @@ import dev.whekin.whfin.ui.bank.SupportedBankApp
 import dev.whekin.whfin.ui.bank.bankAppForGroup
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.CategoryEntity
+import dev.whekin.whfin.data.db.CounterpartyProfile
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.PaymentInstrumentType
 import dev.whekin.whfin.data.notifications.focusedPhysicalCards
@@ -39,6 +40,7 @@ import androidx.room.withTransaction
 import java.time.LocalTime
 import dev.whekin.whfin.data.backup.LedgerRestoreState
 import dev.whekin.whfin.data.categorization.CategorySuggester
+import dev.whekin.whfin.data.categorization.MerchantCategorizer
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
 import dev.whekin.whfin.data.mutation.AllocationMutation
 import dev.whekin.whfin.data.mutation.ManualMutation
@@ -349,6 +351,16 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     val people: StateFlow<List<PersonEntity>> = db.personDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Everyone the ledger already knows, for the composer's "who was this?" question.
+     *
+     * The people table is joined in because somebody can exist as a person long before a row ever
+     * names them — a friend paid in cash has no statement to be imported from.
+     */
+    val counterparties: StateFlow<List<CounterpartyProfile>> =
+        db.transactionDao().observeCounterpartyProfiles()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val unroutedOperations: StateFlow<List<UnroutedOperation>> = db.smsDiagnosticDao().observeUnrouted()
         .map { diagnostics ->
             diagnostics.mapNotNull { diagnostic ->
@@ -587,6 +599,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
             // Сегодняшняя запись получает текущее время, вчерашняя — полдень,
             // чтобы не прыгать в начало дня в ленте
             val time = if (tx.day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
+            val merchant = resolveCounterparty(tx.counterparty)
             transactionMutations.createManual(
                 ManualMutation(
                     accountId = tx.accountId,
@@ -596,9 +609,34 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                     categoryId = tx.categoryId,
                     note = tx.note,
                     occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli(),
+                    merchantId = merchant?.id,
+                    rawCounterparty = tx.counterparty?.trim()?.takeIf(String::isNotEmpty),
                 ),
             )
+            learnCounterparty(merchant, tx.categoryId)
         }
+    }
+
+    /**
+     * The merchant identity behind a typed or chosen name.
+     *
+     * A transfer has no counterparty of its own — both sides are the person's own accounts — so the
+     * name is dropped there rather than teaching the dictionary about yourself.
+     */
+    private suspend fun resolveCounterparty(name: String?): MerchantEntity? {
+        val clean = name?.trim().orEmpty()
+        if (clean.isEmpty()) return null
+        return MerchantCategorizer.resolve(db, clean)
+    }
+
+    /**
+     * Remembering the pair the person just stated, exactly as choosing a category on an imported
+     * row does: the next payment to this name arrives already filed.
+     */
+    private suspend fun learnCounterparty(merchant: MerchantEntity?, categoryId: Long?) {
+        if (merchant == null || categoryId == null) return
+        db.merchantDao().setCategory(merchant.id, categoryId)
+        db.transactionDao().categorizeUnassignedForMerchant(merchant.id, categoryId)
     }
 
     fun addDebt(debt: dev.whekin.whfin.data.debt.NewDebt) {
@@ -699,6 +737,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         mutate {
             val oldTime = Instant.ofEpochMilli(item.tx.occurredAt).atZone(zone).toLocalTime()
             val occurredAt = value.day.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
+            val merchant = resolveCounterparty(value.counterparty)
             transactionMutations.updateManual(
                 item.tx.id,
                 ManualMutation(
@@ -709,8 +748,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                     categoryId = value.categoryId,
                     note = value.note,
                     occurredAt = occurredAt,
+                    merchantId = merchant?.id,
+                    rawCounterparty = value.counterparty?.trim()?.takeIf(String::isNotEmpty),
                 ),
             )
+            learnCounterparty(merchant, value.categoryId)
         }
     }
 

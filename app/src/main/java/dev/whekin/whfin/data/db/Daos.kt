@@ -615,6 +615,30 @@ interface TransactionDao {
     )
     fun observeCategoryCoverage(): Flow<CategoryCoverage>
 
+    /**
+     * Everyone this ledger has ever paid or been paid by, with the category they are usually filed
+     * under.
+     *
+     * A statement writes a counterparty on every row it imports, so the answer to "who was this?"
+     * already exists for hundreds of names — hand-written rows are the only ones that never had it.
+     * The category comes from the merchant dictionary when the user taught it, and otherwise from
+     * what those rows were actually filed as, which is how a person paid by transfer carries a
+     * category the dictionary itself never learned.
+     */
+    @Query(
+        "SELECT m.id AS merchantId, m.displayName AS displayName, " +
+            "COALESCE(m.categoryId, (SELECT h.categoryId FROM transactions h " +
+            "WHERE h.merchantId = m.id AND h.categoryId IS NOT NULL AND h.isVoided = 0 " +
+            "GROUP BY h.categoryId ORDER BY COUNT(*) DESC LIMIT 1)) AS categoryId, " +
+            "SUM(CASE WHEN t.amountMinor < 0 THEN 1 ELSE 0 END) AS expenseCount, " +
+            "SUM(CASE WHEN t.amountMinor > 0 THEN 1 ELSE 0 END) AS incomeCount, " +
+            "MAX(t.occurredAt) AS latestAt " +
+            "FROM transactions t JOIN merchants m ON m.id = t.merchantId " +
+            "WHERE t.isVoided = 0 AND t.isTransfer = 0 AND t.source != 'ADJUSTMENT' " +
+            "GROUP BY m.id, m.displayName"
+    )
+    fun observeCounterpartyProfiles(): Flow<List<CounterpartyProfile>>
+
     @Query(
         "SELECT m.id AS merchantId, m.displayName AS displayName, COUNT(*) AS transactionCount, " +
             "MAX(t.occurredAt) AS latestAt FROM transactions t " +
@@ -864,6 +888,16 @@ data class CategoryCoverage(
     val totalExpenses: Int,
     val categorizedExpenses: Int,
     val withoutMerchant: Int,
+)
+
+/** One counterparty the ledger already knows, with how it has been used and how it is filed. */
+data class CounterpartyProfile(
+    val merchantId: Long,
+    val displayName: String,
+    val categoryId: Long?,
+    val expenseCount: Int,
+    val incomeCount: Int,
+    val latestAt: Long,
 )
 
 data class UncategorizedMerchant(

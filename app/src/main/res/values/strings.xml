@@ -1028,6 +1028,11 @@
     <string name="new_expense">New expense</string>
     <string name="new_income">New income</string>
     <string name="new_transfer">New transfer</string>
+    <string name="tx_counterparty_out">Paid to</string>
+    <string name="tx_counterparty_in">Received from</string>
+    <string name="tx_counterparty_add">Add a name</string>
+    <string name="tx_counterparty_search">Search names</string>
+    <string name="tx_counterparty_create">Add \u201C%1$s\u201D</string>
     <string name="income_source">Source</string>
     <string name="from_account">From account</string>
     <string name="to_account">To account</string>

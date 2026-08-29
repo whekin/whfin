@@ -129,6 +129,14 @@ inside the distribution, and keep balance adjustments outside it.
 
 Treat the amount as the active focal field. Keep type selection explicit, account/category/date choices as compact decision rows, and the save action pinned above navigation/IME. Category selection is a full internal step, not a modal stacked over another modal.
 
+Who was paid is asked in the same grammar as the category: a ranked rail of the likely few and a
+door to the full searchable list, placed on the section label rather than at the end of the rail. The
+two rails answer each other — a chosen name fills an empty category, a chosen category lifts the
+names filed there — and a remembered answer is an offer, never a correction of an explicit one. The
+name is stored as the identity a statement would have written, so nothing downstream needs a second
+mechanism to read it. A transfer has no counterparty: both of its sides are the person's own
+accounts.
+
 ### Working sheets
 
 Treat filter, mapping, and compact-edit sheets as small working surfaces rather than plain stacks of

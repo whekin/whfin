@@ -14,12 +14,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.filled.Check
+import dev.whekin.whfin.data.categorization.CounterpartyCandidate
+import dev.whekin.whfin.data.categorization.CounterpartyDirection
+import dev.whekin.whfin.data.categorization.CounterpartySuggester
+import dev.whekin.whfin.data.db.CounterpartyProfile
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -76,6 +87,8 @@ data class ManualTransaction(
     val categoryId: Long?,
     val note: String?,
     val day: LocalDate,
+    /** Who the money went to or came from; a transfer's sides are own accounts and carry none. */
+    val counterparty: String? = null,
 )
 
 private enum class ManualKind(val label: Int, val title: Int) {
@@ -141,6 +154,8 @@ fun AddTransactionSheet(
     onCreateCategory: (String, CategoryKind, String, Int) -> Unit = { _, _, _, _ -> },
     onCreateCashCurrency: (String) -> Unit = {},
     rankCategories: CategoryRanker = { list, _, _ -> list },
+    /** Everyone the ledger already knows, unranked; the form ranks them against its own state. */
+    counterparties: List<CounterpartyProfile> = emptyList(),
 ) {
     val sources = remember(accounts) { accountSources(accounts) }
     val initial = remember(accounts) { defaultManualAccount(accounts) }
@@ -164,6 +179,12 @@ fun AddTransactionSheet(
     var day by remember(editing?.tx?.id) { mutableStateOf(editing?.day ?: LocalDate.now()) }
     var showTypeMenu by remember { mutableStateOf(false) }
     var showAllCategories by remember { mutableStateOf(false) }
+    var showCounterparties by remember { mutableStateOf(false) }
+    // An imported row keeps its own counterparty; a hand-written one starts from whatever the last
+    // save recorded, so editing a payment does not silently strip the name off it.
+    var counterparty by remember(editing?.tx?.id) {
+        mutableStateOf(editing?.merchant?.displayName ?: editing?.tx?.rawCounterparty.orEmpty())
+    }
     var showDatePicker by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var debtDirection by remember { mutableStateOf(DebtDirection.THEY_OWE_ME) }
@@ -198,10 +219,14 @@ fun AddTransactionSheet(
         (kind != ManualKind.TRANSFER || destination != null) && (!conversion || destinationMinor != null)
         && (kind != ManualKind.DEBT || debtPersonId != null || debtPersonName.isNotBlank())
     val dirty = amountText.isNotBlank() || destinationAmount.isNotBlank() || categoryId != null || note.isNotBlank() ||
-        day != LocalDate.now() || kind != initialKind
+        day != LocalDate.now() || kind != initialKind || counterparty.isNotBlank()
     val requestClose = { if (dirty) confirmDiscard = true else onDismiss() }
     val requestDialogDismiss = {
-        if (showAllCategories) showAllCategories = false else requestClose()
+        when {
+            showAllCategories -> showAllCategories = false
+            showCounterparties -> showCounterparties = false
+            else -> requestClose()
+        }
     }
 
     fun save() {
@@ -232,6 +257,9 @@ fun AddTransactionSheet(
             amountMinor = if (kind == ManualKind.INCOME) savedAmountMinor else -savedAmountMinor,
             categoryId = categoryId.takeIf { kind != ManualKind.TRANSFER },
             note = note.trim().takeIf(String::isNotEmpty), day = day,
+            // Both sides of a transfer are the person's own accounts, so it has no counterparty to
+            // name and must not teach the dictionary about them.
+            counterparty = counterparty.trim().takeIf { it.isNotEmpty() && !transfer },
         )
         if (editing != null) onUpdate(editing, result) else onSave(result)
     }
@@ -253,7 +281,25 @@ fun AddTransactionSheet(
                 Modifier.fillMaxSize().whfinPredictiveBack(backGesture),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                if (showAllCategories) {
+                if (showCounterparties) {
+                    val direction = if (kind == ManualKind.INCOME) CounterpartyDirection.INCOMING
+                    else CounterpartyDirection.OUTGOING
+                    CounterpartySelectorScreen(
+                        candidates = CounterpartySuggester.candidates(counterparties, people, direction),
+                        categories = categories,
+                        direction = direction,
+                        selected = counterparty,
+                        selectedCategoryId = categoryId,
+                        onBack = { showCounterparties = false },
+                        onSelect = { candidate ->
+                            counterparty = candidate.name
+                            // A remembered category is an offer, never a correction: an explicit
+                            // choice already on the form outranks what this name usually is.
+                            if (categoryId == null) categoryId = candidate.categoryId
+                            showCounterparties = false
+                        },
+                    )
+                } else if (showAllCategories) {
                     CategorySelectorScreen(
                         categories = categories.filter {
                             it.kind == (if (kind == ManualKind.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE) && !it.isSystem
@@ -286,6 +332,15 @@ fun AddTransactionSheet(
                                 categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem }, categoryId, amountMinor,
                                 account?.currency, rankCategories,
                                 sources, accountId, day, note,
+                                counterparty = counterparty,
+                                counterpartyCandidates = CounterpartySuggester.candidates(
+                                    counterparties, people, CounterpartyDirection.OUTGOING,
+                                ),
+                                onCounterparty = { picked ->
+                                    counterparty = picked?.name.orEmpty()
+                                    if (picked != null && categoryId == null) categoryId = picked.categoryId
+                                },
+                                onMoreCounterparties = { showCounterparties = true },
                                 onCategory = { categoryId = it }, onMore = { showAllCategories = true },
                                 onAccount = { accountId = it }, onCreateCashCurrency = createCashCurrency,
                                 onDate = { showDatePicker = true }, onNote = { note = it },
@@ -293,6 +348,15 @@ fun AddTransactionSheet(
                             ManualKind.INCOME -> IncomeLayout(
                                 categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem }, categoryId,
                                 sources, accountId, day, note,
+                                counterparty = counterparty,
+                                counterpartyCandidates = CounterpartySuggester.candidates(
+                                    counterparties, people, CounterpartyDirection.INCOMING,
+                                ),
+                                onCounterparty = { picked ->
+                                    counterparty = picked?.name.orEmpty()
+                                    if (picked != null && categoryId == null) categoryId = picked.categoryId
+                                },
+                                onMoreCounterparties = { showCounterparties = true },
                                 onCategory = { categoryId = it }, onAccount = { accountId = it }, onCreateCashCurrency = createCashCurrency,
                                 onDate = { showDatePicker = true }, onNote = { note = it },
                             )
@@ -490,7 +554,7 @@ private fun minorInput(value: Long): String {
             textStyle = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent),
-            modifier = Modifier.weight(1f).focusRequester(focusRequester))
+            modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("composer-amount"))
         Text(
             account?.currency.orEmpty(),
             Modifier.padding(horizontal = 12.dp),
@@ -503,8 +567,18 @@ private fun minorInput(value: Long): String {
 @Composable private fun ExpenseLayout(categories: List<CategoryEntity>, selected: Long?, amount: Long?,
     currency: String?, rankCategories: CategoryRanker,
     sources: List<AccountSource>, accountId: Long?, day: LocalDate, note: String,
+    counterparty: String, counterpartyCandidates: List<CounterpartyCandidate>,
+    onCounterparty: (CounterpartyCandidate?) -> Unit, onMoreCounterparties: () -> Unit,
     onCategory: (Long) -> Unit, onMore: () -> Unit, onAccount: (Long) -> Unit, onCreateCashCurrency: (String) -> Unit,
     onDate: () -> Unit, onNote: (String) -> Unit) {
+    CounterpartyRow(
+        label = stringResource(R.string.tx_counterparty_out),
+        candidates = counterpartyCandidates,
+        selected = counterparty,
+        selectedCategoryId = selected,
+        onSelect = onCounterparty,
+        onMore = onMoreCounterparties,
+    )
     // Один механизм выбора: выбранная категория и подсказки живут в одном ряду, «Ещё» открывает
     // полный список. Прежде над этим рядом стояла ещё и отдельная строка «Выбрать категорию».
     val chosen = categories.firstOrNull { it.id == selected }
@@ -528,7 +602,17 @@ private fun minorInput(value: Long): String {
 }
 
 @Composable private fun IncomeLayout(categories: List<CategoryEntity>, selected: Long?, sources: List<AccountSource>, accountId: Long?, day: LocalDate, note: String,
+    counterparty: String, counterpartyCandidates: List<CounterpartyCandidate>,
+    onCounterparty: (CounterpartyCandidate?) -> Unit, onMoreCounterparties: () -> Unit,
     onCategory: (Long) -> Unit, onAccount: (Long) -> Unit, onCreateCashCurrency: (String) -> Unit, onDate: () -> Unit, onNote: (String) -> Unit) {
+    CounterpartyRow(
+        label = stringResource(R.string.tx_counterparty_in),
+        candidates = counterpartyCandidates,
+        selected = counterparty,
+        selectedCategoryId = selected,
+        onSelect = onCounterparty,
+        onMore = onMoreCounterparties,
+    )
     SectionLabel(stringResource(R.string.income_source))
     CategoryGrid(categories, selected, { onCategory(it.id) }, maxHeight = 210.dp)
     Column(Modifier.fillMaxWidth()) {
@@ -563,7 +647,8 @@ private fun minorInput(value: Long): String {
  * Внутри формы подписи полей тихие: капс с трекингом остаётся ярлыком книги (день, раздел экрана).
  * Раньше `КАТЕГОРИЯ`, `НАПРАВЛЕНИЕ`, `ЧЕЛОВЕК`, `ДВИЖЕНИЕ ДЕНЕГ` капсом шли подряд и телеграфировали.
  */
-@Composable private fun SectionLabel(text: String) = WhfinFieldLabel(text)
+@Composable private fun SectionLabel(text: String, modifier: Modifier = Modifier) =
+    WhfinFieldLabel(text, modifier)
 
 @Composable private fun SelectorRow(label: String, icon: ImageVector, tint: Color, onClick: () -> Unit, selected: Boolean = false) {
     WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = selected) {
@@ -730,6 +815,152 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
     )
 }
 
+/**
+ * Who the money is going to, offered before it is typed.
+ *
+ * The ledger already knows hundreds of names from statements and SMS, and everyone paid in cash was
+ * the one case where that knowledge did not exist: the name went into a note, and the category was
+ * chosen by hand again every month. The rail is the same mechanism the categories use — the likely
+ * few plus a door to all of them — and the two rails answer each other: a chosen category ranks the
+ * names usually filed there, a chosen name fills the category it is usually filed under.
+ */
+@Composable private fun CounterpartyRow(
+    label: String,
+    candidates: List<CounterpartyCandidate>,
+    selected: String,
+    selectedCategoryId: Long?,
+    onSelect: (CounterpartyCandidate?) -> Unit,
+    onMore: () -> Unit,
+) {
+    val chosen = selected.takeIf(String::isNotBlank)
+    val suggestions = remember(candidates, chosen, selectedCategoryId) {
+        val ranked = CounterpartySuggester
+            .rank(candidates, selectedCategoryId, System.currentTimeMillis())
+            .filterNot { it.name.equals(chosen, ignoreCase = true) }
+            .take(SUGGESTED_COUNTERPARTIES)
+        val head = chosen?.let { name ->
+            candidates.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                ?: CounterpartyCandidate(name = name)
+        }
+        listOfNotNull(head) + ranked
+    }
+    // The door to everyone else sits on the label, not at the end of the rail: a rail scrolls, and
+    // a door that has to be scrolled to is a door most people never find.
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SectionLabel(label, Modifier.weight(1f))
+        WhfinIconButton(
+            icon = Icons.Outlined.Search,
+            contentDescription = stringResource(R.string.tx_counterparty_search),
+            onClick = onMore,
+            outlined = false,
+        )
+    }
+    if (suggestions.isEmpty()) {
+        // Nothing has been paid by name yet, so there is no rail to show — only the invitation.
+        WhfinFilterPill(
+            label = stringResource(R.string.tx_counterparty_add),
+            selected = false,
+            onClick = onMore,
+            leadingIcon = Icons.Default.Add,
+        )
+    } else WhfinChoiceRail {
+        items(suggestions, key = { it.name }) { candidate ->
+            val isSelected = candidate.name.equals(chosen, ignoreCase = true)
+            WhfinFilterPill(
+                label = candidate.name,
+                selected = isSelected,
+                // Tapping the chosen name again clears it: naming who was paid is an offer, and an
+                // offer that cannot be taken back is a trap.
+                onClick = { onSelect(if (isSelected) null else candidate) },
+                leadingIcon = if (candidate.personId != null) Icons.Outlined.Person else null,
+            )
+        }
+    }
+}
+
+/**
+ * The full list, searched by name, with the category each one is usually filed under.
+ *
+ * A name nobody has been paid under yet is created straight from the query: the dictionary learns
+ * it on save, so the second cash payment to the same person is one tap.
+ */
+@Composable private fun CounterpartySelectorScreen(
+    candidates: List<CounterpartyCandidate>,
+    categories: List<CategoryEntity>,
+    direction: CounterpartyDirection,
+    selected: String,
+    selectedCategoryId: Long?,
+    onBack: () -> Unit,
+    onSelect: (CounterpartyCandidate) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val ranked = remember(candidates, query, selectedCategoryId) {
+        CounterpartySuggester.rank(
+            CounterpartySuggester.search(candidates, query),
+            selectedCategoryId,
+            System.currentTimeMillis(),
+        )
+    }
+    val typed = query.trim()
+    val exists = ranked.any { it.name.equals(typed, ignoreCase = true) }
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            WhfinBackButton(stringResource(R.string.action_back), onBack)
+            Text(
+                stringResource(
+                    if (direction == CounterpartyDirection.INCOMING) R.string.tx_counterparty_in
+                    else R.string.tx_counterparty_out,
+                ),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 8.dp).weight(1f),
+            )
+        }
+        WhfinField(
+            value = query,
+            onValueChange = { query = it },
+            label = null,
+            placeholder = stringResource(R.string.tx_counterparty_search),
+            leadingIcon = Icons.Outlined.Search,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        )
+        LazyColumn(
+            Modifier.fillMaxWidth().weight(1f),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            if (typed.isNotEmpty() && !exists) item(key = "counterparty-create") {
+                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    WhfinLedgerRow(
+                        title = stringResource(R.string.tx_counterparty_create, typed),
+                        icon = Icons.Default.Add,
+                        onClick = { onSelect(CounterpartyCandidate(name = typed)) },
+                    )
+                }
+            }
+            items(ranked, key = { it.name }) { candidate ->
+                val category = categories.firstOrNull { it.id == candidate.categoryId }
+                WhfinLedgerRow(
+                    title = candidate.name,
+                    supportingText = category?.name,
+                    icon = if (candidate.personId != null) Icons.Outlined.Person else Icons.Outlined.Storefront,
+                    iconTint = category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary,
+                    trailing = if (candidate.name.equals(selected, ignoreCase = true)) {
+                        { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                    } else null,
+                    onClick = { onSelect(candidate) },
+                    divider = true,
+                )
+            }
+        }
+    }
+}
+
+/** Enough names to recognise the usual one, few enough that the rail stays one glance. */
+private const val SUGGESTED_COUNTERPARTIES = 4
+
 @Composable private fun CategorySelectorScreen(
     categories: List<CategoryEntity>, selected: Long?, onBack: () -> Unit,
     onSelect: (CategoryEntity) -> Unit, kind: CategoryKind,
@@ -824,7 +1055,15 @@ private fun ComposerContentPreview() {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ExpenseLayout(
                         categories, 1, 2_360, "GEL", { list, _, _ -> list },
-                        listOf(source), 1, LocalDate.now(), "", {}, {}, {}, {}, {}, {},
+                        listOf(source), 1, LocalDate.now(), "",
+                        counterparty = "Misho",
+                        counterpartyCandidates = listOf(
+                            CounterpartyCandidate("Juniper Market", merchantId = 1, categoryId = 1, usageCount = 12),
+                            CounterpartyCandidate("Misho", personId = 1, categoryId = 2, usageCount = 4),
+                        ),
+                        onCounterparty = {}, onMoreCounterparties = {},
+                        onCategory = {}, onMore = {}, onAccount = {}, onCreateCashCurrency = {},
+                        onDate = {}, onNote = {},
                     )
                 }
                 WhfinButton("Save", {}, Modifier.fillMaxWidth().padding(20.dp))
