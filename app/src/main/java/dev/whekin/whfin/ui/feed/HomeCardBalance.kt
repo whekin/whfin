@@ -82,13 +82,20 @@ internal fun HomePhysicalCardBalance(
                     .testTag("home-card-${balance.accountId}")
                     .padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 13.dp),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // The marker and the mark sit against the middle of the block, exactly as the
+                // shared ledger row places them: the runway and debt cards standing directly above
+                // this one are that row, and a card whose glyph starts at the top instead reads as
+                // a different kind of thing on the same screen.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     // The severity mark every other standing condition on Home already uses, so a
                     // card in trouble is recognised before a single word of it is read.
                     Spacer(
                         Modifier
                             .width(WhfinThemeTokens.sizes.ledgerMarker)
-                            .height(40.dp)
+                            .height(36.dp)
                             .background(accent, CircleShape),
                     )
                     Box(
