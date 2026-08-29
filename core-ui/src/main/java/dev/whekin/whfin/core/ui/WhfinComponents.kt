@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -968,16 +969,23 @@ fun WhfinLedgerRow(
     divider: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    // A row of one or two lines is a line: its mark belongs beside the middle of it. A row allowed
+    // to run on is a paragraph, and there the middle is the middle of a sentence — the mark then
+    // labels nothing and floats. It goes back up to the title, which is what it marks, and the rule
+    // it draws grows to the height of what it is bracketing instead of staying a tick at the top.
+    val paragraph = titleMaxLines > 2 || supportingMaxLines > 2
     Column(modifier.fillMaxWidth().then(
         if (onClick != null) Modifier.clickable(interactionSource, indication = null, onClick = onClick) else Modifier,
     )) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp)
+                .then(if (paragraph) Modifier.height(IntrinsicSize.Min) else Modifier),
+            verticalAlignment = if (paragraph) Alignment.Top else Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (markerColor != null) Spacer(
-                Modifier.width(WhfinThemeTokens.sizes.ledgerMarker).height(36.dp)
+                Modifier.width(WhfinThemeTokens.sizes.ledgerMarker)
+                    .then(if (paragraph) Modifier.fillMaxHeight() else Modifier.height(36.dp))
                     .background(markerColor, CircleShape),
             )
             if (icon != null) Box(

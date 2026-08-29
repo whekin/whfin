@@ -19,6 +19,10 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
 - `WhfinSectionHeader`: optional eyebrow, title, supporting text, and trailing action.
 - `WhfinLedgerGroup`: one outlined/tonal grouping surface with internal rules; do not nest it.
 - `WhfinLedgerRow`: icon/marker, title, metadata, amount/status, click semantics, and optional divider.
+  Alignment follows the row's own shape: one or two lines centre the marker, glyph and trailing
+  content; a row whose max lines exceed two is a paragraph, so those align to the title and the
+  marker grows to the height of the block. A glyph centred on a paragraph labels its middle,
+  which is a sentence rather than the thing being marked.
 - `WhfinNotice`: info, attention, error, permission, and unavailable states with one dominant action at most. A persistent optional proposal may add one quiet, accessible dismiss action; dismissal policy and persistence stay in the feature layer.
 - `WhfinWorkspaceStrip`: a compact, non-dismissible workspace identity with one quiet direct action.
   It uses a full-width tonal ledger row plus a bottom rule, not a floating banner or card. The strip

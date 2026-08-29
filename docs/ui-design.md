@@ -466,7 +466,15 @@ Accounts (everyday, savings, crypto, debts, archived).
 The Home low-balance card keeps its balance pinned to the line naming the card, and moves the bank
 launch out of the text column onto its own rail under a hairline, starting where the card starts.
 Inside the column it began on a third left edge and read as part of the sentence. A severity marker
-matches the other standing conditions on Home. Verified on a disposable Pixel emulator: EN light and
+matches the other standing conditions on Home.
+
+`WhfinLedgerRow` places its marker and glyph by what the row is. One or two lines is a line, and the
+mark belongs beside the middle of it. A row allowed to run on — `titleMaxLines`/`supportingMaxLines`
+above two, as the runway and its obligations use — is a paragraph, where the middle is the middle of
+a sentence and a centred glyph labels nothing. There the glyph and the trailing affordance align to
+the title, and the marker grows to the height of the block it brackets instead of staying a tick at
+the top. Home's cards then read as one kind of thing: marker, glyph beside the title, the number or
+the affordance at the end of that same line, explanation beneath. Verified on a disposable Pixel emulator: EN light and
 dark, RU at font scale 1.5 (Accounts strip falling back to rows, the editor, the card with both
 action rails), plus the existing `HomeRunwayVisualTest` renders.
 
