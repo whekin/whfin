@@ -47,6 +47,47 @@ internal data class HomeRunway(
 )
 
 /**
+ * The runway as a shape: one window, the point the money reaches, the day it is refilled.
+ *
+ * The window runs from today to whichever comes last — the outer bound of the declared payday, or
+ * the day the money runs out — so both marks always have somewhere to sit. Without a declared
+ * payday there is no window to draw and the card keeps its sentence.
+ */
+internal data class RunwayShape(
+    val fundedFraction: Float,
+    val runsOut: LocalDate?,
+    val payday: LocalDate,
+    val paydayFraction: Float,
+    /** The outer bound of the declared window, when it is later than the ordinary date. */
+    val deadline: LocalDate?,
+    val deadlineFraction: Float?,
+    val shortOfIncome: Boolean,
+)
+
+internal fun runwayShape(runway: HomeRunway, today: LocalDate): RunwayShape? {
+    val income = runway.nextIncome ?: return null
+    val runsOut = runway.daysLeft?.let { today.plusDays(it.toLong()) }
+    val end = maxOf(income.deadline, income.expected, runsOut ?: income.deadline)
+    val span = ChronoUnit.DAYS.between(today, end).toFloat()
+    // A window that is over today cannot be divided; the card falls back to its sentence.
+    if (span <= 0f) return null
+    val deadline = income.deadline.takeIf { it > income.expected }
+    return RunwayShape(
+        // No burn rate means nothing is being spent, so the money covers the whole window.
+        fundedFraction = runsOut
+            ?.let { (ChronoUnit.DAYS.between(today, it) / span).coerceIn(0f, 1f) }
+            ?: 1f,
+        runsOut = runsOut,
+        payday = income.expected,
+        paydayFraction = (ChronoUnit.DAYS.between(today, income.expected) / span).coerceIn(0f, 1f),
+        deadline = deadline,
+        deadlineFraction = deadline
+            ?.let { (ChronoUnit.DAYS.between(today, it) / span).coerceIn(0f, 1f) },
+        shortOfIncome = runway.shortOfIncome,
+    )
+}
+
+/**
  * Reads a runway, or stays silent when it would be inventing one.
  *
  * Missing balance/rate is not a forecast. Without a payday, readings beyond 45 days stay quiet;

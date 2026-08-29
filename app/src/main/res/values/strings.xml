@@ -101,6 +101,9 @@
     <string name="home_runway_shortfall_latest">May be %1$s short by the latest date, %2$s</string>
     <string name="home_runway_enough">Should last until %1$s</string>
     <string name="home_runway_enough_latest">Should last until the latest date, %1$s</string>
+    <string name="home_runway_today">today</string>
+    <string name="home_runway_runs_out">Money runs out %1$s</string>
+    <string name="home_runway_payday_mark">Payday %1$s</string>
     <string name="home_runway_calculation">Calculation details</string>
     <string name="home_runway_expected_payment">~%1$s · expected %2$s</string>
     <string name="home_runway_expected_total">Expected by the usual payday: %1$s</string>

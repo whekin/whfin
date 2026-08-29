@@ -412,3 +412,42 @@ private fun SkeletonScreenshotContent() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "runway_timeline_light", widthDp = 400, heightDp = 120)
+@Composable
+fun runwayTimelineLightScreenshot() {
+    WhfinTheme(darkTheme = false) { RunwayTimelineScreenshotContent(shortfall = true) }
+}
+
+@PreviewTest
+@Preview(name = "runway_timeline_dark", widthDp = 400, heightDp = 120, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun runwayTimelineDarkScreenshot() {
+    WhfinTheme(darkTheme = true) { RunwayTimelineScreenshotContent(shortfall = true) }
+}
+
+@PreviewTest
+@Preview(name = "runway_timeline_covered", widthDp = 400, heightDp = 120)
+@Composable
+fun runwayTimelineCoveredScreenshot() {
+    WhfinTheme(darkTheme = false) { RunwayTimelineScreenshotContent(shortfall = false) }
+}
+
+@Composable
+private fun RunwayTimelineScreenshotContent(shortfall: Boolean) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        WhfinRunwayTimeline(
+            fundedFraction = if (shortfall) .46f else 1f,
+            marks = listOf(
+                WhfinTimelineMark(if (shortfall) .46f else 1f, "3 Sep", emphasis = true),
+                WhfinTimelineMark(.77f, "7 Sep"),
+                WhfinTimelineMark(1f, "10 Sep"),
+                WhfinTimelineMark(0f, "today"),
+            ),
+            contentDescription = "Money runs out 3 Sep. Payday 7 Sep",
+            modifier = Modifier.padding(20.dp),
+            shortfall = shortfall,
+        )
+    }
+}

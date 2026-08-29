@@ -171,6 +171,8 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinSkeleton
 import dev.whekin.whfin.core.ui.WhfinSkeletonBlock
 import dev.whekin.whfin.core.ui.WhfinSkeletonLedgerRow
+import dev.whekin.whfin.core.ui.WhfinRunwayTimeline
+import dev.whekin.whfin.core.ui.WhfinTimelineMark
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.recurring.RecurringCharge
 import dev.whekin.whfin.data.recurring.RecurringOccurrence
@@ -2232,39 +2234,46 @@ internal fun HomeRunwayRow(
     }
     val obligations = listOfNotNull(firstOccurrence, moreOccurrences).joinToString(" · ")
         .takeIf(String::isNotEmpty)
+    val title = runway.shortfallMinor?.let { shortfall ->
+        val target = runway.nextIncome?.expected?.format(dateFormat).orEmpty()
+        stringResource(
+            if (runway.nextIncome?.usingDeadline == true) {
+                R.string.home_runway_shortfall_latest
+            } else {
+                R.string.home_runway_shortfall
+            },
+            formatMinor(shortfall, "GEL"),
+            target,
+        )
+    } ?: runway.nextIncome?.let { income ->
+        stringResource(
+            if (income.usingDeadline) {
+                R.string.home_runway_enough_latest
+            } else {
+                R.string.home_runway_enough
+            },
+            income.expected.format(dateFormat),
+        )
+    } ?: pluralStringResource(
+        R.plurals.home_runway_days,
+        runway.daysLeft ?: 0,
+        runway.daysLeft ?: 0,
+    )
+    val shape = remember(runway) { runwayShape(runway, LocalDate.now()) }
+    // Everything the shape already draws is struck from the sentence beneath it: the payday and the
+    // day the money ends are marks on the rule now, and repeating them below is the old paragraph
+    // growing back.
+    val detail = listOfNotNull(burn, obligations, payday.takeIf { shape == null })
+        .joinToString(" · ")
     WhfinLedgerGroup(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
             .testTag("home-runway"),
         tonal = true,
     ) {
-        WhfinLedgerRow(
-            title = runway.shortfallMinor?.let { shortfall ->
-                val target = runway.nextIncome?.expected?.format(dateFormat).orEmpty()
-                stringResource(
-                    if (runway.nextIncome?.usingDeadline == true) {
-                        R.string.home_runway_shortfall_latest
-                    } else {
-                        R.string.home_runway_shortfall
-                    },
-                    formatMinor(shortfall, "GEL"),
-                    target,
-                )
-            } ?: runway.nextIncome?.let { income ->
-                stringResource(
-                    if (income.usingDeadline) {
-                        R.string.home_runway_enough_latest
-                    } else {
-                        R.string.home_runway_enough
-                    },
-                    income.expected.format(dateFormat),
-                )
-            } ?: pluralStringResource(
-                    R.plurals.home_runway_days,
-                    runway.daysLeft ?: 0,
-                    runway.daysLeft ?: 0,
-                ),
+        if (shape == null) WhfinLedgerRow(
+            title = title,
             titleMaxLines = Int.MAX_VALUE,
-            supportingText = listOfNotNull(burn, obligations, payday).joinToString(" · "),
+            supportingText = detail,
             supportingMaxLines = Int.MAX_VALUE,
             icon = Icons.Outlined.Schedule,
             iconTint = accent,
@@ -2277,8 +2286,87 @@ internal fun HomeRunwayRow(
                 )
             },
             onClick = { expanded = !expanded },
-        )
+        ) else Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = stringResource(R.string.home_runway_calculation)) {
+                    expanded = !expanded
+                }
+                .padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (runway.shortOfIncome) Spacer(
+                    Modifier
+                        .width(WhfinThemeTokens.sizes.ledgerMarker)
+                        .height(36.dp)
+                        .background(accent, CircleShape),
+                )
+                Box(
+                    Modifier
+                        .size(WhfinThemeTokens.sizes.iconContainer)
+                        .background(accent.copy(alpha = .11f), MaterialTheme.shapes.small),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Schedule,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Text(
+                    title,
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Icon(
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = stringResource(R.string.home_runway_calculation),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            val runsOutLabel = shape.runsOut?.format(dateFormat)
+            val paydayLabel = shape.payday.format(dateFormat)
+            WhfinRunwayTimeline(
+                fundedFraction = shape.fundedFraction,
+                // The two dates that decide the answer, in the order they must survive a collision:
+                // where the money ends first, then when it is refilled, then the day it is read on.
+                marks = listOfNotNull(
+                    runsOutLabel?.let {
+                        WhfinTimelineMark(shape.fundedFraction, it, emphasis = true)
+                    },
+                    WhfinTimelineMark(shape.paydayFraction, paydayLabel),
+                    // The end of the rule is the outer bound of the declared window; unlabelled, it
+                    // would be a line that simply stops somewhere.
+                    shape.deadline?.let { deadline ->
+                        WhfinTimelineMark(shape.deadlineFraction ?: 1f, deadline.format(dateFormat))
+                    },
+                    WhfinTimelineMark(0f, stringResource(R.string.home_runway_today)),
+                ),
+                contentDescription = listOfNotNull(
+                    title,
+                    runsOutLabel?.let { stringResource(R.string.home_runway_runs_out, it) },
+                    stringResource(R.string.home_runway_payday_mark, paydayLabel),
+                ).joinToString(". "),
+                shortfall = shape.shortOfIncome,
+            )
+            if (detail.isNotEmpty()) Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (expanded) {
+            // The rule above marks the dates; when it is drawn, the sentence naming the whole
+            // payday window — the ordinary day, the weekend it moved off, the outer bound — waits
+            // here rather than crowding the card everybody reads at a glance.
+            if (shape != null && payday != null) Text(
+                payday,
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             primaryOccurrences.forEach { occurrence ->
                 WhfinLedgerRow(
                     title = occurrence.charge.label,

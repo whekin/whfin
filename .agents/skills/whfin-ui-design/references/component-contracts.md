@@ -64,6 +64,10 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   is reserved for landmarks — a day header or a screen section.
 - `WhfinTotalRule`: the accounting double rule that closes a result block. Ordinary row separators stay
   single `HorizontalDivider`s.
+- `WhfinRunwayTimeline`: one rule across a window the caller defines, a filled part for what is
+  covered, and marks with formatted labels for the days worth naming. Labels are placed in
+  priority order and a colliding one is dropped, never shifted onto the wrong mark. It carries a
+  single accessibility description for the whole reading and holds no dates, money or policy.
 - `WhfinDistributionBar`: compact proportional comparison for values already expressed in the same currency or unit; never use it to imply an exchange rate.
 - `WhfinDonutChart`: a restrained, non-interactive proportional summary for category composition. The
   adjacent ledger rows own selection and navigation so tiny arcs never become inaccessible touch targets;

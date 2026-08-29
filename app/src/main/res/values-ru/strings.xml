@@ -110,6 +110,9 @@
     <string name="home_runway_shortfall_latest">К крайней дате, %2$s, может не хватить %1$s</string>
     <string name="home_runway_enough">До %1$s должно хватить</string>
     <string name="home_runway_enough_latest">До крайней даты, %1$s, должно хватить</string>
+    <string name="home_runway_today">сегодня</string>
+    <string name="home_runway_runs_out">Деньги кончатся %1$s</string>
+    <string name="home_runway_payday_mark">Зарплата %1$s</string>
     <string name="home_runway_calculation">Как рассчитано</string>
     <string name="home_runway_expected_payment">~%1$s · ожидается %2$s</string>
     <string name="home_runway_expected_total">До обычной выплаты ожидается: %1$s</string>

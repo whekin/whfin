@@ -314,4 +314,67 @@ class HomeRunwayTest {
     )
 
 
+
+    /**
+     * The card draws one window: today at its start, and whichever comes last at its end. The
+     * filled part is the money, so the mark on it is the day it runs out and the gap after it is
+     * the shortfall the title names.
+     */
+    @Test
+    fun theWindowRunsToWhicheverComesLastAndTheFilledPartIsTheMoney() {
+        val today = LocalDate.of(2026, 8, 28)
+        val runway = HomeRunway(
+            daysLeft = 6,
+            dailyBurnMinor = 7_200,
+            nextIncome = NextIncomeWindow(
+                usual = LocalDate.of(2026, 9, 5),
+                expected = LocalDate.of(2026, 9, 7),
+                deadline = LocalDate.of(2026, 9, 10),
+                weekendAdjusted = true,
+                usingDeadline = false,
+            ),
+            shortOfIncome = true,
+            shortfallMinor = 5_608,
+        )
+
+        val shape = runwayShape(runway, today)!!
+
+        // 13 days from today to the outer bound; the money covers six of them.
+        assertEquals(6f / 13f, shape.fundedFraction, 0.001f)
+        assertEquals(10f / 13f, shape.paydayFraction, 0.001f)
+        assertEquals(1f, shape.deadlineFraction!!, 0.001f)
+        assertEquals(LocalDate.of(2026, 9, 3), shape.runsOut)
+    }
+
+    @Test
+    fun moneyOutlastingTheWindowFillsItAndKeepsThePaydayInside() {
+        val today = LocalDate.of(2026, 8, 28)
+        val runway = HomeRunway(
+            daysLeft = 20,
+            dailyBurnMinor = 7_200,
+            nextIncome = NextIncomeWindow(
+                usual = LocalDate.of(2026, 9, 5),
+                expected = LocalDate.of(2026, 9, 7),
+                deadline = LocalDate.of(2026, 9, 7),
+                weekendAdjusted = false,
+                usingDeadline = false,
+            ),
+            shortOfIncome = false,
+        )
+
+        val shape = runwayShape(runway, today)!!
+
+        assertEquals(1f, shape.fundedFraction, 0.001f)
+        assertEquals(10f / 20f, shape.paydayFraction, 0.001f)
+        // The outer bound is the ordinary date itself, so there is no second date to mark.
+        assertEquals(null, shape.deadline)
+    }
+
+    /** Without a declared payday there is no window to divide, and the card keeps its sentence. */
+    @Test
+    fun noDeclaredPaydayLeavesNothingToDraw() {
+        val runway = HomeRunway(daysLeft = 12, dailyBurnMinor = 7_200, nextIncome = null, shortOfIncome = false)
+
+        assertEquals(null, runwayShape(runway, LocalDate.of(2026, 8, 28)))
+    }
 }

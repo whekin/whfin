@@ -1,6 +1,8 @@
 package dev.whekin.whfin.ui.feed
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -63,8 +65,12 @@ class HomeRunwayRowTest {
         compose.onNodeWithText("May be 1,300.00 ₾ short by 7 Sep").assertExists()
         compose.onNodeWithText("Day-to-day: ~100.00 ₾ a day", substring = true).assertExists()
         compose.onNodeWithText("Landlord 1,200.00 ₾ on 3 Sep", substring = true).assertExists()
-        compose.onNodeWithText("usual 5 Sep (Sat) · estimate 7 Sep · latest 10 Sep", substring = true).assertExists()
+        // The dates are marks on the rule now, so the sentence naming the whole payday window
+        // waits inside the calculation instead of repeating what the drawing already says.
+        compose.onAllNodesWithText("usual 5 Sep (Sat) · estimate 7 Sep · latest 10 Sep", substring = true)
+            .assertCountEquals(0)
         compose.onNodeWithContentDescription("Calculation details").performClick()
+        compose.onNodeWithText("usual 5 Sep (Sat) · estimate 7 Sep · latest 10 Sep", substring = true).assertExists()
         compose.onNodeWithText("~1,200.00 ₾ · expected 3 Sep").assertExists()
         compose.onNodeWithText("If delayed until 10 Sep: 1,600.00 ₾ short").assertExists()
         compose.onNodeWithText("Future one-off purchases are not predicted.", substring = true).assertExists()
