@@ -264,6 +264,16 @@ This is a single-context repository with root domain documentation and system-wi
   остались выданы. Chrome владельца остался foreground, WHFIN намеренно не запускался, FATAL в logcat
   нет. Схема БД не менялась; проверку карточки низкого баланса и формы счёта на личных данных делает
   владелец.
+  Dogfood `0.3.18 (30)` установлен signed in-place upgrade поверх `0.3.17 (29)` на Samsung S25:
+  full unit suite (737 passed, 1 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` сверены до установки — digest установленного `base.apk` совпал с новой сборкой.
+  После `install -r` version/certificate и SHA-256 установленного `base.apk` (`09d4dc87…8ba52445`)
+  совпали с собранным APK; `firstInstallTime` (2026-08-16 19:13:46) сохранился,
+  `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы, процесс поднялся сам по
+  `MY_PACKAGE_REPLACED` без FATAL в logcat. Launcher владельца остался foreground: WHFIN намеренно не
+  запускался. Схема БД не менялась; валютную полосу, редактор счёта и карточку низкого баланса на
+  личных данных (три валюты под одним IBAN — тот самый случай, ради которого полоса и делалась)
+  проверяет владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
