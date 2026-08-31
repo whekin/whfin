@@ -107,6 +107,10 @@ Detection is deliberately strict, because a wrong recurrence would promise money
 - at most two payments in any of those months — a shop visited weekly is a habit, not a bill;
 - every monthly total must sit within 40% of its own median, which is what separates rent and a
   subscription from a popular merchant;
+- the payment must land on its day: each month's first payment within about four days of their
+  median, counting the turn of the month as one step. A bill has a date — rent on the third, a
+  subscription on the day it was taken out — while a shop is visited whenever there is a reason to,
+  and three purchases a month apart for similar sums are a coincidence rather than an obligation;
 - amounts are compared in lari at each row's own booked value, so an unpriced day is skipped rather
   than guessed.
 

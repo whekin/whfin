@@ -56,6 +56,46 @@ class RecurringChargesTest {
         assertTrue(detectRecurringCharges(observations, today).isEmpty())
     }
 
+    /**
+     * Three visits to a bike shop a month apart for similar sums are a coincidence, not a bill. The
+     * dates are what give it away: nothing schedules a purchase for the 6th, then the 19th, then the
+     * 2nd.
+     */
+    @Test
+    fun `a shop visited on whatever day is not a bill even when the sums match`() {
+        val observations = listOf(
+            RecurringObservation("merchant:9", "Bike24", LocalDate.of(2026, 5, 6), 33_909),
+            RecurringObservation("merchant:9", "Bike24", LocalDate.of(2026, 6, 19), 31_500),
+            RecurringObservation("merchant:9", "Bike24", LocalDate.of(2026, 7, 2), 35_100),
+        )
+
+        assertTrue(detectRecurringCharges(observations, today).isEmpty())
+    }
+
+    @Test
+    fun `a bill that waits for a weekday keeps its schedule`() {
+        val observations = listOf(
+            RecurringObservation("merchant:1", "Landlord", LocalDate.of(2026, 4, 3), 120_000),
+            RecurringObservation("merchant:1", "Landlord", LocalDate.of(2026, 5, 5), 120_000),
+            RecurringObservation("merchant:1", "Landlord", LocalDate.of(2026, 6, 2), 120_000),
+            RecurringObservation("merchant:1", "Landlord", LocalDate.of(2026, 7, 6), 120_000),
+        )
+
+        assertEquals(1, detectRecurringCharges(observations, today).size)
+    }
+
+    /** The turn of the month is one step: the 31st and the 1st are neighbours. */
+    @Test
+    fun `a bill at the turn of the month stays one schedule`() {
+        val observations = listOf(
+            RecurringObservation("merchant:3", "Hosting", LocalDate.of(2026, 4, 30), 3_900),
+            RecurringObservation("merchant:3", "Hosting", LocalDate.of(2026, 5, 31), 3_900),
+            RecurringObservation("merchant:3", "Hosting", LocalDate.of(2026, 7, 1), 3_900),
+        )
+
+        assertEquals(1, detectRecurringCharges(observations, today).size)
+    }
+
     @Test
     fun `an amount that jumps around is not treated as an obligation`() {
         val observations = listOf(

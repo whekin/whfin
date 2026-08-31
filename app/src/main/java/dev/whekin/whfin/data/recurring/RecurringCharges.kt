@@ -102,6 +102,12 @@ internal fun recurringObservations(
  * the payee must appear in most of the recent complete months, at most a couple of times in each —
  * a shop visited weekly is a habit, not a bill — and its monthly total must stay near its own median,
  * which is what separates rent and a subscription from a merchant that happens to be popular.
+ *
+ * The last test is the date. A bill lands on its day: rent on the third, a subscription on the day it
+ * was taken out, a utility within the same handful of days each month. A shop is visited whenever
+ * there is a reason to, and three visits that happen to be a month apart for similar sums are a
+ * coincidence, not an obligation — a hobby shop billed the owner for a purchase they had not planned
+ * to make until the rule stopped believing scattered dates.
  */
 internal fun detectRecurringCharges(
     observations: List<RecurringObservation>,
@@ -123,12 +129,17 @@ internal fun detectRecurringCharges(
                 drift <= MAX_DRIFT_PERCENT
             }
             if (!steady) return@mapNotNull null
+            // The date a month's payment lands on, taken from its first payment: a bill that is
+            // settled in two parts is dated by the day it fell due, not by the day it was finished.
+            val landings = byMonth.values.map { month -> month.minOf(RecurringObservation::day).dayOfMonth }
+            val expectedDay = median(landings.map(Int::toLong)).toInt()
+            if (landings.any { dayDistance(it, expectedDay) > MAX_DAY_DRIFT }) return@mapNotNull null
             RecurringCharge(
                 key = key,
                 // The latest spelling is the one the person just saw in their feed.
                 label = all.maxBy { it.day }.label,
                 typicalMinor = typical,
-                expectedDay = median(recent.map { it.day.dayOfMonth.toLong() }).toInt(),
+                expectedDay = expectedDay,
                 lastSeen = all.maxOf { it.day },
             )
         }
@@ -199,8 +210,20 @@ private fun median(values: List<Long>): Long {
     return sorted[sorted.lastIndex / 2]
 }
 
+/**
+ * How far apart two days of the month are, counting the turn of the month as a single step: a bill
+ * on the 31st and one on the 1st are neighbours, not thirty days apart.
+ */
+private fun dayDistance(left: Int, right: Int): Int {
+    val direct = kotlin.math.abs(left - right)
+    return minOf(direct, DAYS_IN_MONTH - direct)
+}
+
 private const val PIVOT = "GEL"
 private const val LOOKBACK_MONTHS = 4
 private const val MIN_MONTHS = 3
 private const val MAX_PER_MONTH = 2
 private const val MAX_DRIFT_PERCENT = 40L
+private const val DAYS_IN_MONTH = 31
+/** A window of about nine days: wide enough for a bill that waits for a weekday, narrow for a shop. */
+private const val MAX_DAY_DRIFT = 4
