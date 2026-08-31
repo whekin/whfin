@@ -90,6 +90,7 @@ fun SettingsScreen(
     onOpenStatements: () -> Unit,
     onOpenSmsDiagnostics: () -> Unit,
     appLockTimeout: AppLockTimeout,
+    appLockHasPin: Boolean = false,
     onOpenAppLock: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenCorrections: () -> Unit = {},
@@ -133,6 +134,7 @@ fun SettingsScreen(
         onOpenStatements = onOpenStatements,
         onOpenSmsDiagnostics = onOpenSmsDiagnostics,
         appLockTimeout = appLockTimeout,
+        appLockHasPin = appLockHasPin,
         onOpenAppLock = onOpenAppLock,
         onOpenBackup = onOpenBackup,
         onOpenCorrections = onOpenCorrections,
@@ -178,6 +180,7 @@ internal fun SettingsContent(
     onOpenStatements: () -> Unit,
     onOpenSmsDiagnostics: () -> Unit,
     appLockTimeout: AppLockTimeout,
+    appLockHasPin: Boolean = false,
     onOpenAppLock: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenCorrections: () -> Unit = {},
@@ -205,6 +208,7 @@ internal fun SettingsContent(
     val sections = buildSettingsSections(
         status = status,
         appLockTimeout = appLockTimeout,
+        appLockHasPin = appLockHasPin,
         appVersion = appVersion,
         smsImportEnabled = smsImportEnabled,
         hasSmsPermission = hasSmsPermission,
@@ -455,6 +459,7 @@ private fun ThemeChoice(mode: AppThemeMode, onChange: (AppThemeMode) -> Unit) {
 private fun buildSettingsSections(
     status: SettingsStatus,
     appLockTimeout: AppLockTimeout,
+    appLockHasPin: Boolean,
     appVersion: String,
     smsImportEnabled: Boolean,
     hasSmsPermission: Boolean,
@@ -593,10 +598,16 @@ private fun buildSettingsSections(
             SettingsRow(
                 id = "app-lock",
                 title = stringResource(R.string.app_lock_title),
-                summary = stringResource(
-                    R.string.app_lock_settings_summary,
-                    stringResource(appLockTimeout.labelResource()),
-                ),
+                // The delay alone answered the wrong question: with a code and no lock screen the
+                // row read "Off", which is exactly the state where the code is doing its work.
+                summary = when {
+                    !appLockHasPin -> stringResource(R.string.app_lock_summary_no_code)
+                    !appLockTimeout.enabled -> stringResource(R.string.app_lock_summary_code_only)
+                    else -> stringResource(
+                        R.string.app_lock_summary_locked,
+                        stringResource(appLockTimeout.labelResource()),
+                    )
+                },
                 keywords = stringResource(R.string.settings_keywords_app_lock),
                 inside = settingsInside(R.string.settings_inside_app_lock),
                 icon = Icons.Default.Lock,

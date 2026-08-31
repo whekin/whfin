@@ -573,6 +573,7 @@ fun MainScreen(
                                 )
                             },
                             appLockTimeout = appLockTimeout,
+                            appLockHasPin = appLockHasPin,
                             onOpenAppLock = { openAppLock(returnTo = null) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
                             onOpenCorrections = { open(SecondaryDestination.Corrections) },
@@ -661,7 +662,11 @@ fun MainScreen(
                             onTimeoutChange = onAppLockTimeoutChange,
                             onPinCreated = { pin, timeout ->
                                 onAppLockPinCreated(pin, timeout)
-                                goBack(withHaptic = false)
+                                // A detour sent here to unblock something else goes straight back to
+                                // it. A visit to this screen itself stays: the code just created is
+                                // what unlocks biometrics and the delay below, and popping to
+                                // Settings would hide both behind another trip through the gate.
+                                if (appLockReturnTo != null) goBack(withHaptic = false)
                             },
                             onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                             onOpenBiometricSettings = onOpenBiometricSettings,

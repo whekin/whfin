@@ -106,37 +106,32 @@ fun AppLockScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        WhfinSectionLabel(stringResource(R.string.app_lock_delay_section))
+        // The code comes first because it is the part that always does something: it stands in front
+        // of a backup, a restore and the saved bank login whatever the delay below says. The delay
+        // only decides whether the ledger itself is hidden, and most of the time the answer is no.
+        WhfinSectionLabel(stringResource(R.string.app_lock_access_section))
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-            AppLockTimeout.entries.forEachIndexed { index, option ->
-                WhfinLedgerRow(
-                    title = stringResource(option.labelResource()),
-                    supportingText = option.supportingResource()?.let { stringResource(it) },
-                    icon = if (option.enabled) Icons.Default.Lock else null,
-                    trailing = { RadioButton(selected = timeout == option, onClick = null) },
-                    onClick = {
-                        if (option.enabled && !hasPin) {
-                            setupTarget = option
-                        } else {
-                            sensitive.require(SensitiveAction.AppLockSettings) { onTimeoutChange(option) }
-                        }
-                    },
-                    divider = index != AppLockTimeout.entries.lastIndex,
-                )
-            }
-        }
-
-        if (hasPin) {
-            WhfinSectionLabel(stringResource(R.string.app_lock_access_section))
-            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                WhfinLedgerRow(
-                    title = stringResource(R.string.app_lock_change_code),
-                    supportingText = stringResource(R.string.app_lock_change_code_body),
-                    icon = Icons.Default.Key,
-                    onClick = {
+            WhfinLedgerRow(
+                title = stringResource(
+                    if (hasPin) R.string.app_lock_change_code else R.string.app_lock_set_code,
+                ),
+                supportingText = stringResource(
+                    if (hasPin) R.string.app_lock_change_code_body else R.string.app_lock_set_code_body,
+                ),
+                icon = Icons.Default.Key,
+                onClick = {
+                    // The first code keeps whatever delay is already chosen — normally none — so it
+                    // can exist without a lock screen ever standing in front of the ledger. There is
+                    // also nothing to verify against yet, which is why only a change asks.
+                    if (hasPin) {
                         sensitive.require(SensitiveAction.AppLockSettings) { changingCode = true }
-                    },
-                )
+                    } else {
+                        setupTarget = timeout
+                    }
+                },
+                divider = hasPin,
+            )
+            if (hasPin) {
                 WhfinLedgerRow(
                     title = stringResource(R.string.app_lock_biometric_title),
                     supportingText = stringResource(biometricAvailability.supportingResource()),
@@ -159,6 +154,26 @@ fun AppLockScreen(
                         }
                     },
                     divider = false,
+                )
+            }
+        }
+
+        WhfinSectionLabel(stringResource(R.string.app_lock_delay_section))
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            AppLockTimeout.entries.forEachIndexed { index, option ->
+                WhfinLedgerRow(
+                    title = stringResource(option.labelResource()),
+                    supportingText = option.supportingResource(hasPin)?.let { stringResource(it) },
+                    icon = if (option.enabled) Icons.Default.Lock else null,
+                    trailing = { RadioButton(selected = timeout == option, onClick = null) },
+                    onClick = {
+                        if (option.enabled && !hasPin) {
+                            setupTarget = option
+                        } else {
+                            sensitive.require(SensitiveAction.AppLockSettings) { onTimeoutChange(option) }
+                        }
+                    },
+                    divider = index != AppLockTimeout.entries.lastIndex,
                 )
             }
         }
@@ -472,8 +487,11 @@ internal fun AppLockTimeout.labelResource(): Int = when (this) {
     AppLockTimeout.FiveMinutes -> R.string.app_lock_5_minutes
 }
 
-private fun AppLockTimeout.supportingResource(): Int? = when (this) {
-    AppLockTimeout.Disabled -> R.string.app_lock_off_body
+private fun AppLockTimeout.supportingResource(hasPin: Boolean): Int? = when (this) {
+    // With a code, "Off" no longer means nothing is asked — it means nothing is asked to *read* the
+    // ledger, and the line has to say which of the two it is.
+    AppLockTimeout.Disabled ->
+        if (hasPin) R.string.app_lock_off_body_code else R.string.app_lock_off_body
     AppLockTimeout.Immediate -> R.string.app_lock_immediate_body
     else -> null
 }
@@ -502,6 +520,41 @@ private fun AppLockScreenPreview() {
             hasPin = true,
             biometricAvailability = BiometricAvailability.Available,
             biometricEnabled = true,
+            onTimeoutChange = {},
+            onPinCreated = { _, _ -> },
+            onBiometricEnabledChange = {},
+            onOpenBiometricSettings = {},
+        )
+    }
+}
+
+@Preview(name = "App lock code without a lock screen", widthDp = 400, heightDp = 800, showBackground = true)
+@Composable
+private fun AppLockScreenCodeOnlyPreview() {
+    WhfinTheme {
+        AppLockScreen(
+            timeout = AppLockTimeout.Disabled,
+            hasPin = true,
+            biometricAvailability = BiometricAvailability.Available,
+            biometricEnabled = false,
+            onTimeoutChange = {},
+            onPinCreated = { _, _ -> },
+            onBiometricEnabledChange = {},
+            onOpenBiometricSettings = {},
+        )
+    }
+}
+
+@Preview(name = "App lock no code yet", widthDp = 400, heightDp = 800, showBackground = true)
+@Preview(name = "App lock no code yet font 1.5", widthDp = 400, heightDp = 900, fontScale = 1.5f, showBackground = true)
+@Composable
+private fun AppLockScreenNoCodePreview() {
+    WhfinTheme {
+        AppLockScreen(
+            timeout = AppLockTimeout.Disabled,
+            hasPin = false,
+            biometricAvailability = BiometricAvailability.Available,
+            biometricEnabled = false,
             onTimeoutChange = {},
             onPinCreated = { _, _ -> },
             onBiometricEnabledChange = {},

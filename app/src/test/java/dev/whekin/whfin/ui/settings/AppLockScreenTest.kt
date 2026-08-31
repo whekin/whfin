@@ -52,6 +52,65 @@ class AppLockScreenTest {
     }
 
     @Test
+    fun noCode_setsACodeWithoutTurningOnTheLockScreen() {
+        var savedPin: String? = null
+        var savedTimeout: AppLockTimeout? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                AppLockScreen(
+                    timeout = AppLockTimeout.Disabled,
+                    hasPin = false,
+                    biometricAvailability = BiometricAvailability.Unsupported,
+                    biometricEnabled = false,
+                    onTimeoutChange = {},
+                    onPinCreated = { pin, timeout ->
+                        savedPin = pin
+                        savedTimeout = timeout
+                    },
+                    onBiometricEnabledChange = {},
+                    onOpenBiometricSettings = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.app_lock_set_code))
+            .performScrollTo()
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.app_lock_create_code_title)).assertIsDisplayed()
+        repeat(2) { "1234".forEach { compose.onNodeWithText(it.toString()).performClick() } }
+
+        assertEquals("1234", savedPin)
+        assertEquals(AppLockTimeout.Disabled, savedTimeout)
+    }
+
+    @Test
+    fun existingCode_offersAChangeInsteadOfASecondSetup() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                AppLockScreen(
+                    timeout = AppLockTimeout.Disabled,
+                    hasPin = true,
+                    biometricAvailability = BiometricAvailability.Available,
+                    biometricEnabled = false,
+                    onTimeoutChange = {},
+                    onPinCreated = { _, _ -> },
+                    onBiometricEnabledChange = {},
+                    onOpenBiometricSettings = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.app_lock_set_code)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.app_lock_change_code)).assertIsDisplayed()
+        // "Off" now means the ledger opens, not that nothing is protected.
+        compose.onNodeWithText(context.getString(R.string.app_lock_off_body_code))
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun firstEnable_requiresMatchingWhfinCode() {
         var savedPin: String? = null
         var savedTimeout: AppLockTimeout? = null

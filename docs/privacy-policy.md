@@ -53,6 +53,12 @@ a non-exportable HMAC key in Android Keystore. After repeated failures, code ent
 blocked. These App Lock records and the Keystore key are excluded from Android and JSON backups.
 App Lock hides financial content and recent-app snapshots, but it does not encrypt the Room database.
 
+The code and the lock screen are separate choices. Setting a code does not put a lock screen in front
+of the ledger; the delay that does is a second, optional setting. Whenever a code exists, WHFIN asks
+for it again — code or biometric — before exporting a backup, restoring one, using the saved MyCredo
+login, or changing App Lock itself, and it keeps that answer for at most sixty seconds within the same
+flow. With no code set, nothing is asked, because there is nothing to verify against.
+
 The home-screen widget does not display account balances. Its quick-expense action intentionally opens
 without App Lock so a user can capture an expense immediately; that surface receives the selected
 source/currency and can add a record, but does not expose transaction history or existing balances.
