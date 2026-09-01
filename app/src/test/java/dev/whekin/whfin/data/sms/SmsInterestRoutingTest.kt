@@ -101,7 +101,7 @@ class SmsInterestRoutingTest {
     fun theOnlyDepositOfThatCurrencyNeedsNoQuestion() = runBlocking {
         val demandId = demandDeposit()
 
-        val result = importer.import(interest(number = "10002888"))
+        val result = importer.import(interest(number = "10000002"))
 
         assertEquals(SmsDiagnosticOutcome.IMPORTED, result.outcome)
         val transaction = db.transactionDao().byId(result.transactionId!!)!!
@@ -115,13 +115,13 @@ class SmsInterestRoutingTest {
         demandDeposit()
         termDeposit()
 
-        val result = importer.import(interest(number = "10002888"))
+        val result = importer.import(interest(number = "10000002"))
 
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
         assertEquals(SmsDiagnosticReason.MULTIPLE_ACCOUNTS, result.reason)
         val diagnostic = db.smsDiagnosticDao().byId(result.diagnosticId!!)!!
         // The question has to be able to say which deposit it is about.
-        assertEquals("10002888", diagnostic.depositNumber)
+        assertEquals("10000002", diagnostic.depositNumber)
         assertNull(diagnostic.transactionId)
     }
 
@@ -130,17 +130,17 @@ class SmsInterestRoutingTest {
         val demandId = demandDeposit()
         termDeposit()
 
-        val asked = importer.import(interest(number = "10002888"))
+        val asked = importer.import(interest(number = "10000002"))
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, asked.outcome)
 
         val resolved = importer.resolveDiagnostic(asked.diagnosticId!!, demandId)
 
         assertEquals(SmsDiagnosticOutcome.IMPORTED, resolved.outcome)
         assertEquals(demandId, db.transactionDao().byId(resolved.transactionId!!)!!.accountId)
-        assertEquals("10002888", db.accountDao().byId(demandId)!!.depositNumber)
+        assertEquals("10000002", db.accountDao().byId(demandId)!!.depositNumber)
 
         // The same deposit, a later month: identity answers it, and no ledger arithmetic is needed.
-        val next = importer.import(interest(number = "10002888", amount = "6.02", day = "03/05/2026"))
+        val next = importer.import(interest(number = "10000002", amount = "6.02", day = "03/05/2026"))
 
         assertEquals(SmsDiagnosticOutcome.IMPORTED, next.outcome)
         assertEquals(demandId, db.transactionDao().byId(next.transactionId!!)!!.accountId)
@@ -151,10 +151,10 @@ class SmsInterestRoutingTest {
         val demandId = demandDeposit()
         val termId = termDeposit()
 
-        val asked = importer.import(interest(number = "10002888"))
+        val asked = importer.import(interest(number = "10000002"))
         importer.resolveDiagnostic(asked.diagnosticId!!, demandId)
 
-        val other = importer.import(interest(number = "10009999", amount = "1.20", day = "03/05/2026"))
+        val other = importer.import(interest(number = "10000009", amount = "1.20", day = "03/05/2026"))
 
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, other.outcome)
         // The learnt number belongs to one deposit only; it must not answer for its neighbour.
@@ -166,8 +166,8 @@ class SmsInterestRoutingTest {
         demandDeposit()
         val termId = termDeposit()
 
-        val first = importer.import(interest(number = "10002888", amount = "5.31", day = "03/04/2026"))
-        val second = importer.import(interest(number = "10002888", amount = "6.02", day = "03/05/2026"))
+        val first = importer.import(interest(number = "10000002", amount = "5.31", day = "03/04/2026"))
+        val second = importer.import(interest(number = "10000002", amount = "6.02", day = "03/05/2026"))
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, first.outcome)
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, second.outcome)
 
@@ -184,7 +184,7 @@ class SmsInterestRoutingTest {
 
     @Test
     fun noDepositAtAllSaysSoRatherThanOfferingTheCurrentAccounts() = runBlocking {
-        val result = importer.import(interest(number = "10002888"))
+        val result = importer.import(interest(number = "10000002"))
 
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
         // A current account is not an answer to interest, so its presence is not "several accounts".
@@ -199,7 +199,7 @@ class SmsInterestRoutingTest {
             CategoryEntity(name = "Percent", kind = CategoryKind.INCOME, icon = "Percent", color = 0),
         )
 
-        val result = importer.import(interest(number = "10002888"))
+        val result = importer.import(interest(number = "10000002"))
 
         // The statement importer files the identical row this way; which door it came through is not
         // something the ledger should record.
@@ -210,7 +210,7 @@ class SmsInterestRoutingTest {
     fun withoutThatCategoryTheRowStaysBlankRatherThanInventingOne() = runBlocking {
         demandDeposit()
 
-        val result = importer.import(interest(number = "10002888"))
+        val result = importer.import(interest(number = "10000002"))
 
         // Categories are offered from the evidence of rows like this, never seeded behind the owner:
         // one they deleted must not come back on its own.

@@ -91,6 +91,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
+import dev.whekin.whfin.ui.accountChoiceLabels
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.text.DateFormat
@@ -1212,8 +1213,10 @@ private fun AccountMappingSheet(
                 if (cardDiagnostic) rows.forEachIndexed { index, family ->
                     WhfinLedgerRow(
                         title = family.groupName,
+                        // The number here belongs to the account the card is attached to, so it is
+                        // said as one; the card's own four digits are what the message printed.
                         supportingText = listOfNotNull(
-                            family.iban?.takeLast(4)?.let { "••$it" },
+                            family.iban?.takeLast(4)?.let { stringResource(R.string.account_iban_short, it) },
                             family.currencies.joinToString("/"),
                         ).joinToString(" · "),
                         icon = Icons.Default.CreditCard,
@@ -1221,16 +1224,23 @@ private fun AccountMappingSheet(
                         onClick = { selectedId = family.primaryAccountId },
                         divider = index != rows.lastIndex,
                     )
-                } else matching.forEachIndexed { index, option ->
-                    WhfinLedgerRow(
-                        title = option.label,
-                        supportingText = listOfNotNull(option.account.iban?.takeLast(4)?.let { "••$it" }, currency)
-                            .joinToString(" · "),
-                        icon = Icons.Default.AccountBalance,
-                        trailing = if (selectedId == option.account.id) {{ Icon(Icons.Default.Check, null) }} else null,
-                        onClick = { selectedId = option.account.id },
-                        divider = index != matching.lastIndex,
-                    )
+                } else {
+                    val manySources = matching.mapNotNull { it.groupName }.distinct().size > 1
+                    matching.forEachIndexed { index, option ->
+                        val (title, supporting) = accountChoiceLabels(
+                            account = option.account,
+                            sourceName = option.groupName,
+                            showSource = manySources,
+                        )
+                        WhfinLedgerRow(
+                            title = title,
+                            supportingText = supporting,
+                            icon = Icons.Default.AccountBalance,
+                            trailing = if (selectedId == option.account.id) {{ Icon(Icons.Default.Check, null) }} else null,
+                            onClick = { selectedId = option.account.id },
+                            divider = index != matching.lastIndex,
+                        )
+                    }
                 }
             }
         }

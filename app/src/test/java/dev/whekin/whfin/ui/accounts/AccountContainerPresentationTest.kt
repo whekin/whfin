@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.ledgerOwnName
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.BankProduct
@@ -43,7 +44,7 @@ class AccountContainerPresentationTest {
     fun anImportedLedgerNameCarriesNothingTheScreenHasNotSaid() {
         val imported = row(1, "Credo GEL •0001", "GEL", "GE00CD0000000000000001")
 
-        assertEquals(null, ledgerOwnName(imported, "Credo"))
+        assertEquals(null, ledgerOwnName(imported.account, "Credo"))
     }
 
     @Test
@@ -51,9 +52,9 @@ class AccountContainerPresentationTest {
         val named = row(1, "Travel", "EUR", "GE00CD0000000000000001")
         val seeded = row(2, "Cash", "GEL", iban = "")
 
-        assertEquals("Travel", ledgerOwnName(named, "Credo"))
+        assertEquals("Travel", ledgerOwnName(named.account, "Credo"))
         // WHFIN wrote this one itself, in whatever language was current; it names nothing.
-        assertEquals(null, ledgerOwnName(seeded.copy(account = seeded.account.copy(iban = null)), "Cash"))
+        assertEquals(null, ledgerOwnName(seeded.account.copy(iban = null), "Cash"))
     }
 
     @Test

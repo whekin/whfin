@@ -115,7 +115,12 @@ class WhfinBackupInstrumentedTest {
         assertThrows(WhfinBackupException::class.java) {
             runBlocking { WhfinBackupManager(target).restore(ByteArrayInputStream(missing.toByteArray())) }
         }
-        val old = missing.replace("\"databaseVersion\": 2", "\"databaseVersion\": 1")
+        // Follows the constant: hard-coding the current version made this silently stop
+        // rewriting anything the moment the schema moved on.
+        val old = missing.replace(
+            "\"databaseVersion\": $WHFIN_DATABASE_VERSION",
+            "\"databaseVersion\": 1",
+        )
         WhfinBackupManager(target).restore(ByteArrayInputStream(old.toByteArray()))
         assertEquals(0, target.savingsPlanDao().allForIntegrity().size)
         assertEquals(source.transactionDao().sumByAccount(1), target.transactionDao().sumByAccount(1))
@@ -347,17 +352,17 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO crypto_assets VALUES (1, 'eip155:1', NULL, 'ETH', 'Ether', 18)")
             sqlite.execSQL(
                 "INSERT INTO accounts VALUES " +
-                    "(1, 'Credo GEL', 'BANK', 1, 'GEL', 'GE01', NULL, NULL, NULL, NULL, " +
+                    "(1, 'Credo GEL', 'BANK', 1, 'GEL', 'GE01', NULL, NULL, NULL, NULL, NULL, " +
                     "'AVAILABLE', 'CURRENT_ACCOUNT', 0, 0)",
             )
             sqlite.execSQL(
                 "INSERT INTO accounts VALUES " +
-                    "(2, 'ETH', 'CRYPTO', 2, 'ETH', NULL, 1, 1, NULL, NULL, " +
+                    "(2, 'ETH', 'CRYPTO', 2, 'ETH', NULL, NULL, 1, 1, NULL, NULL, " +
                     "'AVAILABLE', NULL, 0, 1)",
             )
             sqlite.execSQL(
                 "INSERT INTO accounts VALUES " +
-                    "(3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, " +
+                    "(3, 'Credo reserve', 'SAVINGS', 1, 'GEL', 'GE02', NULL, NULL, NULL, NULL, " +
                     "'FLEXIBLE_RESERVE', 'RESERVE', NULL, 0, 2)",
             )
             sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0, 0)")

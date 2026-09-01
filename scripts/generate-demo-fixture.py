@@ -96,12 +96,14 @@ class Fixture:
                 iban: str | None = None, address: int | None = None, asset: int | None = None,
                 goal: int | None = None, mode: str | None = None,
                 fund_role: str | None = None, bank_product: str | None = None,
+                deposit_number: str | None = None,
                 order: int = 0) -> int:
         fund_role = fund_role or ("RESERVE" if atype == "SAVINGS" or mode is not None else "AVAILABLE")
         bank_product = bank_product or ("TERM_DEPOSIT" if mode == "TERM_DEPOSIT" else None)
         self.accounts.append({
             "id": aid, "name": name, "type": atype, "groupId": group, "currency": currency,
-            "iban": iban, "walletAddressId": address, "cryptoAssetId": asset,
+            "iban": iban, "depositNumber": deposit_number,
+            "walletAddressId": address, "cryptoAssetId": asset,
             "savingsGoalMinor": goal, "savingsMode": mode,
             "fundRole": fund_role, "bankProduct": bank_product,
             "isArchived": 0, "sortOrder": order,
@@ -186,9 +188,9 @@ ATLAS_IBAN = "GE00AT0000000000000001"
 EVERYDAY_GEL = f.account(1, "Everyday", "BANK", CREDO, GEL, iban=CREDO_IBAN, order=0)
 EVERYDAY_USD = f.account(2, "Everyday", "BANK", CREDO, USD, iban=CREDO_IBAN, order=1)
 DEPOSIT_GEL = f.account(3, "Term deposit", "SAVINGS", CREDO, GEL, iban=CREDO_DEPOSIT_IBAN,
-                        mode="TERM_DEPOSIT", order=2)
+                        mode="TERM_DEPOSIT", deposit_number="10000001", order=2)
 DEPOSIT_USD = f.account(4, "Term deposit", "SAVINGS", CREDO, USD, iban=CREDO_DEPOSIT_IBAN,
-                        mode="TERM_DEPOSIT", order=3)
+                        mode="TERM_DEPOSIT", deposit_number="10000002", order=3)
 ATLAS_GEL = f.account(5, "Everyday", "BANK", ATLAS, GEL, iban=ATLAS_IBAN, order=4)
 TRAVEL_EUR = f.account(6, "Travel", "BANK", ATLAS, EUR, iban=ATLAS_IBAN, order=5)
 CASH_GEL = f.account(7, "Pocket money", "CASH", None, GEL, order=6)

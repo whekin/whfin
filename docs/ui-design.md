@@ -592,3 +592,21 @@ the list only declines it because it scrolls the other way. Position is one plai
 the finger and by the settle in turn: an `Animatable` serialises the two through its own mutex, and a
 snap still queued from the last delta then cancels the settle it was handed off to, leaving the page
 gone and the period unchanged.
+
+## A ledger is named once (2026-09-02)
+
+A statement names every ledger it creates "<Bank> <CUR> •<last4>", so any list printing that name
+under a bank heading says the bank twice, and printing the number under it says the number twice. The
+SMS routing question did both at once: `Credo · Credo GEL •0001` over `••0001 · GEL` — the bank, the
+number and the currency, each of them twice, in four lines that distinguished nothing.
+
+The number was also wearing the wrong notation. `••0001` is this app's card mask; the four digits in
+those rows were the account's, and for a deposit there is no card at all. `Account •0001` says the
+same digits as what they are.
+
+`ledgerOwnName` already solved the naming half for the Accounts screen, so it moved to
+`ui/AccountNaming.kt` together with `accountChoiceLabels`, which both lists that offer ledgers to
+choose between now use. The title is what the owner named it, else the number, else the product; the
+second line carries only what has not already been said — the bank when and only when the rows belong
+to more than one, the product, and the number only when the title is a chosen name. The currency is
+never repeated, because the list's own label states it.

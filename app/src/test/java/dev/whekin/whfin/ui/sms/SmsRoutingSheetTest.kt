@@ -269,7 +269,7 @@ class SmsRoutingSheetTest {
                         currency = "GEL",
                         balanceMinor = 64_028,
                         balanceCurrency = "GEL",
-                        depositNumber = "10002888",
+                        depositNumber = "10000002",
                         updatedAt = 1_000,
                     ),
                     accounts = listOf(
@@ -287,10 +287,11 @@ class SmsRoutingSheetTest {
                         SmsRoutingAccount(
                             AccountEntity(
                                 id = 12,
-                                name = "Demand deposit",
+                                name = "Credo GEL •0002",
                                 type = AccountType.BANK,
                                 groupId = 7,
                                 currency = "GEL",
+                                iban = "GE00CD0000000000000002",
                                 fundRole = FundRole.AVAILABLE,
                                 bankProduct = BankProduct.DEMAND_DEPOSIT,
                             ),
@@ -306,9 +307,19 @@ class SmsRoutingSheetTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.sms_deposit_number, "10002888"))
+        compose.onNodeWithText(context.getString(R.string.sms_deposit_number, "10000002"))
             .assertIsDisplayed()
         compose.onNodeWithText("Credo · Everyday").assertDoesNotExist()
+        // The bank named the ledger "Credo GEL •0002", so a row printing that under a heading that
+        // has said the bank, and again under itself, said the bank twice, the number twice and the
+        // currency twice. What is left is the number, once, said as an account number rather than in
+        // the card mask this app uses for cards — a deposit has no card.
+        compose.onNodeWithText("Credo · Credo GEL •0002").assertDoesNotExist()
+        compose.onNodeWithText("••0002 · GEL").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.account_iban_short, "0002"))
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.account_product_demand_deposit))
+            .assertIsDisplayed()
         // The one deposit is preselected, and answering leaves the number behind, so the action says so.
         compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
             .assertIsEnabled()

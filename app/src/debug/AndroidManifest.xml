@@ -2,5 +2,6 @@
     <application>
         <activity android:name="dev.whekin.whfin.ui.feed.CashRunwayQaActivity" android:exported="false" />
         <activity android:name="dev.whekin.whfin.ui.accounts.AccountsQaActivity" android:exported="false" />
+        <activity android:name="dev.whekin.whfin.ui.sms.SmsRoutingQaActivity" android:exported="false" />
     </application>
 </manifest>

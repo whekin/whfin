@@ -75,6 +75,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.ui.accountNumberLabel
+import dev.whekin.whfin.ui.accountProductLabel
+import dev.whekin.whfin.ui.ledgerOwnName
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.data.rates.ConvertedTotal
 import dev.whekin.whfin.ui.convertedTotalLabel
@@ -1110,11 +1113,10 @@ private fun accountContainerTitle(accounts: List<AccountWithBalance>, sourceName
     val primary = accounts.firstOrNull { it.account.currency == "GEL" } ?: accounts.first()
     val own = accounts.asSequence()
         .sortedByDescending { it.account.id == primary.account.id }
-        .mapNotNull { ledgerOwnName(it, sourceName) }
+        .mapNotNull { ledgerOwnName(it.account, sourceName) }
         .firstOrNull()
-    val mask = primary.account.iban?.takeLast(4)
     return own
-        ?: mask?.let { stringResource(R.string.account_iban_short, it) }
+        ?: accountNumberLabel(primary.account)
         ?: accountProductLabel(primary.account.bankProduct)
         ?: accountTypeLabel(primary.account.type)
 }
@@ -1125,30 +1127,9 @@ private fun currencyLedgerLabel(
     item: AccountWithBalance,
     containerTitle: String,
     sourceName: String,
-): String = ledgerOwnName(item, sourceName)
+): String = ledgerOwnName(item.account, sourceName)
     ?.takeUnless { it.equals(containerTitle, ignoreCase = true) }
     ?: item.account.currency
-
-/**
- * The part of a ledger's name that the screen has not already printed above it, or null.
- *
- * WHFIN writes the seeded cash names itself, in whatever language was current at the time, so such
- * a name can appear in one language under a heading written in another — the same word twice.
- */
-internal fun ledgerOwnName(item: AccountWithBalance, sourceName: String?): String? {
-    val account = item.account
-    var name = account.name
-    if (!sourceName.isNullOrBlank()) name = name.replace(sourceName, " ", ignoreCase = true)
-    name = name.replace(
-        Regex("(?<!\\p{L})${Regex.escape(account.currency)}(?!\\p{L})", RegexOption.IGNORE_CASE),
-        " ",
-    )
-    account.iban?.takeLast(4)?.let { tail ->
-        name = name.replace(Regex("[•·]?\\s*${Regex.escape(tail)}"), " ")
-    }
-    return name.replace(Regex("[\\s•·,\\-]+"), " ").trim()
-        .takeIf { it.isNotBlank() && it !in SEEDED_CASH_NAMES }
-}
 
 /** Beyond three, side-by-side cells stop being readable and the stacked rows say it better. */
 private const val MAX_CURRENCY_CELLS = 3
@@ -1167,22 +1148,6 @@ private fun payingCardMask(accounts: List<AccountWithBalance>): String? {
     val primary = accounts.flatMap { it.primaryCardMasks }.distinct()
     return physical.firstOrNull { it in primary }
         ?: physical.singleOrNull()
-}
-
-/**
- * The names WHFIN writes for a cash ledger nobody has renamed.
- *
- * They are placeholders, not descriptions: the source heading already says the same thing, in the
- * language the screen is actually being read in.
- */
-private val SEEDED_CASH_NAMES = setOf("Cash", "Наличные")
-
-@Composable
-private fun accountProductLabel(product: BankProduct?): String? = when (product) {
-    BankProduct.CURRENT_ACCOUNT -> stringResource(R.string.account_product_current)
-    BankProduct.DEMAND_DEPOSIT -> stringResource(R.string.account_product_demand_deposit)
-    BankProduct.TERM_DEPOSIT -> stringResource(R.string.account_product_term_deposit)
-    null -> null
 }
 
 @Preview(name = "Accounts populated", widthDp = 400, heightDp = 900, showBackground = true)

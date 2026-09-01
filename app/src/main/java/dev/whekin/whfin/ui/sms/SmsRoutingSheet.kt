@@ -42,6 +42,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.sms.isCurrencyExchangeLedger
 import dev.whekin.whfin.data.sms.isDepositLedger
+import dev.whekin.whfin.ui.accountChoiceLabels
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -268,17 +269,15 @@ fun SmsRoutingSheet(
             if (groupedPairs.isNotEmpty()) {
                 WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     groupedPairs.forEachIndexed { index, pair ->
+                        val from = accountChoiceLabels(pair.from.account, pair.from.groupName, false)
+                        val to = accountChoiceLabels(pair.to.account, pair.to.groupName, false)
                         WhfinLedgerRow(
-                            title = "${pair.from.account.name} → ${pair.to.account.name}",
+                            title = "${from.first} → ${to.first}",
+                            // A pair is told apart by currency, so that is the one thing worth
+                            // repeating here — and the numbers are numbers, not card masks.
                             supportingText = listOf(
-                                listOfNotNull(
-                                    pair.from.account.iban?.takeLast(4)?.let { "••$it" },
-                                    pair.from.account.currency,
-                                ).joinToString(" · "),
-                                listOfNotNull(
-                                    pair.to.account.iban?.takeLast(4)?.let { "••$it" },
-                                    pair.to.account.currency,
-                                ).joinToString(" · "),
+                                listOfNotNull(pair.from.account.currency, from.second).joinToString(" · "),
+                                listOfNotNull(pair.to.account.currency, to.second).joinToString(" · "),
                             ).joinToString(" → "),
                             icon = Icons.Default.AccountBalance,
                             onClick = {
@@ -322,14 +321,19 @@ fun SmsRoutingSheet(
             )
         } else {
             WhfinFieldLabel(stringResource(R.string.sms_account_for_operation, currency))
+            // One bank is said by every row or by none of them, so it is said only when the rows do
+            // not all belong to it.
+            val manySources = matching.mapNotNull { it.groupName }.distinct().size > 1
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 matching.forEachIndexed { index, option ->
+                    val (title, supporting) = accountChoiceLabels(
+                        account = option.account,
+                        sourceName = option.groupName,
+                        showSource = manySources,
+                    )
                     WhfinLedgerRow(
-                        title = option.label,
-                        supportingText = listOfNotNull(
-                            option.account.iban?.takeLast(4)?.let { "••$it" },
-                            option.account.currency,
-                        ).joinToString(" · "),
+                        title = title,
+                        supportingText = supporting,
                         icon = if (diagnostic.cardLast4 != null) {
                             Icons.Default.CreditCard
                         } else {
