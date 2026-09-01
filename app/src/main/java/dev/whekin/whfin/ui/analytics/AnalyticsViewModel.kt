@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.db.CategoryEntity
+import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
@@ -48,6 +49,7 @@ private data class AnalyticsInputs(
     val transactions: List<TransactionEntity>,
     val categories: List<CategoryEntity>,
     val allocations: List<TransactionAllocationEntity>,
+    val merchants: List<MerchantEntity>,
 )
 
 private data class AnalyticsControls(
@@ -105,8 +107,9 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         transactions,
         db.categoryDao().observeAll(),
         db.transactionAllocationDao().observeAll(),
-    ) { transactions, categories, allocations ->
-        AnalyticsInputs(transactions, categories, allocations)
+        db.merchantDao().observeAll(),
+    ) { transactions, categories, allocations, merchants ->
+        AnalyticsInputs(transactions, categories, allocations, merchants)
     }
 
     private val controls = combine(window, trendFilter) { value, filter ->
@@ -121,6 +124,7 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
             period = control.period,
             trendFilter = control.trendFilter,
             zoneId = zoneId,
+            merchants = input.merchants,
         )
     }.map<AnalyticsData, AnalyticsUiState> { data ->
         if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty

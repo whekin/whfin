@@ -128,6 +128,70 @@ class AnalyticsTransactionsFilterTest {
         assertEquals(listOf(3L, 2L), result.map { it.tx.id })
     }
 
+    @Test
+    fun drillingIntoAGroupFollowsItsChildrenIn() {
+        // Totals roll a child up into its parent, so a group that has been split into parts used to
+        // print one number and then open a list that accounted for only part of it.
+        val snacks = CategoryEntity(
+            4,
+            "Snacks",
+            kind = CategoryKind.EXPENSE,
+            icon = "ShoppingCart",
+            color = 0,
+            parentId = food.id,
+        )
+        val items = listOf(
+            item(1, LocalDate.of(2026, 6, 2), -1_000, "GEL", food),
+            item(2, LocalDate.of(2026, 6, 3), -2_000, "GEL", snacks),
+            item(3, LocalDate.of(2026, 6, 4), -3_000, "GEL", transport),
+        )
+        val request = AnalyticsTransactionsRequest(
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
+            categoryFilterEnabled = true,
+            categoryId = food.id,
+            filterName = food.name,
+            expectedExpenseMinor = 3_000,
+        )
+
+        val result = filterAnalyticsTransactions(items, emptyList(), listOf(food, transport, snacks), request)
+
+        assertEquals(listOf(2L, 1L), result.map { it.tx.id })
+    }
+
+    @Test
+    fun aMerchantDrillDownNarrowsToThatCounterpartyIncludingTheUnnamedOne() {
+        val items = listOf(
+            item(1, LocalDate.of(2026, 6, 2), -1_000, "GEL", food, merchantId = 7),
+            item(2, LocalDate.of(2026, 6, 3), -2_000, "GEL", food, merchantId = 8),
+            item(3, LocalDate.of(2026, 6, 4), -3_000, "GEL", food),
+        )
+        val request = AnalyticsTransactionsRequest(
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 6)),
+            categoryFilterEnabled = true,
+            categoryId = food.id,
+            filterName = "Food · Agrohub",
+            expectedExpenseMinor = 1_000,
+            merchantFilterEnabled = true,
+            merchantId = 7,
+        )
+
+        assertEquals(
+            listOf(1L),
+            filterAnalyticsTransactions(items, emptyList(), listOf(food), request).map { it.tx.id },
+        )
+        // "No name" is a counterparty like any other here: its rows are counted in the section, so
+        // they have to be reachable from it.
+        assertEquals(
+            listOf(3L),
+            filterAnalyticsTransactions(
+                items,
+                emptyList(),
+                listOf(food),
+                request.copy(merchantId = null, expectedExpenseMinor = 3_000),
+            ).map { it.tx.id },
+        )
+    }
+
     private fun item(
         id: Long,
         day: LocalDate,
@@ -137,6 +201,7 @@ class AnalyticsTransactionsFilterTest {
         fundedByGel: Long? = null,
         source: TxSource = TxSource.STATEMENT,
         gelValueMinor: Long? = null,
+        merchantId: Long? = null,
     ): FeedItem {
         val occurredAt = day.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
         return FeedItem(
@@ -146,6 +211,7 @@ class AnalyticsTransactionsFilterTest {
                 amountMinor = amountMinor,
                 currency = currency,
                 occurredAt = occurredAt,
+                merchantId = merchantId,
                 categoryId = category?.id,
                 status = TxStatus.CONFIRMED,
                 source = source,

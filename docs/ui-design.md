@@ -539,3 +539,56 @@ What the drawing says is struck from the sentence beneath it: the collapsed card
 rate and the next bills, and the payday window — ordinary day, the weekend it moved off, the outer
 bound — waits inside the calculation. Without a declared payday there is no window to divide, and the
 card keeps its original sentence.
+
+## Who was paid: the rung between a category and a payment (2026-09-01)
+
+Statistics could descend from a total to a category and then straight to every payment inside it.
+Two questions fell through that gap, and only one of them is a sort. "Which were the big ones" is a
+reordering of the ledger. "Which keep coming back" is not: repetition is a property of the
+counterparty, and forty rows of the same shop stay forty rows however they are arranged.
+
+Spending therefore gains one list — merchant, payment count, share, sum — under the categories. It
+answers both readings at once, because a one-off large purchase is simply a counterparty with a
+single payment. One switch of two states decides which of the two orders the list; sums break ties
+under the count reading, since two counterparties paid the same number of times are still not equal.
+A rail of three or four sorts was rejected: the second question is not a variation on the first.
+
+Three properties keep the section honest.
+
+The scope is whatever the ring and the trend are already showing, so the three blocks can never
+describe different spending. Selecting a category re-scopes the counterparties with it, and follows
+that group into its children — a hobby split into parts must not hide who was paid for them.
+
+The column adds up to the number above it. Rows are valued by the rule the category totals use
+(`gelValueMinor`, shares excluding LOAN/REPAYMENT, no transfers, no system categories), and a payment
+the ledger never named is a row called "No name" rather than a silent omission. Forty payments nobody
+can attribute is itself the answer, and hiding them would leave a column that quietly summed to less
+than its own title.
+
+Six rows is the default depth, with the rest behind one expander; how far the list was unfolded does
+not carry over to another period or category, because that is a different set of counterparties.
+
+Drilling into a row opens the existing transaction list with the counterparty added to the filter —
+the screen was not rebuilt, it gained an entrance. The same pass fixed what that screen did with a
+group: totals roll a child up into its parent, but the drill-down matched leaf ids only, so a
+category that had been split into parts printed one number and then opened a list accounting for
+part of it.
+
+## Moving through time is a gesture
+
+The period had two arrows and nothing else. Statistics and Spending share one scaffold, so the page
+itself now answers a horizontal drag, as an equal of the arrows rather than a replacement — the
+arrows still say, by going grey, where the record ends.
+
+The page follows the finger along the same shared axis the shell uses between screens: an eighth of
+the width under a fade. A drag let go half-way has said what it would do and then does nothing. A
+committed one keeps going until the page is invisible, swaps the period underneath, and brings the
+next one in from the other side, so the substitution happens at the moment there is nothing on screen
+to see it happen. A direction with nothing behind it still moves and still springs back; declining
+the drag outright would be indistinguishable from a screen that does not answer to the gesture.
+
+The drag lives on the full-screen box rather than on the list — the gesture belongs to the page, and
+the list only declines it because it scrolls the other way. Position is one plain float written by
+the finger and by the settle in turn: an `Animatable` serialises the two through its own mutex, and a
+snap still queued from the last delta then cancels the settle it was handed off to, leaving the page
+gone and the period unchanged.

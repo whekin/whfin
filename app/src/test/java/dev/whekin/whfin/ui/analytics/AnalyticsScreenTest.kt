@@ -2,10 +2,14 @@ package dev.whekin.whfin.ui.analytics
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -14,6 +18,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsEnabled
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -350,6 +357,158 @@ class AnalyticsScreenTest {
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
+
+    @Test
+    fun merchantsRankByAmountUntilAskedForRepetitionAndOpenThatCounterpartyAlone() {
+        var opened: AnalyticsTransactionsRequest? = null
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    ExpenseAnalysisContent(
+                        model = model(contentData.copy(merchantValues = merchantValues)),
+                        onBack = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = {},
+                        onScaleChange = {},
+                        onSelectMonth = {},
+                        onShowAllTrend = {},
+                        onShowCategoryTrend = {},
+                        onOpenTransactions = { opened = it },
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        // Six rows is the default depth; the seventh counterparty is behind the expander.
+        compose.onNodeWithTag("expense-merchant-7").assertDoesNotExist()
+        compose.onNodeWithTag("expense-merchants-expand").performScrollTo().performClick()
+        compose.onNodeWithTag("expense-merchant-7").assertExists()
+
+        // Sorting by count is not a reordering of the same answer: the shop paid thirty-one small
+        // times outranks the one large purchase only under this reading.
+        compose.onNodeWithTag("expense-merchants-sort-count").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("expense-merchant-3").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 1_000) { opened != null }
+
+        compose.runOnIdle {
+            assertEquals(true, opened?.merchantFilterEnabled)
+            assertEquals(3L, opened?.merchantId)
+            assertEquals(24_300L, opened?.expectedExpenseMinor)
+            // Nothing was selected on the ring, so the list is the whole period's Bolt payments.
+            assertEquals(false, opened?.categoryFilterEnabled)
+            assertEquals("Bolt", opened?.filterName)
+        }
+    }
+
+    @Test
+    fun merchantRowsStayWholeAtLargeText() {
+        // The two sort choices are the part that can run out of width: "By payment count" is a long
+        // label in both languages. They ride the shared rail, which scrolls rather than wrapping,
+        // so both stay reachable and the rows underneath keep their amounts.
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = 1.5f),
+            ) {
+                WhfinTheme {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        ExpenseAnalysisContent(
+                            model = model(contentData.copy(merchantValues = merchantValues)),
+                            onBack = {},
+                            onPreviousPeriod = {},
+                            onNextPeriod = {},
+                            onScaleChange = {},
+                            onSelectMonth = {},
+                            onShowAllTrend = {},
+                            onShowCategoryTrend = {},
+                            onOpenTransactions = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-merchants-sort-amount").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("expense-merchants-sort-count").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("expense-merchant-1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("614.00 ₾").assertIsDisplayed()
+    }
+
+    @Test
+    fun draggingThePageMovesThroughTimeLikeTheArrowsDo() {
+        var moved: String? = null
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        model = AnalyticsUiModel(
+                            period = contentData.period,
+                            canSelectPrevious = true,
+                            canSelectNext = true,
+                            state = AnalyticsUiState.Content(contentData),
+                        ),
+                        onBack = {},
+                        onPreviousPeriod = { moved = "previous" },
+                        onNextPeriod = { moved = "next" },
+                        onScaleChange = {},
+                        onSelectMonth = {},
+                        onShowAllTrend = {},
+                        onOpenExpenses = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-list").performTouchInput { swipeLeft() }
+        compose.waitUntil(timeoutMillis = 2_000) { moved != null }
+        compose.runOnIdle { assertEquals("next", moved) }
+
+        moved = null
+        compose.onNodeWithTag("analytics-list").performTouchInput { swipeRight() }
+        compose.waitUntil(timeoutMillis = 2_000) { moved != null }
+        compose.runOnIdle { assertEquals("previous", moved) }
+    }
+
+    @Test
+    fun aDragTowardsAPeriodThatDoesNotExistChangesNothing() {
+        var moved = false
+        compose.setContent {
+            WhfinTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AnalyticsContent(
+                        // canSelectNext is false: the current month has no month after it.
+                        model = model(contentData),
+                        onBack = {},
+                        onPreviousPeriod = {},
+                        onNextPeriod = { moved = true },
+                        onScaleChange = {},
+                        onSelectMonth = {},
+                        onShowAllTrend = {},
+                        onOpenExpenses = {},
+                        onOpenTransactions = {},
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("analytics-list").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(false, moved) }
+    }
+
+    private val merchantValues = listOf(
+        AnalyticsMerchantValue(1, "Agrohub", 61_400, 9),
+        AnalyticsMerchantValue(2, "Carrefour", 39_700, 4),
+        AnalyticsMerchantValue(3, "Bolt", 24_300, 31),
+        AnalyticsMerchantValue(4, "Wolt", 18_900, 12),
+        AnalyticsMerchantValue(5, "Silknet", 12_000, 1),
+        AnalyticsMerchantValue(6, "Aversi", 9_450, 3),
+        AnalyticsMerchantValue(7, "Nikora", 7_820, 6),
+    )
 
     private fun model(data: AnalyticsData) = AnalyticsUiModel(
         period = data.period,

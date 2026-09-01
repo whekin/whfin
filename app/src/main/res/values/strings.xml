@@ -1193,6 +1193,16 @@
     <string name="analytics_changes_hint_year">Largest category shifts since last year</string>
     <string name="analytics_categories_hint">The share each category took of this period</string>
     <string name="analytics_uncategorized">Uncategorized</string>
+    <string name="analytics_merchants_title">Who was paid</string>
+    <string name="analytics_merchants_sort_amount">By amount</string>
+    <string name="analytics_merchants_sort_count">By payment count</string>
+    <string name="analytics_merchants_unnamed">No name</string>
+    <string name="analytics_merchants_show_all">Show all %1$d</string>
+    <string name="analytics_merchants_show_less">Show fewer</string>
+    <plurals name="analytics_merchants_payments">
+        <item quantity="one">%d payment</item>
+        <item quantity="other">%d payments</item>
+    </plurals>
     <string name="analytics_year_trend">Last 12 months</string>
     <string name="analytics_year_trend_months">Months of %1$d</string>
     <string name="analytics_all_expenses">All expenses</string>

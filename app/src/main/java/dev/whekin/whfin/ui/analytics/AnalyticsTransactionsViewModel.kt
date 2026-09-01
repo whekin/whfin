@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
+import dev.whekin.whfin.data.categorization.CategoryTree
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
@@ -30,6 +31,13 @@ internal data class AnalyticsTransactionsRequest(
     val categoryId: Long?,
     val filterName: String,
     val expectedExpenseMinor: Long,
+    /**
+     * Narrowing to one counterparty. Separate from the category filter rather than folded into it,
+     * because the two combine: a merchant is drilled into from inside a category as often as from
+     * the whole period, and the header has to be able to say which of the two it is showing.
+     */
+    val merchantFilterEnabled: Boolean = false,
+    val merchantId: Long? = null,
 )
 
 internal sealed interface AnalyticsTransactionsUiState {
@@ -123,9 +131,11 @@ internal fun filterAnalyticsTransactions(
     request: AnalyticsTransactionsRequest,
 ): List<FeedItem> {
     val categoryById = categories.associateBy { it.id }
+    val tree = CategoryTree(categories)
     val allocationsByTransaction = allocations.groupBy { it.transactionId }
     return items.asSequence()
         .filter { item -> request.period.contains(YearMonth.from(item.day)) }
+        .filter { item -> !request.merchantFilterEnabled || item.tx.merchantId == request.merchantId }
         .filter { item ->
             val tx = item.tx
             // Statistics count a foreign row as soon as its own day has a rate, so the ledger behind
@@ -147,7 +157,13 @@ internal fun filterAnalyticsTransactions(
                 included.isNotEmpty() -> included.map { it.categoryId ?: item.tx.categoryId }
                 else -> listOf(item.tx.categoryId)
             }.filter { categoryId -> categoryId?.let(categoryById::get)?.isSystem != true }
-            categoryIds.isNotEmpty() && (!request.categoryFilterEnabled || request.categoryId in categoryIds)
+            // Totals roll a child up into its parent, so drilling into a parent has to follow the
+            // children in. Matching leaf ids alone made a group that had been split into parts open
+            // an emptier list than the number the user had just tapped.
+            val matchesCategory = !request.categoryFilterEnabled || categoryIds.any { categoryId ->
+                categoryId == request.categoryId || tree.rollupId(categoryId) == request.categoryId
+            }
+            categoryIds.isNotEmpty() && matchesCategory
         }
         .sortedByDescending { it.tx.occurredAt }
         .toList()

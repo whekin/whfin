@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.analytics
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
@@ -347,18 +348,92 @@ class AnalyticsCalculatorTest {
         status: TxStatus = TxStatus.CONFIRMED,
         source: TxSource = TxSource.STATEMENT,
         gelValueMinor: Long? = null,
+        merchantId: Long? = null,
     ) = TransactionEntity(
         id = id,
         accountId = accountId,
         amountMinor = amount,
         currency = currency,
         occurredAt = date.atStartOfDay(zone).toInstant().toEpochMilli(),
+        merchantId = merchantId,
         categoryId = categoryId,
         status = status,
         source = source,
         transferGroupId = transferGroupId,
         isTransfer = isTransfer,
         gelValueMinor = gelValueMinor,
+    )
+
+    @Test
+    fun merchantRowsAddUpToTheirScopeAndCountPaymentsRatherThanSlices() {
+        val transactions = listOf(
+            tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id, merchantId = 1),
+            tx(2, -4_000, "GEL", LocalDate.of(2026, 7, 3), categoryId = food.id, merchantId = 1),
+            tx(3, -3_000, "GEL", LocalDate.of(2026, 7, 4), categoryId = transport.id, merchantId = 2),
+            tx(4, -2_000, "GEL", LocalDate.of(2026, 7, 5), categoryId = food.id),
+        )
+        // One payment shared with someone else is still one payment, not two.
+        val allocations = listOf(
+            TransactionAllocationEntity(transactionId = 3, amountMinor = -1_500, purpose = AllocationPurpose.SHARED),
+            TransactionAllocationEntity(transactionId = 3, amountMinor = -1_500, purpose = AllocationPurpose.SHARED),
+        )
+        val data = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food, transport),
+            allocations = allocations,
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            trendFilter = AnalyticsTrendFilter.All,
+            zoneId = zone,
+            merchants = merchants,
+        )
+
+        assertEquals(19_000L, data.expenseMinor)
+        // A column that did not add up to the number above it would be worse than no column.
+        assertEquals(data.expenseMinor, data.merchantValues.sumOf { it.expenseMinor })
+        assertEquals(
+            listOf("Agrohub" to 14_000L, "Bolt" to 3_000L, null to 2_000L),
+            data.merchantValues.map { it.name to it.expenseMinor },
+        )
+        assertEquals(listOf(2, 1, 1), data.merchantValues.map { it.transactionCount })
+    }
+
+    @Test
+    fun merchantRowsFollowTheSelectedCategoryIntoItsChildren() {
+        val snacks = CategoryEntity(
+            4,
+            "Snacks",
+            kind = CategoryKind.EXPENSE,
+            icon = "ShoppingCart",
+            color = 0,
+            parentId = food.id,
+        )
+        val transactions = listOf(
+            tx(1, -10_000, "GEL", LocalDate.of(2026, 7, 2), categoryId = food.id, merchantId = 1),
+            tx(2, -1_000, "GEL", LocalDate.of(2026, 7, 3), categoryId = snacks.id, merchantId = 3),
+            tx(3, -3_000, "GEL", LocalDate.of(2026, 7, 4), categoryId = transport.id, merchantId = 2),
+        )
+        val data = calculateAnalytics(
+            transactions = transactions,
+            categories = listOf(food, transport, snacks),
+            allocations = emptyList(),
+            period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
+            trendFilter = AnalyticsTrendFilter.Category(food.id),
+            zoneId = zone,
+            merchants = merchants,
+        )
+
+        // A group's counterparties are its children's too: splitting a hobby into parts must not
+        // hide who was paid for them.
+        assertEquals(
+            listOf("Agrohub" to 10_000L, "Wolt" to 1_000L),
+            data.merchantValues.map { it.name to it.expenseMinor },
+        )
+    }
+
+    private val merchants = listOf(
+        MerchantEntity(1, "agrohub", "Agrohub"),
+        MerchantEntity(2, "bolt", "Bolt"),
+        MerchantEntity(3, "wolt", "Wolt"),
     )
 
     @Test

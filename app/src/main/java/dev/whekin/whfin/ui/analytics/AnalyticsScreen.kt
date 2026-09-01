@@ -1,9 +1,14 @@
 package dev.whekin.whfin.ui.analytics
 
 import android.content.res.Configuration
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,17 +39,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.FloatState
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
@@ -55,7 +68,9 @@ import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
+import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.core.ui.WhfinIconButton
+import dev.whekin.whfin.core.ui.WhfinMotion
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinMonthlyBar
 import dev.whekin.whfin.core.ui.WhfinMonthlyBarChart
@@ -78,7 +93,6 @@ import java.text.NumberFormat
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
@@ -126,50 +140,151 @@ internal fun AnalyticsScaffold(
     content: LazyListScope.(AnalyticsData) -> Unit,
 ) {
     val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize().testTag(listTestTag),
-            state = listState,
-            contentPadding = PaddingValues(bottom = navigationBottom + 28.dp),
-        ) {
-            item(key = "analytics-header") { AnalyticsHeader(onBack, title) }
-            item(key = "analytics-period") {
-                PeriodSelector(
-                    period = model.period,
-                    canSelectPrevious = model.canSelectPrevious,
-                    canSelectNext = model.canSelectNext,
-                    onPreviousPeriod = onPreviousPeriod,
-                    onNextPeriod = onNextPeriod,
-                    onScaleChange = onScaleChange,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
-                )
-            }
-            when (val state = model.state) {
-                AnalyticsUiState.Loading -> item(key = "state") {
-                    WhfinStatePane(
-                        WhfinPaneState.Loading,
-                        title,
-                        stringResource(R.string.analytics_loading),
-                        Modifier.fillMaxWidth(),
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val swipe = periodSwipe(
+            width = maxWidth,
+            canSelectPrevious = model.canSelectPrevious,
+            canSelectNext = model.canSelectNext,
+            onPreviousPeriod = onPreviousPeriod,
+            onNextPeriod = onNextPeriod,
+        )
+        // The drag lives on the full-screen box rather than on the list: the gesture belongs to the
+        // page, and the list only declines it because it scrolls the other way.
+        Box(Modifier.fillMaxSize().then(swipe.dragModifier)) {
+            LazyColumn(
+                Modifier.fillMaxSize().then(swipe.pageModifier).testTag(listTestTag),
+                state = listState,
+                contentPadding = PaddingValues(bottom = navigationBottom + 28.dp),
+            ) {
+                item(key = "analytics-header") { AnalyticsHeader(onBack, title) }
+                item(key = "analytics-period") {
+                    PeriodSelector(
+                        period = model.period,
+                        canSelectPrevious = model.canSelectPrevious,
+                        canSelectNext = model.canSelectNext,
+                        onPreviousPeriod = onPreviousPeriod,
+                        onNextPeriod = onNextPeriod,
+                        onScaleChange = onScaleChange,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
                     )
                 }
-                AnalyticsUiState.Empty -> item(key = "state") {
-                    WhfinStatePane(WhfinPaneState.Empty, emptyTitle, emptyBody, Modifier.fillMaxWidth())
+                when (val state = model.state) {
+                    AnalyticsUiState.Loading -> item(key = "state") {
+                        WhfinStatePane(
+                            WhfinPaneState.Loading,
+                            title,
+                            stringResource(R.string.analytics_loading),
+                            Modifier.fillMaxWidth(),
+                        )
+                    }
+                    AnalyticsUiState.Empty -> item(key = "state") {
+                        WhfinStatePane(WhfinPaneState.Empty, emptyTitle, emptyBody, Modifier.fillMaxWidth())
+                    }
+                    AnalyticsUiState.Error -> item(key = "state") {
+                        WhfinStatePane(
+                            WhfinPaneState.Error,
+                            stringResource(R.string.analytics_error_title),
+                            stringResource(R.string.analytics_error_body),
+                            Modifier.fillMaxWidth(),
+                        )
+                    }
+                    is AnalyticsUiState.Content -> content(state.data)
                 }
-                AnalyticsUiState.Error -> item(key = "state") {
-                    WhfinStatePane(
-                        WhfinPaneState.Error,
-                        stringResource(R.string.analytics_error_title),
-                        stringResource(R.string.analytics_error_body),
-                        Modifier.fillMaxWidth(),
-                    )
-                }
-                is AnalyticsUiState.Content -> content(state.data)
             }
         }
         WhfinStatusBarProtection(Modifier.align(Alignment.TopCenter))
     }
 }
+
+/**
+ * Moving through time by dragging the page, as an equal of the two arrows above it.
+ *
+ * The page follows the finger along the same shared axis the shell already uses between screens — a
+ * short slide under a fade — so a drag let go half-way has said what it would do and then does
+ * nothing. A committed one keeps going until the page is invisible, swaps the period underneath,
+ * and brings the next one in from the other side: the substitution happens at the moment there is
+ * nothing on screen to see it happen.
+ *
+ * A direction with nothing behind it still moves and still springs back. Declining the drag outright
+ * would be indistinguishable from a screen that does not answer to the gesture at all, and the
+ * arrow above it is already the thing that shows the edge of the record by going grey.
+ */
+@Composable
+private fun periodSwipe(
+    width: Dp,
+    canSelectPrevious: Boolean,
+    canSelectNext: Boolean,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
+): PeriodSwipe {
+    val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
+    val widthPx = with(density) { width.toPx() }
+    // Travel is the shell's own: an eighth of the width. Commit distance is the finger's, and it is
+    // longer, so the page never runs out of room before the gesture has been decided.
+    val travel = widthPx / 8f
+    val commitDistance = widthPx * .22f
+    val flingVelocity = with(density) { 400.dp.toPx() }
+    val exitSpec = WhfinMotion.quick<Float>()
+    val enterSpec = WhfinMotion.standard<Float>()
+
+    // One number is where the page is, written by the finger and by the settle in turn. An
+    // `Animatable` would serialise the two through its own mutex, and a snap still queued from the
+    // last delta would then cancel the settle it was handed off to — the page would leave and the
+    // period would never change.
+    val page = remember { mutableFloatStateOf(0f) }
+    var dragged by remember { mutableFloatStateOf(0f) }
+    val dragState = rememberDraggableState { delta ->
+        dragged += delta
+        page.floatValue = (dragged / commitDistance).coerceIn(-1f, 1f) * travel * DRAG_REACH
+    }
+    val dragModifier = Modifier.draggable(
+        state = dragState,
+        orientation = Orientation.Horizontal,
+        onDragStarted = { dragged = 0f },
+        onDragStopped = { velocity ->
+            val progress = dragged / commitDistance
+            // Dragging the page to the left uncovers what comes after it, as on any page of a book.
+            val forward = progress < 0f
+            val decided = abs(progress) >= 1f ||
+                (abs(velocity) >= flingVelocity && abs(progress) >= FLING_MIN_PROGRESS)
+            dragged = 0f
+            if (decided && (if (forward) canSelectNext else canSelectPrevious)) {
+                haptics.performHapticFeedback(WhfinHaptics.navigation)
+                val sign = if (forward) -1f else 1f
+                animate(page.floatValue, sign * travel, animationSpec = exitSpec) { value, _ ->
+                    page.floatValue = value
+                }
+                if (forward) onNextPeriod() else onPreviousPeriod()
+                page.floatValue = -sign * travel
+            }
+            animate(page.floatValue, 0f, animationSpec = enterSpec) { value, _ ->
+                page.floatValue = value
+            }
+        },
+    )
+    return PeriodSwipe(page, travel, dragModifier)
+}
+
+@Stable
+private class PeriodSwipe(
+    private val page: FloatState,
+    private val travel: Float,
+    val dragModifier: Modifier,
+) {
+    /** Only the page moves and fades; the cover over the status bar is not part of the period. */
+    val pageModifier: Modifier
+        get() = Modifier.graphicsLayer {
+            translationX = page.floatValue
+            alpha = 1f - (abs(page.floatValue) / travel).coerceAtMost(1f)
+        }
+}
+
+/** How much of the fade a drag may spend before it is released: enough to be read, short of blank. */
+private const val DRAG_REACH = .65f
+
+/** A flick still has to have gone somewhere; below this it is a tap that slipped. */
+private const val FLING_MIN_PROGRESS = .25f
 
 @Composable
 internal fun AnalyticsContent(

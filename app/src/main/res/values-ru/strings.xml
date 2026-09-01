@@ -1247,6 +1247,18 @@
     <string name="analytics_changes_hint_year">Самые заметные изменения категорий с прошлого года</string>
     <string name="analytics_categories_hint">Доля каждой категории в расходах периода</string>
     <string name="analytics_uncategorized">Без категории</string>
+    <string name="analytics_merchants_title">Кому платили</string>
+    <string name="analytics_merchants_sort_amount">По сумме</string>
+    <string name="analytics_merchants_sort_count">По числу платежей</string>
+    <string name="analytics_merchants_unnamed">Без имени</string>
+    <string name="analytics_merchants_show_all">Показать все %1$d</string>
+    <string name="analytics_merchants_show_less">Свернуть</string>
+    <plurals name="analytics_merchants_payments">
+        <item quantity="one">%d платёж</item>
+        <item quantity="few">%d платежа</item>
+        <item quantity="many">%d платежей</item>
+        <item quantity="other">%d платежа</item>
+    </plurals>
     <string name="analytics_year_trend">За 12 месяцев</string>
     <string name="analytics_year_trend_months">Месяцы %1$d года</string>
     <string name="analytics_all_expenses">Все расходы</string>

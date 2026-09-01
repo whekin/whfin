@@ -27,11 +27,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -40,11 +44,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinAmount
+import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinDistributionSegment
 import dev.whekin.whfin.core.ui.WhfinDonutChart
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
+import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionHeader
 import dev.whekin.whfin.core.ui.WhfinStatePane
@@ -146,6 +155,13 @@ internal fun ExpenseAnalysisContent(
                     scope.launch { listState.animateScrollToItem(4) }
                 },
                 modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
+        if (data.merchantValues.isNotEmpty()) item(key = "expense-merchants") {
+            ExpenseMerchants(
+                data = data,
+                onOpenTransactions = onOpenTransactions,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),
             )
         }
         if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "expense-currencies") {
@@ -383,6 +399,125 @@ private fun SpendingCategoryRow(
     }
 }
 
+/**
+ * The rung between a category and each of its payments: who the money actually went to.
+ *
+ * Two questions land here that the ledger below cannot answer by being reordered. "Which were the
+ * big ones" is a sort; "which keep coming back" is not — repetition belongs to the counterparty, and
+ * forty rows of the same shop stay forty rows however they are arranged. So the row states both, and
+ * one switch decides which of the two orders the list.
+ *
+ * The scope is whatever the ring and the trend are already showing, so the three never describe
+ * different spending, and no row is hidden — including the one nobody has named — so the column
+ * still adds up to the total above it.
+ */
+@Composable
+private fun ExpenseMerchants(
+    data: AnalyticsData,
+    onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val category = data.trendFilter as? AnalyticsTrendFilter.Category
+    val categoryName = when {
+        category == null -> null
+        data.trendFilterName != null -> data.trendFilterName
+        else -> stringResource(R.string.analytics_uncategorized)
+    }
+    var sortByCount by rememberSaveable { mutableStateOf(false) }
+    // A period or a category is a different set of counterparties, so how much of it was unfolded
+    // does not carry over to it.
+    var expanded by rememberSaveable(data.period, data.trendFilter) { mutableStateOf(false) }
+
+    val ordered = if (sortByCount) {
+        // Sums break ties: two counterparties paid the same number of times are still not equal.
+        data.merchantValues.sortedWith(
+            compareByDescending(AnalyticsMerchantValue::transactionCount)
+                .thenByDescending(AnalyticsMerchantValue::expenseMinor),
+        )
+    } else {
+        data.merchantValues
+    }
+    val visible = if (expanded) ordered else ordered.take(TOP_MERCHANTS)
+    val scopeTotal = data.merchantValues.sumOf { it.expenseMinor }
+
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        WhfinSectionHeader(
+            title = stringResource(R.string.analytics_merchants_title),
+            supportingText = categoryName,
+        )
+        if (data.merchantValues.size > 1) WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                    stringResource(R.string.analytics_merchants_sort_amount),
+                    selected = !sortByCount,
+                    onClick = { sortByCount = false },
+                    modifier = Modifier.testTag("expense-merchants-sort-amount"),
+                )
+            }
+            item {
+                WhfinFilterPill(
+                    stringResource(R.string.analytics_merchants_sort_count),
+                    selected = sortByCount,
+                    onClick = { sortByCount = true },
+                    modifier = Modifier.testTag("expense-merchants-sort-count"),
+                )
+            }
+        }
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            visible.forEachIndexed { index, value ->
+                val name = value.name ?: stringResource(R.string.analytics_merchants_unnamed)
+                val share = if (scopeTotal <= 0L) 0.0 else value.expenseMinor.toDouble() / scopeTotal
+                WhfinLedgerRow(
+                    title = name,
+                    modifier = Modifier.testTag("expense-merchant-${value.merchantId ?: "none"}"),
+                    supportingText = listOf(
+                        pluralStringResource(
+                            R.plurals.analytics_merchants_payments,
+                            value.transactionCount,
+                            value.transactionCount,
+                        ),
+                        NumberFormat.getPercentInstance().format(share),
+                    ).joinToString(" · "),
+                    trailing = {
+                        WhfinAmount(
+                            formatMinor(value.expenseMinor, "GEL"),
+                            symbol = currencySymbol("GEL"),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    },
+                    onClick = {
+                        onOpenTransactions(
+                            AnalyticsTransactionsRequest(
+                                period = data.period,
+                                categoryFilterEnabled = category != null,
+                                categoryId = category?.categoryId,
+                                filterName = listOfNotNull(categoryName, name).joinToString(" · "),
+                                expectedExpenseMinor = value.expenseMinor,
+                                merchantFilterEnabled = true,
+                                merchantId = value.merchantId,
+                            ),
+                        )
+                    },
+                    divider = index < visible.lastIndex,
+                )
+            }
+        }
+        if (ordered.size > TOP_MERCHANTS) WhfinButton(
+            label = if (expanded) {
+                stringResource(R.string.analytics_merchants_show_less)
+            } else {
+                stringResource(R.string.analytics_merchants_show_all, ordered.size)
+            },
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth().testTag("expense-merchants-expand"),
+            style = WhfinActionStyle.Secondary,
+        )
+    }
+}
+
+/** Enough rows to see the shape of a period without turning the section into a second ledger. */
+private const val TOP_MERCHANTS = 6
+
 /** The distance from the comparison base, signed. Null when there is no base to compare with. */
 @Composable
 private fun averageDeltaText(current: Long, average: Long): String? {
@@ -426,6 +561,15 @@ private val expensePreviewData = AnalyticsData(
         AnalyticsCategoryValue(2, "Health & Fitness", "MedicalServices", 0xffc96d4f.toInt(), 56_100, 68_000),
         AnalyticsCategoryValue(3, "Eating out", "Restaurant", 0xff788a67.toInt(), 48_700, 42_300),
         AnalyticsCategoryValue(4, "Transport", "DirectionsBus", 0xffb58b4d.toInt(), 43_000, 38_800),
+    ),
+    merchantValues = listOf(
+        AnalyticsMerchantValue(1, "Agrohub", 61_400, 9),
+        AnalyticsMerchantValue(2, "Carrefour", 39_700, 4),
+        AnalyticsMerchantValue(3, "Bolt", 24_300, 31),
+        AnalyticsMerchantValue(4, "Wolt", 18_900, 12),
+        AnalyticsMerchantValue(5, "Silknet", 12_000, 1),
+        AnalyticsMerchantValue(6, "Aversi", 9_450, 3),
+        AnalyticsMerchantValue(null, null, 7_820, 6),
     ),
     spendingAverageMinor = 549_100,
     trendFilter = AnalyticsTrendFilter.All,

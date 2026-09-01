@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.analytics
 import dev.whekin.whfin.data.categorization.CategoryTree
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.CategoryEntity
+import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
@@ -41,6 +42,25 @@ internal data class AnalyticsCurrencyValue(
     val expenseMinor: Long,
 )
 
+/**
+ * Who the money inside the selected scope went to, and how many payments made that up.
+ *
+ * A category total hides two different facts that look identical from above: one large purchase and
+ * a habit of sixty small ones. Neither is a property of a transaction, so no ordering of the ledger
+ * can show them — they are properties of the counterparty. The row therefore carries both the sum
+ * and the count, and the screen decides which of the two orders the list.
+ *
+ * A row the ledger never named keeps [merchantId] null rather than being dropped: forty payments
+ * nobody can attribute is itself the answer, and hiding them would stop these rows adding up to the
+ * total printed above them.
+ */
+internal data class AnalyticsMerchantValue(
+    val merchantId: Long?,
+    val name: String?,
+    val expenseMinor: Long,
+    val transactionCount: Int,
+)
+
 internal data class AnalyticsPace(
     val daysElapsed: Int,
     val daysTotal: Int,
@@ -66,6 +86,8 @@ internal data class AnalyticsData(
     val expenseMinor: Long,
     /** Categories of the selected period, each with its average over the preceding periods. */
     val categoryValues: List<AnalyticsCategoryValue>,
+    /** Counterparties of the selected period, scoped by the same filter the trend chart is showing. */
+    val merchantValues: List<AnalyticsMerchantValue> = emptyList(),
     val spendingAverageMinor: Long = 0L,
     val trendFilter: AnalyticsTrendFilter,
     val trendFilterName: String?,
@@ -91,6 +113,8 @@ private data class AnalyticsSlice(
     val amountMinor: Long,
     /** Value in GEL booked at the rate of this row's own day; null while the day is unpriced. */
     val gelMinor: Long?,
+    /** Who was paid, when the row was ever given a name. */
+    val merchantId: Long?,
     val categoryId: Long?,
     /**
      * The category this row is *reported* under: its parent when it has one.
@@ -164,6 +188,7 @@ private fun analyticsSlices(
                     amountMinor = amount,
                     // The funded path already restated the purchase in the lari the bank charged.
                     gelMinor = if (currency == BASE_CURRENCY) amount else gelForPart(amount),
+                    merchantId = transaction.merchantId,
                     categoryId = categoryId,
                     groupId = tree.rollupId(categoryId),
                     unaccounted = (transaction.source == TxSource.ADJUSTMENT &&
@@ -211,6 +236,7 @@ internal fun calculateAnalytics(
     trendFilter: AnalyticsTrendFilter,
     zoneId: ZoneId = ZoneId.systemDefault(),
     today: LocalDate = LocalDate.now(zoneId),
+    merchants: List<MerchantEntity> = emptyList(),
 ): AnalyticsData {
     val categoryById = categories.associateBy { it.id }
     val slices = analyticsSlices(transactions, categories, allocations, zoneId)
@@ -312,6 +338,24 @@ internal fun calculateAnalytics(
                 slice.groupId == trendFilter.categoryId || slice.categoryId == trendFilter.categoryId
         }
     }
+    // Scoped by the same filter the trend chart is showing, so the two blocks can never disagree
+    // about which spending they are describing, and valued by the same rule as the category totals,
+    // so these rows add up to the number printed above them.
+    val merchantById = merchants.associateBy { it.id }
+    val merchantValues = selectedBase
+        .filter { it.gelMinor!! < 0L && matchesTrendFilter(it) }
+        .groupBy(AnalyticsSlice::merchantId)
+        .map { (merchantId, values) ->
+            AnalyticsMerchantValue(
+                merchantId = merchantId,
+                name = merchantId?.let(merchantById::get)?.displayName,
+                expenseMinor = -values.sumOf { it.gelMinor!! },
+                // A split is several slices of one payment, and one payment is what was repeated.
+                transactionCount = values.distinctBy(AnalyticsSlice::transactionId).size,
+            )
+        }
+        .sortedByDescending { it.expenseMinor }
+
     // A fixed calendar year lets all twelve bars stay visible and makes 2024/2025 comparisons
     // spatially stable: January never changes position merely because another month was selected.
     val trendMonths = (1..12).map { YearMonth.of(period.year, it) }
@@ -338,6 +382,7 @@ internal fun calculateAnalytics(
         incomeMinor = income,
         expenseMinor = expenses,
         categoryValues = categoryValues,
+        merchantValues = merchantValues,
         spendingAverageMinor = spendingAverage,
         trendFilter = trendFilter,
         trendFilterName = (trendFilter as? AnalyticsTrendFilter.Category)

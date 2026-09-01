@@ -193,7 +193,7 @@ private fun AnalyticsTransactionsHeader(onBack: () -> Unit) {
 
 @Composable
 private fun AnalyticsTransactionsScope(request: AnalyticsTransactionsRequest) {
-    val filterName = if (request.categoryFilterEnabled) {
+    val filterName = if (request.categoryFilterEnabled || request.merchantFilterEnabled) {
         request.filterName
     } else {
         androidx.compose.ui.res.stringResource(R.string.analytics_all_expenses)
