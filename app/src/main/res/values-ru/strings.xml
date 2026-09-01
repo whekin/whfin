@@ -545,9 +545,11 @@
     <string name="sms_create_and_link_action">Создать и подтвердить</string>
     <string name="sms_link_and_confirm_action">Привязать и подтвердить</string>
     <string name="sms_stated_balance">Банк указал остаток после операции: %1$s</string>
+    <string name="sms_deposit_number">Вклад %1$s — так его назвал банк</string>
     <string name="sms_close_action">Закрыть</string>
     <string name="sms_choose_account_body">Выберите счёт %1$s для этого сообщения. Будущие оплаты с той же карты будут использовать эту привязку.</string>
     <string name="sms_no_matching_accounts">Нет активных банковских счетов в %1$s. Сначала добавьте или импортируйте счёт.</string>
+    <string name="sms_no_matching_deposits">Нет активного вклада в %1$s. Добавьте вклад или укажите банковский продукт у счёта, если он уже есть.</string>
     <string name="sms_card_type">ТИП КАРТЫ</string>
     <string name="sms_card_physical">Физическая</string>
     <string name="sms_card_virtual">Виртуальная</string>

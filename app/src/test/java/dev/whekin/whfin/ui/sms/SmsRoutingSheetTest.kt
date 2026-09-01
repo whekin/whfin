@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
+import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.BankProduct
@@ -245,4 +246,73 @@ class SmsRoutingSheetTest {
         )
     }
 
+
+    /**
+     * Interest is paid on a deposit, and which accounts are deposits has already been stated. Offering
+     * the current accounts too asked the owner to answer again what they had answered once.
+     */
+    @Test
+    fun interestOffersDepositsOnlyAndNamesTheDepositItIsAbout() {
+        var resolved: Long? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            WhfinTheme {
+                SmsRoutingSheet(
+                    diagnostic = SmsDiagnosticEntity(
+                        id = 90,
+                        externalKey = "sms|interest",
+                        kind = SmsDiagnosticKind.INTEREST,
+                        outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                        receivedAt = 1_000,
+                        occurredAt = 1_000,
+                        amountMinor = 531,
+                        currency = "GEL",
+                        balanceMinor = 64_028,
+                        balanceCurrency = "GEL",
+                        depositNumber = "10002888",
+                        updatedAt = 1_000,
+                    ),
+                    accounts = listOf(
+                        SmsRoutingAccount(
+                            AccountEntity(
+                                id = 11,
+                                name = "Everyday",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                                bankProduct = BankProduct.CURRENT_ACCOUNT,
+                            ),
+                            groupName = "Credo",
+                        ),
+                        SmsRoutingAccount(
+                            AccountEntity(
+                                id = 12,
+                                name = "Demand deposit",
+                                type = AccountType.BANK,
+                                groupId = 7,
+                                currency = "GEL",
+                                fundRole = FundRole.AVAILABLE,
+                                bankProduct = BankProduct.DEMAND_DEPOSIT,
+                            ),
+                            groupName = "Credo",
+                        ),
+                    ),
+                    onDismiss = {},
+                    onResolve = { account, _ -> resolved = account },
+                    onResolveGroup = { _, _ -> },
+                    onCreateAccount = { _, _, _ -> },
+                    onAddGroupedAccount = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.sms_deposit_number, "10002888"))
+            .assertIsDisplayed()
+        compose.onNodeWithText("Credo · Everyday").assertDoesNotExist()
+        // The one deposit is preselected, and answering leaves the number behind, so the action says so.
+        compose.onNodeWithText(context.getString(R.string.sms_link_and_confirm_action))
+            .assertIsEnabled()
+            .performClick()
+        compose.runOnIdle { assertEquals(12L, resolved) }
+    }
 }

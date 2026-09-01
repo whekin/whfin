@@ -321,8 +321,24 @@ class CredoSmsParserTest {
         val result = CredoSmsParser.parse(sms) as CredoSmsParser.InterestAccrual
         assertEquals(531L, result.amountMinor)
         assertEquals(64028L, result.balanceMinor)
+        // The deposit the bank named: the one identity here that does not depend on the ledger being
+        // complete, unlike reaching the stated balance by adding up rows.
+        assertEquals("00000000", result.depositNumber)
         // Only a bare day is printed and its order is ambiguous, so the caller uses delivery time.
         assertNull(result.timestamp)
+    }
+
+    @Test
+    fun `interest without a deposit number stays interest`() {
+        val sms = """
+            Accrued interest on your deposit, 03/04/2026,
+            amount 5.31 GEL; Available Balance: 640.28 GEL.
+        """.trimIndent()
+
+        val result = CredoSmsParser.parse(sms) as CredoSmsParser.InterestAccrual
+        assertEquals(531L, result.amountMinor)
+        // A template that moved the number is still a real payment; it simply has to be asked about.
+        assertNull(result.depositNumber)
     }
 
     @Test

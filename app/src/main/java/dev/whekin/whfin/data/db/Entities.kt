@@ -39,6 +39,15 @@ data class AccountEntity(
     /** ISO 4217 для фиата (GEL, USD), тикер для крипты (USDT). */
     val currency: String,
     val iban: String? = null,
+    /**
+     * The deposit number the bank prints, once one of its messages has been placed here.
+     *
+     * A second identifier beside [iban] rather than a reading of it: an interest notice names the
+     * deposit and never its IBAN, and inferring one from the other would be a guess about how this
+     * bank numbers accounts — wrong once, it routes real money into the wrong deposit forever. Learnt
+     * the same way a card is: asked once, then it answers by itself.
+     */
+    val depositNumber: String? = null,
     /** For CRYPTO: one balance = one address/network + one asset contract. */
     val walletAddressId: Long? = null,
     val cryptoAssetId: Long? = null,
@@ -644,6 +653,8 @@ data class SmsDiagnosticEntity(
     val balanceMinor: Long? = null,
     val balanceCurrency: String? = null,
     val cardLast4: String? = null,
+    /** The deposit an interest notice named, kept so the question can show it and the answer learn it. */
+    val depositNumber: String? = null,
     val counterparty: String? = null,
     val fromIban: String? = null,
     val toIban: String? = null,

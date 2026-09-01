@@ -113,7 +113,23 @@ internal data class BackupTable(
      * deleted.
      */
     val enumColumns: Map<String, Set<String>> = emptyMap(),
-)
+    /**
+     * Columns a later schema added, by the database version that introduced them.
+     *
+     * A backup is a file that already exists, written by whatever version was installed when it was
+     * taken. Demanding today's full column set from it would make the first added column reject every
+     * copy the owner already has — including the nightly one, at the moment they most need it. Read
+     * back as absent, which for these is the truth: nothing had been recorded there yet.
+     *
+     * Deliberately keyed by version rather than a flat "optional" set, so the file says when each
+     * column appeared and a newer file is still required to carry it.
+     */
+    val columnsSince: Map<String, Int> = emptyMap(),
+) {
+    /** What a file written by [databaseVersion] must contain. */
+    fun requiredColumns(databaseVersion: Int): List<String> =
+        columns.filter { column -> (columnsSince[column] ?: 1) <= databaseVersion }
+}
 
 private val ACCOUNT_TYPES = setOf("BANK", "CASH", "SAVINGS", "CRYPTO", "PERSON")
 private val SAVINGS_MODES = setOf("FLEXIBLE_RESERVE", "GOAL", "TERM_DEPOSIT")
@@ -144,9 +160,9 @@ internal object WhfinBackupSchema {
         BackupTable(
             "accounts",
             listOf(
-                "id", "name", "type", "groupId", "currency", "iban", "walletAddressId",
-                "cryptoAssetId", "savingsGoalMinor", "savingsMode", "fundRole", "bankProduct",
-                "isArchived", "sortOrder",
+                "id", "name", "type", "groupId", "currency", "iban", "depositNumber",
+                "walletAddressId", "cryptoAssetId", "savingsGoalMinor", "savingsMode", "fundRole",
+                "bankProduct", "isArchived", "sortOrder",
             ),
             enumColumns = mapOf(
                 "type" to ACCOUNT_TYPES,
@@ -154,6 +170,7 @@ internal object WhfinBackupSchema {
                 "fundRole" to FUND_ROLES,
                 "bankProduct" to BANK_PRODUCTS,
             ),
+            columnsSince = mapOf("depositNumber" to 3),
         ),
         BackupTable(
             "payment_instruments",
@@ -356,7 +373,8 @@ internal object WhfinBackupCodec {
         WhfinBackupSchema.tables.forEach { table ->
             snapshot.rowsByTable.getValue(table.name).forEach { row ->
                 val values = ContentValues(table.columns.size)
-                table.columns.forEach { column -> values.putBackupValue(column, row.getValue(column)) }
+                // A column the file predates is absent, which is what it should be written as.
+                table.columns.forEach { column -> values.putBackupValue(column, row[column]) }
                 if (db.insert(table.name, SQLiteDatabase.CONFLICT_ABORT, values) == -1L) {
                     throw WhfinBackupException("Could not restore table ${table.name}.")
                 }
@@ -421,6 +439,7 @@ internal object WhfinBackupCodec {
         tables.forEach { (tableName, rows) ->
             val table = WhfinBackupSchema.byName.getValue(tableName)
             rows.forEach { row ->
+                validateColumns(table, row, dbVersion)
                 table.enumColumns.forEach { (column, allowed) ->
                     val value = row[column]
                     if (value is BackupValue.Text && value.value !in allowed) {
@@ -478,11 +497,21 @@ internal object WhfinBackupCodec {
             row[column] = readBackupValue()
         }
         endObject()
-        val missing = table.columns - row.keys
+        return row
+    }
+
+    /**
+     * Checks the row carries what a file of this database version had to carry.
+     *
+     * Deliberately not done while reading the row: which columns are required depends on the file's
+     * database version, and that is a sibling field in the same JSON object. Validating here means it
+     * cannot depend on the two being written in any particular order.
+     */
+    private fun validateColumns(table: BackupTable, row: Map<String, BackupValue?>, databaseVersion: Int) {
+        val missing = table.requiredColumns(databaseVersion) - row.keys
         if (missing.isNotEmpty()) {
             throw WhfinBackupException("Missing columns in ${table.name}: ${missing.joinToString()}.")
         }
-        return row
     }
 
     private fun JsonReader.readBackupValue(): BackupValue? = when (peek()) {

@@ -176,6 +176,53 @@ saved as scenarios. The generic one-account resolution path rejects grouped diag
 neither a legacy one-account route nor a partial choice can create a one-legged transfer. Bank SMS sends
 grouped unresolved items back to their contextual Feed resolver.
 
+## Interest names its deposit
+
+Interest is the bank paying on a deposit, and the notice carries three facts: the deposit's own number,
+the amount, and the balance left afterwards. Two of them were being thrown away.
+
+The balance was not: `accountAtDeclaredBalance` already answers by it, taking the last balance the bank
+itself declared on a ledger, adding everything recorded since, and adding this operation. That works,
+and it works least well exactly where interest is paid. A demand deposit paying on each day's balance is
+an account its owner keeps available and transfers out of constantly, so one unrecorded or duplicated
+row since the last declared balance is enough for the arithmetic to miss — and it is right to miss
+rather than guess. A quiet term deposit answers first time; the busy one never does.
+
+So the number answers first. It is printed every time, means the same thing every time, and does not
+depend on the ledger being complete. It is not derived from the IBAN: an interest notice never prints
+one, and inferring the number from it would be a guess about how this bank numbers accounts, which is
+wrong once and then routes real money into the wrong deposit forever. It is learnt the way a card is —
+asked once, kept on `accounts.depositNumber`, and every later notice about that deposit, plus any
+already queued, is placed without asking. An account already claiming a different number is never
+overwritten; reaching the question at all means none claimed this one.
+
+The question narrowed too. Which accounts are deposits is already stated, so both interest and a deposit
+top-up ask only those, in routing and in the resolver sheet. It is asked of the **bank product** and
+never of the fund role: available-or-reserve is the owner's statement about their own money, and the
+account paying daily interest is precisely one they mark available. "No deposit in this currency" is
+therefore a different answer from "several accounts", and the sheet offers adding one instead of
+listing the current accounts that cannot be right.
+
+## What the bank called it reaches both doors
+
+A statement row carries a label read back into `StatementOperation`, and `ImportApplier` files a fee or
+deposit interest by it before anything is known about a counterparty. A message about the same event
+said the same thing and was never asked: SMS rows took a category only from a merchant, and interest has
+none, so the identical operation arrived categorised through one door and blank through the other. Blank
+is also why such a row showed "No description" — the feed falls back to the category name, and there was
+none.
+
+One mapping now serves both, keyed on the stored `SmsDiagnosticKind` rather than a parser's own types,
+so it outlives the message text. It stays as narrow as the statement rule and for the same reason: a fee
+is the bank's own charge and interest its own payment, while cash and transfers are left alone because
+no template can say whether arriving money is income or the owner's own coming back.
+
+Categories are still never seeded behind the owner, so the row stays blank until the category exists —
+which is why the evidence that offers it now counts messages as well as statement rows. An operation
+somebody only ever hears about by SMS, interest on a deposit no statement covers, previously produced no
+evidence at all: the category it belonged in was never proposed, so the row could never stop being
+blank.
+
 ## Verification order
 
 1. Unit-test structured outcomes, monitoring without prior routing, account ambiguity, card mapping, duplicate handling,

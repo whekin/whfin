@@ -879,6 +879,11 @@ data class StatementNoteCount(
     val transactionCount: Int,
 )
 
+data class SmsKindCount(
+    val kind: SmsDiagnosticKind,
+    val transactionCount: Int,
+)
+
 data class StatementNoteRow(
     val id: Long,
     val note: String,
@@ -1147,6 +1152,29 @@ interface SmsDiagnosticDao {
             "ORDER BY occurredAt, id"
     )
     suspend fun unresolvedCardPayments(last4: String): List<SmsDiagnosticEntity>
+
+    /**
+     * Uncategorised rows that arrived as messages, counted per kind of message.
+     *
+     * The statement side counts the bank's own labels; a message has no label to count, only the kind
+     * it was parsed as. Without this an operation the owner only ever hears about by SMS — interest on
+     * a deposit that never appears in a statement — produced no evidence at all, so the category it
+     * belongs in was never offered and the row stayed blank forever.
+     */
+    @Query(
+        "SELECT d.kind AS kind, COUNT(*) AS transactionCount FROM sms_diagnostics d " +
+            "JOIN transactions t ON t.id = d.transactionId " +
+            "WHERE t.categoryId IS NULL AND t.isVoided = 0 AND t.isTransfer = 0 GROUP BY d.kind"
+    )
+    fun observeUncategorizedKinds(): Flow<List<SmsKindCount>>
+
+    /** Interest notices still waiting on the deposit the answer has just named. */
+    @Query(
+        "SELECT * FROM sms_diagnostics WHERE kind = 'INTEREST' " +
+            "AND depositNumber = :depositNumber AND transactionId IS NULL " +
+            "AND outcome = 'CHOOSE_ACCOUNT' ORDER BY occurredAt, id"
+    )
+    suspend fun unresolvedInterest(depositNumber: String): List<SmsDiagnosticEntity>
 
     @Query("SELECT * FROM sms_diagnostics WHERE externalKey = :externalKey LIMIT 1")
     suspend fun byExternalKey(externalKey: String): SmsDiagnosticEntity?

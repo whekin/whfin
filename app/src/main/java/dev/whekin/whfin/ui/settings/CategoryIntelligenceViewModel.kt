@@ -17,6 +17,7 @@ import dev.whekin.whfin.data.db.CounterpartyRuleEntity
 import dev.whekin.whfin.data.db.CounterpartyUsage
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.MerchantUsage
+import dev.whekin.whfin.data.db.SmsKindCount
 import dev.whekin.whfin.data.db.StatementNoteCount
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.UncategorizedCounterparty
@@ -95,12 +96,14 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         val merchants: List<MerchantEntity>,
         val usage: List<MerchantUsage>,
         val operationNotes: List<StatementNoteCount>,
+        val messageKinds: List<SmsKindCount>,
     )
 
     private val earned = combine(
         db.merchantDao().observeAll(),
         db.transactionDao().observeMerchantUsage(),
         db.transactionDao().observeUncategorizedStatementNotes(),
+        db.smsDiagnosticDao().observeUncategorizedKinds(),
         ::Earned,
     )
 
@@ -181,7 +184,7 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
                 merchants = earned.merchants,
                 usageByMerchantId = earned.usage.associate { it.merchantId to it.transactionCount },
                 existing = categories,
-                operationEvidence = operationEvidence(earned.operationNotes),
+                operationEvidence = operationEvidence(earned.operationNotes, earned.messageKinds),
             ),
             packs = CategoryPacks.all.filter { pack ->
                 // A pack whose categories all exist has nothing left to offer.
@@ -367,10 +370,18 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun operationEvidence(
         notes: List<StatementNoteCount>,
+        messageKinds: List<SmsKindCount>,
     ): Map<Pair<String, CategoryKind>, Int> {
         val evidence = mutableMapOf<Pair<String, CategoryKind>, Int>()
         notes.forEach { row ->
             val operation = StatementParsers.operationFor(row.note) ?: return@forEach
+            val target = OperationCategories.targetOf(operation) ?: return@forEach
+            evidence[target] = (evidence[target] ?: 0) + row.transactionCount
+        }
+        // The same operation heard as a message counts the same. A deposit that never reaches a
+        // statement is the case where these are the only rows there are.
+        messageKinds.forEach { row ->
+            val operation = OperationCategories.operationOf(row.kind) ?: return@forEach
             val target = OperationCategories.targetOf(operation) ?: return@forEach
             evidence[target] = (evidence[target] ?: 0) + row.transactionCount
         }

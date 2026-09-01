@@ -41,6 +41,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.sms.isCurrencyExchangeLedger
+import dev.whekin.whfin.data.sms.isDepositLedger
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -108,8 +109,15 @@ fun SmsRoutingSheet(
     onAddGroupedAccount: (String, String) -> Unit,
 ) {
     val currency = diagnostic.balanceCurrency ?: diagnostic.currency ?: "—"
-    val matching = remember(accounts, currency) {
-        accounts.filter { it.account.currency == currency }
+    // Interest is paid on a deposit, and which accounts are deposits has already been stated. Listing
+    // the current accounts too asked the owner to answer again what they had answered once, in a list
+    // long enough to hide the two rows that could be right.
+    val depositsOnly = diagnostic.kind == SmsDiagnosticKind.INTEREST ||
+        diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP
+    val matching = remember(accounts, currency, depositsOnly) {
+        accounts.filter { option ->
+            option.account.currency == currency && (!depositsOnly || isDepositLedger(option.account))
+        }
     }
     val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
         diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
@@ -147,9 +155,11 @@ fun SmsRoutingSheet(
             when {
                 creatingCurrency != null -> R.string.sms_create_and_link_action
                 grouped -> R.string.sms_close_action
-                // Only a card leaves a mapping behind. A transfer names no card, so promising a link
-                // here promised something this step cannot do and the next message would ask again.
-                diagnostic.cardLast4 != null -> R.string.sms_link_and_confirm_action
+                // Promised only where the answer is actually kept: a card, or a deposit the notice
+                // named. A transfer identifies neither, so the next one about it asks again and
+                // saying otherwise here would have been a promise this step cannot keep.
+                diagnostic.cardLast4 != null || diagnostic.depositNumber != null ->
+                    R.string.sms_link_and_confirm_action
                 else -> R.string.transaction_confirm
             },
         ),
@@ -197,6 +207,16 @@ fun SmsRoutingSheet(
                 text = formatMinor(kotlin.math.abs(amount), diagnostic.currency ?: currency),
                 symbol = currencySymbol(diagnostic.currency ?: currency),
                 style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+        // The deposit the bank named. Shown before the balance because it is the thing the owner can
+        // recognise directly, and because answering it teaches the number — the next notice about
+        // this deposit will not be a question at all.
+        diagnostic.depositNumber?.let { number ->
+            Text(
+                stringResource(R.string.sms_deposit_number, number),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         // The figure the bank printed is what decides this when it can be decided at all; when two
@@ -290,7 +310,10 @@ fun SmsRoutingSheet(
         } else if (matching.isEmpty()) {
             WhfinNotice(
                 title = stringResource(R.string.sms_no_bank_accounts_title),
-                body = stringResource(R.string.sms_no_matching_accounts, currency),
+                body = stringResource(
+                    if (depositsOnly) R.string.sms_no_matching_deposits else R.string.sms_no_matching_accounts,
+                    currency,
+                ),
                 kind = WhfinNoticeKind.Unavailable,
                 icon = Icons.Default.AccountBalance,
                 actionLabel = stringResource(R.string.accounts_add),

@@ -2,6 +2,7 @@ package dev.whekin.whfin.data.categorization
 
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
+import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.statement.StatementOperation
 
 /**
@@ -38,4 +39,22 @@ object OperationCategories {
     /** Which category this operation belongs in, named by icon so it can be asked for before it exists. */
     fun targetOf(operation: StatementOperation): Pair<String, CategoryKind>? =
         targetFor(operation)?.let { it.icon to it.kind }
+
+    /**
+     * The same operation, recognised in a message rather than in a statement row.
+     *
+     * A statement carries a label this reads back through the bank's own adapter; a message carries
+     * only its kind, decided when it was parsed. Both describe one event, so both have to reach the
+     * same category — interest arriving by message used to be filed blank while the identical
+     * statement row was filed under the bank's own payment, and which door it came through is not
+     * something the ledger should record.
+     *
+     * Keyed on the stored kind rather than on a parser's own type: the kinds outlive the message text,
+     * so this one mapping serves both the row being written and the evidence counted later.
+     */
+    fun operationOf(kind: SmsDiagnosticKind): StatementOperation? = when (kind) {
+        SmsDiagnosticKind.INTEREST -> StatementOperation.INTEREST
+        SmsDiagnosticKind.BILL_PAYMENT -> StatementOperation.BILL_PAYMENT
+        else -> null
+    }
 }

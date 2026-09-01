@@ -130,6 +130,16 @@ object CredoSmsParser {
     data class InterestAccrual(
         override val amountMinor: Long,
         override val currency: String,
+        /**
+         * The deposit the bank names, as printed.
+         *
+         * The only identity this message carries, and the one that does not depend on the ledger
+         * being complete: the stated balance has to be reached by adding up everything recorded since
+         * the bank last declared one, so a deposit money is constantly moved out of is exactly where
+         * that arithmetic misses. The number is printed every time and means the same thing every
+         * time.
+         */
+        val depositNumber: String?,
         override val balanceMinor: Long?,
         override val balanceCurrency: String?,
         override val timestamp: LocalDateTime?,
@@ -152,6 +162,7 @@ object CredoSmsParser {
 
     private val amountRegex = Regex("""([\d,]+\.\d{1,2})\s*([A-Z]{3})""")
     private val cardRegex = Regex("""(?i)card N \*+\s*(\d{4})""")
+    private val depositNumberRegex = Regex("""(?i)\bon your\s+([A-Za-z0-9./-]{4,32})\s+deposit\b""")
     private val paymentDateRegex = Regex("""(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})""")
     private val transferDateRegex =
         Regex("""Date:\s*(\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [AP]M)""")
@@ -369,6 +380,11 @@ object CredoSmsParser {
         return InterestAccrual(
             amountMinor = amount,
             currency = currency,
+            depositNumber = depositNumberRegex.find(text)
+                ?.groupValues
+                ?.get(1)
+                // A token with no digit in it is a word the template moved, not an account.
+                ?.takeIf { value -> value.any(Char::isDigit) },
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
             // Only a bare day is printed, and its order is ambiguous; the delivery time is honest.

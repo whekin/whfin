@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 2
+const val WHFIN_DATABASE_VERSION = 3
 
 @Database(
     entities = [
@@ -83,7 +83,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }
 
@@ -107,5 +107,19 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_savings_plans_endedOn` ON `savings_plans` (`endedOn`)",
         )
+    }
+}
+
+/**
+ * Where the bank's own deposit number is kept, on both sides of the question that learns it.
+ *
+ * Two nullable columns and nothing else: existing rows are correct as null, because nobody has been
+ * asked yet. `accounts` holds the answer once given, `sms_diagnostics` holds the number the message
+ * printed until then — the question has to be able to say which deposit it is about.
+ */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `accounts` ADD COLUMN `depositNumber` TEXT")
+        db.execSQL("ALTER TABLE `sms_diagnostics` ADD COLUMN `depositNumber` TEXT")
     }
 }

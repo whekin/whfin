@@ -2,6 +2,7 @@ package dev.whekin.whfin.data.sms
 
 import androidx.room.withTransaction
 import dev.whekin.whfin.data.categorization.MerchantCategorizer
+import dev.whekin.whfin.data.categorization.OperationCategories
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.BankProduct
@@ -35,6 +36,19 @@ internal fun isCurrencyExchangeLedger(account: AccountEntity): Boolean =
     account.type == AccountType.BANK &&
         account.bankProduct != BankProduct.DEMAND_DEPOSIT &&
         account.bankProduct != BankProduct.TERM_DEPOSIT
+
+/**
+ * A ledger a deposit's money sits in, which is what both a top-up and an interest payment reach.
+ *
+ * Asked of the bank product and never of the fund role: available-or-reserve is the owner's
+ * statement about their own money, and a demand deposit paying interest on each day's balance is
+ * exactly the account somebody keeps available and transfers out of constantly. The legacy SAVINGS
+ * type is still accepted because accounts created before products existed carry no product at all.
+ */
+internal fun isDepositLedger(account: AccountEntity): Boolean =
+    account.type == AccountType.SAVINGS ||
+        account.bankProduct == BankProduct.DEMAND_DEPOSIT ||
+        account.bankProduct == BankProduct.TERM_DEPOSIT
 
 /** Converts a Credo SMS classification into a visible diagnostic and, when possible, an active transaction. */
 class SmsTransactionImporter(private val db: WhfinDatabase) {
@@ -110,6 +124,31 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }
 
         val cardLast4 = diagnostic.cardLast4
+        val depositNumber = diagnostic.depositNumber
+        if (cardLast4 == null && depositNumber != null) {
+            // Answered once, and the deposit keeps the number: every later notice about it, and every
+            // one already queued, routes without asking again. Only an account claiming no number is
+            // taught one — reaching this question means none claimed this one.
+            if (account.depositNumber == null) {
+                db.accountDao().update(account.copy(depositNumber = depositNumber))
+            }
+            var selected: SmsImportResult? = null
+            db.smsDiagnosticDao().unresolvedInterest(depositNumber).forEach { queued ->
+                val queuedCurrency = queued.balanceCurrency ?: queued.currency
+                if (queuedCurrency != account.currency) return@forEach
+                val result = resolveIntoAccount(
+                    diagnostic = queued,
+                    account = account,
+                    status = TxStatus.CONFIRMED,
+                )
+                if (queued.id == diagnostic.id) selected = result
+            }
+            return@withTransaction selected ?: resolveIntoAccount(
+                diagnostic = diagnostic,
+                account = account,
+                status = TxStatus.CONFIRMED,
+            )
+        }
         if (cardLast4 == null) {
             return@withTransaction resolveIntoAccount(
                 diagnostic = diagnostic,
@@ -598,17 +637,23 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             }
         }
         val candidates = db.accountDao().bankAccountsByCurrency(currency)
+        // Interest names its deposit. An identity the bank prints beats arithmetic over the ledger,
+        // which only holds while every row since the last declared balance is present.
+        (sms as? CredoSmsParser.InterestAccrual)?.depositNumber?.let { number ->
+            candidates.singleOrNull { it.depositNumber == number }
+                ?.let { return AccountResolution.Found(it) }
+        }
         val pairedAccount = pairedAccountHint(sms)
         val narrowed = when (sms) {
-            is CredoSmsParser.DepositTopUp -> candidates.filter { candidate ->
-                (
-                    candidate.type == AccountType.SAVINGS ||
-                        candidate.bankProduct == BankProduct.DEMAND_DEPOSIT ||
-                        candidate.bankProduct == BankProduct.TERM_DEPOSIT
-                ) &&
-                    candidate.id != pairedAccount?.id &&
-                    (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
-            }
+            // Interest is paid on a deposit, and which accounts are deposits is already stated — by
+            // the bank product, never by the fund role: a demand deposit paying on each day's balance
+            // is money its owner spends from, so it is rightly marked available and is still a deposit.
+            is CredoSmsParser.DepositTopUp, is CredoSmsParser.InterestAccrual ->
+                candidates.filter { candidate ->
+                    isDepositLedger(candidate) &&
+                        candidate.id != pairedAccount?.id &&
+                        (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
+                }
             is CredoSmsParser.OutgoingTransfer -> candidates.filter { candidate ->
                 candidate.id != pairedAccount?.id &&
                     (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
@@ -617,14 +662,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }
         if (narrowed.size == 1) return AccountResolution.Found(narrowed.single())
         val pool = when (sms) {
-            is CredoSmsParser.OutgoingTransfer, is CredoSmsParser.DepositTopUp -> narrowed
+            is CredoSmsParser.OutgoingTransfer,
+            is CredoSmsParser.DepositTopUp,
+            is CredoSmsParser.InterestAccrual,
+            -> narrowed
             else -> candidates
         }
         accountAtDeclaredBalance(sms, pool, atMillis)?.let { return AccountResolution.Found(it) }
-        if (sms is CredoSmsParser.DepositTopUp) {
+        if (sms is CredoSmsParser.DepositTopUp || sms is CredoSmsParser.InterestAccrual) {
+            // The question is about deposits, so its emptiness is about deposits too: offering every
+            // account of the currency asked the person to re-answer what they had already marked.
             return AccountResolution.NeedsChoice(
                 SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
-                if (candidates.isEmpty()) SmsDiagnosticReason.NO_ACCOUNT else SmsDiagnosticReason.MULTIPLE_ACCOUNTS,
+                if (narrowed.isEmpty()) SmsDiagnosticReason.NO_ACCOUNT else SmsDiagnosticReason.MULTIPLE_ACCOUNTS,
             )
         }
         return when (candidates.size) {
@@ -793,6 +843,30 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         return ids.first()
     }
 
+    /**
+     * The category that follows from what the bank called this operation.
+     *
+     * Null when the category does not exist yet: it is offered from the evidence of rows like this
+     * one rather than seeded, so that a category the owner deleted cannot come back on its own.
+     */
+    private suspend fun operationCategory(sms: CredoSmsParser.Sms): Long? =
+        OperationCategories.operationOf(diagnosticKind(sms))
+            ?.let { OperationCategories.categoryFor(it, db.categoryDao().all()) }
+            ?.id
+
+    /** What kind of message this is, in the vocabulary the diagnostic keeps after the text is gone. */
+    private fun diagnosticKind(sms: CredoSmsParser.Sms): SmsDiagnosticKind = when (sms) {
+        is CredoSmsParser.CardPayment -> SmsDiagnosticKind.CARD_PAYMENT
+        is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.OUTGOING_TRANSFER
+        is CredoSmsParser.IncomingTransfer -> SmsDiagnosticKind.INCOMING_TRANSFER
+        is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.DEPOSIT_TOP_UP
+        is CredoSmsParser.OwnTransfer -> SmsDiagnosticKind.OWN_TRANSFER
+        is CredoSmsParser.CurrencyExchange -> SmsDiagnosticKind.CURRENCY_EXCHANGE
+        is CredoSmsParser.BillPayment -> SmsDiagnosticKind.BILL_PAYMENT
+        is CredoSmsParser.CashDeposit -> SmsDiagnosticKind.CASH_DEPOSIT
+        is CredoSmsParser.InterestAccrual -> SmsDiagnosticKind.INTEREST
+    }
+
     private suspend fun insertTransaction(
         sms: CredoSmsParser.Sms,
         account: AccountEntity,
@@ -817,7 +891,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 occurredAt = occurredMillis(sms, receivedAt),
                 merchantId = merchant?.id,
                 rawCounterparty = rawCounterparty,
-                categoryId = merchant?.categoryId,
+                // The same order the statement importer uses: what the counterparty is known to mean
+                // first, then what the bank said the operation is. Interest arriving by message used
+                // to land blank while the identical statement row landed categorised.
+                categoryId = merchant?.categoryId ?: operationCategory(sms),
                 status = status,
                 source = TxSource.SMS,
                 isTransfer = false,
@@ -997,17 +1074,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         transactionId: Long? = null,
     ): SmsDiagnosticEntity = SmsDiagnosticEntity(
         externalKey = externalKey,
-        kind = when (sms) {
-            is CredoSmsParser.CardPayment -> SmsDiagnosticKind.CARD_PAYMENT
-            is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.OUTGOING_TRANSFER
-            is CredoSmsParser.IncomingTransfer -> SmsDiagnosticKind.INCOMING_TRANSFER
-            is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.DEPOSIT_TOP_UP
-            is CredoSmsParser.OwnTransfer -> SmsDiagnosticKind.OWN_TRANSFER
-            is CredoSmsParser.CurrencyExchange -> SmsDiagnosticKind.CURRENCY_EXCHANGE
-            is CredoSmsParser.BillPayment -> SmsDiagnosticKind.BILL_PAYMENT
-            is CredoSmsParser.CashDeposit -> SmsDiagnosticKind.CASH_DEPOSIT
-            is CredoSmsParser.InterestAccrual -> SmsDiagnosticKind.INTEREST
-        },
+        kind = diagnosticKind(sms),
         outcome = outcome,
         reason = reason,
         receivedAt = receivedAt,
@@ -1020,6 +1087,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         balanceCurrency = sms.balanceCurrency,
         cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
             ?: (sms as? CredoSmsParser.IncomingTransfer)?.cardLast4,
+        depositNumber = (sms as? CredoSmsParser.InterestAccrual)?.depositNumber,
         counterparty = when (sms) {
             is CredoSmsParser.CardPayment -> sms.merchantRaw
             is CredoSmsParser.IncomingTransfer -> sms.senderName
@@ -1093,7 +1161,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
             )
             SmsDiagnosticKind.INTEREST -> CredoSmsParser.InterestAccrual(
-                amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
+                amount, valueCurrency, depositNumber, balanceMinor, balanceCurrency, timestamp,
             )
             SmsDiagnosticKind.DEPOSIT_TOP_UP -> CredoSmsParser.DepositTopUp(
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
