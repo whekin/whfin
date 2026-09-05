@@ -6,14 +6,12 @@ import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.preferences.nextDisplayCurrency
-import dev.whekin.whfin.data.rates.ConvertedTotal
 import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
+import dev.whekin.whfin.data.rates.MoneySplit
+import dev.whekin.whfin.data.rates.MoneySplitSource
 import dev.whekin.whfin.data.rates.NbgFiatRateProvider
-import dev.whekin.whfin.data.rates.NetWorthSource
-import dev.whekin.whfin.data.rates.RatesRepository
-import dev.whekin.whfin.data.rates.SpendableMoney
-import dev.whekin.whfin.data.rates.SpendableSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
+import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.ui.bank.SupportedBankApp
 import dev.whekin.whfin.ui.bank.bankAppForGroup
 import dev.whekin.whfin.data.db.AccountEntity
@@ -531,17 +529,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** The same headline as Accounts, so the two screens can never disagree about what is owned. */
-    val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     /**
-     * Money that can be spent today — Home's own headline, next to Accounts' net worth.
+     * One reading of the money, shared with Accounts so the two screens cannot disagree.
      *
-     * The two screens answer different questions on purpose: one page of the pager says what there
-     * is to spend, the other says what is owned.
+     * Home leads with what there is to spend and the ledger screens lead with what is owned — two
+     * questions, two numbers, but each of them is the same number on every screen that asks for it.
      */
-    internal val spendable: StateFlow<SpendableMoney?> = SpendableSource(db, preferences).observe()
+    internal val moneySplit: StateFlow<MoneySplit?> = MoneySplitSource(db, preferences).observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Where the money actually is, for decisions that cannot be made from names alone. */
@@ -567,10 +561,10 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }.distinctUntilChanged()
 
     internal val cashForecast: StateFlow<HomeCashForecast?> = combine(
-        cashInputs, spendable, db.incomeSourceDao().observeAll(),
+        cashInputs, moneySplit, db.incomeSourceDao().observeAll(),
         db.incomeSourceDao().observePayments(), cashToday,
     ) { input, balance, sources, payments, today ->
-        cashForecast(balance?.pivotMinor, input.transactions, input.categories, input.merchants,
+        cashForecast(balance?.availablePivotMinor, input.transactions, input.categories, input.merchants,
             input.allocations, sources, payments, today, zone)
     }
         .flowOn(Dispatchers.Default)

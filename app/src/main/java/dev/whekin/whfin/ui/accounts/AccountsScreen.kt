@@ -80,6 +80,8 @@ import dev.whekin.whfin.ui.accountProductLabel
 import dev.whekin.whfin.ui.ledgerOwnName
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.data.rates.ConvertedTotal
+import dev.whekin.whfin.data.rates.MoneySplit
+import dev.whekin.whfin.data.rates.moneySplit
 import dev.whekin.whfin.ui.convertedTotalLabel
 import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.formatMinor
@@ -151,7 +153,7 @@ fun AccountsScreen(
     val people by viewModel.people.collectAsState()
     val message by viewModel.message.collectAsState()
     val cryptoRefreshing by viewModel.cryptoRefreshing.collectAsState()
-    val netWorth by viewModel.netWorth.collectAsState()
+    val moneySplit by viewModel.moneySplit.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
     val accountContainerTotals by viewModel.accountContainerTotals.collectAsState()
     val importState by statementsViewModel.importState.collectAsState()
@@ -205,7 +207,7 @@ fun AccountsScreen(
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            val total = netWorth
+            val total = moneySplit?.total
             val totalAmount = total?.amount
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             WhfinContextHeader(
@@ -282,7 +284,11 @@ fun AccountsScreen(
                 ) {
                     item(key = "accounts-summary") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            AccountsSummary(ledgerAccounts, onOpenSavings)
+                            AccountsSummary(
+                                moneySplit,
+                                ledgerAccounts.any { it.account.fundRole == FundRole.RESERVE },
+                                onOpenSavings,
+                            )
                         }
                     }
                     listOf(
@@ -521,15 +527,11 @@ fun AccountsScreen(
 }
 
 @Composable
-private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (() -> Unit)? = null) {
-    // Chain balances are read, not summed from transactions, so they have their own reading below
-    // and never mix into these currency chips.
-    val all = accounts.groupBy { it.account.currency }
-        .mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    val available = accounts.filter { it.account.fundRole == FundRole.AVAILABLE }
-        .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
-    val reserve = accounts.filter { it.account.fundRole == FundRole.RESERVE }
-        .groupBy { it.account.currency }.mapValues { (_, list) -> list.sumOf { it.balanceMinor } }
+private fun AccountsSummary(
+    split: MoneySplit?,
+    hasReserve: Boolean,
+    onOpenSavings: (() -> Unit)? = null,
+) {
     // Two naked columns set in the same size as a balance four levels below them: the two numbers
     // the screen exists to answer had the least weight on it. They get a surface of their own and a
     // step up in size, so the descent from here down is readable — net worth, then these, then an
@@ -539,11 +541,12 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+        val currency = split?.available?.currency
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             SummaryColumn(
                 stringResource(R.string.accounts_available),
-                formatMinor(available["GEL"] ?: 0L, "GEL"),
-                currencySymbol("GEL"),
+                split?.available?.amount?.let { formatDecimal(it, split.available.currency) } ?: "—",
+                currency?.let(::currencySymbol),
                 Icons.Outlined.AccountBalanceWallet,
                 Modifier.weight(1f),
             )
@@ -553,31 +556,35 @@ private fun AccountsSummary(accounts: List<AccountWithBalance>, onOpenSavings: (
             )
             SummaryColumn(
                 stringResource(R.string.accounts_reserve),
-                reserve["GEL"]?.let { formatMinor(it, "GEL") } ?: "—",
-                reserve["GEL"]?.let { currencySymbol("GEL") },
+                split?.reserve?.amount?.let { formatDecimal(it, split.reserve.currency) } ?: "—",
+                currency?.let(::currencySymbol),
                 Icons.Outlined.Savings,
                 Modifier.weight(1f),
-                onClick = onOpenSavings?.takeIf { reserve.isNotEmpty() },
+                onClick = onOpenSavings?.takeIf { hasReserve },
             )
         }
-        // Available and reserve are lari only, so on a multi-currency ledger they cannot add up to
-        // the total above. Naming what is missing turns three numbers that seem to disagree into
-        // three numbers that explain each other; chips repeating the rows below did not.
-        // A currency holding nothing explains no part of the gap between these two numbers and the
-        // total above them, so listing it only lengthens the sentence: "0.00 € · $4.97".
-        val unconverted = all.entries
-            .filter { it.key != "GEL" && it.value != 0L }
-            .sortedBy { it.key }
-        if (unconverted.isNotEmpty()) {
+        // These two are the same numbers Home leads with, converted the same way, so they no longer
+        // need a line explaining why foreign money is missing from them — it is not missing. What
+        // still stands between them and the total above is worth a sentence when it exists: a
+        // currency with no quote at all, and money a term deposit holds while the owner calls it
+        // available. Chain balances are named by their own section further down.
+        val notes = listOfNotNull(
+            split?.total?.missing?.takeIf { it.isNotEmpty() }?.let {
+                stringResource(R.string.accounts_not_converted, it.joinToString(", "))
+            },
+            split?.heldBack?.amount?.takeIf { it.signum() != 0 }?.let {
+                stringResource(R.string.accounts_held_by_term, formatDecimal(it, split.heldBack.currency))
+            },
+        )
+        if (notes.isNotEmpty()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Text(
-                stringResource(
-                    R.string.accounts_not_in_gel,
-                    unconverted.joinToString(" · ") { (currency, amount) -> formatMinor(amount, currency) },
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            notes.forEach { note ->
+                Text(
+                    note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         }
     }
@@ -1205,7 +1212,10 @@ private fun AccountsContentPreview() {
                     WhfinIconButton(Icons.Default.Settings, "Settings", {}, outlined = false)
                 }
                 Column(Modifier.padding(20.dp)) {
-                    AccountsSummary(accounts)
+                    AccountsSummary(
+                        moneySplit(accountReadings(accounts), emptyMap(), "GEL"),
+                        hasReserve = false,
+                    )
                     WhfinSectionLabel(
                         stringResource(R.string.accounts_everyday_section),
                         icon = Icons.Outlined.CreditCard,

@@ -19,8 +19,9 @@ import dev.whekin.whfin.data.rates.CoinGeckoPriceProvider
 import dev.whekin.whfin.data.rates.ConvertedTotal
 import dev.whekin.whfin.data.rates.ExchangeRate
 import dev.whekin.whfin.data.rates.MoneyConverter
+import dev.whekin.whfin.data.rates.MoneySplit
+import dev.whekin.whfin.data.rates.MoneySplitSource
 import dev.whekin.whfin.data.rates.NbgFiatRateProvider
-import dev.whekin.whfin.data.rates.NetWorthSource
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.data.rates.RatesRepository
 import dev.whekin.whfin.data.rates.toRate
@@ -220,12 +221,26 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val preferences = UiPreferences(getApplication<Application>())
 
-    /** One reading of everything owned, in the currency the person last chose. */
-    val netWorth: StateFlow<ConvertedTotal?> = NetWorthSource(db, preferences).observe()
+    /**
+     * One reading of the money, in the currency the person last chose — the same one Home reads.
+     *
+     * The headline here and the headline there are cut from this single split, so "available" is one
+     * number in the whole app instead of one per screen.
+     */
+    internal val moneySplit: StateFlow<MoneySplit?> = MoneySplitSource(db, preferences).observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val displayCurrency: StateFlow<String> = preferences.displayCurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PIVOT_CURRENCY)
+
+    /** Everything the overview screen explains, cut from the same reading as the headline. */
+    internal val overview: StateFlow<AccountOverviewData?> = combine(
+        accountRows,
+        db.exchangeRateDao().observeAll(),
+        preferences.displayCurrency,
+    ) { rows, rateRows, display ->
+        accountOverviewData(rows, rateRows.map(::toRate).associateBy { it.code }, display)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val accountContainerTotals: StateFlow<Map<String, ConvertedTotal>> = combine(
         accountRows,

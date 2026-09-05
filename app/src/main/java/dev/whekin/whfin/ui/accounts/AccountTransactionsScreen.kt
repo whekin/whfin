@@ -64,12 +64,14 @@ import dev.whekin.whfin.data.transfer.OwnTransferSide
 import dev.whekin.whfin.ui.transfer.OwnTransferChoice
 import dev.whekin.whfin.ui.transfer.OwnTransferSheet
 import dev.whekin.whfin.ui.feed.DayHeader
+import dev.whekin.whfin.ui.feed.dayExpenses
 import dev.whekin.whfin.ui.feed.FeedItem
 import dev.whekin.whfin.ui.feed.FeedRow
 import dev.whekin.whfin.ui.feed.TransactionDetailsSheet
 import dev.whekin.whfin.ui.feed.TransactionStatusSheet
 import dev.whekin.whfin.ui.feed.CategoryPickerSheet
 import dev.whekin.whfin.ui.feed.DebtPersonSheet
+import dev.whekin.whfin.ui.feed.SplitSheet
 import dev.whekin.whfin.ui.feed.AddTransactionSheet
 import dev.whekin.whfin.ui.feed.FeedViewModel
 import dev.whekin.whfin.ui.currencySymbol
@@ -115,6 +117,7 @@ internal fun AccountTransactionsScreen(
     var correctTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
+    var splitFor by remember { mutableStateOf<FeedItem?>(null) }
     var ownTransferFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
     var adjustBalance by remember { mutableStateOf(false) }
@@ -178,11 +181,25 @@ internal fun AccountTransactionsScreen(
                 details = null
                 editTransactionFor = item
             }} else null,
-            onDebt = if (item.tx.amountMinor < 0) {{ details = null; debtFor = item }} else null,
+            onDebt = if (item.tx.amountMinor < 0 && item.splitOnPeople.isEmpty()) {{
+                details = null
+                debtFor = item
+            }} else null,
             onClearDebt = if (item.isDebt) {{ feedViewModel.clearAllocations(item); details = null }} else null,
+            onSplit = if (item.tx.amountMinor < 0 && !item.isDebt) {{ details = null; splitFor = item }} else null,
+            onClearSplit = if (item.splitOnPeople.isNotEmpty()) {{
+                feedViewModel.clearAllocations(item)
+                details = null
+            }} else null,
             onChangeStatus = {
                 details = null
                 statusFor = item
+            },
+            // The same row offers the same answers wherever it is opened from. A draft asks to be
+            // confirmed on the ledger it sits on just as loudly as it does in the feed.
+            onConfirm = {
+                feedViewModel.updateStatus(item, TxStatus.CONFIRMED)
+                details = null
             },
             // A ledger is exactly where "where did this money go" gets asked, so the action has to
             // be on the row here too and not only in the feed.
@@ -286,6 +303,15 @@ internal fun AccountTransactionsScreen(
                 correctTransactionFor = null
             },
             onDismiss = { correctTransactionFor = null },
+        )
+    }
+    splitFor?.let { item ->
+        SplitSheet(
+            item = item,
+            people = people,
+            onDismiss = { splitFor = null },
+            onAddPerson = { name, then -> feedViewModel.addPerson(name, then) },
+            onSave = { shares -> feedViewModel.saveSplit(item, shares); splitFor = null },
         )
     }
     debtFor?.let { item ->
@@ -439,13 +465,11 @@ private fun AccountTransactionsContent(
             }
             grouped.forEach { (day, dayItems) ->
                 item(key = "account-transactions-day-$day") {
-                    val expenses = dayItems.groupBy { it.tx.currency }
-                        .mapValues { (_, values) -> -values.sumOf { it.tx.amountMinor.coerceAtMost(0L) } }
-                        .filterValues { it > 0L }
+                    val expenses = dayExpenses(dayItems)
                     DayHeader(
                         day = day,
-                        expensesByCurrency = expenses,
-                        gelFromConversions = 0L,
+                        expensesByCurrency = expenses.byCurrency,
+                        gelFromConversions = expenses.gelFromConversions,
                         expanded = day in expandedDays,
                         onToggle = {
                             expandedDays = if (day in expandedDays) expandedDays - day else expandedDays + day

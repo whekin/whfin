@@ -256,7 +256,6 @@ fun FeedScreen(
     val context = LocalContext.current
     val homeAnalyticsState = collectHomeAnalyticsState(mode == FeedMode.HOME)
     val items by viewModel.items.collectAsState()
-    val netWorth by viewModel.netWorth.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val categoriesByUsage by viewModel.categoriesByUsage.collectAsState()
@@ -319,7 +318,7 @@ fun FeedScreen(
     val feedLoaded = monthFlow != null && !restoring
     val attention by viewModel.attention.collectAsState()
     val recent by viewModel.recentActivity.collectAsState()
-    val spendable by viewModel.spendable.collectAsState()
+    val moneySplit by viewModel.moneySplit.collectAsState()
     val accountBalances by viewModel.accountBalances.collectAsState()
     val cashForecast by viewModel.cashForecast.collectAsState()
     val recurringDue = cashForecast?.stillDue.orEmpty()
@@ -467,7 +466,7 @@ fun FeedScreen(
                 // Home leads with money that can be spent today; what is owned is the Accounts
                 // page's headline. The pager's two peers answer two different questions, and one
                 // number shown twice answered neither.
-                val total = if (mode == FeedMode.HOME) spendable?.total else netWorth
+                val total = if (mode == FeedMode.HOME) moneySplit?.available else moneySplit?.total
                 val totalAmount = total?.amount
                 val headline = stringResource(
                     if (mode == FeedMode.HOME) R.string.home_spendable else R.string.balance_total,
@@ -681,21 +680,11 @@ fun FeedScreen(
             val dayItems = dayEntries.mapNotNull { (it as? FeedTimelineEntry.Transaction)?.item }
             item(key = "header-$day") {
                 // Расходы дня: GEL показываем сразу, остальные валюты раскрываются по тапу.
-                val expensesByCurrency = dayItems
-                    .filter { !it.tx.isTransfer && it.tx.transferGroupId == null && it.tx.amountMinor < 0 && !it.isDebt }
-                    .groupBy { it.tx.currency }
-                    .mapValues { (_, list) -> -list.sumOf { it.tx.amountMinor } }
-                    .filterValues { it > 0L }
-                // Для FX-покупки Transaction хранит цену покупки (например USD), а связанная
-                // авто-конвертация — фактическую стоимость в GEL. В базовом итоге нужна именно она.
-                val gelFromConversions = dayItems
-                    .filter { !it.tx.isTransfer && it.tx.transferGroupId == null && it.tx.amountMinor < 0 &&
-                        it.tx.currency != "GEL" && it.fundedByConversionCurrency == "GEL" }
-                    .sumOf { it.fundedByConversionMinor ?: 0L }
+                val expenses = dayExpenses(dayItems)
                 DayHeader(
                     day = day,
-                    expensesByCurrency = expensesByCurrency,
-                    gelFromConversions = gelFromConversions,
+                    expensesByCurrency = expenses.byCurrency,
+                    gelFromConversions = expenses.gelFromConversions,
                     expanded = day in expandedExpenseDays,
                     onToggle = {
                         expandedExpenseDays = if (day in expandedExpenseDays) expandedExpenseDays - day
@@ -1119,7 +1108,10 @@ private fun TransactionDetailsContent(
     // Подтверждение pending-черновика — самое частое решение в этой раскладке, поэтому он
     // стоит первым и единственным залитым действием, а не спрятан за отдельным status-листом.
     val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING }
-    val hasQuickActions = confirmPending != null || onEdit != null || onCorrect != null || onDebt != null ||
+    // Correcting an imported row lives in the overflow beside Delete, where the rare answers are,
+    // and stays out of the rail: it carries the longest label in the sheet and was already listed
+    // in both places, so on a real phone it pushed the everyday answers past the right edge.
+    val hasQuickActions = confirmPending != null || onEdit != null || onDebt != null ||
         onClearDebt != null || onSplit != null || onClearSplit != null ||
         onOwnTransfer != null || onClearOwnTransfer != null
 
@@ -1219,14 +1211,19 @@ private fun TransactionDetailsContent(
         item(key = "transaction-summary") {
             Column(Modifier.fillMaxWidth()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                // A routed bank message is not a draft the owner has to review, so its row names
+                // where it came from rather than a status nobody has to act on. A row that IS still
+                // pending is a question either way: printing "SMS" there left this sheet saying one
+                // thing while the row it opened from said "Pending", and took away the answer.
+                val pending = tx.status == TxStatus.PENDING
                 DetailEditableRow(
                     label = stringResource(R.string.tx_detail_status),
-                    value = if (tx.source == TxSource.SMS) {
+                    value = if (tx.source == TxSource.SMS && !pending) {
                         stringResource(R.string.status_sms)
                     } else {
                         tx.status.label()
                     },
-                    onClick = onChangeStatus.takeUnless { tx.source == TxSource.SMS },
+                    onClick = onChangeStatus.takeIf { pending || tx.source != TxSource.SMS },
                 )
                 if (!isTransfer) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1309,9 +1306,6 @@ private fun TransactionDetailsContent(
                     }
                     if (onEdit != null) item {
                         DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
-                    }
-                    if (onCorrect != null) item {
-                        DetailQuickAction(Icons.Default.Edit, stringResource(R.string.transaction_correct), onCorrect)
                     }
                     if (onClearDebt != null) item {
                         DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)

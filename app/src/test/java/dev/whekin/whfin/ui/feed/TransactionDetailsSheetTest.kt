@@ -236,4 +236,49 @@ class TransactionDetailsSheetTest {
         compose.onNode(hasContentDescription(actions)).performClick()
         compose.onNode(hasText(deleteTransaction)).assertIsDisplayed()
     }
+
+    @Test
+    fun pendingDraftNamesItsStatusEvenWhenABankMessageWroteIt() {
+        // The row in the list said "Pending" and this sheet said "SMS": one state, two words, and
+        // the sheet withheld the answer to the question the word "Pending" was asking.
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val sms = context.getString(R.string.status_sms)
+        val confirm = context.getString(R.string.transaction_confirm)
+        var confirmed = false
+        compose.setContent {
+            WhfinTheme {
+                TransactionDetailsSheet(
+                    item = FeedItem(
+                        tx = TransactionEntity(
+                            id = 1,
+                            accountId = 1,
+                            amountMinor = -1_270,
+                            currency = "GEL",
+                            occurredAt = 1_000,
+                            rawCounterparty = "Example",
+                            status = TxStatus.PENDING,
+                            source = TxSource.SMS,
+                        ),
+                        merchant = null,
+                        category = null,
+                        account = null,
+                        cardHint = null,
+                        day = LocalDate.of(2026, 9, 1),
+                    ),
+                    onDismiss = {},
+                    onChangeCategory = null,
+                    onDelete = null,
+                    onEdit = null,
+                    onDebt = null,
+                    onClearDebt = null,
+                    onChangeStatus = {},
+                    onConfirm = { confirmed = true },
+                )
+            }
+        }
+
+        compose.onNode(hasText(sms)).assertDoesNotExist()
+        compose.onNode(hasText(confirm)).performClick()
+        assertEquals(true, confirmed)
+    }
 }

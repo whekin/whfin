@@ -47,6 +47,7 @@ import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.ui.feed.DayHeader
+import dev.whekin.whfin.ui.feed.dayExpenses
 import dev.whekin.whfin.ui.feed.FeedItem
 import dev.whekin.whfin.ui.feed.FeedRow
 import dev.whekin.whfin.ui.feed.TransactionDetailsSheet
@@ -132,16 +133,11 @@ internal fun AnalyticsTransactionsContent(
             item(key = "transactions-scope") { AnalyticsTransactionsScope(request) }
             grouped.forEach { (day, dayItems) ->
                 item(key = "transactions-day-$day") {
-                    val expensesByCurrency = dayItems.groupBy { it.tx.currency }
-                        .mapValues { (_, values) -> -values.sumOf { it.tx.amountMinor.coerceAtMost(0L) } }
-                        .filterValues { it > 0L }
-                    val gelFromConversions = dayItems
-                        .filter { it.tx.currency != "GEL" && it.fundedByConversionCurrency == "GEL" }
-                        .sumOf { it.fundedByConversionMinor ?: 0L }
+                    val expenses = dayExpenses(dayItems)
                     DayHeader(
                         day = day,
-                        expensesByCurrency = expensesByCurrency,
-                        gelFromConversions = gelFromConversions,
+                        expensesByCurrency = expenses.byCurrency,
+                        gelFromConversions = expenses.gelFromConversions,
                         expanded = day in expandedDays,
                         onToggle = {
                             expandedDays = if (day in expandedDays) expandedDays - day else expandedDays + day

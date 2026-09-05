@@ -45,81 +45,29 @@ import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.FundRole
+import dev.whekin.whfin.data.rates.ExchangeRate
 import dev.whekin.whfin.ui.currencySymbol
-import dev.whekin.whfin.ui.formatMinor
+import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.text.NumberFormat
 
-internal data class AccountSourceShare(
-    val name: String,
-    val balanceMinor: Long,
-)
-
-internal data class NativeCurrencyBalance(
-    val currency: String,
-    val balanceMinor: Long,
-)
-
-internal data class AccountOverviewData(
-    val netWorthMinor: Long,
-    val assetsMinor: Long,
-    val liabilitiesMinor: Long,
-    val availableMinor: Long,
-    val reserveMinor: Long,
-    val sources: List<AccountSourceShare>,
-    val otherCurrencies: List<NativeCurrencyBalance>,
-)
-
-internal fun accountOverviewData(rows: List<AccountWithBalance>): AccountOverviewData {
-    // This screen explains a balance built from transactions. A watch-only ledger has none, so
-    // including it would print a confident `0.00 USDT` next to money that is plainly on the chain.
-    val accounts = rows.filterNot { it.account.type == AccountType.CRYPTO }
-    val gel = accounts.filter { it.account.currency == "GEL" }
-    val assets = gel.sumOf { it.balanceMinor.coerceAtLeast(0L) }
-    val liabilities = -gel.sumOf { it.balanceMinor.coerceAtMost(0L) }
-    val available = gel
-        .filter { it.account.fundRole == FundRole.AVAILABLE }
-        .sumOf { it.balanceMinor }
-    val reserve = gel
-        .filter { it.account.fundRole == FundRole.RESERVE }
-        .sumOf { it.balanceMinor }
-    val sources = gel
-        .filter { it.balanceMinor > 0L }
-        .groupBy { it.groupName ?: it.account.name }
-        .map { (name, values) -> AccountSourceShare(name, values.sumOf { it.balanceMinor }) }
-        .sortedByDescending { it.balanceMinor }
-    val otherCurrencies = accounts
-        .filter { it.account.currency != "GEL" }
-        .groupBy { it.account.currency }
-        .map { (currency, values) -> NativeCurrencyBalance(currency, values.sumOf { it.balanceMinor }) }
-        .sortedBy { it.currency }
-    return AccountOverviewData(
-        netWorthMinor = gel.sumOf { it.balanceMinor },
-        assetsMinor = assets,
-        liabilitiesMinor = liabilities,
-        availableMinor = available,
-        reserveMinor = reserve,
-        sources = sources,
-        otherCurrencies = otherCurrencies,
-    )
-}
-
 @Composable
 fun AccountOverviewScreen(viewModel: AccountsViewModel = viewModel()) {
-    val accountRowsState by viewModel.accountRowsState.collectAsState()
-    when (val state = accountRowsState) {
-        AccountRowsState.Loading -> WhfinStatePane(
+    val overview by viewModel.overview.collectAsState()
+    when (val data = overview) {
+        null -> WhfinStatePane(
             state = WhfinPaneState.Loading,
             title = stringResource(R.string.accounts_loading),
             body = stringResource(R.string.accounts_loading_body),
             modifier = Modifier.fillMaxSize(),
         )
-        is AccountRowsState.Ready -> AccountOverviewContent(accountOverviewData(state.accounts))
+        else -> AccountOverviewContent(data)
     }
 }
 
 @Composable
 internal fun AccountOverviewContent(data: AccountOverviewData) {
+    val currency = data.split.total.currency
     val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val colors = listOf(
         WhfinThemeTokens.colors.bottle,
@@ -135,10 +83,14 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
     ) {
         item(key = "net-worth") {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                WhfinFieldLabel(stringResource(R.string.account_overview_net_worth))
+                // The same reading as the headline on Accounts, in the same currency: this screen
+                // exists to explain that number, so it cannot open with a different one.
+                WhfinFieldLabel(
+                    stringResource(R.string.account_overview_net_worth, data.split.total.currency),
+                )
                 WhfinAmount(
-                    formatMinor(data.netWorthMinor, "GEL"),
-                    symbol = currencySymbol("GEL"),
+                    amountText(data.split.total.amount, currency),
+                    symbol = currencySymbol(currency),
                     style = MaterialTheme.typography.displayMedium,
                 )
             }
@@ -147,9 +99,10 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 OverviewMetricPair(
                     firstLabel = stringResource(R.string.account_overview_assets),
-                    firstValue = formatMinor(data.assetsMinor, "GEL"),
+                    firstValue = amountText(data.split.assets.amount, currency),
                     secondLabel = stringResource(R.string.account_overview_liabilities),
-                    secondValue = formatMinor(-data.liabilitiesMinor, "GEL"),
+                    secondValue = amountText(data.split.liabilities.amount, currency),
+                    currency = currency,
                 )
                 HorizontalDivider(
                     Modifier.padding(horizontal = 16.dp),
@@ -157,9 +110,10 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                 )
                 OverviewMetricPair(
                     firstLabel = stringResource(R.string.accounts_available),
-                    firstValue = formatMinor(data.availableMinor, "GEL"),
+                    firstValue = amountText(data.split.available.amount, currency),
                     secondLabel = stringResource(R.string.accounts_reserve),
-                    secondValue = formatMinor(data.reserveMinor, "GEL"),
+                    secondValue = amountText(data.split.reserve.amount, currency),
+                    currency = currency,
                 )
             }
         }
@@ -169,7 +123,8 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                     title = stringResource(R.string.account_overview_sources),
                     supportingText = stringResource(R.string.account_overview_sources_hint),
                 )
-                if (data.sources.isEmpty() || data.assetsMinor <= 0L) {
+                val held = data.sources.fold(java.math.BigDecimal.ZERO) { sum, it -> sum.add(it.amount) }
+                if (data.sources.isEmpty() || held.signum() <= 0) {
                     Text(
                         stringResource(R.string.account_overview_no_assets),
                         style = MaterialTheme.typography.bodyMedium,
@@ -178,14 +133,15 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                 } else {
                     WhfinDistributionBar(
                         data.sources.mapIndexed { index, source ->
-                            WhfinDistributionSegment(source.balanceMinor.toFloat(), colors[index % colors.size])
+                            WhfinDistributionSegment(source.amount.toFloat(), colors[index % colors.size])
                         },
                     )
                     Column {
                         data.sources.forEachIndexed { index, source ->
                             SourceRow(
                                 source = source,
-                                totalMinor = data.assetsMinor,
+                                total = held,
+                                currency = currency,
                                 color = colors[index % colors.size],
                             )
                             if (index < data.sources.lastIndex) HorizontalDivider(
@@ -203,7 +159,7 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                     title = stringResource(R.string.account_overview_other_currencies),
                     supportingText = stringResource(R.string.account_overview_other_currencies_hint),
                 )
-                if (data.otherCurrencies.isEmpty()) {
+                if (data.nativeCurrencies.isEmpty()) {
                     Text(
                         stringResource(R.string.account_overview_no_other_currencies),
                         style = MaterialTheme.typography.bodyMedium,
@@ -211,17 +167,17 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
                     )
                 } else {
                     WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                        data.otherCurrencies.forEachIndexed { index, currency ->
+                        data.nativeCurrencies.forEachIndexed { index, balance ->
                             WhfinLedgerRow(
-                                title = currency.currency,
+                                title = balance.currency,
                                 trailing = {
                                     WhfinAmount(
-                                        formatMinor(currency.balanceMinor, currency.currency),
-                                        symbol = currencySymbol(currency.currency),
+                                        formatDecimal(balance.amount, balance.currency),
+                                        symbol = currencySymbol(balance.currency),
                                         style = MaterialTheme.typography.titleMedium,
                                     )
                                 },
-                                divider = index < data.otherCurrencies.lastIndex,
+                                divider = index < data.nativeCurrencies.lastIndex,
                             )
                         }
                     }
@@ -231,34 +187,44 @@ internal fun AccountOverviewContent(data: AccountOverviewData) {
     }
 }
 
+/** A total that could not be converted is a dash, never a zero: no quote is not no money. */
+private fun amountText(amount: java.math.BigDecimal?, currency: String): String =
+    amount?.let { formatDecimal(it, currency) } ?: "—"
+
 @Composable
 private fun OverviewMetricPair(
     firstLabel: String,
     firstValue: String,
     secondLabel: String,
     secondValue: String,
+    currency: String,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        OverviewMetric(firstLabel, firstValue, Modifier.weight(1f))
-        OverviewMetric(secondLabel, secondValue, Modifier.weight(1f))
+        OverviewMetric(firstLabel, firstValue, currency, Modifier.weight(1f))
+        OverviewMetric(secondLabel, secondValue, currency, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun OverviewMetric(label: String, value: String, modifier: Modifier) {
+private fun OverviewMetric(label: String, value: String, currency: String, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        // Обзор считается только в основной валюте, поэтому символ здесь всегда GEL.
-        WhfinAmount(value, symbol = currencySymbol("GEL"), style = MaterialTheme.typography.titleLarge)
+        WhfinAmount(value, symbol = currencySymbol(currency), style = MaterialTheme.typography.titleLarge)
     }
 }
 
 @Composable
-private fun SourceRow(source: AccountSourceShare, totalMinor: Long, color: Color) {
-    val percentage = if (totalMinor <= 0L) 0.0 else source.balanceMinor.toDouble() / totalMinor * 100.0
+private fun SourceRow(
+    source: AccountSourceShare,
+    total: java.math.BigDecimal,
+    currency: String,
+    color: Color,
+) {
+    val percentage = if (total.signum() <= 0) 0.0
+    else source.amount.toDouble() / total.toDouble() * 100.0
     val formatter = NumberFormat.getNumberInstance().apply {
         minimumFractionDigits = if (percentage < 10.0) 1 else 0
         maximumFractionDigits = if (percentage < 10.0) 1 else 0
@@ -278,8 +244,8 @@ private fun SourceRow(source: AccountSourceShare, totalMinor: Long, color: Color
             )
         }
         WhfinAmount(
-            formatMinor(source.balanceMinor, "GEL"),
-            symbol = currencySymbol("GEL"),
+            formatDecimal(source.amount, currency),
+            symbol = currencySymbol(currency),
             style = MaterialTheme.typography.titleMedium,
         )
     }
@@ -318,6 +284,12 @@ private val previewAccounts = listOf(
     ),
 )
 
+/** Quotes a preview can convert with; without them the foreign rows would read as unconvertible. */
+private val previewRates = mapOf(
+    "USD" to ExchangeRate("USD", java.math.BigDecimal("2.70"), observedAt = System.currentTimeMillis()),
+    "EUR" to ExchangeRate("EUR", java.math.BigDecimal("3.10"), observedAt = System.currentTimeMillis()),
+)
+
 @Preview(name = "Overview populated", widthDp = 400, heightDp = 900, showBackground = true)
 @Preview(name = "Overview dark", widthDp = 400, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Overview font 1.5", widthDp = 400, heightDp = 1100, fontScale = 1.5f, showBackground = true)
@@ -325,7 +297,7 @@ private val previewAccounts = listOf(
 private fun AccountOverviewPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AccountOverviewContent(accountOverviewData(previewAccounts))
+            AccountOverviewContent(accountOverviewData(previewAccounts, previewRates, "GEL"))
         }
     }
 }
@@ -335,7 +307,7 @@ private fun AccountOverviewPreview() {
 private fun AccountOverviewEmptyPreview() {
     WhfinTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AccountOverviewContent(accountOverviewData(emptyList()))
+            AccountOverviewContent(accountOverviewData(emptyList(), previewRates, "GEL"))
         }
     }
 }
