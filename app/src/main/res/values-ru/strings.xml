@@ -1276,6 +1276,13 @@
     <string name="analytics_more_than_previous_year">На %1$s больше прошлого года</string>
     <string name="analytics_less_than_previous_year">На %1$s меньше прошлого года</string>
     <string name="analytics_same_as_previous_year">Столько же, сколько в прошлом году</string>
+    <string name="analytics_more_than_partial">На %1$s больше, чем в прошлом месяце к этому дню</string>
+    <string name="analytics_less_than_partial">На %1$s меньше, чем в прошлом месяце к этому дню</string>
+    <string name="analytics_same_as_partial">Столько же, сколько в прошлом месяце к этому дню</string>
+    <string name="analytics_more_than_partial_year">На %1$s больше, чем в прошлом году к этой дате</string>
+    <string name="analytics_less_than_partial_year">На %1$s меньше, чем в прошлом году к этой дате</string>
+    <string name="analytics_same_as_partial_year">Столько же, сколько в прошлом году к этой дате</string>
+    <string name="analytics_partial_average">Сравнение с теми же днями трёх прошлых месяцев</string>
     <string name="analytics_no_previous_year">В прошлом году нет расходов для сравнения</string>
     <string name="analytics_unaccounted">Корректировки баланса</string>
     <string name="analytics_unaccounted_hint">Показаны отдельно и не входят в доходы, расходы и тренды категорий</string>

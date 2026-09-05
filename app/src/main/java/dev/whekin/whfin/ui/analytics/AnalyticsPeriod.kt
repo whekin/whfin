@@ -60,6 +60,17 @@ internal data class AnalyticsPeriod(
         AnalyticsScale.YEAR -> today.dayOfYear
     }
 
+    /**
+     * How far into this period a date falls, counting from 1.
+     *
+     * The comparison base needs it: two periods can only be compared like for like when the same
+     * stretch of each is measured, and "the same stretch" is a day count from the start.
+     */
+    fun dayIndex(date: LocalDate): Int = when (scale) {
+        AnalyticsScale.MONTH -> date.dayOfMonth
+        AnalyticsScale.YEAR -> date.dayOfYear
+    }
+
     fun daysTotal(today: LocalDate): Int = when (scale) {
         AnalyticsScale.MONTH -> month.lengthOfMonth()
         AnalyticsScale.YEAR -> if (LocalDate.of(month.year, 1, 1).isLeapYear) 366 else 365

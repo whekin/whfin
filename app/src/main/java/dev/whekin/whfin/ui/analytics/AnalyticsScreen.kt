@@ -801,11 +801,15 @@ internal fun PeriodTrend(
         AnalyticsScale.MONTH -> data.trendValues.firstOrNull { it.month == period.month }?.expenseMinor ?: 0L
         AnalyticsScale.YEAR -> data.trendValues.sumOf { it.expenseMinor }
     }
-    val previousValue = when (period.scale) {
-        AnalyticsScale.MONTH ->
+    // Never the neighbouring bar: a bar is a whole month, and while this period is still running
+    // the honest partner for it is the same stretch of the previous one, which is what the
+    // calculator put in `previousTrendExpenseMinor`.
+    val previousValue = when {
+        data.comparisonDays != null -> data.previousTrendExpenseMinor
+        period.scale == AnalyticsScale.MONTH ->
             data.trendValues.firstOrNull { it.month == period.month.minusMonths(1) }?.expenseMinor
                 ?: data.previousTrendExpenseMinor
-        AnalyticsScale.YEAR -> data.previousTrendExpenseMinor
+        else -> data.previousTrendExpenseMinor
     }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         WhfinSectionHeader(
@@ -853,7 +857,12 @@ internal fun PeriodTrend(
                         )
                     }
                     Text(
-                        comparisonText(selectedValue, previousValue, period.scale),
+                        comparisonText(
+                            selectedValue,
+                            previousValue,
+                            period.scale,
+                            partial = data.comparisonDays != null,
+                        ),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -944,8 +953,20 @@ internal fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
     }
 }
 
+/**
+ * The comparison sentence, which has to say what it compared against.
+ *
+ * "88% less than the previous month" on the fifth was five days measured against thirty. The
+ * arithmetic behind it now stops at the same day of the earlier period, and the sentence says so —
+ * a reader cannot tell a part-period comparison from a whole one by the percentage alone.
+ */
 @Composable
-private fun comparisonText(current: Long, previous: Long, scale: AnalyticsScale): String {
+private fun comparisonText(
+    current: Long,
+    previous: Long,
+    scale: AnalyticsScale,
+    partial: Boolean = false,
+): String {
     val month = scale == AnalyticsScale.MONTH
     if (previous <= 0L) return stringResource(
         if (month) R.string.analytics_no_previous else R.string.analytics_no_previous_year,
@@ -954,15 +975,30 @@ private fun comparisonText(current: Long, previous: Long, scale: AnalyticsScale)
     val formatted = NumberFormat.getPercentInstance().apply { maximumFractionDigits = 0 }.format(percent / 100.0)
     return when {
         current > previous -> stringResource(
-            if (month) R.string.analytics_more_than_previous else R.string.analytics_more_than_previous_year,
+            when {
+                partial && month -> R.string.analytics_more_than_partial
+                partial -> R.string.analytics_more_than_partial_year
+                month -> R.string.analytics_more_than_previous
+                else -> R.string.analytics_more_than_previous_year
+            },
             formatted,
         )
         current < previous -> stringResource(
-            if (month) R.string.analytics_less_than_previous else R.string.analytics_less_than_previous_year,
+            when {
+                partial && month -> R.string.analytics_less_than_partial
+                partial -> R.string.analytics_less_than_partial_year
+                month -> R.string.analytics_less_than_previous
+                else -> R.string.analytics_less_than_previous_year
+            },
             formatted,
         )
         else -> stringResource(
-            if (month) R.string.analytics_same_as_previous else R.string.analytics_same_as_previous_year,
+            when {
+                partial && month -> R.string.analytics_same_as_partial
+                partial -> R.string.analytics_same_as_partial_year
+                month -> R.string.analytics_same_as_previous
+                else -> R.string.analytics_same_as_previous_year
+            },
         )
     }
 }

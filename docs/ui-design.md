@@ -644,3 +644,23 @@ choose between now use. The title is what the owner named it, else the number, e
 second line carries only what has not already been said — the bank when and only when the rows belong
 to more than one, the product, and the number only when the title is a chosen name. The currency is
 never repeated, because the list's own label states it.
+
+## Comparison base
+
+A number is only ever compared with a number measured the same way. The rule is one rule for the
+whole app, because Home, Statistics, Spending and the category list all print comparisons of the same
+month and a reader moving between them cannot hold four conventions at once.
+
+- A finished period is compared against finished periods.
+- A period still running is compared against **the same stretch** of each earlier period: day one to
+  today. `AnalyticsPeriod.dayIndex` supplies the cut, and `AnalyticsData.comparisonDays` says how
+  many days the comparison covers, or null when it covers whole periods.
+- A **projection** reaches the end of the period, so it keeps whole periods on the other side, and
+  the label says it is a projection. `AnalyticsCategoryChange` therefore carries both figures:
+  `previousExpenseMinor` for the like-for-like delta and `previousWholeExpenseMinor` for the forecast.
+- The sentence names the base. "88% less than the previous month" on the fifth was five days measured
+  against thirty; the wording now ends "by this day" whenever the period is still running, and the
+  average on Spending says it covers the same days of the earlier months.
+- Chart bars stay whole months. A chart of months that drew part of one would be lying about its own
+  axis; the comparison under it is the thing that gets cut to size.
+

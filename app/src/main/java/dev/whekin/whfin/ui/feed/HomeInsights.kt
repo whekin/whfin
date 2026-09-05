@@ -39,17 +39,20 @@ internal fun deriveHomeInsights(data: AnalyticsData): List<HomeInsight> {
         )
     }
 
+    // Both readings here are projections to the end of the month, so both are read against whole
+    // months. The windowed figure beside it answers a different question — what has changed so far —
+    // and belongs to the Statistics list, not to a forecast.
     data.categoryChanges
         .asSequence()
         .map { change -> change to projectCategory(change, pace.daysElapsed, pace.daysTotal) }
         .firstOrNull { (change, projected) ->
-            isMeaningfulChange(projected, change.previousExpenseMinor)
+            isMeaningfulChange(projected, change.previousWholeExpenseMinor)
         }
         ?.let { (change, projected) ->
             result += HomeInsight.CategoryDriver(
                 name = change.name,
                 projectedExpenseMinor = projected,
-                previousMonthExpenseMinor = change.previousExpenseMinor,
+                previousMonthExpenseMinor = change.previousWholeExpenseMinor,
             )
         }
 

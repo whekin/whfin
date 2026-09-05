@@ -74,7 +74,16 @@ internal data class AnalyticsCategoryChange(
     val icon: String?,
     val color: Int?,
     val expenseMinor: Long,
+    /** The same stretch of the previous period, so the delta compares like with like. */
     val previousExpenseMinor: Long,
+    /**
+     * The whole previous period.
+     *
+     * Kept beside the windowed figure because the two answer different pairings: a delta is asked of
+     * equal stretches, and a projection to the end of this period can only be read against a period
+     * that also ran to its end.
+     */
+    val previousWholeExpenseMinor: Long = previousExpenseMinor,
     val projectedExpenseMinor: Long? = null,
 ) {
     val deltaMinor: Long get() = expenseMinor - previousExpenseMinor
@@ -98,6 +107,14 @@ internal data class AnalyticsData(
     val pendingCount: Int,
     val hasAnyTransactions: Boolean,
     val pace: AnalyticsPace? = null,
+    /**
+     * How many days of each period the comparisons cover, or null when they cover whole periods.
+     *
+     * The screen has to say this beside the numbers: "less than last month" means something
+     * different on the fifth than it does on the last day, and the reader cannot tell which one
+     * they are being shown from the sentence alone.
+     */
+    val comparisonDays: Int? = null,
     val categoryChanges: List<AnalyticsCategoryChange> = emptyList(),
     /** Currencies of the selected period whose day has no quote yet, so they are left out of totals. */
     val unvaluedCurrencies: Set<String> = emptySet(),
@@ -109,6 +126,8 @@ internal data class AnalyticsData(
 private data class AnalyticsSlice(
     val transactionId: Long,
     val month: YearMonth,
+    /** The row's own day, so a running period can be compared against the same stretch of another. */
+    val day: LocalDate,
     val currency: String,
     val amountMinor: Long,
     /** Value in GEL booked at the rate of this row's own day; null while the day is unpriced. */
@@ -166,9 +185,8 @@ private fun analyticsSlices(
             } else {
                 includedParts.map { (amount, categoryId) -> Triple(amount, categoryId, transaction.currency) }
             }
-            val month = Instant.ofEpochMilli(transaction.occurredAt).atZone(zoneId).let {
-                YearMonth.of(it.year, it.month)
-            }
+            val date = Instant.ofEpochMilli(transaction.occurredAt).atZone(zoneId).toLocalDate()
+            val month = YearMonth.from(date)
             // A split shares the booked value in the same proportion as the money.
             val gelForPart: (Long) -> Long? = when {
                 transaction.currency == BASE_CURRENCY -> { part -> part }
@@ -184,6 +202,7 @@ private fun analyticsSlices(
                 AnalyticsSlice(
                     transactionId = transaction.id,
                     month = month,
+                    day = date,
                     currency = currency,
                     amountMinor = amount,
                     // The funded path already restated the purchase in the lari the bank charged.
@@ -251,14 +270,27 @@ internal fun calculateAnalytics(
     val income = selectedBase.sumOf { it.gelMinor!!.coerceAtLeast(0L) }
     val expenses = -selectedBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
     val previousPeriod = period.previous()
-    val previousBase = baseSlices.filter { previousPeriod.contains(it.month) }
-    val previousExpenses = -previousBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
+    // A number is only compared with a number measured the same way. Five days of this month
+    // against a whole previous month is not a comparison, and it was printed as one — "88% less
+    // than the previous month" on the fifth. While the period is still running, every base is cut
+    // to the same stretch of its own period; a finished period compares against whole ones.
+    val comparisonDays = period.daysElapsed(today).takeIf { period.isCurrent(today) }
+    val withinComparison: (AnalyticsPeriod, AnalyticsSlice) -> Boolean = { scope, slice ->
+        scope.contains(slice.month) &&
+            (comparisonDays == null || scope.dayIndex(slice.day) <= comparisonDays)
+    }
+    val expensesWithin: (AnalyticsPeriod) -> Long = { scope ->
+        -baseSlices.filter { withinComparison(scope, it) }.sumOf { it.gelMinor!!.coerceAtMost(0L) }
+    }
+    val previousBase = baseSlices.filter { withinComparison(previousPeriod, it) }
+    val previousExpenses = expensesWithin(previousPeriod)
+    // The projection reaches the end of the period, so the only honest partner for it is a whole
+    // period — this one stays complete on purpose.
+    val previousWholeExpenses = -baseSlices
+        .filter { previousPeriod.contains(it.month) }
+        .sumOf { it.gelMinor!!.coerceAtMost(0L) }
     val comparisonPeriods = (1..period.comparisonPeriods).map(period::shiftedBack)
-    val spendingAverage = comparisonPeriods.sumOf { comparison ->
-        -baseSlices
-            .filter { comparison.contains(it.month) }
-            .sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    } / comparisonPeriods.size
+    val spendingAverage = comparisonPeriods.sumOf(expensesWithin) / comparisonPeriods.size
     val pace = if (period.isCurrent(today)) {
         val daysElapsed = period.daysElapsed(today)
         val daysTotal = period.daysTotal(today)
@@ -271,7 +303,7 @@ internal fun calculateAnalytics(
             daysElapsed = daysElapsed,
             daysTotal = daysTotal,
             projectedExpenseMinor = projection,
-            previousPeriodExpenseMinor = previousExpenses,
+            previousPeriodExpenseMinor = previousWholeExpenses,
         )
     } else {
         null
@@ -284,8 +316,14 @@ internal fun calculateAnalytics(
         .filter { it.gelMinor!! < 0L }
         .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
+    val previousWholeCategoryExpenses = baseSlices
+        .filter { previousPeriod.contains(it.month) && it.gelMinor!! < 0L }
+        .groupBy { it.groupId }
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
     val averageCategoryExpenses = baseSlices
-        .filter { slice -> comparisonPeriods.any { it.contains(slice.month) } && slice.gelMinor!! < 0L }
+        .filter { slice ->
+            comparisonPeriods.any { withinComparison(it, slice) } && slice.gelMinor!! < 0L
+        }
         .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonPeriods.size }
     // One list of categories, one window: the selected period, each row carrying its own baseline.
@@ -314,6 +352,7 @@ internal fun calculateAnalytics(
                 color = category?.color,
                 expenseMinor = expenseMinor,
                 previousExpenseMinor = previousCategoryExpenses[categoryId] ?: 0L,
+                previousWholeExpenseMinor = previousWholeCategoryExpenses[categoryId] ?: 0L,
                 projectedExpenseMinor = pace?.let {
                     projectCurrentExpenses(
                         selectedBase.filter { slice ->
@@ -365,8 +404,11 @@ internal fun calculateAnalytics(
             .sumOf { it.gelMinor!! }
         AnalyticsMonthValue(month, expense)
     }
+    // The bars stay whole months — a chart of months that showed part of one would be lying about
+    // its own axis — but the sentence under them compares the running period against the same
+    // stretch of the one before it.
     val previousTrendExpense = -baseSlices
-        .filter { previousPeriod.contains(it.month) && it.gelMinor!! < 0L && matchesTrendFilter(it) }
+        .filter { withinComparison(previousPeriod, it) && it.gelMinor!! < 0L && matchesTrendFilter(it) }
         .sumOf { it.gelMinor!! }
 
     val selectedUnaccounted = slices.filter { period.contains(it.month) && it.unaccounted }
@@ -400,6 +442,7 @@ internal fun calculateAnalytics(
             .size,
         hasAnyTransactions = slices.isNotEmpty(),
         pace = pace,
+        comparisonDays = comparisonDays,
         categoryChanges = categoryChanges,
     )
 }

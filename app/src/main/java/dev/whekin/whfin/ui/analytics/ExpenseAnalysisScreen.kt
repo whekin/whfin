@@ -190,6 +190,14 @@ private fun ExpenseHero(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // While the month is still running, the average it is measured against covers the same days
+        // of each earlier month. Five days against three whole months was the old reading, and the
+        // sentence above cannot carry that qualification without becoming a paragraph.
+        if (data.comparisonDays != null) Text(
+            stringResource(R.string.analytics_partial_average),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (data.pendingCount > 0) Text(
             stringResource(R.string.analytics_pending, data.pendingCount),
             style = MaterialTheme.typography.bodySmall,

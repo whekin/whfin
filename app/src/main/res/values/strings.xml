@@ -1220,6 +1220,13 @@
     <string name="analytics_more_than_previous_year">%1$s more than the previous year</string>
     <string name="analytics_less_than_previous_year">%1$s less than the previous year</string>
     <string name="analytics_same_as_previous_year">Same as the previous year</string>
+    <string name="analytics_more_than_partial">%1$s more than last month by this day</string>
+    <string name="analytics_less_than_partial">%1$s less than last month by this day</string>
+    <string name="analytics_same_as_partial">Same as last month by this day</string>
+    <string name="analytics_more_than_partial_year">%1$s more than last year by this date</string>
+    <string name="analytics_less_than_partial_year">%1$s less than last year by this date</string>
+    <string name="analytics_same_as_partial_year">Same as last year by this date</string>
+    <string name="analytics_partial_average">Compared with the same days of the 3 previous months</string>
     <string name="analytics_no_previous_year">No comparable expenses in the previous year</string>
     <string name="analytics_unaccounted">Unaccounted adjustments</string>
     <string name="analytics_unaccounted_hint">Shown separately and excluded from income, expenses, and category trends</string>
