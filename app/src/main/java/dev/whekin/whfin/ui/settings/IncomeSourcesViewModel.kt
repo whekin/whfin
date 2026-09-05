@@ -14,6 +14,7 @@ import dev.whekin.whfin.data.crypto.cryptoBankCandidates
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.data.income.IncomeExpectations
@@ -54,13 +55,21 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val message = MutableStateFlow<String?>(null)
     private val readFailed = MutableStateFlow(false)
 
+    /** Rows already spoken for by a split or a debt; neither may be swept into a transfer pair. */
+    private val allocatedIds = combine(
+        db.transactionAllocationDao().observeAll(),
+        db.debtDao().observeEvents(),
+    ) { allocations, debtEvents ->
+        allocations.mapTo(mutableSetOf()) { it.transactionId } + debtEvents.mapNotNull { it.transactionId }
+    }
+
     private val ledger = combine(
         db.incomeSourceDao().observeAll(),
         db.transactionDao().observeAllActive(),
         db.accountDao().observeActive(),
-        db.transactionAllocationDao().observeAll(),
-        db.debtDao().observeEvents(),
-    ) { declarations, transactions, accounts, allocations, debtEvents ->
+        allocatedIds,
+        db.incomeSourceDao().observePayments(),
+    ) { declarations, transactions, accounts, allocated, payments ->
         val today = LocalDate.now(zone)
         val month = YearMonth.from(today)
         val linked = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
@@ -74,10 +83,12 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
                 CryptoBankTransfer(out, credit)
             }.sortedByDescending { it.withdrawal.occurredAt }
         IncomeSourcesState(
-            expectations = IncomeExpectations.of(declarations.filter { it.endedOn == null }, transactions, month, today, zone),
+            expectations = IncomeExpectations.of(
+                declarations.filter { it.endedOn == null }, transactions, month, today, zone, payments,
+            ),
             ended = declarations.filter { it.endedOn != null },
             accounts = accounts, month = month,
-            transfers = cryptoBankCandidates(transactions, accounts, allocations.mapTo(mutableSetOf()) { it.transactionId } + debtEvents.mapNotNull { it.transactionId }),
+            transfers = cryptoBankCandidates(transactions, accounts, allocated),
             linkedTransfers = linked,
         )
     }
@@ -127,6 +138,11 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
         ))
     }
+
+    fun confirmPayment(source: IncomeSourceEntity, transaction: TransactionEntity) =
+        mutate { sources.confirmPayment(source.id, transaction.id, zone) }
+
+    fun forgetPayment(transaction: TransactionEntity) = mutate { sources.forgetPayment(transaction.id) }
 
     fun link(transfer: CryptoBankTransfer) = mutate { bridges.link(transfer.withdrawal.id, transfer.credit.id) }
     fun unlink(transfer: CryptoBankTransfer) = mutate { bridges.unlink(requireNotNull(transfer.withdrawal.transferGroupId)) }

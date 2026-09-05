@@ -46,6 +46,9 @@ import dev.whekin.whfin.data.income.WeekendRule
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.TransactionEntity
+import dev.whekin.whfin.data.db.TxSource
+import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.parseToMinor
@@ -67,6 +70,8 @@ fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
         onRefresh = viewModel::refreshFromChain,
         onLink = viewModel::link,
         onUnlink = viewModel::unlink,
+        onConfirmPayment = viewModel::confirmPayment,
+        onForgetPayment = viewModel::forgetPayment,
     )
 }
 
@@ -79,10 +84,13 @@ fun IncomeSourcesScreen(
     onRefresh: () -> Unit = {},
     onLink: (CryptoBankTransfer) -> Unit = {},
     onUnlink: (CryptoBankTransfer) -> Unit = {},
+    onConfirmPayment: (IncomeSourceEntity, TransactionEntity) -> Unit = { _, _ -> },
+    onForgetPayment: (TransactionEntity) -> Unit = {},
 ) {
     var editing by remember { mutableStateOf<IncomeSourceEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
     var selectedTransfer by remember { mutableStateOf<CryptoBankTransfer?>(null) }
+    var selectedPayment by remember { mutableStateOf<PaymentQuestion?>(null) }
 
     if (state == null) {
         WhfinStatePane(
@@ -131,6 +139,38 @@ fun IncomeSourcesScreen(
         }
 
         state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
+        // Money landing on the receiving account is a question, not an answer. The section only
+        // exists while there is something to ask about or something to take back.
+        val questions = state.expectations.flatMap { expectation ->
+            expectation.candidates.map { PaymentQuestion(expectation.source, it, confirmed = false) } +
+                expectation.received
+                    .filter { it.id in expectation.confirmedIds }
+                    .map { PaymentQuestion(expectation.source, it, confirmed = true) }
+        }
+        if (questions.isNotEmpty()) {
+            WhfinSectionLabel(stringResource(R.string.income_payments_title))
+            Text(stringResource(R.string.income_payments_body), style = MaterialTheme.typography.bodySmall)
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                questions.forEachIndexed { index, question ->
+                    WhfinLedgerRow(
+                        title = formatMinor(question.transaction.amountMinor, question.transaction.currency),
+                        supportingText = listOfNotNull(
+                            question.transaction.rawCounterparty?.takeIf(String::isNotBlank),
+                            Instant.ofEpochMilli(question.transaction.occurredAt)
+                                .atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                            stringResource(
+                                if (question.confirmed) R.string.income_payment_confirmed
+                                else R.string.income_payment_candidate,
+                            ),
+                        ).joinToString(" · "),
+                        onClick = { selectedPayment = question },
+                        divider = index != questions.lastIndex,
+                    )
+                }
+            }
+        }
+
         if (state.transfers.isNotEmpty() || state.linkedTransfers.isNotEmpty()) {
             WhfinSectionLabel(stringResource(R.string.crypto_bridge_title))
             Text(stringResource(R.string.crypto_bridge_body), style = MaterialTheme.typography.bodySmall)
@@ -166,6 +206,39 @@ fun IncomeSourcesScreen(
                     )
                 }
             }
+        }
+    }
+
+    selectedPayment?.let { question ->
+        WhfinFormSheet(
+            title = stringResource(R.string.income_payment_sheet_title),
+            onDismiss = { selectedPayment = null },
+            primaryEnabled = true,
+            primaryLabel = stringResource(
+                if (question.confirmed) R.string.income_payment_forget else R.string.income_payment_confirm,
+            ),
+            onPrimary = {
+                if (question.confirmed) onForgetPayment(question.transaction)
+                else onConfirmPayment(question.source, question.transaction)
+                selectedPayment = null
+            },
+        ) {
+            WhfinLedgerRow(
+                title = formatMinor(question.transaction.amountMinor, question.transaction.currency),
+                supportingText = listOfNotNull(
+                    question.source.label,
+                    question.transaction.rawCounterparty?.takeIf(String::isNotBlank),
+                    Instant.ofEpochMilli(question.transaction.occurredAt)
+                        .atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                ).joinToString(" · "),
+            )
+            Text(
+                stringResource(
+                    if (question.confirmed) R.string.income_payment_forget_effect
+                    else R.string.income_payment_confirm_effect,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 
@@ -247,6 +320,13 @@ private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?):
         )
     }
 }
+
+/** One credit put to the owner, with the answer they have already given about it. */
+private data class PaymentQuestion(
+    val source: IncomeSourceEntity,
+    val transaction: TransactionEntity,
+    val confirmed: Boolean,
+)
 
 /** Shared editor used by Settings and the dedicated first-run salary declaration. */
 @Composable
@@ -406,9 +486,15 @@ private val previewState = IncomeSourcesState(
                 startedOn = LocalDate.of(2026, 6, 1).toEpochDay(),
                 createdAt = 0,
             ),
-            receivedMinor = 268_400,
-            receivedCount = 1,
+            received = listOf(
+                TransactionEntity(
+                    id = 7, accountId = 1, amountMinor = 268_400, currency = "USDT",
+                    occurredAt = 1_786_000_000_000, status = TxStatus.CONFIRMED,
+                    source = TxSource.CRYPTO, rawCounterparty = "TExampleSenderAddress0000000000000",
+                ),
+            ),
             awaiting = false,
+            confirmedIds = setOf(7L),
         ),
     ),
     ended = emptyList(),

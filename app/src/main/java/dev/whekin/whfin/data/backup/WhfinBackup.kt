@@ -125,6 +125,12 @@ internal data class BackupTable(
      * column appeared and a newer file is still required to carry it.
      */
     val columnsSince: Map<String, Int> = emptyMap(),
+    /**
+     * The database version that introduced the table, for the same reason as [columnsSince]: a file
+     * written before it existed cannot carry it, and rejecting that file would mean the owner's
+     * older copies stop restoring the first time a table is added.
+     */
+    val sinceVersion: Int = 1,
 ) {
     /** What a file written by [databaseVersion] must contain. */
     fun requiredColumns(databaseVersion: Int): List<String> =
@@ -219,11 +225,18 @@ internal object WhfinBackupSchema {
             enumColumns = mapOf("weekendRule" to setOf("EARLIER", "LATER", "ANY_DAY")),
         ),
         BackupTable(
+            "income_source_payments",
+            listOf("transactionId", "incomeSourceId", "createdAt"),
+            orderBy = listOf("transactionId"),
+            sinceVersion = 5,
+        ),
+        BackupTable(
             "savings_plans",
             listOf(
                 "id", "currency", "monthlyTargetMinor", "goalMinor", "goalBy",
                 "startedOn", "endedOn", "createdAt",
             ),
+            sinceVersion = 2,
         ),
         BackupTable(
             "transactions",
@@ -433,7 +446,9 @@ internal object WhfinBackupCodec {
         val exported = exportedAt ?: throw WhfinBackupException("Missing backup export time.")
         val parsedTables = rowsByTable ?: throw WhfinBackupException("Backup data is missing.")
         val missingTables = WhfinBackupSchema.byName.keys - parsedTables.keys
-        val backwardOptional = if (dbVersion < 2) setOf("savings_plans") else emptySet()
+        val backwardOptional = WhfinBackupSchema.tables
+            .filter { dbVersion < it.sinceVersion }
+            .mapTo(mutableSetOf(), BackupTable::name)
         val requiredMissing = missingTables - backwardOptional
         if (requiredMissing.isNotEmpty()) {
             throw WhfinBackupException("Backup is missing tables: ${requiredMissing.joinToString()}.")

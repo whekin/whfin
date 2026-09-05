@@ -38,7 +38,15 @@ class IncomeSourcesQaActivity : ComponentActivity() {
                     ) else Box(Modifier.fillMaxSize().statusBarsPadding()) {
                         IncomeSourcesScreen(
                             IncomeSourcesState(
-                                expectations = listOf(IncomeExpectation(source, 180000, 1, false)),
+                                expectations = listOf(
+                                    IncomeExpectation(
+                                        source = source,
+                                        received = listOf(confirmedPay),
+                                        awaiting = true,
+                                        confirmedIds = setOf(confirmedPay.id),
+                                        candidates = listOf(unconfirmedCredit),
+                                    ),
+                                ),
                                 ended = emptyList(), accounts = accounts, month = YearMonth.of(2026, 8),
                                 transfers = listOf(transfer),
                             ), { _, _, _, _, _, _, _, _ -> }, {}, {}, {},
@@ -59,8 +67,15 @@ class IncomeSourcesQaActivity : ComponentActivity() {
             AccountEntity(id = 3, name = "Bank", type = AccountType.BANK, currency = "GEL"),
         )
         val source = IncomeSourceEntity(id = 1, label = "Salary", amountMinor = 180000, currency = "USDT",
-            accountId = 2, expectedDayFrom = 5, expectedDayTo = 10,
+            accountId = 2, expectedDayFrom = 5, expectedDayTo = 5,
             startedOn = LocalDate.of(2026, 7, 1).toEpochDay(), createdAt = 0)
+        /** A part payment already vouched for, beside a credit nobody has answered about yet. */
+        val confirmedPay = TransactionEntity(id = 11, accountId = 2, amountMinor = 100000,
+            currency = "USDT", occurredAt = 1785902400000, source = TxSource.CRYPTO,
+            status = TxStatus.CONFIRMED, rawCounterparty = "TExampleEmployerAddress0000000000")
+        val unconfirmedCredit = TransactionEntity(id = 12, accountId = 2, amountMinor = 40000,
+            currency = "USDT", occurredAt = 1786075200000, source = TxSource.CRYPTO,
+            status = TxStatus.CONFIRMED, rawCounterparty = "TExampleOtherSender00000000000000")
         private val out = TransactionEntity(id = 1, accountId = 2, amountMinor = -180000, currency = "USDT",
             occurredAt = 1785902400000, source = TxSource.CRYPTO, status = TxStatus.CONFIRMED)
         val transfer = CryptoBankTransfer(out, out.copy(id = 2, accountId = 3, amountMinor = 450000,

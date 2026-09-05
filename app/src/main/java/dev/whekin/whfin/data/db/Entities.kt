@@ -230,6 +230,31 @@ data class IncomeSourceEntity(
 )
 
 /**
+ * The owner's answer to "was this the salary?", kept as its own row.
+ *
+ * Money landing on the receiving account is not evidence of anything: a refund, a friend paying back
+ * dinner and the salary all look identical in a ledger, and letting the largest credit of the month
+ * silently close the declaration is how an app starts lying about whether somebody has been paid.
+ * So the link is made once, by hand, and after that the counterparty it names carries future
+ * payments on its own. Deleting the row takes the answer back; nothing about the transaction itself
+ * changes either way.
+ */
+@Entity(
+    tableName = "income_source_payments",
+    foreignKeys = [
+        ForeignKey(IncomeSourceEntity::class, ["id"], ["incomeSourceId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(TransactionEntity::class, ["id"], ["transactionId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("incomeSourceId"), Index(value = ["transactionId"], unique = true)],
+)
+data class IncomeSourcePaymentEntity(
+    /** The transaction is the key: one credit cannot be two sources' salary. */
+    @PrimaryKey val transactionId: Long,
+    val incomeSourceId: Long,
+    val createdAt: Long,
+)
+
+/**
  * One version of the owner's monthly saving intention in a single currency.
  *
  * A change starts on the first day of a calendar month and closes the prior version instead of

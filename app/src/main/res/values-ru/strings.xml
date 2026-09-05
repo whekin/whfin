@@ -1380,6 +1380,15 @@
     <string name="income_awaiting">Ожидается %1$s · ждём выплату</string>
     <string name="income_awaiting_short">Ожидаем зарплату</string>
     <string name="income_weekend_estimate">Обычная дата %1$s · с учётом выходных %2$s</string>
+    <string name="income_payments_title">Что из пришедшего — выплата</string>
+    <string name="income_payments_body">Приход на счёт сам по себе ничего не доказывает — возврат выглядит так же. Подтвердите один, и отправитель дальше узнаётся сам.</string>
+    <string name="income_payment_sheet_title">Выплата</string>
+    <string name="income_payment_candidate">не подтверждено</string>
+    <string name="income_payment_confirmed">подтверждено как выплата</string>
+    <string name="income_payment_confirm">Это была выплата</string>
+    <string name="income_payment_forget">Это не выплата</string>
+    <string name="income_payment_confirm_effect">Пойдёт в счёт этого месяца, а отправитель запомнится. Сама операция не меняется.</string>
+    <string name="income_payment_forget_effect">Перестанет идти в счёт месяца вместе со всем, что узналось только по этому отправителю. Сама операция не меняется.</string>
     <string name="category_proposals_title">Категории, которые заслужила история</string>
     <string name="category_proposals_body">Узнанные мерчанты уже их ждут. Добавите — история разметится сразу.</string>
     <plurals name="category_proposals_evidence">

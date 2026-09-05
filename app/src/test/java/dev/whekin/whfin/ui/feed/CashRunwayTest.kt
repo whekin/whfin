@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.data.db.AllocationPurpose
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.IncomeSourcePaymentEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
@@ -26,8 +27,10 @@ class CashRunwayTest {
     private val merchants = listOf(MerchantEntity(1, "demo rent", "Demo rent"))
     private val ordinary = (1..28).map { tx(it.toLong(), 7_200, today.withDayOfMonth(it)) }
     private val rent = (4..8).map { tx(100L + it, 30_000, today.withMonth(it).withDayOfMonth(3), 1) }
-    /** August is paid, so the forecast looks forward to the September payday. */
+    /** August is paid and the owner said so, so the forecast looks to the September payday. */
     private val paid = tx(300, -420_000, LocalDate.of(2026, 8, 5))
+    private val paidConfirmation =
+        listOf(IncomeSourcePaymentEntity(transactionId = 300, incomeSourceId = 1, createdAt = 0))
 
     @Test fun `paid small recurring bill is excluded from daily rate but next occurrence is forecast`() {
         val result = forecast(ordinary + rent)
@@ -76,17 +79,30 @@ class CashRunwayTest {
 
     @Test fun `beginning of the month does not extrapolate three days`() {
         assertNull(cashForecast(115_000, ordinary.take(3), emptyList(), merchants, emptyList(),
-            listOf(salary), today.withDayOfMonth(3), ZoneOffset.UTC).runway)
+            listOf(salary), emptyList(), today.withDayOfMonth(3), ZoneOffset.UTC).runway)
     }
 
-    @Test fun `a received salary moves the forecast to the next month`() {
+    @Test fun `a confirmed salary moves the forecast to the next month`() {
         val day = LocalDate.of(2026, 8, 7)
         val rows = ordinary.take(7) + rent.filter { it.occurredAt <= day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
         val received = cashForecast(115_000, rows + tx(300, -420_000, LocalDate.of(2026, 8, 4)),
-            emptyList(), merchants, emptyList(), listOf(salary), day, ZoneOffset.UTC).runway!!
+            emptyList(), merchants, emptyList(), listOf(salary), paidConfirmation, day, ZoneOffset.UTC).runway!!
 
         assertEquals(LocalDate.of(2026, 9, 4), received.nextIncome?.expected)
         assertFalse(received.nextIncome!!.passed)
+    }
+
+    /**
+     * The same credit, unanswered, must not close the month. A refund of exactly the salary amount
+     * is a real thing, and guessing here would tell the owner they had been paid when they had not.
+     */
+    @Test fun `an unconfirmed credit of the exact declared amount does not close the month`() {
+        val day = LocalDate.of(2026, 8, 7)
+        val result = cashForecast(115_000, ordinary.take(7) + tx(300, -420_000, LocalDate.of(2026, 8, 4)),
+            emptyList(), merchants, emptyList(), listOf(salary), emptyList(), day, ZoneOffset.UTC).runway!!
+
+        assertEquals(LocalDate.of(2026, 8, 5), result.nextIncome?.expected)
+        assertTrue(result.nextIncome!!.passed)
     }
 
     /**
@@ -96,7 +112,7 @@ class CashRunwayTest {
     @Test fun `an unpaid payday stays this month and forecasts nothing`() {
         val day = LocalDate.of(2026, 8, 7)
         val unpaid = cashForecast(115_000, ordinary.take(7), emptyList(), merchants, emptyList(),
-            listOf(salary), day, ZoneOffset.UTC).runway!!
+            listOf(salary), emptyList(), day, ZoneOffset.UTC).runway!!
 
         assertEquals(LocalDate.of(2026, 8, 5), unpaid.nextIncome?.expected)
         assertTrue(unpaid.nextIncome!!.passed)
@@ -113,7 +129,7 @@ class CashRunwayTest {
         )
         inputs.forEach { credit ->
             val result = cashForecast(115_000, ordinary.take(7) + credit, emptyList(), merchants,
-                emptyList(), listOf(salary), day, ZoneOffset.UTC).runway!!
+                emptyList(), listOf(salary), emptyList(), day, ZoneOffset.UTC).runway!!
             assertEquals(LocalDate.of(2026, 8, 5), result.nextIncome?.expected)
             assertTrue(result.nextIncome!!.passed)
         }
@@ -152,7 +168,8 @@ class CashRunwayTest {
     }
 
     private fun forecast(rows: List<TransactionEntity>, allocations: List<TransactionAllocationEntity> = emptyList()) =
-        cashForecast(115_000, rows + paid, emptyList(), merchants, allocations, listOf(salary), today, ZoneOffset.UTC)
+        cashForecast(115_000, rows + paid, emptyList(), merchants, allocations, listOf(salary),
+            paidConfirmation, today, ZoneOffset.UTC)
 
     private fun tx(id: Long, expense: Long, day: LocalDate, merchant: Long? = null) = TransactionEntity(
         id = id, accountId = 1, amountMinor = -expense, currency = "GEL",

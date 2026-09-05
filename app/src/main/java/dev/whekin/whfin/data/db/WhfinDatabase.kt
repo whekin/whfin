@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 4
+const val WHFIN_DATABASE_VERSION = 5
 
 @Database(
     entities = [
@@ -43,6 +43,7 @@ const val WHFIN_DATABASE_VERSION = 4
         ExchangeRateHistoryEntity::class,
         CounterpartyRuleEntity::class,
         IncomeSourceEntity::class,
+        IncomeSourcePaymentEntity::class,
         SavingsPlanEntity::class,
     ],
     version = WHFIN_DATABASE_VERSION,
@@ -83,7 +84,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     }
 }
 
@@ -128,5 +129,28 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
 val MIGRATION_3_4: Migration = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `income_sources` ADD COLUMN `weekendRule` TEXT NOT NULL DEFAULT 'EARLIER'")
+    }
+}
+
+/** Which credits the owner confirmed as a declared source's pay; nothing is inferred for them. */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `income_source_payments` (" +
+                "`transactionId` INTEGER NOT NULL, `incomeSourceId` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`transactionId`), " +
+                "FOREIGN KEY(`incomeSourceId`) REFERENCES `income_sources`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`transactionId`) REFERENCES `transactions`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_income_source_payments_incomeSourceId` " +
+                "ON `income_source_payments` (`incomeSourceId`)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_income_source_payments_transactionId` " +
+                "ON `income_source_payments` (`transactionId`)",
+        )
     }
 }

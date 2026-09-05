@@ -953,6 +953,18 @@ interface IncomeSourceDao {
 
     @Query("DELETE FROM income_sources WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM income_source_payments")
+    fun observePayments(): Flow<List<IncomeSourcePaymentEntity>>
+
+    @Query("SELECT * FROM income_source_payments")
+    suspend fun payments(): List<IncomeSourcePaymentEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun attach(payment: IncomeSourcePaymentEntity)
+
+    @Query("DELETE FROM income_source_payments WHERE transactionId = :transactionId")
+    suspend fun detach(transactionId: Long)
 }
 
 @Dao

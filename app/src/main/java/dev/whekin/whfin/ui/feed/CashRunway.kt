@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.IncomeSourcePaymentEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
@@ -30,6 +31,7 @@ internal fun cashForecast(
     merchants: List<MerchantEntity>,
     allocations: List<TransactionAllocationEntity>,
     incomeSources: List<IncomeSourceEntity>,
+    incomePayments: List<IncomeSourcePaymentEntity>,
     today: LocalDate,
     zone: ZoneId,
 ): HomeCashForecast {
@@ -38,15 +40,14 @@ internal fun cashForecast(
     val debtIds = allocations.filter { it.purpose == AllocationPurpose.LOAN || it.purpose == AllocationPurpose.REPAYMENT }
         .mapTo(mutableSetOf()) { it.transactionId }
     val systemCategories = categories.filter { it.isSystem }.mapTo(mutableSetOf()) { it.id }
-    val activeSources = incomeSources.filter { IncomeExpectations.covers(it, currentMonth) }
-    // An arbitrary credit/refund on the receiving account is not proof of salary. Only a unique
-    // declared source with an exact amount/currency near its payday can settle the month here.
+    // An arbitrary credit or refund on the receiving account is not proof of salary. Only money the
+    // owner confirmed as this source's pay — or money from a sender they confirmed before — closes
+    // the month, so an unrecognised credit leaves the payday where it is instead of moving it a
+    // month forward behind their back.
     val arrivedSourceMonths = IncomeExpectations.of(
-        activeSources.filter { source -> activeSources.count {
-            it.accountId == source.accountId && it.currency == source.currency
-        } == 1 },
+        incomeSources,
         active.filter { it.id !in debtIds && it.categoryId !in systemCategories },
-        currentMonth, today, zone,
+        currentMonth, today, zone, incomePayments,
     ).filter { it.fulfilled }.mapTo(mutableSetOf()) { it.source.id to currentMonth }
     val through = paydayHorizon(nextPayday(incomeSources, today, arrivedSourceMonths), today)
     val amounts = ownExpenseAmounts(active, categories, allocations, zone)

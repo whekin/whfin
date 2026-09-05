@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.income
 
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.IncomeSourcePaymentEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
@@ -17,7 +18,8 @@ class IncomeExpectationsTest {
     @Test fun `a source only counts its receiving era and never balance corrections`() {
         val era = source(startedOn = LocalDate.of(2026, 8, 10), endedOn = LocalDate.of(2026, 8, 20))
         val rows = listOf(arrival(5), arrival(15), arrival(25), arrival(16).copy(source = TxSource.ADJUSTMENT))
-        val result = IncomeExpectations.of(listOf(era), rows, august, LocalDate.of(2026, 8, 21), zone).single()
+        val result = IncomeExpectations.of(listOf(era), rows, august, LocalDate.of(2026, 8, 21), zone,
+            confirming(5, 15, 25, 16)).single()
         assertEquals(1, result.receivedCount)
         assertEquals(270_000L, result.receivedMinor)
     }
@@ -61,6 +63,7 @@ class IncomeExpectationsTest {
             august,
             LocalDate.of(2026, 8, 15),
             zone,
+            confirming(6),
         ).single()
 
         assertEquals(270_000L, result.receivedMinor)
@@ -93,6 +96,7 @@ class IncomeExpectationsTest {
             august,
             LocalDate.of(2026, 8, 15),
             zone,
+            confirming(6),
         ).single()
 
         assertTrue(result.arrived)
@@ -110,6 +114,7 @@ class IncomeExpectationsTest {
             august,
             LocalDate.of(2026, 8, 15),
             zone,
+            confirming(6, 9),
         ).single()
 
         assertTrue(result.fulfilled)
@@ -139,6 +144,7 @@ class IncomeExpectationsTest {
             august,
             LocalDate.of(2026, 8, 15),
             zone,
+            confirming(6),
         ).single()
 
         assertEquals(190_000L, result.receivedMinor)
@@ -190,5 +196,123 @@ class IncomeExpectationsTest {
         ).single()
 
         assertFalse(result.arrived)
+    }
+
+    /**
+     * A credit on the receiving account proves nothing on its own. It is offered back as a question
+     * so the owner answers it, rather than being counted and quietly closing the month.
+     */
+    @Test
+    fun `an unanswered credit is a candidate and not a receipt`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(arrival(6)),
+            august,
+            LocalDate.of(2026, 8, 15),
+            zone,
+        ).single()
+
+        assertFalse(result.arrived)
+        assertEquals(0L, result.receivedMinor)
+        assertEquals(listOf(6L), result.candidates.map { it.id })
+        assertTrue(result.awaiting)
+    }
+
+    /** Answering once teaches the sender; the next month's pay from them needs no second answer. */
+    @Test
+    fun `a confirmed sender carries later payments on its own`() {
+        val employer = "TExampleEmployerAddress0000000000"
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(
+                arrival(6).copy(rawCounterparty = employer),
+                arrival(20, amount = 30_000).copy(rawCounterparty = employer),
+            ),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6),
+        ).single()
+
+        assertEquals(300_000L, result.receivedMinor)
+        assertEquals(setOf(6L), result.confirmedIds)
+        assertTrue(result.candidates.isEmpty())
+    }
+
+    /** Learning one sender must not sweep in every other credit that happens to land there. */
+    @Test
+    fun `a different sender stays a question`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(
+                arrival(6).copy(rawCounterparty = "TExampleEmployerAddress0000000000"),
+                arrival(20, amount = 30_000).copy(rawCounterparty = "TExampleFriendAddress000000000000"),
+            ),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6),
+        ).single()
+
+        assertEquals(270_000L, result.receivedMinor)
+        assertEquals(listOf(20L), result.candidates.map { it.id })
+    }
+
+    /** A named merchant is the bank-side form of the same identity. */
+    @Test
+    fun `a confirmed merchant carries later payments on its own`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(arrival(6).copy(merchantId = 3), arrival(20, amount = 30_000).copy(merchantId = 3)),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6),
+        ).single()
+
+        assertEquals(300_000L, result.receivedMinor)
+    }
+
+    /** Own movements never become income, however they were answered elsewhere. */
+    @Test
+    fun `transfers and voided rows are not even candidates`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(
+                arrival(6).copy(id = 30, isTransfer = true),
+                arrival(7).copy(id = 31, transferGroupId = 4),
+                arrival(8).copy(id = 32, isVoided = true),
+                arrival(9).copy(id = 33, source = TxSource.ADJUSTMENT),
+                arrival(10).copy(id = 34, amountMinor = -270_000),
+            ),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+        ).single()
+
+        assertTrue(result.candidates.isEmpty())
+        assertEquals(0L, result.receivedMinor)
+    }
+
+    /** Two sources on one account each ask their own question; neither answers the other's. */
+    @Test
+    fun `two sources on the same account do not share a confirmation`() {
+        val second = source().copy(id = 2, label = "Freelance", amountMinor = 50_000)
+        val results = IncomeExpectations.of(
+            listOf(source(), second),
+            listOf(arrival(6)),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6),
+        )
+
+        assertEquals(270_000L, results.first { it.source.id == 1L }.receivedMinor)
+        assertEquals(0L, results.first { it.source.id == 2L }.receivedMinor)
+        assertEquals(listOf(6L), results.first { it.source.id == 2L }.candidates.map { it.id })
+    }
+
+    private fun confirming(vararg transactionIds: Int) = transactionIds.map {
+        IncomeSourcePaymentEntity(transactionId = it.toLong(), incomeSourceId = 1, createdAt = 0)
     }
 }

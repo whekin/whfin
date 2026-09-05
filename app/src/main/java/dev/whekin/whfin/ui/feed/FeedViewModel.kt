@@ -557,10 +557,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }.distinctUntilChanged()
 
     internal val cashForecast: StateFlow<HomeCashForecast?> = combine(
-        cashInputs, spendable, db.incomeSourceDao().observeAll(), cashToday,
-    ) { input, balance, sources, today ->
+        cashInputs, spendable, db.incomeSourceDao().observeAll(),
+        db.incomeSourceDao().observePayments(), cashToday,
+    ) { input, balance, sources, payments, today ->
         cashForecast(balance?.pivotMinor, input.transactions, input.categories, input.merchants,
-            input.allocations, sources, today, zone)
+            input.allocations, sources, payments, today, zone)
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

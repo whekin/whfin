@@ -503,6 +503,9 @@ tables = {
     # The demo declares no entry point: its income is already recorded row by row, and a
     # declaration would only restate it.
     "income_sources": [],
+    # No declaration means nothing to confirm against it, so the answer table is empty by
+    # construction rather than by omission.
+    "income_source_payments": [],
     # A monthly intention belongs to the person, not to the product tour. The Savings screen still
     # gets twelve months of Reserve history from the deposit ledgers and can show its honest no-plan
     # state without inventing a habit on the visitor's behalf.

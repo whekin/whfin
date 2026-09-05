@@ -1322,6 +1322,15 @@
     <string name="income_awaiting">%1$s expected · waiting for the payment</string>
     <string name="income_awaiting_short">Waiting for the payment</string>
     <string name="income_weekend_estimate">usual date %1$s · with weekends %2$s</string>
+    <string name="income_payments_title">Which credits were the pay</string>
+    <string name="income_payments_body">Money landing here is not proof on its own — a refund looks the same. Confirm one and the sender it names is recognised from then on.</string>
+    <string name="income_payment_sheet_title">Payment</string>
+    <string name="income_payment_candidate">not confirmed</string>
+    <string name="income_payment_confirmed">confirmed as pay</string>
+    <string name="income_payment_confirm">This was the payment</string>
+    <string name="income_payment_forget">This was not the payment</string>
+    <string name="income_payment_confirm_effect">Counts towards this month and teaches WHFIN this sender. Nothing about the operation itself changes.</string>
+    <string name="income_payment_forget_effect">Stops counting towards this month, along with anything recognised only through this sender. The operation itself is untouched.</string>
     <string name="category_proposals_title">Categories your history earned</string>
     <string name="category_proposals_body">Recognized merchants are already waiting for these. Adding one files its history straight away.</string>
     <plurals name="category_proposals_evidence">
