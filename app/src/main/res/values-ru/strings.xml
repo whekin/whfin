@@ -1389,11 +1389,12 @@
     <string name="income_payment_forget">Это не выплата</string>
     <string name="income_payment_confirm_effect">Пойдёт в счёт этого месяца, а отправитель запомнится. Сама операция не меняется.</string>
     <string name="income_payment_forget_effect">Перестанет идти в счёт месяца вместе со всем, что узналось только по этому отправителю. Сама операция не меняется.</string>
-    <string name="own_transfer_title">Перевод между моими счетами</string>
+    <string name="own_transfer_title">Между моими счетами</string>
     <string name="own_transfer_body">Отметьте, куда ушли или откуда пришли эти деньги, чтобы они не посчитались дважды. Обе стороны сохраняют свою сумму, валюту и дату.</string>
     <string name="own_transfer_mode_existing">Уже записано</string>
     <string name="own_transfer_mode_record">Записать вручную</string>
     <string name="own_transfer_pick">Вторая сторона</string>
+    <string name="own_transfer_pick_hint">Отметьте все операции, которые входят в это движение.</string>
     <string name="own_transfer_selected">выбрано</string>
     <string name="own_transfer_account">Пришло на</string>
     <string name="own_transfer_amount">Сумма</string>

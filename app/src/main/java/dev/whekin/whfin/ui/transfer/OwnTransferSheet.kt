@@ -124,6 +124,10 @@ fun OwnTransferSheet(
             // More than one may be picked: a single withdrawal often comes back as several credits,
             // and pairing them one by one would leave the rest looking like new money.
             WhfinSectionLabel(stringResource(R.string.own_transfer_pick))
+            Text(
+                stringResource(R.string.own_transfer_pick_hint),
+                style = MaterialTheme.typography.bodySmall,
+            )
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 candidates.forEachIndexed { index, side ->
                     WhfinLedgerRow(
@@ -147,6 +151,12 @@ fun OwnTransferSheet(
                 }
             }
         } else {
+            // With nothing to offer, say so: an empty form with no explanation reads as the app
+            // having decided this movement has no other side.
+            if (candidates.isEmpty()) Text(
+                stringResource(R.string.own_transfer_none),
+                style = MaterialTheme.typography.bodySmall,
+            )
             WhfinFieldLabel(stringResource(R.string.own_transfer_account))
             WhfinChoiceRail {
                 items(targets.size) { index ->

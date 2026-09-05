@@ -1331,11 +1331,12 @@
     <string name="income_payment_forget">This was not the payment</string>
     <string name="income_payment_confirm_effect">Counts towards this month and teaches WHFIN this sender. Nothing about the operation itself changes.</string>
     <string name="income_payment_forget_effect">Stops counting towards this month, along with anything recognised only through this sender. The operation itself is untouched.</string>
-    <string name="own_transfer_title">Transfer between my accounts</string>
+    <string name="own_transfer_title">Between my accounts</string>
     <string name="own_transfer_body">Mark where this money went or came from, so it is not counted twice. Both sides keep their own amount, currency and date.</string>
     <string name="own_transfer_mode_existing">Already recorded</string>
     <string name="own_transfer_mode_record">Write it down</string>
     <string name="own_transfer_pick">The other side</string>
+    <string name="own_transfer_pick_hint">Tap every operation that is part of this movement.</string>
     <string name="own_transfer_selected">chosen</string>
     <string name="own_transfer_account">Arrived on</string>
     <string name="own_transfer_amount">Amount</string>

@@ -40,8 +40,32 @@ class IncomeSourcesVisualTest {
                 device.pressBack()
                 device.swipe(700, 2300, 700, 1300, 30)
                 device.waitForIdle(2000)
+                // One date and a weekend habit is the whole timing question now; the mandatory
+                // "latest by" it replaced must be gone, not merely moved below the fold.
+                assertNotNull(device.findObject(By.text(
+                    if (large) "Если дата выпадает на выходной" else "If the date falls on a weekend",
+                )))
+                assertNull(device.findObject(By.text(if (large) "Крайний срок" else "Latest by")))
                 assertTrue(device.takeScreenshot(File(dir, "$name-scrolled.png")))
             } else {
+                // The credit nobody has answered about yet: the question that has to be reachable
+                // before anything is counted as pay.
+                device.findObject(By.textContains(if (large) "не подтверждено" else "not confirmed")).click()
+                assertNotNull(device.wait(Until.findObject(By.text(
+                    if (large) "Это была выплата" else "This was the payment",
+                )), 5000))
+                device.waitForIdle(2000)
+                assertTrue(device.takeScreenshot(File(dir, "$name-payment.png")))
+                device.pressBack()
+                device.waitForIdle(2000)
+                // The wallet-to-bank offer sits below the questions, so it has to be scrolled to at
+                // font 1.5 — the size the owner actually reads this at.
+                // At font 1.5 the offer sits below the questions and has to be scrolled to; at
+                // 1.0 the whole page fits and there is nothing scrollable to ask.
+                device.findObject(By.scrollable(true))?.scrollUntil(
+                    androidx.test.uiautomator.Direction.DOWN,
+                    Until.findObject(By.textContains("→")),
+                )
                 device.findObject(By.textContains("→")).click()
                 assertNotNull(device.wait(Until.findObject(By.text(if (large) "Связать" else "Link")), 5000))
                 device.waitForIdle(2000)
