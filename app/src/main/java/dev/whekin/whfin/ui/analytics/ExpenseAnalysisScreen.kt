@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -125,17 +127,36 @@ internal fun ExpenseAnalysisContent(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             )
         }
-        item(key = "expense-distribution") {
-            ExpenseDistribution(
+        // How much, against what, on what, to whom, and only then the shape of the months. The
+        // chart used to stand between the total and the categories, so the answer to "on what did
+        // it go" — the names and the amounts — began below the fold on every visit.
+        item(key = "expense-categories") {
+            ExpenseCategories(
                 data = data,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                onCategoryClick = { categoryId ->
+                    onShowCategoryTrend(categoryId)
+                    // Header and period selector precede the hero.
+                    scope.launch { listState.animateScrollToItem(2) }
+                },
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .testTag("expense-analysis-categories"),
+            )
+        }
+        if (data.merchantValues.isNotEmpty()) item(key = "expense-merchants") {
+            ExpenseMerchants(
+                data = data,
+                onOpenTransactions = onOpenTransactions,
+                modifier = Modifier
+                    .padding(start = 20.dp, end = 20.dp, top = 28.dp)
+                    .testTag("expense-analysis-merchants"),
             )
         }
         item(key = "expense-trend") {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 28.dp)
                     .testTag("expense-analysis-trend"),
             ) {
                 PeriodTrend(
@@ -145,24 +166,6 @@ internal fun ExpenseAnalysisContent(
                     onOpenTransactions = onOpenTransactions,
                 )
             }
-        }
-        item(key = "expense-categories") {
-            ExpenseCategories(
-                data = data,
-                onCategoryClick = { categoryId ->
-                    onShowCategoryTrend(categoryId)
-                    // Header and period selector precede the hero and the ring.
-                    scope.launch { listState.animateScrollToItem(4) }
-                },
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        }
-        if (data.merchantValues.isNotEmpty()) item(key = "expense-merchants") {
-            ExpenseMerchants(
-                data = data,
-                onOpenTransactions = onOpenTransactions,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),
-            )
         }
         if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "expense-currencies") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 28.dp)) {
@@ -401,6 +404,27 @@ private fun SpendingCategoryRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // The share, drawn once at the size of the row rather than once at the size of
+                    // the screen. A ring showed the same proportions without the names beside them
+                    // and pushed every name below the fold to do it; a hairline under the name puts
+                    // the comparison where the thing being compared already is.
+                    Box(
+                        Modifier
+                            .padding(top = 4.dp)
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(
+                                MaterialTheme.colorScheme.outlineVariant,
+                                CircleShape,
+                            ),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(percentage.toFloat().coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(color.copy(alpha = .72f), CircleShape),
+                        )
+                    }
                 }
                 WhfinAmount(
                     formatMinor(value.expenseMinor, "GEL"),

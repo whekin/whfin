@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -220,7 +222,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         // A category row states its distance from the comparison base as a signed number; the
         // sentence naming that base is printed once, on the section heading.
         compose.onNodeWithText("+100.00 ₾", substring = true).assertExists()
@@ -289,11 +291,11 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         compose.onNodeWithText("Food").assertExists()
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-trend"))
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         compose.onNodeWithText("Transport").assertExists()
         compose.onNodeWithText("Food").assertDoesNotExist()
     }
@@ -352,7 +354,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(4)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-trend"))
         compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
@@ -379,7 +381,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-merchants"))
         // Six rows is the default depth; the seventh counterparty is behind the expander.
         compose.onNodeWithTag("expense-merchant-7").assertDoesNotExist()
         compose.onNodeWithTag("expense-merchants-expand").performScrollTo().performClick()
@@ -430,7 +432,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToIndex(5)
+        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-merchants"))
         compose.onNodeWithTag("expense-merchants-sort-amount").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("expense-merchants-sort-count").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("expense-merchant-1").performScrollTo().assertIsDisplayed()
