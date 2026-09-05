@@ -143,6 +143,7 @@ import dev.whekin.whfin.ui.convertedTotalLabel
 import dev.whekin.whfin.ui.formatDecimal
 import dev.whekin.whfin.ui.formatMinor
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import dev.whekin.whfin.core.ui.WhfinActionStyle
@@ -523,18 +524,17 @@ fun FeedScreen(
             if (!feedLoaded) {
                 item(key = "skeleton") { HomeSkeleton() }
             } else {
-            item(key = "summary") {
-                MonthlyFlowSummary(
-                    income = income,
-                    expenses = expenses,
-                    onClick = onOpenAnalytics,
-                    unconverted = homeAnalytics?.otherCurrencyExpenses.orEmpty(),
-                )
-            }
+            // Home reads as one answer to "how am I doing for money", in the order the answer is
+            // built: what there is, how far it goes, what is already owed out of it, what still
+            // needs a decision, what just happened — and only then the month, compactly.
             runway?.let { reading ->
                 item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts) }
             }
-            if (recurringDue.isNotEmpty()) item(key = "recurring") {
+            // The forecast block lists the same expected payments inside it. Naming them twice made
+            // a prediction look like two separate facts, so the standalone row speaks only when
+            // nothing above it has already spoken for them.
+            val billsNamedByRunway = runway?.recurringOccurrences?.isNotEmpty() == true
+            if (showsRecurringSeparately(recurringDue.isNotEmpty(), billsNamedByRunway)) item(key = "recurring") {
                 HomeRecurringRow(recurringDue)
             }
             if (debtsOwed.isNotEmpty()) item(key = "debts-owed") {
@@ -553,6 +553,19 @@ fun FeedScreen(
                 if (showSmsOnboarding) add(HomeNotice.SMS_ONBOARDING)
             }
             val triage = triageHomeNotices(presentNotices, expanded = noticesExpanded)
+            // Standing conditions and unanswered drafts were two stacks: an unnamed pile of cards,
+            // then a heading for the rows. They are one question — what still needs the owner —
+            // so they sit under one heading, conditions first because they carry their own action.
+            if (triage.visible.isNotEmpty() || triage.foldable > 0 || attention.isNotEmpty()) {
+                item(key = "decision-header") {
+                    HomeSectionHeader(
+                        title = stringResource(R.string.home_needs_attention),
+                        action = stringResource(R.string.home_review_all).takeIf { attention.isNotEmpty() },
+                        onAction = onOpenHistory,
+                        icon = Icons.Outlined.PendingActions,
+                    )
+                }
+            }
             items(triage.visible, key = { "notice-${it.name}" }) { notice ->
                 when (notice) {
                     HomeNotice.CARD_BALANCE -> HomePhysicalCardBalance(
@@ -594,14 +607,6 @@ fun FeedScreen(
             }
 
             if (attention.isNotEmpty()) {
-                item(key = "attention-header") {
-                    HomeSectionHeader(
-                        title = stringResource(R.string.home_needs_attention),
-                        action = stringResource(R.string.home_review_all),
-                        onAction = onOpenHistory,
-                        icon = Icons.Outlined.PendingActions,
-                    )
-                }
                 items(attention.take(3), key = {
                     when (it) {
                         is FeedTimelineEntry.Transaction -> "home-pending-${it.item.tx.id}"
@@ -622,12 +627,6 @@ fun FeedScreen(
                 }
             }
 
-            if (homeInsights.isNotEmpty()) {
-                item(key = "insights") {
-                    HomeInsightsSection(homeInsights, onOpenAnalytics)
-                }
-            }
-
             if (recent.items.isNotEmpty()) {
                 item(key = "recent-header") {
                     HomeSectionHeader(
@@ -643,6 +642,15 @@ fun FeedScreen(
                 items(recent.items, key = { "home-recent-${it.tx.id}" }) { item ->
                     FeedRow(item = item, onClick = { details = item })
                 }
+            }
+            item(key = "summary") {
+                MonthlyFlowSummary(
+                    income = income,
+                    expenses = expenses,
+                    onClick = onOpenAnalytics,
+                    insights = homeInsights,
+                    unconverted = homeAnalytics?.otherCurrencyExpenses.orEmpty(),
+                )
             }
             if (homeNothingRecorded(feedLoaded, items, unroutedOperations, recurringDue, debtsOwed)) {
                 item(key = "empty") {
@@ -2223,7 +2231,7 @@ internal fun CategoryPickerSheet(
 @Composable
 private fun HomeSectionHeader(
     title: String,
-    action: String,
+    action: String?,
     onAction: () -> Unit,
     metricMinor: Long? = null,
     icon: ImageVector? = null,
@@ -2241,7 +2249,7 @@ private fun HomeSectionHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
-        TextButton(onClick = onAction) { Text(action, maxLines = 1) }
+        if (action != null) TextButton(onClick = onAction) { Text(action, maxLines = 1) }
     }
 }
 
@@ -2453,10 +2461,9 @@ internal fun HomeRecurringRow(charges: List<RecurringCharge>) {
     } else {
         named
     }
-    WhfinLedgerGroup(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
             .testTag("home-recurring"),
-        tonal = true,
     ) {
         WhfinLedgerRow(
             title = stringResource(R.string.home_recurring_title),
@@ -2490,15 +2497,18 @@ private fun HomeSkeleton() {
         contentDescription = stringResource(R.string.home_loading),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
+        // The wait has the shape of the answer: the forecast block, then the first rows. The month
+        // now closes Home instead of opening it, so its rule waits at the bottom too.
+        WhfinSkeletonBlock(Modifier.fillMaxWidth(), height = 64.dp)
+        WhfinSkeletonBlock(Modifier.fillMaxWidth(.35f), height = 11.dp)
+        WhfinSkeletonLedgerRow()
+        WhfinSkeletonLedgerRow()
         WhfinSkeletonBlock(Modifier.fillMaxWidth(.3f), height = 11.dp)
-        WhfinSkeletonBlock(Modifier.fillMaxWidth(.5f), height = 30.dp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             WhfinSkeletonBlock(Modifier.weight(1f), height = 15.dp)
             WhfinSkeletonBlock(Modifier.weight(1f), height = 15.dp)
         }
         WhfinTotalRule()
-        WhfinSkeletonLedgerRow()
-        WhfinSkeletonLedgerRow()
     }
 }
 
@@ -2524,10 +2534,9 @@ internal fun HomeDebtsOwedRow(
     debts: List<HomeDebt>,
     onOpenAccounts: () -> Unit,
 ) {
-    WhfinLedgerGroup(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)
             .testTag("home-debts-owed"),
-        tonal = true,
     ) {
         val shown = debts.take(2)
         shown.forEachIndexed { index, debt ->
@@ -2629,106 +2638,29 @@ private fun CredoSyncReminderCard(
     }
 }
 
-@Composable
-private fun HomeInsightsSection(
-    insights: List<HomeInsight>,
-    onOpenAnalytics: () -> Unit,
-) {
-    Column(
-        Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        WhfinSectionLabel(
-            stringResource(R.string.home_insights_title),
-            icon = Icons.AutoMirrored.Outlined.TrendingUp,
-        )
-        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
-            insights.forEachIndexed { index, insight ->
-                HomeInsightRow(insight, onOpenAnalytics)
-                if (index < insights.lastIndex) HorizontalDivider(
-                    Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeInsightRow(
-    insight: HomeInsight,
-    onClick: () -> Unit,
-) {
-    val projected = when (insight) {
-        is HomeInsight.SpendingPace -> insight.projectedExpenseMinor
-        is HomeInsight.CategoryDriver -> insight.projectedExpenseMinor
-    }
-    val previous = when (insight) {
-        is HomeInsight.SpendingPace -> insight.previousMonthExpenseMinor
-        is HomeInsight.CategoryDriver -> insight.previousMonthExpenseMinor
-    }
-    val improving = projected < previous
-    val accent = if (improving) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
-    // A forecast is a number with a comparison, not a sentence about one. The reading stays in the
-    // ledger grammar the rest of Home uses: what it is on the left, how much on the right.
-    val title = when (insight) {
-        is HomeInsight.SpendingPace -> stringResource(R.string.home_insight_pace)
-        is HomeInsight.CategoryDriver -> insight.name ?: stringResource(R.string.analytics_uncategorized)
-    }
-    val supporting = stringResource(R.string.home_insight_previous_month, formatMinor(previous, "GEL"))
-    val icon = when (insight) {
-        is HomeInsight.SpendingPace -> Icons.AutoMirrored.Filled.TrendingUp
-        is HomeInsight.CategoryDriver -> Icons.Default.Category
-    }
-
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.ui.graphics.RectangleShape,
-        color = Color.Transparent,
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier.size(32.dp).background(accent.copy(alpha = .14f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    supporting,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            WhfinAmount(
-                text = formatMinor(projected, "GEL"),
-                symbol = currencySymbol("GEL"),
-                color = accent,
-            )
-        }
-    }
-}
-
+/**
+ * The running month, said compactly at the foot of Home.
+ *
+ * It used to open the screen with its net result set as the hero. Before payday that number is
+ * negative for structural reasons — the salary has not landed and the rent has — so the largest,
+ * loudest figure on the first screenful announced as alarming a month that was going normally. What
+ * is actually readable mid-month is the two facts underneath it: what went out and what came in.
+ *
+ * The projection lives here too rather than in a section of its own: it was a reading about this
+ * month standing apart from this month. It names the day it projects to and the full month it is
+ * compared against, because a part-month total and a whole-month total are not the same measurement.
+ */
 @Composable
 private fun MonthlyFlowSummary(
     income: Long,
     expenses: Long,
     onClick: () -> Unit,
+    insights: List<HomeInsight> = emptyList(),
     unconverted: List<AnalyticsCurrencyValue> = emptyList(),
 ) {
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
+    val monthEnd = remember { YearMonth.now().atEndOfMonth() }
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -2736,8 +2668,8 @@ private fun MonthlyFlowSummary(
         color = Color.Transparent,
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 WhfinSectionLabel(
@@ -2752,24 +2684,48 @@ private fun MonthlyFlowSummary(
                     modifier = Modifier.size(18.dp),
                 )
             }
-            // Результат месяца — герой блока; доход/расход остаются контекстом под ним.
-            val net = income - expenses
-            WhfinAmount(
-                formatMinor(net, "GEL", withSign = true),
-                symbol = currencySymbol("GEL"),
-                style = MaterialTheme.typography.headlineMedium,
-                color = if (net < 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+            Spacer(Modifier.height(6.dp))
+            // The word already says the direction, so the number does not repeat it with a sign:
+            // "Spent −235.04" reads as negative spending. Colour and label carry it once each.
+            MonthFlowLine(
+                label = stringResource(R.string.home_month_spent),
+                amount = formatMinor(expenses, "GEL"),
+                color = MaterialTheme.colorScheme.tertiary,
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                SummaryValue(
-                    Modifier.weight(1f),
-                    stringResource(R.string.summary_income), income,
-                    MaterialTheme.colorScheme.primary,
-                )
-                SummaryValue(
-                    Modifier.weight(1f),
-                    stringResource(R.string.summary_expenses), -expenses,
-                    MaterialTheme.colorScheme.tertiary,
+            MonthFlowLine(
+                label = stringResource(R.string.home_month_received),
+                amount = formatMinor(income, "GEL"),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            insights.forEach { insight ->
+                val projected = when (insight) {
+                    is HomeInsight.SpendingPace -> insight.projectedExpenseMinor
+                    is HomeInsight.CategoryDriver -> insight.projectedExpenseMinor
+                }
+                val previous = when (insight) {
+                    is HomeInsight.SpendingPace -> insight.previousMonthExpenseMinor
+                    is HomeInsight.CategoryDriver -> insight.previousMonthExpenseMinor
+                }
+                MonthFlowLine(
+                    label = when (insight) {
+                        is HomeInsight.SpendingPace -> stringResource(
+                            R.string.home_month_projected,
+                            monthEnd.format(dateFormat),
+                        )
+                        // Both readings here are forecasts; the driver has to say so on its own
+                        // line, because the row above it carries the only word that says it.
+                        is HomeInsight.CategoryDriver -> stringResource(
+                            R.string.home_month_projected_category,
+                            insight.name ?: stringResource(R.string.analytics_uncategorized),
+                        )
+                    },
+                    amount = formatMinor(projected, "GEL"),
+                    color = if (projected < previous) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.tertiary,
+                    supporting = stringResource(
+                        R.string.home_insight_previous_month,
+                        formatMinor(previous, "GEL"),
+                    ),
                 )
             }
             // Строка, которой в итоге нет: валютный расход без курса своего дня не превращается
@@ -2784,14 +2740,48 @@ private fun MonthlyFlowSummary(
                         R.string.home_month_unconverted,
                         if (rest > 0) "$named +$rest" else named,
                     ),
+                    Modifier.padding(top = 6.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             // Итоговая черта книги: блок месяца закрывается двойной линейкой, обычные разделители
             // ленты остаются одинарными.
+            Spacer(Modifier.height(8.dp))
             WhfinTotalRule()
         }
+    }
+}
+
+/** One flat ledger line: what it is on the left, how much on the right. No container, no fill. */
+@Composable
+private fun MonthFlowLine(
+    label: String,
+    amount: String,
+    color: Color,
+    supporting: String? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+            if (supporting != null) Text(
+                supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        WhfinAmount(
+            amount,
+            symbol = currencySymbol("GEL"),
+            style = MaterialTheme.typography.titleMedium,
+            color = color,
+        )
     }
 }
 
@@ -3328,15 +3318,17 @@ private fun FeedContentPreview() {
                 )
                 HomeNoticesFold(count = 3, expanded = false, onToggle = {})
                 HomeSectionHeader("Today", "All transactions", {}, metricMinor = 4_720)
-                HomeInsightsSection(
-                    listOf(
+                HomeSectionHeader("Today", "All transactions", {})
+                FeedRow(item, {})
+                MonthlyFlowSummary(
+                    income = 730_800,
+                    expenses = 109_127,
+                    onClick = {},
+                    insights = listOf(
                         HomeInsight.SpendingPace(169_147, 96_000),
                         HomeInsight.CategoryDriver("Subscriptions", 70_740, 21_400),
                     ),
-                    {},
                 )
-                HomeSectionHeader("Today", "All transactions", {})
-                FeedRow(item, {})
             }
         }
     }

@@ -11,14 +11,30 @@ tap away, in Accounts and Statistics.
 | Block | Says | Silent when |
 |---|---|---|
 | Headline | Money that can be spent, in the display currency | never (a dash while rates load) |
-| This month | Result of the running month, income and expenses under it, and what is not in the total yet | never; the last line only when a row's day has no quote |
 | Runway | Whether spendable money covers ordinary spending and expected bills until payday | no reliable rate yet; without payday, more than 45 days |
-| Still due | Monthly obligations this month has not seen yet | nothing recurring is outstanding |
-| Yours to return | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
-| Notices | At most two standing conditions, the rest behind one fold row | nothing is wrong |
-| Needs attention | Drafts and unrouted messages waiting on a decision | the queue is empty |
-| Outlook | Up to two insights: pace and its largest driver | early month, or normal variation |
+| Expected from your history | Monthly payments this month has not seen yet, read off repetition | nothing recurring is outstanding, **or the runway above already named them** |
+| You owe | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
+| Needs a decision | Standing conditions first, then drafts and unrouted messages | nothing is wrong and the queue is empty |
 | Today / Recent | Today's own spending and the last settled rows | no history at all |
+| This month | Spent, received, and — when there is one — the projection to month end with its comparison | never; extra lines only when they exist |
+
+The order is the answer to "how am I doing for money", built in the order a person builds it: what
+there is, how far it goes, what is already owed out of it, what still needs them, what just happened,
+and only then the month.
+
+The month used to open the screen with its net result as the hero. Before payday that number is
+negative for structural reasons — the salary has not landed and the rent has — so the largest figure
+on the first screenful announced as alarming a month that was going normally. It now closes Home with
+the two facts that are readable mid-month, spent and received, and the derived net is left to
+Statistics, where a whole month is read.
+
+The projection moved into that block from a section of its own: it was a reading about this month
+standing apart from this month. It names the day it projects to and the full month it is compared
+against, because a part-month total and a whole-month total are not the same measurement.
+
+Expected payments are named once. The runway block lists the same bills with their dates inside it,
+so the standalone row speaks only when no forecast has spoken for them. Its title says the evidence:
+these are payments read off a history of repetition, not obligations anybody confirmed.
 
 ## Two headlines, two questions
 

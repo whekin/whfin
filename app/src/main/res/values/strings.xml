@@ -81,8 +81,8 @@
     </plurals>
     <string name="home_spendable">Available to spend</string>
     <string name="home_loading">Reading your ledger</string>
-    <string name="home_recurring_title">Still due</string>
-    <string name="home_debts_owed_title">Yours to return</string>
+    <string name="home_recurring_title">Expected from your history</string>
+    <string name="home_debts_owed_title">You owe</string>
     <string name="home_month_unconverted">Not in the total yet: %1$s</string>
     <plurals name="home_recurring_more">
         <item quantity="one">%d more</item>
@@ -110,7 +110,7 @@
         <item quantity="other">%d more notices</item>
     </plurals>
     <string name="home_notices_collapse">Hide these</string>
-    <string name="home_needs_attention">Needs attention</string>
+    <string name="home_needs_attention">Needs a decision</string>
     <string name="home_review_all">Review all</string>
     <string name="home_today">Today</string>
     <string name="home_recent_activity">Recent activity</string>
@@ -1124,6 +1124,10 @@
     <string name="debt_close_action">Close debt</string>
     <string name="debt_repayment_action">Add repayment</string>
     <string name="feed_this_month">This month</string>
+    <string name="home_month_spent">Spent</string>
+    <string name="home_month_received">Received</string>
+    <string name="home_month_projected">Projected by %1$s</string>
+    <string name="home_month_projected_category">%1$s, projected</string>
     <string name="feed_filter_sort">Filter and sort</string>
     <string name="feed_filters_hint">Shape the ledger without losing your place</string>
     <string name="feed_filters_reset">Reset</string>
@@ -1292,16 +1296,14 @@
     <string name="home_card_balance_enable_alerts">Enable low-balance alerts</string>
     <string name="home_card_open_bank">Open %1$s</string>
     <string name="home_card_bank_unavailable">Bank app could not be opened. Your balance is unchanged.</string>
-    <string name="income_sources_title">Where money comes in</string>
+    <string name="income_sources_title">Income sources</string>
     <string name="income_sources_loading">Reading your declared sources…</string>
-    <string name="income_sources_explainer_title">The entry point</string>
-    <string name="income_sources_explainer_body">Choose the account where income first arrives and when this started. Wallet history is saved as operations. Link later exchanges with bank credits below to avoid counting the same money twice.</string>
-    <string name="income_sources_add">Declare a source</string>
+    <string name="income_sources_add">Add income source</string>
     <string name="income_sources_edit">Income source</string>
     <string name="income_sources_label">What is it</string>
     <string name="income_sources_amount">Amount</string>
     <string name="income_sources_currency">Currency</string>
-    <string name="income_sources_account">Lands on</string>
+    <string name="income_sources_account">Receiving account</string>
     <string name="income_sources_account_none">Not added yet</string>
     <string name="income_sources_days">Payday</string>
     <string name="income_sources_day_from">Usually on</string>
@@ -1313,6 +1315,7 @@
     <string name="income_sources_past">Earlier</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
     <string name="income_sources_recheck">Load wallet history</string>
+    <string name="income_sources_recheck_hint">Saves confirmed wallet operations, so a later exchange into the bank is not counted as new money.</string>
     <string name="income_sources_reading">Reading…</string>
     <string name="income_sources_unreadable">%1$s declared · the chain could not be read just now</string>
     <string name="income_weekend_label">If the date falls on a weekend</string>

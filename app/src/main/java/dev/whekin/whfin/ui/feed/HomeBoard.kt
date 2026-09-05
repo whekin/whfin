@@ -57,6 +57,20 @@ internal fun triageHomeNotices(
     return HomeNoticeTriage(visible, foldable)
 }
 
+/**
+ * Whether the expected monthly payments deserve a row of their own.
+ *
+ * The forecast block lists the same payments inside it, with their dates. Naming them again in a
+ * separate card above made one prediction look like two independent facts — and the card said
+ * "still due", which is a stronger claim than the evidence supports: these are payments read off a
+ * history of repetition, not obligations anybody confirmed. They speak alone only when no forecast
+ * has spoken for them, which is exactly when there is no reliable daily rate or no declared payday.
+ */
+internal fun showsRecurringSeparately(
+    hasRecurringDue: Boolean,
+    runwayNamesBills: Boolean,
+): Boolean = hasRecurringDue && !runwayNamesBills
+
 /** The running month's own money: what the person earned and spent, transfers and debts aside. */
 internal data class HomeMonthFlow(val incomeMinor: Long, val expenseMinor: Long)
 

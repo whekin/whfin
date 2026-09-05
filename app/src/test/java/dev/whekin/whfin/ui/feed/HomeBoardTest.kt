@@ -424,4 +424,13 @@ class HomeBoardTest {
         ),
         day = LocalDate.of(2026, 8, 21),
     )
+
+    @Test
+    fun `expected payments are named once, by the forecast when there is one`() {
+        // The forecast block lists the same bills with their dates. A second card above it turned
+        // one prediction into what looked like two separate facts.
+        assertEquals(false, showsRecurringSeparately(hasRecurringDue = true, runwayNamesBills = true))
+        assertEquals(true, showsRecurringSeparately(hasRecurringDue = true, runwayNamesBills = false))
+        assertEquals(false, showsRecurringSeparately(hasRecurringDue = false, runwayNamesBills = false))
+    }
 }

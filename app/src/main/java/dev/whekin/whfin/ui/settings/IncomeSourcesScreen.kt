@@ -110,17 +110,9 @@ fun IncomeSourcesScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        WhfinNotice(
-            title = stringResource(R.string.income_sources_explainer_title),
-            body = stringResource(R.string.income_sources_explainer_body),
-            icon = Icons.Default.SouthWest,
-            kind = WhfinNoticeKind.Info,
-            actionLabel = stringResource(
-                if (state.isReadingChain) R.string.income_sources_reading else R.string.income_sources_recheck,
-            ),
-            onAction = onRefresh,
-        )
-
+        // What the screen is for comes first. The loudest thing here used to be a filled button for
+        // reading a crypto wallet — a rare errand — while declaring the source, which is the whole
+        // point of the page, was a quiet row underneath an explanation of the app's own mechanics.
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             state.expectations.forEach { expectation ->
                 val account = state.accounts.firstOrNull { it.id == expectation.source.accountId }
@@ -135,6 +127,20 @@ fun IncomeSourcesScreen(
                 title = stringResource(R.string.income_sources_add),
                 icon = Icons.Default.Add,
                 onClick = { creating = true },
+            )
+        }
+
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = stringResource(
+                    if (state.isReadingChain) R.string.income_sources_reading
+                    else R.string.income_sources_recheck,
+                ),
+                supportingText = stringResource(R.string.income_sources_recheck_hint),
+                supportingMaxLines = 3,
+                icon = Icons.Default.SouthWest,
+                iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                onClick = onRefresh,
             )
         }
 
