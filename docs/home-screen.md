@@ -96,7 +96,11 @@ full is skipped and the next covered month becomes the answer. A source that sta
 payday does not invent a special first payment, and a source whose era ended promises nothing.
 
 Only money the owner confirmed as that source's pay can settle a month — a link in
-`income_source_payments`, or a credit from a counterparty they confirmed earlier. An unanswered
+`income_source_payments`, or a credit from a counterparty they confirmed earlier. Candidates are
+chosen by the receiving account, not by the declared currency: an agreement in dollars can be paid in
+USDT, and filtering on the declaration would offer nothing at all. Where the two currencies differ no
+remainder is shown or computed — this iteration invents no historical rate — and a confirmed payment
+settles the month rather than waiting on a comparison that cannot be made. An unanswered
 credit, even one for exactly the declared amount, leaves the payday where it is: a refund and a
 salary are the same shape in a ledger, and moving the forecast a month forward on a guess tells
 somebody they have been paid when they have not. Transfers, balance adjustments, debt allocations and

@@ -24,6 +24,14 @@ data class IncomeExpectation(
     val source: IncomeSourceEntity,
     /** Credits confirmed as this source's pay within the month, in the account's own currency. */
     val received: List<TransactionEntity> = emptyList(),
+    /**
+     * The one currency [received] arrived in, or null when it was not unanimous.
+     *
+     * Kept separate from the declared currency because the two are different facts: an agreement can
+     * be written in dollars and paid in USDT, and adding them together — or quietly treating one as
+     * the other — is the kind of arithmetic that produces a confident wrong number.
+     */
+    val receivedCurrency: String? = null,
     /** The estimated payday is behind us and the declared amount is not fully here yet. */
     val awaiting: Boolean = false,
     /**
@@ -52,8 +60,24 @@ data class IncomeExpectation(
     val receivedMinor: Long get() = received.sumOf { it.amountMinor }
     val receivedCount: Int get() = received.size
     val arrived: Boolean get() = received.isNotEmpty()
-    val fulfilled: Boolean get() = receivedMinor >= source.amountMinor
-    val remainingMinor: Long get() = (source.amountMinor - receivedMinor).coerceAtLeast(0)
+
+    /** True only while the declaration and the money are in the same currency and can be compared. */
+    val comparable: Boolean get() = receivedCurrency == source.currency
+
+    /**
+     * Whether this month's pay is in.
+     *
+     * With comparable money it is the plain sum against the declaration. Without it — the agreement
+     * in one currency, the payment in another — the amount cannot be judged at all, so a confirmed
+     * payment settles the month rather than leaving the owner waiting forever for a comparison this
+     * iteration cannot make. What it never does is invent a rate to reach a number.
+     */
+    val fulfilled: Boolean
+        get() = if (comparable) receivedMinor >= source.amountMinor else arrived
+
+    /** Only meaningful while the two sides are comparable; zero otherwise, and never displayed. */
+    val remainingMinor: Long
+        get() = if (comparable) (source.amountMinor - receivedMinor).coerceAtLeast(0) else 0L
 }
 
 object IncomeExpectations {
@@ -97,16 +121,17 @@ object IncomeExpectations {
             val (received, candidates) = inMonth.partition { transaction ->
                 transaction.id in confirmed || transaction.senderKey()?.let { it in senders } == true
             }
-            IncomeExpectation(
+            val reading = IncomeExpectation(
                 source = source,
                 received = received.sortedByDescending(TransactionEntity::occurredAt),
-                // Waiting, never "late": the owner declared an estimate, not a due date, so a payday
-                // that has gone by with money still outstanding is a state, not an accusation.
-                awaiting = received.sumOf { it.amountMinor } < source.amountMinor &&
-                    today > source.expectedPayday(month),
+                receivedCurrency = received.map(TransactionEntity::currency).distinct().singleOrNull(),
                 confirmedIds = confirmed,
                 candidates = candidates.sortedByDescending(TransactionEntity::occurredAt),
             )
+            // Waiting, never "late": the owner declared an estimate, not a due date, so a payday
+            // that has gone by with money still outstanding is a state, not an accusation. On the
+            // day itself nothing is outstanding yet — the day is not over.
+            reading.copy(awaiting = !reading.fulfilled && today > source.expectedPayday(month))
         }
     }
 
@@ -116,7 +141,10 @@ object IncomeExpectations {
         month: YearMonth,
         zone: ZoneId,
     ): Boolean {
-        if (accountId != declaration.accountId || currency != declaration.currency) return false
+        // The account decides which money could be this source's, not the declared currency: an
+        // agreement in dollars paid in USDT is one arrangement, and filtering by the declaration
+        // would silently offer nothing at all and leave the owner with a row that never moves.
+        if (accountId != declaration.accountId) return false
         // Movements between the owner's own accounts, corrections and voided rows are never income:
         // the money was already counted when it first arrived.
         if (amountMinor <= 0 || isTransfer || transferGroupId != null) return false

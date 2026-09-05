@@ -10,6 +10,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -310,6 +311,68 @@ class IncomeExpectationsTest {
         assertEquals(270_000L, results.first { it.source.id == 1L }.receivedMinor)
         assertEquals(0L, results.first { it.source.id == 2L }.receivedMinor)
         assertEquals(listOf(6L), results.first { it.source.id == 2L }.candidates.map { it.id })
+    }
+
+    /**
+     * An agreement written in dollars and paid in USDT is one arrangement, not two currencies to
+     * reconcile. Filtering candidates by the declared currency offered nothing at all and left a row
+     * that could never move.
+     */
+    @Test
+    fun `money in another currency is still offered and still counts`() {
+        val declaredInDollars = source().copy(currency = "USD")
+
+        val result = IncomeExpectations.of(
+            listOf(declaredInDollars),
+            listOf(arrival(6)),
+            august,
+            LocalDate.of(2026, 8, 15),
+            zone,
+            confirming(6),
+        ).single()
+
+        assertTrue(result.arrived)
+        assertEquals("USDT", result.receivedCurrency)
+        assertEquals(270_000L, result.receivedMinor)
+    }
+
+    /** What cannot be subtracted is not subtracted: no remainder, and no invented rate. */
+    @Test
+    fun `a different currency has no remainder and settles the month`() {
+        val declaredInDollars = source().copy(currency = "USD", amountMinor = 1_000_000)
+
+        val result = IncomeExpectations.of(
+            listOf(declaredInDollars),
+            listOf(arrival(6)),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6),
+        ).single()
+
+        assertFalse(result.comparable)
+        assertEquals(0L, result.remainingMinor)
+        // Smaller than the declaration in bare numbers, but the numbers are not comparable, so the
+        // month is settled rather than left waiting on a comparison that cannot be made.
+        assertTrue(result.fulfilled)
+        assertFalse(result.awaiting)
+    }
+
+    /** Two currencies on one account cannot be summed into one received figure. */
+    @Test
+    fun `a mixed pair of currencies reports no single received currency`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(arrival(6), arrival(9).copy(currency = "USDC")),
+            august,
+            LocalDate.of(2026, 8, 25),
+            zone,
+            confirming(6, 9),
+        ).single()
+
+        assertNull(result.receivedCurrency)
+        assertFalse(result.comparable)
+        assertTrue(result.fulfilled)
     }
 
     private fun confirming(vararg transactionIds: Int) = transactionIds.map {

@@ -305,14 +305,18 @@ private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?):
         account.type == AccountType.CRYPTO && account.currency !in setOf("USDT", "USDC") ->
             stringResource(R.string.crypto_history_scope)
         expectation.unreadable -> stringResource(R.string.income_sources_unreadable, declared)
-        expectation.arrived && !expectation.fulfilled -> stringResource(
-            R.string.income_partial, formatMinor(expectation.receivedMinor, account.currency), declared,
+        // A remainder only exists where the two sides can be subtracted. Declared in dollars and
+        // paid in USDT, both numbers are still true and are simply shown side by side.
+        expectation.arrived && expectation.comparable && !expectation.fulfilled -> stringResource(
+            R.string.income_partial,
+            formatMinor(expectation.receivedMinor, expectation.receivedCurrency ?: account.currency),
+            declared,
             formatMinor(expectation.remainingMinor, expectation.source.currency),
         )
         expectation.arrived -> stringResource(
             R.string.income_sources_arrived,
             declared,
-            formatMinor(expectation.receivedMinor, account.currency),
+            formatMinor(expectation.receivedMinor, expectation.receivedCurrency ?: account.currency),
         )
         expectation.awaiting -> stringResource(R.string.income_awaiting, declared)
         else -> stringResource(
