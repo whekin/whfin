@@ -39,7 +39,7 @@
     <string name="personal_setup_salary_title">Declare your salary</string>
     <string name="personal_setup_salary_body">Tell WHFIN where your salary arrives and when to expect it. This is a declaration, not a fake transaction.</string>
     <string name="personal_setup_salary_card_title">Salary source</string>
-    <string name="personal_setup_salary_card_body">Amount, currency, receiving account and expected day window stay editable in Settings.</string>
+    <string name="personal_setup_salary_card_body">Amount, currency, receiving account, payday and its weekend rule stay editable in Settings.</string>
     <string name="personal_setup_salary_add_action">Add salary source</string>
     <string name="personal_setup_salary_default_label">Salary</string>
     <string name="personal_setup_skip_optional_action">Nothing else for now</string>

@@ -60,6 +60,9 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.transfer.OwnTransferSide
+import dev.whekin.whfin.ui.transfer.OwnTransferChoice
+import dev.whekin.whfin.ui.transfer.OwnTransferSheet
 import dev.whekin.whfin.ui.feed.DayHeader
 import dev.whekin.whfin.ui.feed.FeedItem
 import dev.whekin.whfin.ui.feed.FeedRow
@@ -88,6 +91,7 @@ internal fun AccountTransactionsScreen(
     val state by viewModel.uiState.collectAsState()
     val accountRowsState by accountsViewModel.accountRowsState.collectAsState()
     val accounts by feedViewModel.accounts.collectAsState()
+    val ownLinkGroupIds by feedViewModel.ownLinkGroupIds.collectAsState()
     val categories by feedViewModel.categories.collectAsState()
     val categoriesByUsage by feedViewModel.categoriesByUsage.collectAsState()
     val people by feedViewModel.people.collectAsState()
@@ -111,6 +115,7 @@ internal fun AccountTransactionsScreen(
     var correctTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
+    var ownTransferFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
     var adjustBalance by remember { mutableStateOf(false) }
     var deleteAccount by remember { mutableStateOf(false) }
@@ -179,7 +184,42 @@ internal fun AccountTransactionsScreen(
                 details = null
                 statusFor = item
             },
+            // A ledger is exactly where "where did this money go" gets asked, so the action has to
+            // be on the row here too and not only in the feed.
+            onOwnTransfer = if (
+                item.tx.transferGroupId == null && !item.tx.isTransfer && !item.isDebt &&
+                item.splitOnPeople.isEmpty() && item.tx.amountMinor != 0L
+            ) {{
+                details = null
+                ownTransferFor = item
+            }} else null,
+            onClearOwnTransfer = if (item.tx.transferGroupId in ownLinkGroupIds) {{
+                feedViewModel.unlinkOwnTransfer(item)
+                details = null
+            }} else null,
         )
+    }
+
+    ownTransferFor?.let { item ->
+        var candidates by remember(item.tx.id) { mutableStateOf<List<OwnTransferSide>?>(null) }
+        LaunchedEffect(item.tx.id) { candidates = feedViewModel.ownTransferCandidates(item) }
+        candidates?.let { offered ->
+            OwnTransferSheet(
+                transaction = item.tx,
+                candidates = offered,
+                accounts = accounts,
+                onDismiss = { ownTransferFor = null },
+                onConfirm = { choice ->
+                    when (choice) {
+                        is OwnTransferChoice.Existing -> feedViewModel.linkOwnTransfer(item, choice.sides)
+                        is OwnTransferChoice.Recorded -> feedViewModel.recordOwnTransferLeg(
+                            item, choice.accountId, choice.amountMinor, choice.currency, choice.occurredAt,
+                        )
+                    }
+                    ownTransferFor = null
+                },
+            )
+        }
     }
     statusFor?.let { item ->
         TransactionStatusSheet(item.tx.status, { statusFor = null }) { status ->

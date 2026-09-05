@@ -40,7 +40,7 @@
     <string name="personal_setup_salary_title">Указать зарплату</string>
     <string name="personal_setup_salary_body">Скажите WHFIN, куда приходит зарплата и когда её ждать. Это объявление, а не выдуманная операция.</string>
     <string name="personal_setup_salary_card_title">Источник зарплаты</string>
-    <string name="personal_setup_salary_card_body">Сумма, валюта, счёт получения и окно дней останутся доступны в Настройках.</string>
+    <string name="personal_setup_salary_card_body">Сумма, валюта, счёт получения, дата выплаты и правило выходных остаются редактируемыми в Настройках.</string>
     <string name="personal_setup_salary_add_action">Добавить источник зарплаты</string>
     <string name="personal_setup_salary_default_label">Зарплата</string>
     <string name="personal_setup_skip_optional_action">Пока больше ничего</string>
