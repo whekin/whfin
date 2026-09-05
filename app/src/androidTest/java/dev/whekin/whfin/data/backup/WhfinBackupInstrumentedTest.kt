@@ -221,6 +221,37 @@ class WhfinBackupInstrumentedTest {
         Unit
     }
 
+    /**
+     * A v3 copy has an income source but no weekend rule, because the column did not exist yet.
+     *
+     * The column is NOT NULL with a default, and SQLite rejects an explicit NULL even then — so a
+     * column the file predates has to be left out of the insert entirely, letting the default stand.
+     * Writing it as NULL would fail the restore of every copy the owner already has.
+     */
+    @Test
+    fun restore_appliesTheDefaultForAColumnAnOlderFilePredates() = runBlocking {
+        seedEveryTable(source)
+        seedEveryTable(target)
+        val older = olderThanWeekendRule(export(source).toString(Charsets.UTF_8))
+        check(!older.contains("weekendRule")) { "The fixture must not carry the newer column." }
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(older.toByteArray()))
+
+        val sqlite = target.openHelper.writableDatabase
+        sqlite.query("SELECT weekendRule, expectedDayTo FROM income_sources").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("EARLIER", cursor.getString(0))
+            assertEquals(10, cursor.getInt(1))
+        }
+        Unit
+    }
+
+    /** Rewrites a current export into what a database-version-3 file actually looked like. */
+    private fun olderThanWeekendRule(json: String): String = json
+        .replace(Regex("\"weekendRule\":\\s*\"[A-Z_]+\",?\\s*"), "")
+        .replace(Regex("\"income_source_payments\":\\s*\\[[^]]*],?\\s*"), "")
+        .replace(Regex("\"databaseVersion\":\\s*\\d+"), "\"databaseVersion\": 3")
+
     @Test
     fun demoFixture_restoresRichPublicScenario() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -406,7 +437,7 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL(
                 "INSERT INTO income_sources (id, label, amountMinor, currency, accountId, " +
                     "expectedDayFrom, expectedDayTo, weekendRule, startedOn, endedOn, createdAt) " +
-                    "VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 5, 'EARLIER', 20000, NULL, 6000)",
+                    "VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 10, 'LATER', 20000, NULL, 6000)",
             )
             sqlite.execSQL(
                 "INSERT INTO savings_plans VALUES (1, 'GEL', 100000, 3000000, 22000, 20666, NULL, 6000)",

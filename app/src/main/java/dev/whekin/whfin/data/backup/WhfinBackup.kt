@@ -397,10 +397,18 @@ internal object WhfinBackupCodec {
         )
 
         WhfinBackupSchema.tables.forEach { table ->
+            val carried = table.requiredColumns(snapshot.summary.databaseVersion).toSet()
             snapshot.rowsByTable.getValue(table.name).forEach { row ->
                 val values = ContentValues(table.columns.size)
-                // A column the file predates is absent, which is what it should be written as.
-                table.columns.forEach { column -> values.putBackupValue(column, row[column]) }
+                table.columns.forEach { column ->
+                    val value = row[column]
+                    // A column the file predates is left out of the insert entirely rather than
+                    // written as NULL: SQLite rejects an explicit NULL even where a DEFAULT exists,
+                    // so writing one would fail the restore of every copy the owner already has.
+                    // Omitting it lets the schema's own default stand — the same answer the
+                    // migration reached for rows that were already in the database.
+                    if (column in carried || value != null) values.putBackupValue(column, value)
+                }
                 if (db.insert(table.name, SQLiteDatabase.CONFLICT_ABORT, values) == -1L) {
                     throw WhfinBackupException("Could not restore table ${table.name}.")
                 }

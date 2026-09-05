@@ -53,6 +53,36 @@ class BackupColumnsSinceTest {
         assertTrue(error!!.message!!.contains("depositNumber"))
     }
 
+    /**
+     * The weekend rule replaced a mandatory outer date, and a v3 file predates it. It restores with
+     * the rule absent — the default the migration applies is the same answer arrived at twice.
+     */
+    @Test
+    fun aVersion3FileRestoresWithoutTheWeekendRule() {
+        val sources = WhfinBackupSchema.byName.getValue("income_sources")
+        assertTrue("weekendRule" !in sources.requiredColumns(3))
+        assertTrue("weekendRule" in sources.requiredColumns(4))
+
+        val snapshot = WhfinBackupCodec.read(ByteArrayInputStream(backup(3, withDepositNumber = true).toByteArray()))
+
+        val source = snapshot.rowsByTable.getValue("income_sources").single()
+        assertNull(source["weekendRule"])
+        // The old outer date is still in the file and is read back as written.
+        assertEquals(BackupValue.Integer(10), source["expectedDayTo"])
+    }
+
+    /**
+     * A whole table can be younger than a file too, and the same reasoning applies: a v3 copy cannot
+     * carry confirmations that did not exist, and demanding them would reject it outright.
+     */
+    @Test
+    fun aVersion3FileRestoresWithoutTheTablesItPredates() {
+        val snapshot = WhfinBackupCodec.read(ByteArrayInputStream(backup(3, withDepositNumber = true).toByteArray()))
+
+        assertEquals(emptyList<Map<String, BackupValue?>>(), snapshot.rowsByTable.getValue("income_source_payments"))
+        assertEquals(5, WhfinBackupSchema.byName.getValue("income_source_payments").sinceVersion)
+    }
+
     @Test
     fun aVersion3FileKeepsTheNumberItCarries() {
         val snapshot = WhfinBackupCodec.read(ByteArrayInputStream(backup(3, withDepositNumber = true).toByteArray()))
@@ -62,10 +92,18 @@ class BackupColumnsSinceTest {
     }
 
     private fun backup(databaseVersion: Int, withDepositNumber: Boolean): String {
-        val tables = WhfinBackupSchema.tables.joinToString(",") { table ->
-            val rows = if (table.name == "accounts") accountRow(withDepositNumber) else ""
-            "\"${table.name}\":[$rows]"
-        }
+        // A real file carries only the tables that existed when it was written, so the fixture must
+        // leave out the newer ones rather than declaring them empty.
+        val tables = WhfinBackupSchema.tables
+            .filter { it.sinceVersion <= databaseVersion }
+            .joinToString(",") { table ->
+                val rows = when (table.name) {
+                    "accounts" -> accountRow(withDepositNumber)
+                    "income_sources" -> incomeSourceRow(databaseVersion)
+                    else -> ""
+                }
+                "\"${table.name}\":[$rows]"
+            }
         return """
             {"format":"${WhfinBackupSchema.FORMAT}","schemaVersion":${WhfinBackupSchema.FORMAT_VERSION},
             "exportedAt":"2026-09-01T00:00:00Z","appVersion":"0.3.21","databaseVersion":$databaseVersion,
@@ -80,5 +118,12 @@ class BackupColumnsSinceTest {
         append(""""walletAddressId":null,"cryptoAssetId":null,"savingsGoalMinor":null,""")
         append(""""savingsMode":null,"fundRole":"AVAILABLE","bankProduct":"CURRENT_ACCOUNT",""")
         append(""""isArchived":0,"sortOrder":0}""")
+    }
+
+    private fun incomeSourceRow(databaseVersion: Int): String = buildString {
+        append("""{"id":1,"label":"Salary","amountMinor":270000,"currency":"USDT","accountId":1,""")
+        append(""""expectedDayFrom":5,"expectedDayTo":10,""")
+        if (databaseVersion >= 4) append(""""weekendRule":"LATER",""")
+        append(""""startedOn":20500,"endedOn":null,"createdAt":0}""")
     }
 }
