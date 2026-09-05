@@ -1,25 +1,30 @@
 package dev.whekin.whfin.ui.feed
 
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.income.expectedPayday
 import dev.whekin.whfin.data.income.IncomeExpectations
 import dev.whekin.whfin.data.recurring.RecurringOccurrence
 import java.time.LocalDate
-import java.time.DayOfWeek
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 
-/** The window a declared source says money arrives in, resolved to actual dates. */
-internal data class NextIncomeWindow(
-    /** The day the owner says money normally arrives, before calendar adjustment. */
+/**
+ * The one date a declared source points at this month.
+ *
+ * A payday is an estimate, not a contract: the owner names the day money usually lands and how the
+ * employer treats weekends, and nothing else is asked of them. There is deliberately no outer bound
+ * — an app that holds a "latest by" date starts accusing a real payment of being late on a day the
+ * owner never agreed to, and the only honest reading once the estimate passes is that we are still
+ * waiting.
+ */
+internal data class NextPayday(
+    /** The day of month the owner named, before the weekend rule moved it. */
     val usual: LocalDate,
-    /** Conservative ordinary case: [usual], or the next weekday when it falls on a weekend. */
+    /** [usual] after the weekend rule; the date shown everywhere. */
     val expected: LocalDate,
-    /** Rare outer bound declared by the owner. */
-    val deadline: LocalDate,
     val weekendAdjusted: Boolean,
-    /** The ordinary date has already passed, so the outer bound is now the live scenario. */
-    val usingDeadline: Boolean,
-    val usualDatePassed: Boolean = false,
+    /** The estimate is behind us and this month's money has not arrived in full. */
+    val passed: Boolean = false,
 )
 
 /**
@@ -32,46 +37,40 @@ internal data class NextIncomeWindow(
 internal data class HomeRunway(
     val daysLeft: Int?,
     val dailyBurnMinor: Long,
-    val nextIncome: NextIncomeWindow?,
-    /** True when the money runs out before the declared window can close. */
+    val nextIncome: NextPayday?,
+    /** True when the money runs out before the payday it is meant to reach. */
     val shortOfIncome: Boolean,
-    /** Expected gap at the end of the declared payday window. */
+    /** Expected gap on the expected payday. */
     val shortfallMinor: Long? = null,
     /** Proven monthly payments scheduled inside the same forward-looking horizon. */
     val recurringOccurrences: List<RecurringOccurrence> = emptyList(),
     val expectedExpenseMinor: Long? = null,
     val remainingMinor: Long? = null,
-    val deadlineExpectedExpenseMinor: Long? = null,
-    val deadlineRemainingMinor: Long? = null,
-    val deadlineShortfallMinor: Long? = null,
 )
 
 /**
  * The runway as a shape: one window, the point the money reaches, the day it is refilled.
  *
- * The window runs from today to whichever comes last — the outer bound of the declared payday, or
- * the day the money runs out — so both marks always have somewhere to sit. Without a declared
- * payday there is no window to draw and the card keeps its sentence.
+ * The window runs from today to whichever comes last — the expected payday or the day the money
+ * runs out — so both marks always have somewhere to sit. Without a payday still ahead there is no
+ * window to draw and the card keeps its sentence: an estimate that already passed cannot anchor a
+ * rule, because the next one is not known yet.
  */
 internal data class RunwayShape(
     val fundedFraction: Float,
     val runsOut: LocalDate?,
     val payday: LocalDate,
     val paydayFraction: Float,
-    /** The outer bound of the declared window, when it is later than the ordinary date. */
-    val deadline: LocalDate?,
-    val deadlineFraction: Float?,
     val shortOfIncome: Boolean,
 )
 
 internal fun runwayShape(runway: HomeRunway, today: LocalDate): RunwayShape? {
-    val income = runway.nextIncome ?: return null
+    val income = runway.nextIncome?.takeUnless { it.passed } ?: return null
     val runsOut = runway.daysLeft?.let { today.plusDays(it.toLong()) }
-    val end = maxOf(income.deadline, income.expected, runsOut ?: income.deadline)
+    val end = maxOf(income.expected, runsOut ?: income.expected)
     val span = ChronoUnit.DAYS.between(today, end).toFloat()
     // A window that is over today cannot be divided; the card falls back to its sentence.
     if (span <= 0f) return null
-    val deadline = income.deadline.takeIf { it > income.expected }
     return RunwayShape(
         // No burn rate means nothing is being spent, so the money covers the whole window.
         fundedFraction = runsOut
@@ -80,9 +79,6 @@ internal fun runwayShape(runway: HomeRunway, today: LocalDate): RunwayShape? {
         runsOut = runsOut,
         payday = income.expected,
         paydayFraction = (ChronoUnit.DAYS.between(today, income.expected) / span).coerceIn(0f, 1f),
-        deadline = deadline,
-        deadlineFraction = deadline
-            ?.let { (ChronoUnit.DAYS.between(today, it) / span).coerceIn(0f, 1f) },
         shortOfIncome = runway.shortOfIncome,
     )
 }
@@ -91,9 +87,11 @@ internal fun runwayShape(runway: HomeRunway, today: LocalDate): RunwayShape? {
  * Reads a runway, or stays silent when it would be inventing one.
  *
  * Missing balance/rate is not a forecast. Without a payday, readings beyond 45 days stay quiet;
- * with one, answer whether the current money covers its window, not an unsupported distant runway.
- * The rate excludes monthly bills (scheduled separately) and realised one-offs. Expenses already
- * paid have affected today's balance and must not be spread into future days a second time.
+ * with one still ahead, answer whether the current money covers it. Once the estimate has passed
+ * the question has no answer — the next payday is unknown — so the card drops back to plain days
+ * left rather than promising the money reaches a date nobody named. The rate excludes monthly bills
+ * (scheduled separately) and realised one-offs. Expenses already paid have affected today's balance
+ * and must not be spread into future days a second time.
  */
 internal fun homeRunway(
     spendablePivotMinor: Long?,
@@ -106,9 +104,12 @@ internal fun homeRunway(
 ): HomeRunway? {
     if (spendablePivotMinor == null) return null
     val dailyBurn = ordinaryDailyMinor?.takeIf { it >= 0L } ?: return null
-    val nextIncome = nextIncomeWindow(incomeSources, today, arrivedSourceMonths)
+    val nextIncome = nextPayday(incomeSources, today, arrivedSourceMonths)
+    // Bills keep arriving while a late payday is waited on, so the horizon falls back to the quiet
+    // window instead of collapsing onto a date already behind us.
+    val horizon = paydayHorizon(nextIncome, today, quietAboveDays)
     val horizonOccurrences = recurringOccurrences
-        .filter { occurrence -> nextIncome == null || occurrence.dueDate <= nextIncome.deadline }
+        .filter { occurrence -> occurrence.dueDate <= horizon }
         .sortedBy(RecurringOccurrence::dueDate)
     val daysLeft = daysUntilExhausted(
         spendableMinor = spendablePivotMinor,
@@ -116,18 +117,11 @@ internal fun homeRunway(
         occurrences = horizonOccurrences,
         today = today,
     )
-    val expectedExpense = nextIncome?.let { window ->
-        expectedExpenseUntil(today, window.expected, dailyBurn, horizonOccurrences)
+    val expectedExpense = nextIncome?.takeUnless { it.passed }?.let { payday ->
+        expectedExpenseUntil(today, payday.expected, dailyBurn, horizonOccurrences)
     }
     val remaining = expectedExpense?.let { expense -> remaining(spendablePivotMinor, expense) }
     val shortfall = remaining?.let { -it.coerceAtLeast(-Long.MAX_VALUE).coerceAtMost(0L) }
-    val deadlineExpense = nextIncome
-        ?.takeIf { it.deadline > it.expected }
-        ?.let { window -> expectedExpenseUntil(today, window.deadline, dailyBurn, horizonOccurrences) }
-    val deadlineRemaining = deadlineExpense?.let { expense -> remaining(spendablePivotMinor, expense) }
-    val deadlineShortfall = deadlineRemaining
-        ?.let { -it.coerceAtLeast(-Long.MAX_VALUE).coerceAtMost(0L) }
-        ?.takeIf { it > 0L }
     val shortOfIncome = shortfall?.let { it > 0L } ?: false
     if (nextIncome == null && (daysLeft == null || daysLeft > quietAboveDays)) return null
     return HomeRunway(
@@ -139,11 +133,16 @@ internal fun homeRunway(
         recurringOccurrences = horizonOccurrences,
         expectedExpenseMinor = expectedExpense,
         remainingMinor = remaining,
-        deadlineExpectedExpenseMinor = deadlineExpense,
-        deadlineRemainingMinor = deadlineRemaining,
-        deadlineShortfallMinor = deadlineShortfall,
     )
 }
+
+/** How far forward bills are worth listing: to the payday ahead, else the quiet window. */
+internal fun paydayHorizon(
+    payday: NextPayday?,
+    today: LocalDate,
+    quietAboveDays: Int = QUIET_ABOVE_DAYS,
+): LocalDate = payday?.expected?.takeUnless { payday.passed }
+    ?: today.plusDays(quietAboveDays.toLong())
 
 private fun expectedExpenseUntil(
     today: LocalDate,
@@ -209,60 +208,39 @@ private inline fun <T> Iterable<T>.sumOfSaturated(value: (T) -> Long): Long =
     fold(0L) { total, item -> saturatingAdd(total, value(item)) }
 
 /**
- * When money is next declared to arrive.
+ * When money is next expected to arrive.
  *
- * A window that has not closed yet is still the answer, because a payment inside its own window is
- * not late. Once it has closed, the next month's window is what the person is waiting for. A source
- * whose era has ended describes months it no longer covers and is skipped.
+ * The estimate for this month stays the answer even after its date, because a payment a few days
+ * late is still the payment being waited for — only [NextPayday.passed] changes, and it makes the
+ * card say so instead of quietly promising next month. A month whose money has fully arrived is
+ * skipped, so the next estimate is the following month's. A source whose era has ended describes
+ * months it no longer covers and is skipped.
  */
-internal fun nextIncomeWindow(
+internal fun nextPayday(
     sources: List<IncomeSourceEntity>,
     today: LocalDate,
     arrivedSourceMonths: Set<Pair<Long, YearMonth>> = emptySet(),
-): NextIncomeWindow? = sources
+): NextPayday? = sources
     .asSequence()
     .flatMap { source ->
         val month = YearMonth.from(today)
         sequenceOf(month, month.plusMonths(1))
             .filter { IncomeExpectations.covers(source, it) }
             .filterNot { source.id to it in arrivedSourceMonths }
-            .mapNotNull { source.windowIn(it) }
+            .mapNotNull { source.paydayIn(it) }
     }
-    .filter { it.deadline >= today }
-    .map { window ->
-        if (window.expected >= today) window else window.copy(
-            expected = window.deadline,
-            usingDeadline = true,
-            usualDatePassed = true,
-        )
-    }
-    .minWithOrNull(compareBy(NextIncomeWindow::expected).thenBy(NextIncomeWindow::deadline))
+    .map { payday -> payday.copy(passed = payday.expected < today) }
+    .minWithOrNull(compareBy(NextPayday::expected))
 
-private fun IncomeSourceEntity.windowIn(month: YearMonth): NextIncomeWindow? {
-    val length = month.lengthOfMonth()
-    val usual = month.atDay(expectedDayFrom.coerceIn(1, length))
+private fun IncomeSourceEntity.paydayIn(month: YearMonth): NextPayday? {
+    val usual = month.atDay(expectedDayFrom.coerceIn(1, month.lengthOfMonth()))
     val started = LocalDate.ofEpochDay(startedOn)
     val ended = endedOn?.let(LocalDate::ofEpochDay)
     // A new/ended source whose first month does not reach its usual payday must not promise a
     // special first payment: the declaration explicitly says that first payments may not fit.
     if (started > usual || ended?.let { it < usual } == true) return null
-    val deadline = month.atDay(expectedDayTo.coerceIn(usual.dayOfMonth, length))
-    val shiftedWeekday = usual.nextWeekday()
-    val weekendFits = shiftedWeekday <= deadline
-    val forecast = shiftedWeekday.coerceAtMost(deadline)
-    return NextIncomeWindow(
-        usual = usual,
-        expected = forecast,
-        deadline = deadline,
-        weekendAdjusted = shiftedWeekday != usual && weekendFits,
-        usingDeadline = shiftedWeekday > deadline,
-    )
-}
-
-private fun LocalDate.nextWeekday(): LocalDate = when (dayOfWeek) {
-    DayOfWeek.SATURDAY -> plusDays(2)
-    DayOfWeek.SUNDAY -> plusDays(1)
-    else -> this
+    val expected = expectedPayday(month)
+    return NextPayday(usual = usual, expected = expected, weekendAdjusted = expected != usual)
 }
 
 private const val QUIET_ABOVE_DAYS = 45

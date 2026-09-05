@@ -2204,7 +2204,6 @@ internal fun HomeRunwayRow(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val locale = LocalConfiguration.current.locales[0]
     val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
-    val weekdayFormat = remember(locale) { DateTimeFormatter.ofPattern("EEE", locale) }
     val accent = if (runway.shortOfIncome) {
         WhfinThemeTokens.colors.warning
     } else {
@@ -2214,9 +2213,7 @@ internal fun HomeRunwayRow(
         R.string.home_runway_burn,
         formatMinor(runway.dailyBurnMinor, "GEL"),
     )
-    val payday = runway.nextIncome?.let { window ->
-        incomeTimingLabel(window, dateFormat, weekdayFormat)
-    }
+    val payday = runway.nextIncome?.let { incomeTimingLabel(it, dateFormat) }
     val primaryOccurrences = runway.recurringOccurrences.filter { occurrence ->
         runway.nextIncome?.let { occurrence.dueDate <= it.expected } ?: true
     }
@@ -2235,25 +2232,16 @@ internal fun HomeRunwayRow(
     val obligations = listOfNotNull(firstOccurrence, moreOccurrences).joinToString(" · ")
         .takeIf(String::isNotEmpty)
     val title = runway.shortfallMinor?.let { shortfall ->
-        val target = runway.nextIncome?.expected?.format(dateFormat).orEmpty()
         stringResource(
-            if (runway.nextIncome?.usingDeadline == true) {
-                R.string.home_runway_shortfall_latest
-            } else {
-                R.string.home_runway_shortfall
-            },
+            R.string.home_runway_shortfall,
             formatMinor(shortfall, "GEL"),
-            target,
+            runway.nextIncome?.expected?.format(dateFormat).orEmpty(),
         )
     } ?: runway.nextIncome?.let { income ->
-        stringResource(
-            if (income.usingDeadline) {
-                R.string.home_runway_enough_latest
-            } else {
-                R.string.home_runway_enough
-            },
-            income.expected.format(dateFormat),
-        )
+        // A payday that already passed carries no promise: the next one is unknown until this one
+        // lands, so the card waits instead of claiming the money reaches a date.
+        if (income.passed) stringResource(R.string.income_awaiting_short)
+        else stringResource(R.string.home_runway_enough, income.expected.format(dateFormat))
     } ?: pluralStringResource(
         R.plurals.home_runway_days,
         runway.daysLeft ?: 0,
@@ -2337,11 +2325,6 @@ internal fun HomeRunwayRow(
                         WhfinTimelineMark(shape.fundedFraction, it, emphasis = true)
                     },
                     WhfinTimelineMark(shape.paydayFraction, paydayLabel),
-                    // The end of the rule is the outer bound of the declared window; unlabelled, it
-                    // would be a line that simply stops somewhere.
-                    shape.deadline?.let { deadline ->
-                        WhfinTimelineMark(shape.deadlineFraction ?: 1f, deadline.format(dateFormat))
-                    },
                     WhfinTimelineMark(0f, stringResource(R.string.home_runway_today)),
                 ),
                 contentDescription = listOfNotNull(
@@ -2379,56 +2362,13 @@ internal fun HomeRunwayRow(
             }
             runway.expectedExpenseMinor?.let { expected ->
                 WhfinLedgerRow(
-                    title = stringResource(
-                        if (runway.nextIncome?.usingDeadline == true) {
-                            R.string.home_runway_expected_total_latest
-                        } else {
-                            R.string.home_runway_expected_total
-                        },
-                        formatMinor(expected, "GEL"),
-                    ),
+                    title = stringResource(R.string.home_runway_expected_total, formatMinor(expected, "GEL")),
                     titleMaxLines = Int.MAX_VALUE,
                     supportingText = runway.remainingMinor?.takeIf { it >= 0L }?.let {
                         stringResource(R.string.home_runway_remaining, formatMinor(it, "GEL"))
                     },
                     supportingMaxLines = Int.MAX_VALUE,
                 )
-            }
-            runway.deadlineExpectedExpenseMinor?.let { expected ->
-                val deadline = runway.nextIncome?.deadline?.format(dateFormat).orEmpty()
-                val shortfall = runway.deadlineShortfallMinor
-                WhfinLedgerRow(
-                    title = if (shortfall != null) {
-                        stringResource(
-                            R.string.home_runway_deadline_shortfall,
-                            deadline,
-                            formatMinor(shortfall, "GEL"),
-                        )
-                    } else {
-                        stringResource(
-                            R.string.home_runway_deadline_remaining,
-                            deadline,
-                            formatMinor(runway.deadlineRemainingMinor ?: 0L, "GEL"),
-                        )
-                    },
-                    titleMaxLines = Int.MAX_VALUE,
-                    supportingText = stringResource(
-                        R.string.home_runway_deadline_expected,
-                        formatMinor(expected, "GEL"),
-                    ),
-                    supportingMaxLines = Int.MAX_VALUE,
-                )
-                runway.recurringOccurrences.filter { occurrence ->
-                    runway.nextIncome?.let { occurrence.dueDate > it.expected } == true
-                }.forEach { occurrence ->
-                    WhfinLedgerRow(
-                        title = occurrence.charge.label,
-                        titleMaxLines = Int.MAX_VALUE,
-                        supportingText = stringResource(R.string.home_runway_expected_payment,
-                            formatMinor(occurrence.amountMinor, "GEL"), occurrence.dueDate.format(dateFormat)),
-                        supportingMaxLines = Int.MAX_VALUE,
-                    )
-                }
             }
             Text(stringResource(R.string.home_runway_method),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -2557,33 +2497,18 @@ internal fun HomeDebtsOwedRow(
 
 @Composable
 private fun incomeTimingLabel(
-    window: NextIncomeWindow,
+    payday: NextPayday,
     format: DateTimeFormatter,
-    weekdayFormat: DateTimeFormatter,
-): String {
-    val usual = window.usual.format(format)
-    val expected = window.expected.format(format)
-    val deadline = window.deadline.format(format)
-    return when {
-        window.usualDatePassed -> stringResource(
-            R.string.home_runway_income_late,
-            usual,
-            deadline,
-        )
-        window.weekendAdjusted -> stringResource(
-            R.string.home_runway_income_weekend,
-            usual,
-            window.usual.format(weekdayFormat),
-            expected,
-            deadline,
-        )
-        window.expected < window.deadline -> stringResource(
-            R.string.home_runway_income_usual,
-            expected,
-            deadline,
-        )
-        else -> stringResource(R.string.home_runway_income, expected)
-    }
+): String = when {
+    // Once the estimate is behind us the date says nothing useful; what is true is that the money
+    // has not come yet, and no next date has been earned.
+    payday.passed -> stringResource(R.string.income_awaiting_short)
+    payday.weekendAdjusted -> stringResource(
+        R.string.income_weekend_estimate,
+        payday.usual.format(format),
+        payday.expected.format(format),
+    )
+    else -> stringResource(R.string.home_runway_income, payday.expected.format(format))
 }
 
 /**
@@ -3301,12 +3226,10 @@ private fun FeedContentPreview() {
                     HomeRunway(
                         daysLeft = 4,
                         dailyBurnMinor = 9_500,
-                        nextIncome = NextIncomeWindow(
+                        nextIncome = NextPayday(
                             usual = LocalDate.of(2026, 9, 5),
                             expected = LocalDate.of(2026, 9, 7),
-                            deadline = LocalDate.of(2026, 9, 10),
                             weekendAdjusted = true,
-                            usingDeadline = false,
                         ),
                         shortOfIncome = true,
                         shortfallMinor = 98_600,

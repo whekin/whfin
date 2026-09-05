@@ -31,6 +31,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinField
+import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -41,6 +42,7 @@ import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.data.crypto.CryptoBankTransfer
+import dev.whekin.whfin.data.income.WeekendRule
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
@@ -71,7 +73,7 @@ fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
 @Composable
 fun IncomeSourcesScreen(
     state: IncomeSourcesState?,
-    onSave: (IncomeSourceEntity?, String, Long, String, Long?, Int, Int, Long) -> Unit,
+    onSave: (IncomeSourceEntity?, String, Long, String, Long?, Int, WeekendRule, Long) -> Unit,
     onEnd: (IncomeSourceEntity) -> Unit,
     onDelete: (IncomeSourceEntity) -> Unit,
     onRefresh: () -> Unit = {},
@@ -225,23 +227,24 @@ fun IncomeSourcesScreen(
 @Composable
 private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?): String {
     val declared = formatMinor(expectation.source.amountMinor, expectation.source.currency)
-    val window = stringResource(
-        R.string.income_sources_window,
-        expectation.source.expectedDayFrom,
-        expectation.source.expectedDayTo,
-    )
     return when {
         account == null -> stringResource(R.string.income_sources_no_account, declared)
         account.type == AccountType.CRYPTO && account.currency !in setOf("USDT", "USDC") ->
             stringResource(R.string.crypto_history_scope)
         expectation.unreadable -> stringResource(R.string.income_sources_unreadable, declared)
+        expectation.arrived && !expectation.fulfilled -> stringResource(
+            R.string.income_partial, formatMinor(expectation.receivedMinor, account.currency), declared,
+            formatMinor(expectation.remainingMinor, expectation.source.currency),
+        )
         expectation.arrived -> stringResource(
             R.string.income_sources_arrived,
             declared,
             formatMinor(expectation.receivedMinor, account.currency),
         )
-        expectation.overdue -> stringResource(R.string.income_sources_overdue, declared, window)
-        else -> stringResource(R.string.income_sources_waiting, declared, window)
+        expectation.awaiting -> stringResource(R.string.income_awaiting, declared)
+        else -> stringResource(
+            R.string.income_sources_waiting, declared, expectation.source.expectedDayFrom,
+        )
     }
 }
 
@@ -251,7 +254,7 @@ fun IncomeSourceSheet(
     source: IncomeSourceEntity?,
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
-    onSave: (String, Long, String, Long?, Int, Int, Long) -> Unit,
+    onSave: (String, Long, String, Long?, Int, WeekendRule, Long) -> Unit,
     onEnd: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     initialLabel: String = "",
@@ -264,7 +267,7 @@ fun IncomeSourceSheet(
     var currency by remember { mutableStateOf(source?.currency ?: initialCurrency) }
     var accountId by remember { mutableStateOf(source?.accountId) }
     var dayFrom by remember { mutableStateOf((source?.expectedDayFrom ?: 5).toString()) }
-    var dayTo by remember { mutableStateOf((source?.expectedDayTo ?: 10).toString()) }
+    var weekendRule by remember { mutableStateOf(source?.weekendRule ?: WeekendRule.EARLIER) }
     var started by remember { mutableStateOf(LocalDate.ofEpochDay(source?.startedOn ?: LocalDate.now().withDayOfMonth(1).toEpochDay()).toString()) }
     val startDate = runCatching { LocalDate.parse(started) }.getOrNull()
     var choosingAccount by remember { mutableStateOf(false) }
@@ -279,7 +282,7 @@ fun IncomeSourceSheet(
         primaryEnabled = label.isNotBlank() && minor != null && minor > 0 && currency.isNotBlank() &&
             startDate != null && (source?.endedOn == null || startDate.toEpochDay() <= source.endedOn) &&
             (source?.accountId == null || accountId == source.accountId || startDate.toEpochDay() > source.startedOn) &&
-            dayFrom.toIntOrNull() in 1..28 && dayTo.toIntOrNull() in ((dayFrom.toIntOrNull() ?: 29)..28),
+            dayFrom.toIntOrNull() in 1..31,
         onPrimary = {
             onSave(
                 label,
@@ -287,7 +290,7 @@ fun IncomeSourceSheet(
                 currency,
                 accountId,
                 dayFrom.toIntOrNull() ?: 1,
-                dayTo.toIntOrNull() ?: 28,
+                weekendRule,
                 requireNotNull(startDate).toEpochDay(),
             )
         },
@@ -351,18 +354,23 @@ fun IncomeSourceSheet(
         )
         Text(stringResource(R.string.income_sources_started_hint), style = MaterialTheme.typography.bodySmall)
         WhfinFieldLabel(stringResource(R.string.income_sources_days))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            WhfinField(
-                value = dayFrom,
-                onValueChange = { dayFrom = it.filter(Char::isDigit).take(2) },
-                label = stringResource(R.string.income_sources_day_from),
-                modifier = Modifier.weight(1f),
-            )
-            WhfinField(
-                value = dayTo,
-                onValueChange = { dayTo = it.filter(Char::isDigit).take(2) },
-                label = stringResource(R.string.income_sources_day_to),
-                modifier = Modifier.weight(1f),
+        WhfinField(
+            value = dayFrom,
+            onValueChange = { dayFrom = it.filter(Char::isDigit).take(2) },
+            label = stringResource(R.string.income_sources_day_from),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        WhfinFieldLabel(stringResource(R.string.income_weekend_label))
+        // Stacked full-width rather than a rail: three sentences that do not fit one line, and the
+        // choice is made once, so nothing is gained by making them compete for width.
+        listOf(
+            WeekendRule.EARLIER to R.string.income_weekend_earlier,
+            WeekendRule.LATER to R.string.income_weekend_later,
+            WeekendRule.ANY_DAY to R.string.income_weekend_any,
+        ).forEach { (rule, text) ->
+            WhfinFilterPill(
+                label = stringResource(text), selected = weekendRule == rule,
+                onClick = { weekendRule = rule }, modifier = Modifier.fillMaxWidth(),
             )
         }
         onEnd?.let {
@@ -400,7 +408,7 @@ private val previewState = IncomeSourcesState(
             ),
             receivedMinor = 268_400,
             receivedCount = 1,
-            overdue = false,
+            awaiting = false,
         ),
     ),
     ended = emptyList(),

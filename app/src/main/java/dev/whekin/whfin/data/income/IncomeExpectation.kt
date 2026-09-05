@@ -24,8 +24,8 @@ data class IncomeExpectation(
     /** Sum actually received on the declared account within the month, in that account's currency. */
     val receivedMinor: Long,
     val receivedCount: Int,
-    /** True once the month has moved past the payday deadline and nothing arrived. */
-    val overdue: Boolean,
+    /** The estimated payday is behind us and the declared amount is not fully here yet. */
+    val awaiting: Boolean,
     /**
      * Whether the answer came from a chain read that failed.
      *
@@ -35,6 +35,8 @@ data class IncomeExpectation(
     val unreadable: Boolean = false,
 ) {
     val arrived: Boolean get() = receivedCount > 0
+    val fulfilled: Boolean get() = receivedMinor >= source.amountMinor
+    val remainingMinor: Long get() = (source.amountMinor - receivedMinor).coerceAtLeast(0)
 }
 
 object IncomeExpectations {
@@ -60,6 +62,7 @@ object IncomeExpectations {
     ): List<IncomeExpectation> = sources.filter { covers(it, month) }.map { source ->
         val received = transactions.filter { transaction ->
             transaction.accountId == source.accountId &&
+                transaction.currency == source.currency &&
                 transaction.amountMinor > 0 &&
                 !transaction.isTransfer &&
                 transaction.transferGroupId == null &&
@@ -76,14 +79,11 @@ object IncomeExpectations {
             source = source,
             receivedMinor = received.sumOf { it.amountMinor },
             receivedCount = received.size,
-            // Only the declared outer deadline can call a payment late. The usual payday may pass
-            // in a delayed month without turning the whole declaration into an error.
-            overdue = received.isEmpty() && isDeadlinePast(source, month, today),
+            // Waiting, never "late": the owner declared an estimate, not a due date, so a payday
+            // that has gone by with money still outstanding is a state, not an accusation.
+            awaiting = received.sumOf { it.amountMinor } < source.amountMinor &&
+                today > source.expectedPayday(month),
         )
     }
 
-    private fun isDeadlinePast(source: IncomeSourceEntity, month: YearMonth, today: LocalDate): Boolean {
-        val lastDay = source.expectedDayTo.coerceIn(1, month.lengthOfMonth())
-        return today > month.atDay(lastDay)
-    }
 }

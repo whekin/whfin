@@ -6,8 +6,11 @@ import androidx.compose.ui.test.performScrollTo
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.income.WeekendRule
 import org.junit.Assert.assertEquals
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Rule
 import org.junit.Test
@@ -23,7 +26,7 @@ class IncomeSourceTimingLabelsTest {
 
     @Test fun anAlreadyDeclaredSourceCanBeBoundToTheWalletWithoutLosingItsStart() {
         val source = IncomeSourceEntity(id = 1, label = "Pay", amountMinor = 180000, currency = "USD",
-            expectedDayFrom = 5, expectedDayTo = 10, startedOn = 20500, createdAt = 0)
+            expectedDayFrom = 5, expectedDayTo = 5, startedOn = 20500, createdAt = 0)
         var selected: Long? = null
         var savedCurrency = ""
         var savedStart = 0L
@@ -46,8 +49,12 @@ class IncomeSourceTimingLabelsTest {
         assertEquals(source.startedOn, savedStart)
     }
 
+    /**
+     * One date and one weekend habit, not a range. A mandatory "latest by" would let the app call a
+     * real payment late on a day the owner never agreed to.
+     */
     @Test
-    fun editorNamesTheUsualDayAndLatestDeadlineInsteadOfAnEvenWindow() {
+    fun editorAsksForOneDateAndAWeekendHabit() {
         compose.setContent {
             WhfinTheme {
                 IncomeSourceSheet(
@@ -61,8 +68,33 @@ class IncomeSourceTimingLabelsTest {
             }
         }
 
-        compose.onNodeWithText("Payday timing").assertExists()
+        compose.onNodeWithText("Payday").assertExists()
         compose.onNodeWithText("Usually on").assertExists()
-        compose.onNodeWithText("Latest by").assertExists()
+        compose.onNodeWithText("If the date falls on a weekend").performScrollTo().assertExists()
+        compose.onNodeWithText("Weekdays only · usually earlier").performScrollTo().assertExists()
+        compose.onAllNodesWithText("Latest by").assertCountEquals(0)
+    }
+
+    /** The chosen habit is what gets saved; nothing else about timing is asked or stored. */
+    @Test
+    fun theChosenWeekendHabitIsSaved() {
+        var saved: WeekendRule? = null
+        compose.setContent {
+            WhfinTheme {
+                IncomeSourceSheet(
+                    source = IncomeSourceEntity(id = 1, label = "Pay", amountMinor = 180000,
+                        currency = "USD", accountId = 1, expectedDayFrom = 5, expectedDayTo = 5,
+                        startedOn = 20500, createdAt = 0),
+                    accounts = listOf(AccountEntity(id = 1, name = "Wallet",
+                        type = AccountType.CRYPTO, currency = "USDT")),
+                    onDismiss = {}, onEnd = null, onDelete = null,
+                    onSave = { _, _, _, _, _, rule, _ -> saved = rule },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Weekdays only · usually later").performScrollTo().performClick()
+        compose.onNodeWithText("Save").performClick()
+        assertEquals(WeekendRule.LATER, saved)
     }
 }

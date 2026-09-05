@@ -36,7 +36,7 @@ class IncomeExpectationsTest {
         currency = "USDT",
         accountId = accountId,
         expectedDayFrom = 5,
-        expectedDayTo = 10,
+        expectedDayTo = 5,
         startedOn = startedOn.toEpochDay(),
         endedOn = endedOn?.toEpochDay(),
         createdAt = 0,
@@ -65,25 +65,60 @@ class IncomeExpectationsTest {
 
         assertEquals(270_000L, result.receivedMinor)
         assertTrue(result.arrived)
-        assertFalse(result.overdue)
+        assertTrue(result.fulfilled)
+        assertFalse(result.awaiting)
     }
 
+    /** On the estimate itself nothing is late yet: the day is not over. */
     @Test
-    fun `passing the usual payday but not the deadline is not called late`() {
+    fun `the estimate day itself is not called late`() {
         val result = IncomeExpectations.of(
             listOf(source()),
             emptyList(),
             august,
-            LocalDate.of(2026, 8, 7),
+            LocalDate.of(2026, 8, 5),
             zone,
         ).single()
 
         assertFalse(result.arrived)
-        assertFalse(result.overdue)
+        assertFalse(result.awaiting)
+    }
+
+    /** Part of the money is not the money: the rest is still expected. */
+    @Test
+    fun `a partial payment keeps the remainder expected`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(arrival(6, amount = 100_000)),
+            august,
+            LocalDate.of(2026, 8, 15),
+            zone,
+        ).single()
+
+        assertTrue(result.arrived)
+        assertFalse(result.fulfilled)
+        assertEquals(170_000L, result.remainingMinor)
+        assertTrue(result.awaiting)
+    }
+
+    /** Several credits add up to the declared amount instead of each being judged on its own. */
+    @Test
+    fun `partial payments accumulate until the declaration is met`() {
+        val result = IncomeExpectations.of(
+            listOf(source()),
+            listOf(arrival(6, amount = 100_000), arrival(9, amount = 170_000)),
+            august,
+            LocalDate.of(2026, 8, 15),
+            zone,
+        ).single()
+
+        assertTrue(result.fulfilled)
+        assertEquals(0L, result.remainingMinor)
+        assertFalse(result.awaiting)
     }
 
     @Test
-    fun `a payday deadline that passed with nothing received is late`() {
+    fun `an estimate that passed with nothing received is awaited`() {
         val result = IncomeExpectations.of(
             listOf(source()),
             emptyList(),
@@ -92,7 +127,7 @@ class IncomeExpectationsTest {
             zone,
         ).single()
 
-        assertTrue(result.overdue)
+        assertTrue(result.awaiting)
     }
 
     /** The declaration is an anchor, not a truth: what actually arrived is reported as it is. */

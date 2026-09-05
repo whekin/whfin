@@ -30,12 +30,10 @@ class HomeRunwayRowTest {
                     runway = HomeRunway(
                         daysLeft = 9,
                         dailyBurnMinor = 10_000,
-                        nextIncome = NextIncomeWindow(
+                        nextIncome = NextPayday(
                             usual = LocalDate.of(2026, 9, 5),
-                            expected = LocalDate.of(2026, 9, 7),
-                            deadline = LocalDate.of(2026, 9, 10),
+                            expected = LocalDate.of(2026, 9, 4),
                             weekendAdjusted = true,
-                            usingDeadline = false,
                         ),
                         shortOfIncome = true,
                         shortfallMinor = 130_000,
@@ -53,26 +51,22 @@ class HomeRunwayRowTest {
                         ),
                         expectedExpenseMinor = 250_000,
                         remainingMinor = -130_000,
-                        deadlineExpectedExpenseMinor = 280_000,
-                        deadlineRemainingMinor = -160_000,
-                        deadlineShortfallMinor = 160_000,
                     ),
                     onOpenAccounts = {},
                 )
             }
         }
 
-        compose.onNodeWithText("May be 1,300.00 ₾ short by 7 Sep").assertExists()
+        compose.onNodeWithText("May be 1,300.00 ₾ short by 4 Sep").assertExists()
         compose.onNodeWithText("Day-to-day: ~100.00 ₾ a day", substring = true).assertExists()
         compose.onNodeWithText("Landlord 1,200.00 ₾ on 3 Sep", substring = true).assertExists()
         // The dates are marks on the rule now, so the sentence naming the whole payday window
         // waits inside the calculation instead of repeating what the drawing already says.
-        compose.onAllNodesWithText("usual 5 Sep (Sat) · estimate 7 Sep · latest 10 Sep", substring = true)
+        compose.onAllNodesWithText("usual date 5 Sep · with weekends 4 Sep", substring = true)
             .assertCountEquals(0)
         compose.onNodeWithContentDescription("Calculation details").performClick()
-        compose.onNodeWithText("usual 5 Sep (Sat) · estimate 7 Sep · latest 10 Sep", substring = true).assertExists()
+        compose.onNodeWithText("usual date 5 Sep · with weekends 4 Sep", substring = true).assertExists()
         compose.onNodeWithText("~1,200.00 ₾ · expected 3 Sep").assertExists()
-        compose.onNodeWithText("If delayed until 10 Sep: 1,600.00 ₾ short").assertExists()
         compose.onNodeWithText("Future one-off purchases are not predicted.", substring = true).assertExists()
     }
 }

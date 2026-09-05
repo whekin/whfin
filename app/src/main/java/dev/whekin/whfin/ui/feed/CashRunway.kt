@@ -41,24 +41,14 @@ internal fun cashForecast(
     val activeSources = incomeSources.filter { IncomeExpectations.covers(it, currentMonth) }
     // An arbitrary credit/refund on the receiving account is not proof of salary. Only a unique
     // declared source with an exact amount/currency near its payday can settle the month here.
-    val arrivedSourceMonths = activeSources.filter { source ->
-        val accountId = source.accountId ?: return@filter false
-        if (source.amountMinor <= 0L || activeSources.count {
-                it.accountId == accountId && it.currency == source.currency
-            } != 1) return@filter false
-        val usual = currentMonth.atDay(source.expectedDayFrom.coerceIn(1, currentMonth.lengthOfMonth()))
-        val deadline = currentMonth.atDay(source.expectedDayTo.coerceIn(usual.dayOfMonth, currentMonth.lengthOfMonth()))
-        val earliest = maxOf(usual.minusDays(3), currentMonth.atDay(1), LocalDate.ofEpochDay(source.startedOn))
-        active.any { transaction ->
-            transaction.accountId == accountId && transaction.currency == source.currency &&
-                transaction.amountMinor == source.amountMinor && !transaction.isTransfer &&
-                transaction.transferGroupId == null && transaction.source != TxSource.ADJUSTMENT &&
-                transaction.id !in debtIds && transaction.categoryId !in systemCategories &&
-                transaction.day(zone) in earliest..deadline
-        }
-    }.mapTo(mutableSetOf()) { it.id to currentMonth }
-    val through = nextIncomeWindow(incomeSources, today, arrivedSourceMonths)?.deadline
-        ?: today.plusDays(45)
+    val arrivedSourceMonths = IncomeExpectations.of(
+        activeSources.filter { source -> activeSources.count {
+            it.accountId == source.accountId && it.currency == source.currency
+        } == 1 },
+        active.filter { it.id !in debtIds && it.categoryId !in systemCategories },
+        currentMonth, today, zone,
+    ).filter { it.fulfilled }.mapTo(mutableSetOf()) { it.source.id to currentMonth }
+    val through = paydayHorizon(nextPayday(incomeSources, today, arrivedSourceMonths), today)
     val amounts = ownExpenseAmounts(active, categories, allocations, zone)
     val observations = recurringObservations(active, merchants, zone, amounts)
     val recurringKeys = detectRecurringCharges(observations, today).mapTo(mutableSetOf()) { it.key }

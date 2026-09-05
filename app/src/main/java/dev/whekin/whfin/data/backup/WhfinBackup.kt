@@ -212,8 +212,11 @@ internal object WhfinBackupSchema {
             "income_sources",
             listOf(
                 "id", "label", "amountMinor", "currency", "accountId",
-                "expectedDayFrom", "expectedDayTo", "startedOn", "endedOn", "createdAt",
+                "expectedDayFrom", "expectedDayTo", "weekendRule", "startedOn", "endedOn",
+                "createdAt",
             ),
+            columnsSince = mapOf("weekendRule" to 4),
+            enumColumns = mapOf("weekendRule" to setOf("EARLIER", "LATER", "ANY_DAY")),
         ),
         BackupTable(
             "savings_plans",

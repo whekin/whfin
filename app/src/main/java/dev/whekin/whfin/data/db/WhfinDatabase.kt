@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 3
+const val WHFIN_DATABASE_VERSION = 4
 
 @Database(
     entities = [
@@ -83,7 +83,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     }
 }
 
@@ -121,5 +121,12 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `accounts` ADD COLUMN `depositNumber` TEXT")
         db.execSQL("ALTER TABLE `sms_diagnostics` ADD COLUMN `depositNumber` TEXT")
+    }
+}
+
+/** Payday is an estimate with a weekend preference, not a mandatory date range. */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `income_sources` ADD COLUMN `weekendRule` TEXT NOT NULL DEFAULT 'EARLIER'")
     }
 }

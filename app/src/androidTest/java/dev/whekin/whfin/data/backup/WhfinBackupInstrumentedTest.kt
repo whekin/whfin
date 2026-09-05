@@ -377,7 +377,9 @@ class WhfinBackupInstrumentedTest {
                 "INSERT INTO counterparty_rules VALUES (1, 'GE00WH0000000000000042', 'Alice', 1, 1, NULL, 6000)",
             )
             sqlite.execSQL(
-                "INSERT INTO income_sources VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 10, 20000, NULL, 6000)",
+                "INSERT INTO income_sources (id, label, amountMinor, currency, accountId, " +
+                    "expectedDayFrom, expectedDayTo, weekendRule, startedOn, endedOn, createdAt) " +
+                    "VALUES (1, 'Salary', 270000, 'USDT', 1, 5, 5, 'EARLIER', 20000, NULL, 6000)",
             )
             sqlite.execSQL(
                 "INSERT INTO savings_plans VALUES (1, 'GEL', 100000, 3000000, 22000, 20666, NULL, 6000)",

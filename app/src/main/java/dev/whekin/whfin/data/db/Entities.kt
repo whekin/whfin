@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import dev.whekin.whfin.data.income.WeekendRule
 
 @Entity(tableName = "financial_groups", indices = [Index("type")])
 data class FinancialGroupEntity(
@@ -214,8 +215,13 @@ data class IncomeSourceEntity(
     val currency: String,
     /** Счёт получения; null, пока он ещё не заведён — например кошелёк без адреса. */
     val accountId: Long? = null,
+    /** Day of month the money usually lands on; a single estimate, never a promise. */
     val expectedDayFrom: Int,
+    /** Legacy column from the old mandatory date range; written equal to [expectedDayFrom]. */
     val expectedDayTo: Int,
+    /** What the payer does when [expectedDayFrom] lands on a weekend. */
+    @ColumnInfo(defaultValue = "'EARLIER'")
+    val weekendRule: WeekendRule = WeekendRule.EARLIER,
     /** Epoch day: с какого дня объявление описывает реальность. */
     val startedOn: Long,
     /** Epoch day окончания; null — действует сейчас. */

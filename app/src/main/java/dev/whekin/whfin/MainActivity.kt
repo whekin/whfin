@@ -365,7 +365,7 @@ class MainActivity : FragmentActivity() {
                                                 openingMinor = openingMinor,
                                             )
                                         },
-                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn ->
+                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn ->
                                             setupIncomeSources.save(
                                                 existing = null,
                                                 label = label,
@@ -373,7 +373,7 @@ class MainActivity : FragmentActivity() {
                                                 currency = currency,
                                                 accountId = accountId,
                                                 dayFrom = dayFrom,
-                                                dayTo = dayTo,
+                                                weekendRule = weekendRule,
                                                 startedOn = startedOn,
                                             )
                                         },

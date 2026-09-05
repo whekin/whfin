@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.crypto.CryptoBankTransfer
+import dev.whekin.whfin.data.income.WeekendRule
 import dev.whekin.whfin.data.crypto.CryptoBankTransferRepository
 import dev.whekin.whfin.data.crypto.CryptoHistoryRepository
 import dev.whekin.whfin.data.crypto.HttpCryptoTransferProvider
@@ -115,13 +116,13 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(
         existing: IncomeSourceEntity?, label: String, amountMinor: Long, currency: String,
-        accountId: Long?, dayFrom: Int, dayTo: Int,
+        accountId: Long?, dayFrom: Int, weekendRule: WeekendRule,
         startedOn: Long = existing?.startedOn ?: LocalDate.now(zone).withDayOfMonth(1).toEpochDay(),
     ) = mutate {
         sources.save(IncomeSourceEntity(
             id = existing?.id ?: 0, label = label.trim(), amountMinor = amountMinor,
             currency = currency.trim().uppercase(), accountId = accountId,
-            expectedDayFrom = dayFrom, expectedDayTo = dayTo,
+            expectedDayFrom = dayFrom, expectedDayTo = dayFrom, weekendRule = weekendRule,
             startedOn = startedOn, endedOn = existing?.endedOn,
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
         ))

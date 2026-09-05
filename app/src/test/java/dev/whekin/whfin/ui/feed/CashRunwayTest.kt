@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.TransactionAllocationEntity
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.income.WeekendRule
 import java.time.LocalDate
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
@@ -17,19 +18,23 @@ import org.junit.Test
 
 class CashRunwayTest {
     private val today = LocalDate.of(2026, 8, 28)
-    private val salary = IncomeSourceEntity(1, "Salary", 420_000, "GEL", 1, 5, 10,
-        LocalDate.of(2026, 1, 1).toEpochDay(), null, 0)
+    private val salary = IncomeSourceEntity(
+        id = 1, label = "Salary", amountMinor = 420_000, currency = "GEL", accountId = 1,
+        expectedDayFrom = 5, expectedDayTo = 5, weekendRule = WeekendRule.EARLIER,
+        startedOn = LocalDate.of(2026, 1, 1).toEpochDay(), endedOn = null, createdAt = 0,
+    )
     private val merchants = listOf(MerchantEntity(1, "demo rent", "Demo rent"))
     private val ordinary = (1..28).map { tx(it.toLong(), 7_200, today.withDayOfMonth(it)) }
     private val rent = (4..8).map { tx(100L + it, 30_000, today.withMonth(it).withDayOfMonth(3), 1) }
+    /** August is paid, so the forecast looks forward to the September payday. */
+    private val paid = tx(300, -420_000, LocalDate.of(2026, 8, 5))
 
     @Test fun `paid small recurring bill is excluded from daily rate but next occurrence is forecast`() {
         val result = forecast(ordinary + rent)
         assertEquals(7_200L, result.runway!!.dailyBurnMinor)
-        assertEquals(102_000L, result.runway.expectedExpenseMinor)
-        assertEquals(13_000L, result.runway.remainingMinor)
-        assertEquals(123_600L, result.runway.deadlineExpectedExpenseMinor)
-        assertEquals(8_600L, result.runway.deadlineShortfallMinor)
+        // 28 Aug to the 4 September estimate: seven ordinary days plus the rent due on the 3rd.
+        assertEquals(80_400L, result.runway.expectedExpenseMinor)
+        assertEquals(34_600L, result.runway.remainingMinor)
         assertEquals(listOf(LocalDate.of(2026, 9, 3)), result.runway.recurringOccurrences.map { it.dueDate })
     }
 
@@ -42,8 +47,7 @@ class CashRunwayTest {
     @Test fun `large rent is not discarded as a one off`() {
         val result = forecast(ordinary + rent.map { it.copy(amountMinor = -120_000) })
         assertEquals(7_200L, result.runway!!.dailyBurnMinor)
-        assertEquals(192_000L, result.runway.expectedExpenseMinor)
-        assertEquals(213_600L, result.runway.deadlineExpectedExpenseMinor)
+        assertEquals(170_400L, result.runway.expectedExpenseMinor)
     }
 
     @Test fun `unknown current expense value suppresses an optimistic runway`() {
@@ -75,25 +79,31 @@ class CashRunwayTest {
             listOf(salary), today.withDayOfMonth(3), ZoneOffset.UTC).runway)
     }
 
-    @Test fun `an early received salary skips the current deadline while an unpaid one still uses it`() {
+    @Test fun `a received salary moves the forecast to the next month`() {
         val day = LocalDate.of(2026, 8, 7)
         val rows = ordinary.take(7) + rent.filter { it.occurredAt <= day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
-        val unpaid = cashForecast(115_000, rows, emptyList(), merchants, emptyList(),
-            listOf(salary), day, ZoneOffset.UTC).runway!!
-        val received = rows + tx(300, 1, LocalDate.of(2026, 8, 4)).copy(
-            amountMinor = 420_000,
-            merchantId = null,
-        )
-        val paid = cashForecast(115_000, received, emptyList(), merchants, emptyList(),
-            listOf(salary), day, ZoneOffset.UTC).runway!!
+        val received = cashForecast(115_000, rows + tx(300, -420_000, LocalDate.of(2026, 8, 4)),
+            emptyList(), merchants, emptyList(), listOf(salary), day, ZoneOffset.UTC).runway!!
 
-        assertEquals(LocalDate.of(2026, 8, 10), unpaid.nextIncome?.expected)
-        assertTrue(unpaid.nextIncome?.usingDeadline == true)
-        assertEquals(LocalDate.of(2026, 9, 7), paid.nextIncome?.expected)
-        assertFalse(paid.nextIncome?.usingDeadline == true)
+        assertEquals(LocalDate.of(2026, 9, 4), received.nextIncome?.expected)
+        assertFalse(received.nextIncome!!.passed)
     }
 
-    @Test fun `unrelated credits and opening adjustments cannot skip a payday`() {
+    /**
+     * A payday behind us with nothing received is a wait, not next month's promise, and nothing is
+     * forecast to a date the owner never named.
+     */
+    @Test fun `an unpaid payday stays this month and forecasts nothing`() {
+        val day = LocalDate.of(2026, 8, 7)
+        val unpaid = cashForecast(115_000, ordinary.take(7), emptyList(), merchants, emptyList(),
+            listOf(salary), day, ZoneOffset.UTC).runway!!
+
+        assertEquals(LocalDate.of(2026, 8, 5), unpaid.nextIncome?.expected)
+        assertTrue(unpaid.nextIncome!!.passed)
+        assertNull(unpaid.expectedExpenseMinor)
+    }
+
+    @Test fun `unrelated credits and opening adjustments cannot close a payday`() {
         val day = LocalDate.of(2026, 8, 7)
         val inputs = listOf(
             tx(300, -500, day),
@@ -104,7 +114,8 @@ class CashRunwayTest {
         inputs.forEach { credit ->
             val result = cashForecast(115_000, ordinary.take(7) + credit, emptyList(), merchants,
                 emptyList(), listOf(salary), day, ZoneOffset.UTC).runway!!
-            assertEquals(LocalDate.of(2026, 8, 10), result.nextIncome?.expected)
+            assertEquals(LocalDate.of(2026, 8, 5), result.nextIncome?.expected)
+            assertTrue(result.nextIncome!!.passed)
         }
     }
 
@@ -141,7 +152,7 @@ class CashRunwayTest {
     }
 
     private fun forecast(rows: List<TransactionEntity>, allocations: List<TransactionAllocationEntity> = emptyList()) =
-        cashForecast(115_000, rows, emptyList(), merchants, allocations, listOf(salary), today, ZoneOffset.UTC)
+        cashForecast(115_000, rows + paid, emptyList(), merchants, allocations, listOf(salary), today, ZoneOffset.UTC)
 
     private fun tx(id: Long, expense: Long, day: LocalDate, merchant: Long? = null) = TransactionEntity(
         id = id, accountId = 1, amountMinor = -expense, currency = "GEL",

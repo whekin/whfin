@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.income.WeekendRule
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.security.BiometricAvailability
@@ -82,7 +83,7 @@ fun PersonalSetupFlow(
     /** Personal ledgers shown in the salary declaration's account rail. */
     accounts: List<AccountEntity> = emptyList(),
     onSaveCash: (String, String, Long?) -> Unit = { _, _, _ -> },
-    onSaveSalary: (String, Long, String, Long?, Int, Int, Long) -> Unit = { _, _, _, _, _, _, _ -> },
+    onSaveSalary: (String, Long, String, Long?, Int, WeekendRule, Long) -> Unit = { _, _, _, _, _, _, _ -> },
     onContinue: (initialTab: Int, openAccountAdd: Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
@@ -349,8 +350,8 @@ fun PersonalSetupFlow(
             source = null,
             accounts = accounts,
             onDismiss = { salaryEditorOpen = false },
-            onSave = { label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn ->
-                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn)
+            onSave = { label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn ->
+                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn)
                 salaryEditorOpen = false
                 page = personalSetupPageAfterSalary()
             },
