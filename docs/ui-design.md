@@ -151,6 +151,27 @@ drill-down open the same composable, so an action wired at one call site and not
 where the question is actually asked — the ledger is exactly where "where did this money go" comes up. The
 analytics list stays read-only by its own decision.
 
+A form's primary action is a bar at the foot of the sheet, not a word beside the title. It used to be
+the smallest control on the sheet, at the far end of a form the reader had just scrolled away from,
+and on a form long enough to scroll it went off the top once the keyboard opened. The content scrolls
+under a bar that stays put — the same shape the composer and the filter sheet already used.
+
+A date is picked, never retyped. Asking for `YYYY-MM-DD` in a text field spells out the machine's
+storage format, hands the reader a way to be wrong before they have said anything, and refuses the
+control every phone already has. `WhfinDateField` shows the date in words and opens a calendar.
+
+A choice between behaviours uses `WhfinChoiceList`, not a stack of full-width pills. A selected pill
+is a filled primary block — the same weight, colour and shape as the sheet's own Save — so three of
+them above the real action read as four competing commands when only one of them commands anything.
+
+A rail that has more to show fades at that end. A partially visible next item was meant to say "there
+is more this way", but the display edge cuts it with a hard line through a word and a border, which
+reads as a layout fault rather than an invitation.
+
+The amount in the composer sits on the same quiet field surface as every other input. It keeps its
+display size, because it is the headline of the form, but a dim `0.00` on the screen's own background
+with no edge looked like printed text rather than the one thing the form cannot do without.
+
 The composer keeps exactly one control per decision. Currency next to the amount is a label, not a second
 picker: source → currency is chosen in the money-source row, and the previous amount-side control silently
 cycled the ledgers of the same source. The empty amount uses a dimmed hint rather than a semantic accent, so

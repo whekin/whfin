@@ -11,8 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SouthWest
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +35,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
+import dev.whekin.whfin.core.ui.WhfinChoice
+import dev.whekin.whfin.core.ui.WhfinChoiceList
+import dev.whekin.whfin.core.ui.WhfinDateField
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
@@ -407,12 +415,26 @@ fun IncomeSourceSheet(
         }
         WhfinFieldLabel(stringResource(R.string.income_sources_account))
         val selectedAccount = accounts.firstOrNull { it.id == accountId }
-        WhfinLedgerRow(
-            title = selectedAccount?.let { "${it.name} · ${it.currency}" }
-                ?: stringResource(R.string.income_sources_account_none),
-            supportingText = stringResource(R.string.income_sources_choose_account),
-            onClick = { choosingAccount = !choosingAccount },
-        )
+        // A bare row on the screen's own background read as a printed fact between two fields. It
+        // is the one thing on this form that opens something, so it looks like the other inputs and
+        // carries the mark that says it opens.
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(
+                title = selectedAccount?.let { "${it.name} · ${it.currency}" }
+                    ?: stringResource(R.string.income_sources_account_none),
+                supportingText = stringResource(R.string.income_sources_choose_account),
+                icon = Icons.Outlined.AccountBalanceWallet,
+                iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                trailing = {
+                    Icon(
+                        if (choosingAccount) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                onClick = { choosingAccount = !choosingAccount },
+            )
+        }
         if (choosingAccount) {
             WhfinLedgerRow(
                 title = stringResource(R.string.income_sources_account_none),
@@ -438,31 +460,34 @@ fun IncomeSourceSheet(
                 )
             }
         }
-        WhfinField(
-            value = started, onValueChange = { started = it.take(10) },
-            label = stringResource(R.string.income_sources_started), modifier = Modifier.fillMaxWidth(),
+        WhfinDateField(
+            label = stringResource(R.string.income_sources_started),
+            day = startDate ?: LocalDate.now(),
+            onSelect = { started = it.toString() },
+            supportingText = stringResource(R.string.income_sources_started_hint),
+            modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.income_sources_started_hint), style = MaterialTheme.typography.bodySmall)
-        WhfinFieldLabel(stringResource(R.string.income_sources_days))
+        // One number, one label: `Payday` over `Usually on` said the same thing twice.
         WhfinField(
             value = dayFrom,
             onValueChange = { dayFrom = it.filter(Char::isDigit).take(2) },
             label = stringResource(R.string.income_sources_day_from),
+            keyboardType = KeyboardType.Number,
             modifier = Modifier.fillMaxWidth(),
         )
         WhfinFieldLabel(stringResource(R.string.income_weekend_label))
-        // Stacked full-width rather than a rail: three sentences that do not fit one line, and the
-        // choice is made once, so nothing is gained by making them compete for width.
-        listOf(
-            WeekendRule.EARLIER to R.string.income_weekend_earlier,
-            WeekendRule.LATER to R.string.income_weekend_later,
-            WeekendRule.ANY_DAY to R.string.income_weekend_any,
-        ).forEach { (rule, text) ->
-            WhfinFilterPill(
-                label = stringResource(text), selected = weekendRule == rule,
-                onClick = { weekendRule = rule }, modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        // What the payer does, not three commands. Stacked full-width pills made the chosen one a
+        // filled primary block — the same weight and colour as the sheet's own Save — so three of
+        // them read as competing actions above the real one.
+        WhfinChoiceList(
+            options = listOf(
+                WhfinChoice(WeekendRule.EARLIER, stringResource(R.string.income_weekend_earlier)),
+                WhfinChoice(WeekendRule.LATER, stringResource(R.string.income_weekend_later)),
+                WhfinChoice(WeekendRule.ANY_DAY, stringResource(R.string.income_weekend_any)),
+            ),
+            selected = weekendRule,
+            onSelect = { weekendRule = it },
+        )
         onEnd?.let {
             WhfinButton(
                 label = stringResource(R.string.income_sources_end),

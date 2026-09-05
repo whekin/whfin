@@ -68,8 +68,9 @@ class IncomeSourceTimingLabelsTest {
             }
         }
 
-        compose.onNodeWithText("Payday").assertExists()
-        compose.onNodeWithText("Usually on").assertExists()
+        // One number, one label: `Payday` над `Usually on` называл одно и то же дважды.
+        compose.onNodeWithText("Payday — usually on day").assertExists()
+        compose.onAllNodesWithText("Payday").assertCountEquals(0)
         compose.onNodeWithText("If the date falls on a weekend").performScrollTo().assertExists()
         compose.onNodeWithText("Weekdays only · usually earlier").performScrollTo().assertExists()
         compose.onAllNodesWithText("Latest by").assertCountEquals(0)

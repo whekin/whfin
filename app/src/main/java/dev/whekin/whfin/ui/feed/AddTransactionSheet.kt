@@ -542,25 +542,48 @@ private fun minorInput(value: Long): String {
             onAutoFocused()
         }
     }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(value, { onValue(it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12)) },
-            placeholder = {
-                Text(
-                    "0.00",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .38f),
-                )
-            },
-            textStyle = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent),
-            modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("composer-amount"))
+    // The amount is the first thing the form asks for and the only thing it cannot do without, and
+    // it looked like printed text: a dim `0.00` on the screen's own background with no edge. It
+    // keeps its display size — it is the headline of the form — but sits on the same quiet field
+    // surface every other input uses, so it is visibly a place to type before it is tapped.
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            account?.currency.orEmpty(),
-            Modifier.padding(horizontal = 12.dp),
-            style = MaterialTheme.typography.titleMedium,
+            stringResource(R.string.tx_amount),
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(value, { onValue(it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.take(12)) },
+                    placeholder = {
+                        Text(
+                            "0.00",
+                            style = MaterialTheme.typography.displayLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .38f),
+                        )
+                    },
+                    textStyle = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.weight(1f).focusRequester(focusRequester).testTag("composer-amount"))
+                Text(
+                    account?.currency.orEmpty(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

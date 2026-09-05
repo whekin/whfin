@@ -1306,7 +1306,7 @@
     <string name="income_sources_account">Receiving account</string>
     <string name="income_sources_account_none">Not added yet</string>
     <string name="income_sources_days">Payday</string>
-    <string name="income_sources_day_from">Usually on</string>
+    <string name="income_sources_day_from">Payday — usually on day</string>
     <string name="income_sources_arrived">%1$s declared · %2$s arrived</string>
     <string name="income_sources_waiting">%1$s declared · usually on day %2$d</string>
     <string name="income_sources_no_account">%1$s declared · no account to check against yet</string>
@@ -1345,7 +1345,7 @@
     <string name="own_transfer_account">Arrived on</string>
     <string name="own_transfer_amount">Amount</string>
     <string name="own_transfer_amount_in">Amount, %1$s</string>
-    <string name="own_transfer_date">Date (YYYY-MM-DD)</string>
+    <string name="own_transfer_date">Date</string>
     <string name="own_transfer_link">One movement</string>
     <string name="own_transfer_unlink">Not one movement</string>
     <string name="own_transfer_action">Own transfer</string>
@@ -1426,7 +1426,7 @@
     <string name="crypto_history_result">Imported %1$d operations · failed reads: %2$d</string>
     <string name="crypto_history_scope">History: Tron USDT and USDC. TRX and Ethereum balances only.</string>
     <string name="income_sources_save_failed">Could not save this change. Check the account and dates and try again.</string>
-    <string name="income_sources_started">Since (YYYY-MM-DD)</string>
+    <string name="income_sources_started">Paid to this account since</string>
     <string name="income_sources_started_hint">When pay moved to a different account, enter the first day of that period. The earlier account stays in history.</string>
     <string name="income_sources_choose_account">Choose where this income arrives</string>
     <string name="crypto_bridge_title">From wallet to bank</string>

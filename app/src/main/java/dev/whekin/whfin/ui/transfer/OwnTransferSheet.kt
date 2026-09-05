@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinDateField
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFilterPill
@@ -179,10 +180,10 @@ fun OwnTransferSheet(
                     keyboardType = KeyboardType.Decimal,
                     modifier = Modifier.weight(1f),
                 )
-                WhfinField(
-                    value = day,
-                    onValueChange = { day = it },
+                WhfinDateField(
                     label = stringResource(R.string.own_transfer_date),
+                    day = runCatching { LocalDate.parse(day) }.getOrNull() ?: LocalDate.now(),
+                    onSelect = { day = it.toString() },
                     modifier = Modifier.weight(1f),
                 )
             }

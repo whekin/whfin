@@ -69,6 +69,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.Color
@@ -773,7 +782,11 @@ fun WhfinFilterPill(
 
 /**
  * One-dimensional choice rail for labels that must remain readable in RU/EN and at large font scale.
- * The trailing inset intentionally leaves the next item partially visible as a scrolling cue.
+ *
+ * A partially visible next item was meant to say "there is more this way", but the display edge cuts
+ * it with a hard vertical line straight through a word and a border, which reads as a layout fault
+ * rather than an invitation. The ends fade instead, and only on the side that actually has more:
+ * the mask multiplies the content's own alpha, so it works on any background the rail sits on.
  */
 @Composable
 fun WhfinChoiceRail(
@@ -782,13 +795,44 @@ fun WhfinChoiceRail(
     itemSpacing: Dp = 8.dp,
     content: LazyListScope.() -> Unit,
 ) {
+    val state = rememberLazyListState()
+    val fadeStart by remember { derivedStateOf { state.canScrollBackward } }
+    val fadeEnd by remember { derivedStateOf { state.canScrollForward } }
     LazyRow(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val width = EDGE_FADE.toPx().coerceAtMost(size.width / 2f)
+                if (fadeStart) drawRect(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.Transparent, Color.Black),
+                        startX = 0f,
+                        endX = width,
+                    ),
+                    size = Size(width, size.height),
+                    blendMode = BlendMode.DstIn,
+                )
+                if (fadeEnd) drawRect(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.Black, Color.Transparent),
+                        startX = size.width - width,
+                        endX = size.width,
+                    ),
+                    topLeft = Offset(size.width - width, 0f),
+                    size = Size(width, size.height),
+                    blendMode = BlendMode.DstIn,
+                )
+            },
+        state = state,
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         content = content,
     )
 }
+
+private val EDGE_FADE = 24.dp
 
 /**
  * A landmark in the register — a day, a screen section.
@@ -1122,12 +1166,6 @@ fun WhfinFormSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                    WhfinButton(
-                        label = primaryLabel,
-                        onClick = onPrimary,
-                        enabled = primaryEnabled,
-                        style = WhfinActionStyle.Quiet,
-                    )
                 }
                 Column(
                     Modifier
@@ -1140,6 +1178,19 @@ fun WhfinFormSheet(
                         .padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     content = content,
+                )
+                // The one thing every form is for, where the hand already is and where the rest of
+                // the app puts it. It used to be a quiet word beside the title: the smallest control
+                // on the sheet, at the far end of a form the reader had just scrolled away from,
+                // and — on a form long enough to need scrolling — off the top of the screen once the
+                // keyboard opened. The bar stays put while the content scrolls under it.
+                WhfinButton(
+                    label = primaryLabel,
+                    onClick = onPrimary,
+                    enabled = primaryEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 10.dp),
                 )
             }
         }
