@@ -645,6 +645,23 @@ second line carries only what has not already been said — the bank when and on
 to more than one, the product, and the number only when the title is a chosen name. The currency is
 never repeated, because the list's own label states it.
 
+## Spending
+
+Spending reads downwards in the order the question is asked: how much, against what, on what, to
+whom, and only then the shape of the months. The year chart used to stand between the total and the
+categories, so the answer to "what did it go on" — the names and the amounts — began below the fold
+on every visit; it closes the screen now instead of gating it, and the month bar still selects a
+period there.
+
+There is no ring. It drew the same proportions the category rows carry, without a single name beside
+them, at the size of the screen. Each row draws its own share as a hairline under its name, where the
+thing being compared already is, and the row still selects the category the way the ring's slices
+did.
+
+Analytics and Spending divide the work: the destination answers how the period went — result, pace,
+what changed, the year — and Spending answers where the money went. Neither makes the reader pass
+through the other's totals to reach its own.
+
 ## The shell
 
 Four destinations, always one tap away: **Home · History · Accounts · Analytics** (`RootDestination`).
