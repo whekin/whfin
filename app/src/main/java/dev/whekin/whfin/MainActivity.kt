@@ -365,7 +365,7 @@ class MainActivity : FragmentActivity() {
                                                 openingMinor = openingMinor,
                                             )
                                         },
-                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
+                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn ->
                                             setupIncomeSources.save(
                                                 existing = null,
                                                 label = label,
@@ -374,6 +374,7 @@ class MainActivity : FragmentActivity() {
                                                 accountId = accountId,
                                                 dayFrom = dayFrom,
                                                 dayTo = dayTo,
+                                                startedOn = startedOn,
                                             )
                                         },
                                         onContinue = { initialTab, openAccountAdd ->

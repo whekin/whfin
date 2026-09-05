@@ -1292,7 +1292,7 @@
     <string name="analytics_empty_body">Выберите другой период или импортируйте выписку, чтобы построить тренд.</string>
     <string name="analytics_error_title">Не удалось посчитать статистику</string>
     <string name="analytics_error_body">Транзакции не изменены. Вернитесь назад и попробуйте открыть статистику снова.</string>
-    <string name="crypto_refresh">Обновить балансы</string>
+    <string name="crypto_refresh">Обновить баланс и историю токенов</string>
     <string name="crypto_refresh_done">Обновлено балансов: %1$d</string>
     <string name="crypto_refresh_partial">Обновлено %1$d, не удалось %2$d</string>
     <string name="crypto_refresh_failed">Не удалось прочитать балансы. Проверь endpoint сети.</string>
@@ -1325,7 +1325,7 @@
     <string name="crypto_wallet_edit_hint">Какие активы здесь появятся, решает сеть; вручную задаётся только имя.</string>
     <string name="crypto_address_unknown">Адрес неизвестен</string>
     <string name="crypto_activity_empty">Читается из сети</string>
-    <string name="crypto_activity_empty_body">У watch-only счёта нет локальных операций: баланс — это последнее чтение этого адреса.</string>
+    <string name="crypto_activity_empty_body">Операции токена пока не загружены. Обновите кошелёк в «Счетах». История доступна для USDT и USDC в Tron; у остальных активов показывается только баланс.</string>
     <string name="crypto_endpoints_title">Крипто-endpoint\'ы</string>
     <string name="crypto_endpoints_summary">У какого узла WHFIN спрашивает балансы</string>
     <string name="crypto_endpoints_body">Запрос баланса сообщает узлу, что этот адрес интересен этому устройству. Оставь поле пустым, чтобы использовать публичный дефолт.</string>
@@ -1361,7 +1361,7 @@
     <string name="income_sources_title">Откуда приходят деньги</string>
     <string name="income_sources_loading">Читаю объявленные источники…</string>
     <string name="income_sources_explainer_title">Точка входа</string>
-    <string name="income_sources_explainer_body">Объявление — не план, который надо подтверждать: факт по-прежнему приходит из банка или из блокчейна. Оно говорит, какие поступления являются новыми деньгами, поэтому всё после точки входа считается движением, а одни и те же деньги не учитываются дважды.</string>
+    <string name="income_sources_explainer_body">Выберите счёт, куда впервые поступает доход, и дату начала. История кошелька сохраняется в операциях. Последующие обмены свяжите с зачислениями в банк ниже, чтобы не считать те же деньги доходом повторно.</string>
     <string name="income_sources_add">Объявить источник</string>
     <string name="income_sources_edit">Источник дохода</string>
     <string name="income_sources_label">Что это</string>
@@ -1381,7 +1381,7 @@
     <string name="income_sources_delete">Удалить</string>
     <string name="income_sources_past">Раньше</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
-    <string name="income_sources_recheck">Проверить в блокчейне</string>
+    <string name="income_sources_recheck">Загрузить историю кошелька</string>
     <string name="income_sources_reading">Читаю…</string>
     <string name="income_sources_unreadable">объявлено %1$s · сейчас не удалось прочитать блокчейн</string>
     <string name="category_proposals_title">Категории, которые заслужила история</string>
@@ -1456,4 +1456,18 @@
     <string name="savings_target_description">план на месяц %1$s</string>
     <string name="savings_current_target">Текущий план на месяц %1$s</string>
     <string name="savings_goal_description">цель %1$s</string>
+    <string name="crypto_history_result">Загружено операций: %1$d · неудачных запросов: %2$d</string>
+    <string name="crypto_history_scope">История: USDT и USDC в Tron. Для TRX и Ethereum доступен только баланс.</string>
+    <string name="income_sources_save_failed">Не удалось сохранить изменение. Проверьте счёт и даты и повторите.</string>
+    <string name="income_sources_started">С какой даты (ГГГГ-ММ-ДД)</string>
+    <string name="income_sources_started_hint">Если зарплата стала приходить на другой счёт, укажите первый день нового периода. Прежний счёт останется в истории.</string>
+    <string name="income_sources_choose_account">Выбрать счёт получения дохода</string>
+    <string name="crypto_bridge_title">Из кошелька в банк</string>
+    <string name="crypto_bridge_body">Близкие даты помогают найти возможные пары. Свяжите только те движения, которые относятся к одному обмену.</string>
+    <string name="crypto_bridge_review">Проверить пару</string>
+    <string name="crypto_bridge_linked">Связанный перевод</string>
+    <string name="crypto_bridge_link">Связать</string>
+    <string name="crypto_bridge_unlink">Разъединить</string>
+    <string name="crypto_bridge_effect">Связка сохраняет обе суммы и балансы. Вывод из кошелька и зачисление в банк исключаются из расходов и доходов. Здесь же можно отменить связку.</string>
+    <string name="crypto_bridge_sheet_title">Перевод</string>
 </resources>

@@ -14,6 +14,14 @@ import org.junit.Test
 
 class IncomeExpectationsTest {
 
+    @Test fun `a source only counts its receiving era and never balance corrections`() {
+        val era = source(startedOn = LocalDate.of(2026, 8, 10), endedOn = LocalDate.of(2026, 8, 20))
+        val rows = listOf(arrival(5), arrival(15), arrival(25), arrival(16).copy(source = TxSource.ADJUSTMENT))
+        val result = IncomeExpectations.of(listOf(era), rows, august, LocalDate.of(2026, 8, 21), zone).single()
+        assertEquals(1, result.receivedCount)
+        assertEquals(270_000L, result.receivedMinor)
+    }
+
     private val zone = ZoneId.of("UTC")
     private val august = YearMonth.of(2026, 8)
 

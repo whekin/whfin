@@ -107,7 +107,8 @@ security review and updated disclosures.
 WHFIN can track public blockchain addresses that the user enters. WHFIN never asks for, receives or
 stores a seed phrase or a private key, and it cannot sign or send a transaction.
 
-Refreshing a balance is a manual, foreground action. It sends the entered public address to the
+Refreshing a balance or token history is a foreground action. Adding a wallet and opening the income
+sources screen can also refresh its token history. It sends the entered public address to the
 blockchain endpoint configured in Settings → Privacy policy → Crypto endpoints. That endpoint, and any
 network in between, therefore learns that this device is interested in that address, together with the
 device IP address. The defaults are public community endpoints that require no account and no API key:
@@ -117,7 +118,10 @@ or alternative HTTPS endpoint.
 
 Only the address and, for tokens, the contract address are sent. No other WHFIN data is transmitted.
 The resulting balance is stored locally with the moment it was read; it is excluded from the portable
-JSON export because a single refresh reproduces it exactly.
+JSON export because a single refresh reproduces it exactly. Confirmed Tron USDT/USDC transfers are
+also stored as local transactions, including their transaction hashes and public counterparty
+addresses. These transactions, learned categories and explicitly linked bank transfers are included
+in the portable backup. No private keys or signing capabilities are involved.
 
 ## Exchange rates
 

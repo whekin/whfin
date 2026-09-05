@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,8 +16,8 @@ import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,12 +28,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
-import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinActionStyle
-import dev.whekin.whfin.core.ui.WhfinChoiceRail
+import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
-import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
@@ -43,6 +40,7 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinPaneState
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinStatePane
+import dev.whekin.whfin.data.crypto.CryptoBankTransfer
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
@@ -50,8 +48,10 @@ import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 
 @Composable
 fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
@@ -63,19 +63,24 @@ fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
         onEnd = viewModel::end,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refreshFromChain,
+        onLink = viewModel::link,
+        onUnlink = viewModel::unlink,
     )
 }
 
 @Composable
 fun IncomeSourcesScreen(
     state: IncomeSourcesState?,
-    onSave: (IncomeSourceEntity?, String, Long, String, Long?, Int, Int) -> Unit,
+    onSave: (IncomeSourceEntity?, String, Long, String, Long?, Int, Int, Long) -> Unit,
     onEnd: (IncomeSourceEntity) -> Unit,
     onDelete: (IncomeSourceEntity) -> Unit,
     onRefresh: () -> Unit = {},
+    onLink: (CryptoBankTransfer) -> Unit = {},
+    onUnlink: (CryptoBankTransfer) -> Unit = {},
 ) {
     var editing by remember { mutableStateOf<IncomeSourceEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var selectedTransfer by remember { mutableStateOf<CryptoBankTransfer?>(null) }
 
     if (state == null) {
         WhfinStatePane(
@@ -123,6 +128,26 @@ fun IncomeSourcesScreen(
             )
         }
 
+        state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (state.transfers.isNotEmpty() || state.linkedTransfers.isNotEmpty()) {
+            WhfinSectionLabel(stringResource(R.string.crypto_bridge_title))
+            Text(stringResource(R.string.crypto_bridge_body), style = MaterialTheme.typography.bodySmall)
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                (state.transfers + state.linkedTransfers).forEach { transfer ->
+                    val linked = transfer.withdrawal.transferGroupId != null
+                    WhfinLedgerRow(
+                        title = "${formatMinor(-transfer.withdrawal.amountMinor, transfer.withdrawal.currency)} → ${formatMinor(transfer.credit.amountMinor, transfer.credit.currency)}",
+                        supportingText = listOf(
+                            transfer.credit.rawCounterparty ?: state.accounts.firstOrNull { it.id == transfer.credit.accountId }?.name.orEmpty(),
+                            Instant.ofEpochMilli(transfer.credit.occurredAt).atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                            stringResource(if (linked) R.string.crypto_bridge_linked else R.string.crypto_bridge_review),
+                        ).joinToString(" · "),
+                        onClick = { selectedTransfer = transfer }, divider = true,
+                    )
+                }
+            }
+        }
+
         if (state.ended.isNotEmpty()) {
             WhfinSectionLabel(stringResource(R.string.income_sources_past))
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -142,6 +167,32 @@ fun IncomeSourcesScreen(
         }
     }
 
+    selectedTransfer?.let { transfer ->
+        val linked = transfer.withdrawal.transferGroupId != null
+        WhfinFormSheet(
+            title = stringResource(R.string.crypto_bridge_sheet_title),
+            onDismiss = { selectedTransfer = null },
+            primaryEnabled = true,
+            primaryLabel = stringResource(if (linked) R.string.crypto_bridge_unlink else R.string.crypto_bridge_link),
+            onPrimary = {
+                if (linked) onUnlink(transfer) else onLink(transfer)
+                selectedTransfer = null
+            },
+        ) {
+            listOf(transfer.withdrawal, transfer.credit).forEach { transaction ->
+                WhfinLedgerRow(
+                    title = formatMinor(transaction.amountMinor, transaction.currency),
+                    supportingText = listOf(
+                        state.accounts.firstOrNull { it.id == transaction.accountId }?.name.orEmpty(),
+                        transaction.rawCounterparty.orEmpty(),
+                        Instant.ofEpochMilli(transaction.occurredAt).atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                    ).filter(String::isNotBlank).joinToString(" · "),
+                )
+            }
+            Text(stringResource(R.string.crypto_bridge_effect), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+
     if (creating || editing != null) {
         IncomeSourceSheet(
             source = editing,
@@ -150,8 +201,8 @@ fun IncomeSourcesScreen(
                 creating = false
                 editing = null
             },
-            onSave = { label, amount, currency, accountId, from, to ->
-                onSave(editing, label, amount, currency, accountId, from, to)
+            onSave = { label, amount, currency, accountId, from, to, startedOn ->
+                onSave(editing, label, amount, currency, accountId, from, to, startedOn)
                 creating = false
                 editing = null
             },
@@ -181,6 +232,8 @@ private fun statusLine(expectation: IncomeExpectation, account: AccountEntity?):
     )
     return when {
         account == null -> stringResource(R.string.income_sources_no_account, declared)
+        account.type == AccountType.CRYPTO && account.currency !in setOf("USDT", "USDC") ->
+            stringResource(R.string.crypto_history_scope)
         expectation.unreadable -> stringResource(R.string.income_sources_unreadable, declared)
         expectation.arrived -> stringResource(
             R.string.income_sources_arrived,
@@ -198,7 +251,7 @@ fun IncomeSourceSheet(
     source: IncomeSourceEntity?,
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
-    onSave: (String, Long, String, Long?, Int, Int) -> Unit,
+    onSave: (String, Long, String, Long?, Int, Int, Long) -> Unit,
     onEnd: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     initialLabel: String = "",
@@ -212,6 +265,9 @@ fun IncomeSourceSheet(
     var accountId by remember { mutableStateOf(source?.accountId) }
     var dayFrom by remember { mutableStateOf((source?.expectedDayFrom ?: 5).toString()) }
     var dayTo by remember { mutableStateOf((source?.expectedDayTo ?: 10).toString()) }
+    var started by remember { mutableStateOf(LocalDate.ofEpochDay(source?.startedOn ?: LocalDate.now().withDayOfMonth(1).toEpochDay()).toString()) }
+    val startDate = runCatching { LocalDate.parse(started) }.getOrNull()
+    var choosingAccount by remember { mutableStateOf(false) }
     val minor = parseToMinor(amount)
 
     WhfinFormSheet(
@@ -220,7 +276,10 @@ fun IncomeSourceSheet(
         ),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = label.isNotBlank() && minor != null,
+        primaryEnabled = label.isNotBlank() && minor != null && minor > 0 && currency.isNotBlank() &&
+            startDate != null && (source?.endedOn == null || startDate.toEpochDay() <= source.endedOn) &&
+            (source?.accountId == null || accountId == source.accountId || startDate.toEpochDay() > source.startedOn) &&
+            dayFrom.toIntOrNull() in 1..28 && dayTo.toIntOrNull() in ((dayFrom.toIntOrNull() ?: 29)..28),
         onPrimary = {
             onSave(
                 label,
@@ -229,6 +288,7 @@ fun IncomeSourceSheet(
                 accountId,
                 dayFrom.toIntOrNull() ?: 1,
                 dayTo.toIntOrNull() ?: 28,
+                requireNotNull(startDate).toEpochDay(),
             )
         },
     ) {
@@ -253,23 +313,43 @@ fun IncomeSourceSheet(
             )
         }
         WhfinFieldLabel(stringResource(R.string.income_sources_account))
-        val noneLabel = stringResource(R.string.income_sources_account_none)
-        WhfinChoiceRail {
-            item {
-                WhfinFilterPill(
-                    label = noneLabel,
-                    selected = accountId == null,
-                    onClick = { accountId = null },
-                )
-            }
-            items(accounts, key = { it.id }) { account ->
-                WhfinFilterPill(
-                    label = "${account.name} · ${account.currency}",
-                    selected = accountId == account.id,
-                    onClick = { accountId = account.id },
+        val selectedAccount = accounts.firstOrNull { it.id == accountId }
+        WhfinLedgerRow(
+            title = selectedAccount?.let { "${it.name} · ${it.currency}" }
+                ?: stringResource(R.string.income_sources_account_none),
+            supportingText = stringResource(R.string.income_sources_choose_account),
+            onClick = { choosingAccount = !choosingAccount },
+        )
+        if (choosingAccount) {
+            WhfinLedgerRow(
+                title = stringResource(R.string.income_sources_account_none),
+                onClick = {
+                    if (source?.accountId != null && started == LocalDate.ofEpochDay(source.startedOn).toString()) {
+                        started = LocalDate.now().toString()
+                    }
+                    accountId = null
+                    choosingAccount = false
+                },
+            )
+            accounts.forEach { account ->
+                WhfinLedgerRow(
+                    title = "${account.name} · ${account.currency}",
+                    onClick = {
+                        if (source?.accountId != null && account.id != source.accountId &&
+                            started == LocalDate.ofEpochDay(source.startedOn).toString()
+                        ) started = LocalDate.now().toString()
+                        accountId = account.id
+                        currency = account.currency
+                        choosingAccount = false
+                    },
                 )
             }
         }
+        WhfinField(
+            value = started, onValueChange = { started = it.take(10) },
+            label = stringResource(R.string.income_sources_started), modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.income_sources_started_hint), style = MaterialTheme.typography.bodySmall)
         WhfinFieldLabel(stringResource(R.string.income_sources_days))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             WhfinField(
@@ -335,6 +415,6 @@ private val previewState = IncomeSourcesState(
 @Composable
 private fun IncomeSourcesPreview() {
     WhfinTheme {
-        IncomeSourcesScreen(previewState, { _, _, _, _, _, _, _ -> }, {}, {}, {})
+        IncomeSourcesScreen(previewState, { _, _, _, _, _, _, _, _ -> }, {}, {}, {})
     }
 }

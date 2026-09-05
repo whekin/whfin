@@ -19,7 +19,7 @@
 | Excel-выписка (MYCREDO xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground batch download тех же XLSX | `confirmed` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
-| Крипто watch-адреса | EVM/Tron read-only balances по ручному обновлению | snapshot, не transaction |
+| Крипто watch-адреса | EVM/Tron balances; подтверждённая история Tron USDT/USDC | balance snapshot + операции CRYPTO |
 
 ### Реконсиляция (ядро анти-рассинхрона)
 
@@ -203,7 +203,8 @@ hash, тип, masked/parsed поля и результат. История чи�
 
 - Мультибанк: **TBC первым** через ручные statement-файлы и общий bank-neutral importer
 - Крипта: небольшой watch-only MVP между TBC и BOG — явные EVM/Tron сети, ETH/TRX/USDT balances,
-  manual refresh; без DeFi, ключей, отправки и полной истории. Цены — отдельный второй slice
+  manual refresh; без DeFi, ключей и отправки. История Tron USDT/USDC и явная связка вывода
+  с банковским зачислением: [docs/crypto-history.md](docs/crypto-history.md). Цены — отдельный slice
 - **Bank of Georgia (BOG)** через тот же statement importer после доказанной TBC-границы
 - Отдельный Google Play release этап: signing, privacy/support, listing, Data Safety/SMS declaration,
   internal/closed testing и pre-launch QA

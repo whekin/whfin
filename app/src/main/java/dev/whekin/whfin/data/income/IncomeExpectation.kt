@@ -2,6 +2,7 @@ package dev.whekin.whfin.data.income
 
 import dev.whekin.whfin.data.db.IncomeSourceEntity
 import dev.whekin.whfin.data.db.TransactionEntity
+import dev.whekin.whfin.data.db.TxSource
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -61,7 +62,12 @@ object IncomeExpectations {
             transaction.accountId == source.accountId &&
                 transaction.amountMinor > 0 &&
                 !transaction.isTransfer &&
+                transaction.transferGroupId == null &&
+                transaction.source != TxSource.ADJUSTMENT &&
                 !transaction.isVoided &&
+                Instant.ofEpochMilli(transaction.occurredAt).atZone(zone).toLocalDate().toEpochDay() >= source.startedOn &&
+                (source.endedOn == null ||
+                    Instant.ofEpochMilli(transaction.occurredAt).atZone(zone).toLocalDate().toEpochDay() <= source.endedOn) &&
                 YearMonth.from(
                     Instant.ofEpochMilli(transaction.occurredAt).atZone(zone).toLocalDate(),
                 ) == month

@@ -180,6 +180,10 @@ production bank sync.
 
 ## 6. Crypto watch-only MVP
 
+История Tron USDT/USDC добавлена отдельной итерацией: [crypto-history.md](crypto-history.md).
+Баланс остаётся снимком; движения сохраняются отдельно, вывод в банк связывается явным выбором.
+
+
 Статус: этап завершён. Сети выбираются явно, адреса валидируются по сети, балансы читаются
 read-only через `CryptoBalanceProvider` и хранятся snapshot'ом с `observedAt`, а второй slice добавил
 котировки и конвертацию итога. Детали курсов: `docs/exchange-rates.md`.

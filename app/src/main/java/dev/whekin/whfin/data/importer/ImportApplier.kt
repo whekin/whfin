@@ -110,6 +110,8 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun reconcile(entry: PlannedRow.Reconcile, currency: String) {
         val row = entry.row
         val draft = db.transactionDao().byId(entry.transactionId) ?: return
+        val explicitBridge = draft.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
+            ?.type == dev.whekin.whfin.data.db.TransferGroupType.CRYPTO_BRIDGE
         val merchant = merchantFor(row)
         db.transactionDao().update(
             draft.copy(
@@ -129,7 +131,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 note = row.description.takeIf { it != row.merchantRaw },
                 status = TxStatus.CONFIRMED,
                 source = TxSource.STATEMENT,
-                isTransfer = row.operation.isOwnMovement,
+                isTransfer = row.operation.isOwnMovement || explicitBridge,
                 balanceAfterMinor = row.balanceAfterMinor,
                 externalKey = entry.externalKey,
                 // The draft's amount or currency may have changed, so any lari value booked for the
@@ -149,7 +151,17 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         val duplicate = db.transactionDao().byId(entry.duplicateStatementId) ?: return
         val sms = db.transactionDao().byId(entry.transactionId) ?: return
 
+        val duplicateBridge = duplicate.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
+            ?.takeIf { it.type == dev.whekin.whfin.data.db.TransferGroupType.CRYPTO_BRIDGE }
+        if (duplicateBridge != null) {
+            // The owner may have linked the statement copy before its SMS duplicate was found.
+            // Move that decision to the surviving row; it is not a derived bank pairing.
+            require(sms.transferGroupId == null || sms.transferGroupId == duplicateBridge.id)
+            db.transactionDao().attachToTransferGroup(listOf(sms.id), duplicateBridge.id)
+        }
+
         duplicate.transferGroupId
+            ?.takeUnless { duplicateBridge != null }
             ?.takeIf { it != sms.transferGroupId }
             ?.let { derivedGroupId ->
                 // Statement pairings are derived and can be rebuilt. Clearing the whole group avoids

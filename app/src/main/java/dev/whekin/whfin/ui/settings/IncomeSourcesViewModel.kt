@@ -3,26 +3,34 @@ package dev.whekin.whfin.ui.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
-import dev.whekin.whfin.data.crypto.CryptoEndpoints
-import dev.whekin.whfin.data.crypto.CryptoNetwork
-import dev.whekin.whfin.data.crypto.CryptoTransferProvider
+import dev.whekin.whfin.data.crypto.CryptoBankTransfer
+import dev.whekin.whfin.data.crypto.CryptoBankTransferRepository
+import dev.whekin.whfin.data.crypto.CryptoHistoryRepository
 import dev.whekin.whfin.data.crypto.HttpCryptoTransferProvider
+import dev.whekin.whfin.data.crypto.cryptoBankCandidates
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.IncomeSourceEntity
+import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.data.income.IncomeExpectations
+import dev.whekin.whfin.data.income.IncomeSourceRepository
+import dev.whekin.whfin.data.preferences.UiPreferences
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
 
 data class IncomeSourcesState(
     val expectations: List<IncomeExpectation>,
@@ -30,175 +38,107 @@ data class IncomeSourcesState(
     val accounts: List<AccountEntity>,
     val month: YearMonth,
     val isReadingChain: Boolean = false,
+    val transfers: List<CryptoBankTransfer> = emptyList(),
+    val linkedTransfers: List<CryptoBankTransfer> = emptyList(),
+    val message: String? = null,
 )
 
-/**
- * Takes only an [Application]: the default factory finds a view model's constructor by reflection,
- * and a second parameter — even one with a Kotlin default — leaves no `(Application)` constructor
- * for it to find. The chain reader is therefore built here rather than injected; it is exercised
- * directly by its own tests.
- */
 class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
-    private val transfers: CryptoTransferProvider = HttpCryptoTransferProvider({ CryptoEndpoints() })
-    private val zone: ZoneId = ZoneId.systemDefault()
+    private val preferences = UiPreferences(app)
+    private val sources = IncomeSourceRepository(db)
+    private val bridges = CryptoBankTransferRepository(db)
+    private val zone = ZoneId.systemDefault()
+    private val reading = MutableStateFlow(false)
+    private val message = MutableStateFlow<String?>(null)
+    private val readFailed = MutableStateFlow(false)
 
-    private val today = LocalDate.now(zone)
-    private val month = YearMonth.from(today)
-    private val monthStart = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-    private val monthEnd = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-
-    /**
-     * What the chain said about a watched ledger this month.
-     *
-     * Held beside the ledger rather than written into it. A watch-only address is not a ledger WHFIN
-     * keeps: its balance is read from the chain, and so is this. Recording arrivals as transactions
-     * would make the same money exist twice — once as a row, once in the balance the chain reports.
-     */
-    private val chainReads = MutableStateFlow<Map<Long, ChainRead>>(emptyMap())
-    private val readingChain = MutableStateFlow(false)
-
-    private data class ChainRead(val receivedMinor: Long, val count: Int, val failed: Boolean)
-
-    val state: StateFlow<IncomeSourcesState?> = combine(
+    private val ledger = combine(
         db.incomeSourceDao().observeAll(),
-        db.transactionDao().observeIncomeBetween(monthStart, monthEnd),
+        db.transactionDao().observeAllActive(),
         db.accountDao().observeActive(),
-        chainReads,
-        readingChain,
-    ) { sources, transactions, accounts, reads, reading ->
-        val local = IncomeExpectations.of(
-            sources.filter { it.endedOn == null },
-            transactions,
-            month,
-            today,
-            zone,
-        )
+        db.transactionAllocationDao().observeAll(),
+        db.debtDao().observeEvents(),
+    ) { declarations, transactions, accounts, allocations, debtEvents ->
+        val today = LocalDate.now(zone)
+        val month = YearMonth.from(today)
+        val linked = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
+            .values.mapNotNull { rows ->
+                if (rows.size != 2) return@mapNotNull null
+                val out = rows.singleOrNull { it.source == TxSource.CRYPTO && it.amountMinor < 0 }
+                    ?: return@mapNotNull null
+                val credit = rows.singleOrNull { it.amountMinor > 0 &&
+                    accounts.any { account -> account.id == it.accountId && account.type == AccountType.BANK } }
+                    ?: return@mapNotNull null
+                CryptoBankTransfer(out, credit)
+            }.sortedByDescending { it.withdrawal.occurredAt }
         IncomeSourcesState(
-            expectations = local.map { expectation ->
-                val read = reads[expectation.source.id] ?: return@map expectation
-                expectation.copy(
-                    receivedMinor = read.receivedMinor,
-                    receivedCount = read.count,
-                    overdue = expectation.overdue && !read.failed && read.count == 0,
-                    unreadable = read.failed,
-                )
-            },
-            ended = sources.filter { it.endedOn != null },
-            accounts = accounts,
-            month = month,
-            isReadingChain = reading,
+            expectations = IncomeExpectations.of(declarations.filter { it.endedOn == null }, transactions, month, today, zone),
+            ended = declarations.filter { it.endedOn != null },
+            accounts = accounts, month = month,
+            transfers = cryptoBankCandidates(transactions, accounts, allocations.mapTo(mutableSetOf()) { it.transactionId } + debtEvents.mapNotNull { it.transactionId }),
+            linkedTransfers = linked,
         )
+    }
+
+    val state: StateFlow<IncomeSourcesState?> = combine(ledger, reading, message, readFailed) { ledger, reading, message, failed ->
+        ledger.copy(isReadingChain = reading, message = message, expectations = ledger.expectations.map { expectation ->
+            expectation.copy(unreadable = failed && ledger.accounts.any {
+                it.id == expectation.source.accountId && it.type == AccountType.CRYPTO
+            })
+        })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /**
-     * Asks each watched address what arrived this month.
-     *
-     * Foreground and on request: reading an address tells somebody the address interests this
-     * device, so it happens when the user is looking at the screen that needs it, not on a timer.
-     */
+    /** One persistent history feeds Accounts, income expectations, the feed and analytics. */
     fun refreshFromChain() {
-        if (readingChain.value) return
-        readingChain.value = true
+        if (reading.value || getApplication<WhfinApp>().isDemoMode) return
+        reading.value = true
         viewModelScope.launch {
             try {
-                // Reading a chain blocks on a socket, and this scope runs on the main thread.
-                chainReads.value = withContext(Dispatchers.IO) { readChain() }
+                val endpoints = preferences.cryptoEndpoints.first()
+                val result = withContext(Dispatchers.IO) {
+                    CryptoHistoryRepository(db, HttpCryptoTransferProvider({ endpoints })).refreshAll()
+                }
+                readFailed.value = result.failed > 0 || result.unsupported > 0
+                message.value = getApplication<Application>().getString(R.string.crypto_history_result, result.imported, result.failed) +
+                    if (result.unsupported > 0) " " + getApplication<Application>().getString(R.string.crypto_history_scope) else ""
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                readFailed.value = true
+                message.value = getApplication<Application>().getString(R.string.income_sources_save_failed)
             } finally {
-                readingChain.value = false
+                reading.value = false
             }
         }
     }
 
-    private suspend fun readChain(): Map<Long, ChainRead> {
-        val sources = db.incomeSourceDao().active()
-        val results = mutableMapOf<Long, ChainRead>()
-        sources.forEach { source ->
-            val accountId = source.accountId ?: return@forEach
-            val account = db.accountDao().byId(accountId) ?: return@forEach
-            val addressId = account.walletAddressId ?: return@forEach
-            val address = db.cryptoDao().addressById(addressId) ?: return@forEach
-            val network = CryptoNetwork.byChainId(address.chainId) ?: return@forEach
-            val asset = account.cryptoAssetId?.let { db.cryptoDao().assetById(it) }
-            results[source.id] = runCatching {
-                val received = transfers.incoming(network, address.address, monthStart)
-                    .filter { it.occurredAt in monthStart until monthEnd }
-                    .filter { transfer ->
-                        asset == null || transfer.symbol.equals(asset.symbol, ignoreCase = true)
-                    }
-                ChainRead(
-                    receivedMinor = received.sumOf { toMinor(it.baseUnits, it.decimals) },
-                    count = received.size,
-                    failed = false,
-                )
-            }.getOrElse { ChainRead(0L, 0, failed = true) }
-        }
-        return results
-    }
-
-    /**
-     * Chain base units restated as the two decimals every amount in WHFIN is stored with.
-     *
-     * Exact by construction: dividing 2 700 000 000 with six decimals yields 270 000, the same
-     * 2 700.00 the user declared. Sub-cent dust is dropped rather than rounded up, so a read can
-     * never invent money that did not arrive.
-     */
-    private fun toMinor(baseUnits: java.math.BigInteger, decimals: Int): Long {
-        val scale = decimals - 2
-        val value = when {
-            scale > 0 -> baseUnits / java.math.BigInteger.TEN.pow(scale)
-            scale < 0 -> baseUnits * java.math.BigInteger.TEN.pow(-scale)
-            else -> baseUnits
-        }
-        return value.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).toLong()
-    }
-
     fun save(
-        existing: IncomeSourceEntity?,
-        label: String,
-        amountMinor: Long,
-        currency: String,
-        accountId: Long?,
-        dayFrom: Int,
-        dayTo: Int,
-    ) {
-        val clean = label.trim().ifEmpty { return }
-        if (amountMinor <= 0) return
-        val from = dayFrom.coerceIn(1, 28)
-        viewModelScope.launch {
-            db.incomeSourceDao().upsert(
-                IncomeSourceEntity(
-                    id = existing?.id ?: 0,
-                    label = clean,
-                    amountMinor = amountMinor,
-                    currency = currency.uppercase(),
-                    accountId = accountId,
-                    expectedDayFrom = from,
-                    expectedDayTo = dayTo.coerceIn(from, 28),
-                    // A declaration describes the present onwards. Editing one keeps the day it
-                    // started on, so correcting a typo does not silently rewrite which months it
-                    // claims to describe.
-                    startedOn = existing?.startedOn ?: LocalDate.now(zone).withDayOfMonth(1).toEpochDay(),
-                    endedOn = existing?.endedOn,
-                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
-                ),
-            )
-        }
+        existing: IncomeSourceEntity?, label: String, amountMinor: Long, currency: String,
+        accountId: Long?, dayFrom: Int, dayTo: Int,
+        startedOn: Long = existing?.startedOn ?: LocalDate.now(zone).withDayOfMonth(1).toEpochDay(),
+    ) = mutate {
+        sources.save(IncomeSourceEntity(
+            id = existing?.id ?: 0, label = label.trim(), amountMinor = amountMinor,
+            currency = currency.trim().uppercase(), accountId = accountId,
+            expectedDayFrom = dayFrom, expectedDayTo = dayTo,
+            startedOn = startedOn, endedOn = existing?.endedOn,
+            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+        ))
     }
 
-    /**
-     * Closes an era instead of deleting it. The months it described keep their explanation, and the
-     * next declaration starts where this one stopped.
-     */
-    fun end(source: IncomeSourceEntity) {
-        viewModelScope.launch {
-            db.incomeSourceDao().upsert(
-                source.copy(endedOn = LocalDate.now(zone).toEpochDay()),
-            )
-        }
+    fun link(transfer: CryptoBankTransfer) = mutate { bridges.link(transfer.withdrawal.id, transfer.credit.id) }
+    fun unlink(transfer: CryptoBankTransfer) = mutate { bridges.unlink(requireNotNull(transfer.withdrawal.transferGroupId)) }
+    fun end(source: IncomeSourceEntity) = mutate {
+        db.incomeSourceDao().upsert(source.copy(endedOn = maxOf(source.startedOn, LocalDate.now(zone).toEpochDay())))
     }
+    fun delete(source: IncomeSourceEntity) = mutate { db.incomeSourceDao().delete(source.id) }
 
-    fun delete(source: IncomeSourceEntity) {
-        viewModelScope.launch { db.incomeSourceDao().delete(source.id) }
+    private fun mutate(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { block(); message.value = null }
+            catch (error: CancellationException) { throw error }
+            catch (_: Exception) { message.value = getApplication<Application>().getString(R.string.income_sources_save_failed) }
+        }
     }
 }

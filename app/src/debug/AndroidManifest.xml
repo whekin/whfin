@@ -3,5 +3,6 @@
         <activity android:name="dev.whekin.whfin.ui.feed.CashRunwayQaActivity" android:exported="false" />
         <activity android:name="dev.whekin.whfin.ui.accounts.AccountsQaActivity" android:exported="false" />
         <activity android:name="dev.whekin.whfin.ui.sms.SmsRoutingQaActivity" android:exported="false" />
+        <activity android:name=".ui.settings.IncomeSourcesQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

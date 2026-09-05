@@ -82,7 +82,7 @@ fun PersonalSetupFlow(
     /** Personal ledgers shown in the salary declaration's account rail. */
     accounts: List<AccountEntity> = emptyList(),
     onSaveCash: (String, String, Long?) -> Unit = { _, _, _ -> },
-    onSaveSalary: (String, Long, String, Long?, Int, Int) -> Unit = { _, _, _, _, _, _ -> },
+    onSaveSalary: (String, Long, String, Long?, Int, Int, Long) -> Unit = { _, _, _, _, _, _, _ -> },
     onContinue: (initialTab: Int, openAccountAdd: Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
@@ -349,8 +349,8 @@ fun PersonalSetupFlow(
             source = null,
             accounts = accounts,
             onDismiss = { salaryEditorOpen = false },
-            onSave = { label, amountMinor, currency, accountId, dayFrom, dayTo ->
-                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, dayTo)
+            onSave = { label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn ->
+                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, dayTo, startedOn)
                 salaryEditorOpen = false
                 page = personalSetupPageAfterSalary()
             },

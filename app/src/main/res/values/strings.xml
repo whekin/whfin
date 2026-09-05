@@ -1236,7 +1236,7 @@
     <string name="analytics_empty_body">Choose another period or import a statement to build a trend.</string>
     <string name="analytics_error_title">Statistics could not be calculated</string>
     <string name="analytics_error_body">Your transactions are unchanged. Return and try opening statistics again.</string>
-    <string name="crypto_refresh">Refresh balances</string>
+    <string name="crypto_refresh">Refresh wallet balance and token history</string>
     <string name="crypto_refresh_done">Balances updated: %1$d</string>
     <string name="crypto_refresh_partial">Updated %1$d, failed %2$d</string>
     <string name="crypto_refresh_failed">Could not read balances. Check the network endpoint.</string>
@@ -1267,7 +1267,7 @@
     <string name="crypto_wallet_edit_hint">The chain decides which assets appear here; only the name is yours to set.</string>
     <string name="crypto_address_unknown">Address unknown</string>
     <string name="crypto_activity_empty">Read from the chain</string>
-    <string name="crypto_activity_empty_body">A watch-only ledger has no local transactions: the balance is the last reading of this address.</string>
+    <string name="crypto_activity_empty_body">No token operations saved yet. Refresh the wallet in Accounts. History is available for Tron USDT and USDC; other assets show balances only.</string>
     <string name="crypto_endpoints_title">Crypto endpoints</string>
     <string name="crypto_endpoints_summary">Which node WHFIN asks for watch-only balances</string>
     <string name="crypto_endpoints_body">Reading a balance tells the endpoint that this address interests this device. Leave a field empty to use the documented public default.</string>
@@ -1303,7 +1303,7 @@
     <string name="income_sources_title">Where money comes in</string>
     <string name="income_sources_loading">Reading your declared sources…</string>
     <string name="income_sources_explainer_title">The entry point</string>
-    <string name="income_sources_explainer_body">Declaring where your pay lands is not a plan to confirm — the fact still arrives from the bank or the chain. It says which arrivals are new money, so everything after it is movement and the same money is never counted twice.</string>
+    <string name="income_sources_explainer_body">Choose the account where income first arrives and when this started. Wallet history is saved as operations. Link later exchanges with bank credits below to avoid counting the same money twice.</string>
     <string name="income_sources_add">Declare a source</string>
     <string name="income_sources_edit">Income source</string>
     <string name="income_sources_label">What is it</string>
@@ -1323,7 +1323,7 @@
     <string name="income_sources_delete">Delete</string>
     <string name="income_sources_past">Earlier</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
-    <string name="income_sources_recheck">Check the chain</string>
+    <string name="income_sources_recheck">Load wallet history</string>
     <string name="income_sources_reading">Reading…</string>
     <string name="income_sources_unreadable">%1$s declared · the chain could not be read just now</string>
     <string name="category_proposals_title">Categories your history earned</string>
@@ -1396,4 +1396,18 @@
     <string name="savings_target_description">monthly plan %1$s</string>
     <string name="savings_current_target">Current monthly plan %1$s</string>
     <string name="savings_goal_description">goal %1$s</string>
+    <string name="crypto_history_result">Imported %1$d operations · failed reads: %2$d</string>
+    <string name="crypto_history_scope">History: Tron USDT and USDC. TRX and Ethereum balances only.</string>
+    <string name="income_sources_save_failed">Could not save this change. Check the account and dates and try again.</string>
+    <string name="income_sources_started">Since (YYYY-MM-DD)</string>
+    <string name="income_sources_started_hint">When pay moved to a different account, enter the first day of that period. The earlier account stays in history.</string>
+    <string name="income_sources_choose_account">Choose where this income arrives</string>
+    <string name="crypto_bridge_title">From wallet to bank</string>
+    <string name="crypto_bridge_body">Nearby dates suggest possible pairs. Choose only movements you recognise as the same exchange.</string>
+    <string name="crypto_bridge_review">Review pair</string>
+    <string name="crypto_bridge_linked">Linked transfer</string>
+    <string name="crypto_bridge_link">Link</string>
+    <string name="crypto_bridge_unlink">Unlink</string>
+    <string name="crypto_bridge_effect">Linking keeps both amounts and balances. The wallet withdrawal and bank credit are excluded from expenses and income. You can undo this here.</string>
+    <string name="crypto_bridge_sheet_title">Transfer</string>
 </resources>

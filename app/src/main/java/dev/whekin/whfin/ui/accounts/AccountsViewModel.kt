@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.crypto.CryptoAddressValidator
+import dev.whekin.whfin.data.crypto.CryptoHistoryRepository
+import dev.whekin.whfin.data.crypto.HttpCryptoTransferProvider
 import dev.whekin.whfin.data.crypto.CryptoBalanceRepository
 import dev.whekin.whfin.data.crypto.CryptoEndpoints
 import dev.whekin.whfin.data.crypto.CryptoNetwork
@@ -240,6 +242,8 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val chainProvider = HttpCryptoBalanceProvider(endpoints = { endpoints })
 
+    private val historyRepository = CryptoHistoryRepository(db, HttpCryptoTransferProvider({ endpoints }))
+
     private val balanceRepository = CryptoBalanceRepository(db = db, provider = chainProvider)
 
     private val walletRepository = CryptoWalletRepository(db = db, provider = chainProvider)
@@ -282,32 +286,22 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
      * whole wallet is up to date.
      */
     fun refreshCryptoBalances() {
-        if (_cryptoRefreshing.value) return
+        if (_cryptoRefreshing.value || getApplication<WhfinApp>().isDemoMode) return
         viewModelScope.launch {
             _cryptoRefreshing.value = true
             val app = getApplication<Application>()
-            val outcome = withContext(Dispatchers.IO) {
-                // A wallet total is only meaningful with a price next to it, so both move together.
-                ratesRepository.refresh()
-                // An asset that arrived after the wallet was added has no ledger yet, so a refresh
-                // looks for it before re-reading the ones already known.
-                val discovered = runCatching { walletRepository.discoverNewAssets() }.getOrNull()
-                discovered to balanceRepository.refreshAll()
-            }
-            val (discovered, result) = outcome
-            _cryptoRefreshing.value = false
-            // A search for new assets that could not reach the chain counts as a failed read too:
-            // otherwise a silent `updated 1` would stand in for "USDT never answered".
-            val failed = result.failed + (discovered?.failed ?: 0)
-            _message.value = when {
-                discovered != null && discovered.created.isNotEmpty() -> app.getString(
-                    R.string.crypto_assets_discovered,
-                    discovered.created.joinToString(" · "),
-                )
-                result.isEmpty -> null
-                failed == 0 -> app.getString(R.string.crypto_refresh_done, result.refreshed)
-                result.refreshed == 0 -> app.getString(R.string.crypto_refresh_failed)
-                else -> app.getString(R.string.crypto_refresh_partial, result.refreshed, failed)
+            try {
+                val (history, balances) = withContext(Dispatchers.IO) {
+                    runCatching { ratesRepository.refresh() }
+                    runCatching { walletRepository.discoverNewAssets() }
+                    // Import before reading balances so assets with history but zero holdings are read too.
+                    historyRepository.refreshAll() to balanceRepository.refreshAll()
+                }
+                _message.value = app.getString(
+                    R.string.crypto_history_result, history.imported, history.failed + balances.failed,
+                ) + if (history.unsupported > 0) " " + app.getString(R.string.crypto_history_scope) else ""
+            } finally {
+                _cryptoRefreshing.value = false
             }
         }
     }
@@ -329,7 +323,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
      * chain, not for the person, so the ledgers appear from the reading.
      */
     fun addCryptoWallet(name: String?, network: CryptoNetwork, address: String) {
-        if (_cryptoRefreshing.value) return
+        if (_cryptoRefreshing.value || getApplication<WhfinApp>().isDemoMode) return
         viewModelScope.launch {
             _cryptoRefreshing.value = true
             val app = getApplication<Application>()
@@ -354,6 +348,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 onFailure = { app.getString(R.string.crypto_wallet_add_failed) },
             )
+            if (result.getOrNull() is CryptoWalletRepository.AddResult.Tracked) refreshCryptoBalances()
         }
     }
 

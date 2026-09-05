@@ -376,6 +376,9 @@ interface MerchantDao {
 interface TransactionDao {
     @Insert suspend fun insertTransferGroup(group: TransferGroupEntity): Long
 
+    @Query("SELECT * FROM transfer_groups WHERE id = :id")
+    suspend fun transferGroupById(id: Long): TransferGroupEntity?
+
     @Query("UPDATE transfer_groups SET type = :type, note = :note WHERE id = :id")
     suspend fun updateTransferGroup(id: Long, type: TransferGroupType, note: String?)
     @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isVoided = 0 ORDER BY occurredAt DESC")
@@ -516,6 +519,7 @@ interface TransactionDao {
         "JOIN accounts a ON a.id = t.accountId " +
             "JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
+            "AND g.type != 'CRYPTO_BRIDGE' " +
             "AND (t.source IN ('STATEMENT', 'SMS') " +
             "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%')) " +
             "AND NOT EXISTS (SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
@@ -935,6 +939,9 @@ interface CounterpartyRuleDao {
 
 @Dao
 interface IncomeSourceDao {
+    @Query("SELECT * FROM income_sources WHERE id = :id")
+    suspend fun byId(id: Long): IncomeSourceEntity?
+
     @Query("SELECT * FROM income_sources ORDER BY endedOn IS NOT NULL, startedOn DESC, id DESC")
     fun observeAll(): Flow<List<IncomeSourceEntity>>
 
