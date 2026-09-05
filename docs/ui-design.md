@@ -129,15 +129,27 @@ lazy category list; the ordinary sheet never composes every category or reserves
 
 Transaction details prioritize the amount and four routine facts. Status and category become the action when
 they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
-default, and infrequent edit/debt/delete actions share one horizontally resilient 48 dp action rail. Editable
+default. The answers a row can be given — confirm, own transfer, debt, split — wrap two to a row instead of
+riding a horizontal rail: on a rail, whether an answer existed depended on whether the reader thought to drag
+it, and at ordinary phone density the fourth one sat past the right edge. Each keeps its full name, because
+the name is what says what the action does; the labels are allowed two lines so a large font scale shortens
+nothing. Correcting an imported row and deleting live in the overflow beside the heading with the rest of the
+rare answers — correcting carries the longest label in the sheet and was listed in both places. Editable
 summary rows do not add trailing pencil icons that disturb the value column; they close with one quiet
 chevron after the value, because a row with no affordance at all was read as a static database record. The
 sheet uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
 
-Confirming a pending draft is the most repeated decision in the two-layer SMS/statement model, so it is a
-single filled action at the head of that rail rather than a trip through the status sheet. It is the only
-filled action in the sheet and appears only while the transaction is actually pending; the status row still
-opens the full picker for the remaining transitions.
+Confirming a pending draft is the most repeated decision in the two-layer SMS/statement model, so it leads on
+its own full-width line rather than a trip through the status sheet. It is the only filled action in the sheet
+and appears only while the transaction is actually pending; the status row still opens the full picker for the
+remaining transitions. A routed bank message names its provenance in that row instead of a status nobody has
+to act on — but only while it is not pending, because a pending row is a question whoever wrote it, and
+printing `SMS` there left the sheet saying one thing while the row it opened from said `Pending`.
+
+Every entry point into the sheet offers the same answers. The feed, an account's own ledger and the analytics
+drill-down open the same composable, so an action wired at one call site and not another is invisible from
+where the question is actually asked — the ledger is exactly where "where did this money go" comes up. The
+analytics list stays read-only by its own decision.
 
 The composer keeps exactly one control per decision. Currency next to the amount is a label, not a second
 picker: source → currency is chosen in the money-source row, and the previous amount-side control silently

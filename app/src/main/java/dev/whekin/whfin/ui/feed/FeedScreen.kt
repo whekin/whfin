@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -1300,44 +1301,67 @@ private fun TransactionDetailsContent(
             }
         }
         if (hasQuickActions) item(key = "transaction-actions") {
-            // Капс-подпись «ДЕЙСТВИЯ» над рядом кнопок ничего не добавляла: рельс из подписанных
-            // действий уже очевиден, а капс тратил строку и телеграфировал.
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (confirmPending != null) item {
-                        DetailQuickAction(
-                            Icons.Default.CheckCircle,
-                            stringResource(R.string.transaction_confirm),
-                            confirmPending,
-                            filled = true,
-                        )
-                    }
-                    if (onEdit != null) item {
-                        DetailQuickAction(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit)
-                    }
-                    if (onClearDebt != null) item {
-                        DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt)
-                    } else if (onDebt != null) item {
-                        DetailQuickAction(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt)
-                    }
-                    if (onClearSplit != null) item {
-                        DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_clear), onClearSplit)
-                    } else if (onSplit != null) item {
-                        DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_action_short), onSplit)
-                    }
-                    if (onClearOwnTransfer != null) item {
-                        DetailQuickAction(
+            // The rail used to scroll sideways, so whether an answer existed depended on whether the
+            // reader thought to drag it: at ordinary phone density the fourth action sat past the
+            // right edge, and the longest label pushed it there. Every answer is visible now — two
+            // per row, wrapping — and the one action that is primary when it applies leads on its
+            // own line. Rare repairs and deletion stay in the overflow beside the heading.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (confirmPending != null) DetailQuickAction(
+                    Icons.Default.CheckCircle,
+                    stringResource(R.string.transaction_confirm),
+                    confirmPending,
+                    filled = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val secondary = buildList<Triple<ImageVector, String, () -> Unit>> {
+                    if (onEdit != null) add(
+                        Triple(Icons.Default.Edit, stringResource(R.string.action_edit), onEdit),
+                    )
+                    if (onClearOwnTransfer != null) add(
+                        Triple(
                             Icons.Default.SwapHoriz,
                             stringResource(R.string.own_transfer_unlink),
                             onClearOwnTransfer,
-                        )
-                    } else if (onOwnTransfer != null) item {
-                        DetailQuickAction(
+                        ),
+                    ) else if (onOwnTransfer != null) add(
+                        Triple(
                             Icons.Default.SwapHoriz,
                             stringResource(R.string.own_transfer_action),
                             onOwnTransfer,
-                        )
+                        ),
+                    )
+                    if (onClearDebt != null) add(
+                        Triple(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt),
+                    ) else if (onDebt != null) add(
+                        Triple(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt),
+                    )
+                    if (onClearSplit != null) add(
+                        Triple(
+                            Icons.AutoMirrored.Filled.CallSplit,
+                            stringResource(R.string.split_clear),
+                            onClearSplit,
+                        ),
+                    ) else if (onSplit != null) add(
+                        Triple(
+                            Icons.AutoMirrored.Filled.CallSplit,
+                            stringResource(R.string.split_action_short),
+                            onSplit,
+                        ),
+                    )
+                }
+                FlowRow(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    maxItemsInEachRow = 2,
+                ) {
+                    secondary.forEach { (icon, label, action) ->
+                        DetailQuickAction(icon, label, action, modifier = Modifier.weight(1f))
                     }
+                    // An odd count would stretch the last cell across the row and make it read as a
+                    // heavier action than its neighbours.
+                    if (secondary.size % 2 == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -1559,14 +1583,16 @@ private fun DetailEditableRow(label: String, value: String, onClick: (() -> Unit
 
 @Composable
 private fun DetailQuickAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     filled: Boolean = false,
 ) {
     val contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
     Surface(
         onClick = onClick,
+        modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = if (filled) MaterialTheme.colorScheme.primary else Color.Transparent,
         border = if (filled) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1574,10 +1600,17 @@ private fun DetailQuickAction(
         Row(
             Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally),
         ) {
             Icon(icon, null, Modifier.size(19.dp), tint = contentColor)
-            Text(label, style = MaterialTheme.typography.labelLarge, color = contentColor)
+            // A label that has to fit half a row must be allowed to use two lines rather than
+            // silently lose its tail; these are the words that say what the action does.
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = contentColor,
+                maxLines = 2,
+            )
         }
     }
 }

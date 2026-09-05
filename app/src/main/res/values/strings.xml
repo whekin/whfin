@@ -1015,7 +1015,7 @@
     <string name="categories_show_less">Show less</string>
     <string name="tx_detail_converted_from">Auto-converted from</string>
     <string name="action_add">Add</string>
-    <string name="split_action_short">Split</string>
+    <string name="split_action_short">Split expense</string>
     <string name="split_clear">Clear split</string>
     <string name="split_title">Split expense</string>
     <string name="split_with_whom">Shared with</string>
@@ -1082,7 +1082,7 @@
     <string name="transactions_selection_close">Close selection</string>
     <string name="action_delete">Delete</string>
     <string name="action_edit">Edit</string>
-    <string name="debt_action_short">Debt</string>
+    <string name="debt_action_short">Mark as debt</string>
     <string name="discard_transaction_title">Discard transaction?</string>
     <string name="discard_transaction_body">The information you entered will be lost.</string>
     <string name="discard_action">Discard</string>

@@ -4,7 +4,10 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
@@ -280,5 +283,71 @@ class TransactionDetailsSheetTest {
         compose.onNode(hasText(sms)).assertDoesNotExist()
         compose.onNode(hasText(confirm)).performClick()
         assertEquals(true, confirmed)
+    }
+
+    @Test
+    fun everyAnswerIsVisibleWithoutDraggingTheRow() = assertEveryActionVisible()
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru")
+    fun everyAnswerSurvivesTheLongerLanguage() = assertEveryActionVisible()
+
+    private fun assertEveryActionVisible() {
+        // The actions used to ride a horizontally scrolling rail, so whether an answer existed
+        // depended on whether the reader thought to drag it: at ordinary phone density the fourth
+        // one sat past the right edge. They wrap now, and the labels must survive large text in the
+        // language whose words are longer.
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = 1.5f),
+            ) {
+                WhfinTheme {
+                    TransactionDetailsSheet(
+                        item = FeedItem(
+                            tx = TransactionEntity(
+                                id = 1,
+                                accountId = 1,
+                                amountMinor = -1_270,
+                                currency = "GEL",
+                                occurredAt = 1_000,
+                                rawCounterparty = "Courtyard Coffee",
+                                status = TxStatus.PENDING,
+                                source = TxSource.SMS,
+                            ),
+                            merchant = null,
+                            category = null,
+                            account = null,
+                            cardHint = null,
+                            day = LocalDate.of(2026, 9, 1),
+                        ),
+                        onDismiss = {},
+                        onChangeCategory = {},
+                        onDelete = null,
+                        onCorrect = {},
+                        onEdit = null,
+                        onDebt = {},
+                        onClearDebt = null,
+                        onSplit = {},
+                        onClearSplit = null,
+                        onChangeStatus = {},
+                        onConfirm = {},
+                        onOwnTransfer = {},
+                    )
+                }
+            }
+        }
+
+        listOf(
+            R.string.transaction_confirm,
+            R.string.own_transfer_action,
+            R.string.debt_action_short,
+            R.string.split_action_short,
+        ).forEach { label ->
+            compose.onNode(hasText(context.getString(label))).assertIsDisplayed()
+        }
+        // The long repair label belongs to the overflow, not to the row of everyday answers.
+        compose.onNode(hasText(context.getString(R.string.transaction_correct))).assertDoesNotExist()
     }
 }
