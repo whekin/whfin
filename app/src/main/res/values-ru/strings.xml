@@ -283,6 +283,7 @@
     <string name="settings_keywords_demo">демо песочница синтетические пример</string>
     <string name="settings_appearance">ОФОРМЛЕНИЕ</string>
     <string name="demo_workspace_title">Демо-пространство</string>
+    <string name="demo_workspace_strip_title">Демо</string>
     <string name="demo_workspace_supporting">Синтетические данные</string>
     <string name="demo_workspace_use_personal">Мои данные</string>
     <string name="demo_workspace_section">ДЕМО-ПРОСТРАНСТВО</string>

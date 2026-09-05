@@ -82,7 +82,9 @@ fun DemoWorkspaceFrame(
     }
     Column(modifier.fillMaxSize().statusBarsPadding()) {
         WhfinWorkspaceStrip(
-            title = stringResource(R.string.demo_workspace_title),
+            // The strip says both facts on one line, so its own name is the short one: the full
+            // "Demo workspace" wraps in Russian and the line it saved comes straight back.
+            title = stringResource(R.string.demo_workspace_strip_title),
             supportingText = stringResource(R.string.demo_workspace_supporting),
             actionLabel = stringResource(R.string.demo_workspace_use_personal),
             onAction = workspace.onUsePersonal,
