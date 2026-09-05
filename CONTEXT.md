@@ -101,20 +101,43 @@ _Avoid_: Main account, default bank, primary ledger
 
 ### Income
 
-**Payday timing**:
-The owner's declaration of one usual payday and one rare outer deadline. The dates are not an equally
-likely window.
-_Avoid_: Payday window, payday range
-
 **Usual payday**:
-The calendar day income normally arrives. When it falls on Saturday or Sunday, the conservative normal
-estimate is the following Monday; an earlier arrival remains possible.
-_Avoid_: Earliest payday, window start
+The one calendar day income normally arrives, as the owner declared it. A single estimate — there is no
+declared outer bound, because a real payment inside its own normal drift must never be called late.
+_Avoid_: Payday window, payday range, payday deadline, latest payday
 
-**Payday deadline**:
-The latest date by which income is expected in a delayed month. It is a fallback scenario, not the date
-that leads the ordinary cash forecast.
-_Avoid_: Usual payday, window end
+**Weekend rule**:
+What the payer does when the usual payday is not a working day: paid before the weekend, paid after it,
+or any day. Public holidays are not inferred.
+_Avoid_: Payday shift, holiday adjustment
+
+**Expected payday**:
+The usual payday after the weekend rule. It shifts the estimate only, never whether an actual payment
+counts, and it may fall in the neighbouring month.
+_Avoid_: Payday deadline, guaranteed date
+
+**Awaiting pay**:
+The state after the expected payday has passed with the declared amount not fully received. It is a
+wait, not an accusation, and it does not move the estimate to the next month.
+_Avoid_: Overdue, late payment, missed payday
+
+**Confirmed payment**:
+A credit the owner said was a declared source's pay, or one from a counterparty they confirmed before.
+Only these count towards a month; an amount matching the declaration is not evidence.
+_Avoid_: Detected salary, matched income
+
+### Transfers
+
+**Own transfer**:
+Money the owner moved between accounts they own, joined by hand because no rule can derive it — through
+an exchange, a person, or into cash nothing reads. Both sides keep their own amount, currency, date and
+provenance, and neither counts as income or spending.
+_Avoid_: Crypto bridge, detected transfer, matched pair
+
+**Recorded side**:
+The far side of an own transfer written down by the owner because no statement will ever bring it. It is
+a manual operation that changes that account's balance and was never confirmed by a bank.
+_Avoid_: Imported leg, bank transfer
 
 ### Savings
 

@@ -150,7 +150,7 @@ production bank sync.
   средств, поэтому профиль контейнера не перезаписывает продукт договора.
 - [x] Personal setup после bank/category resolution ведёт через отдельные optional Cash и Salary
   шаги: Cash принимает имя/текущий баланс или skip, Salary пишет `income_sources` declaration
-  (сумма, валюта, receiving account и day window) без ledger transaction, затем открывает Ready.
+  (сумма, валюта, receiving account, дата выплаты и правило выходных) без ledger transaction, затем открывает Ready.
 - [x] Заменить системное OTP-поле на локальную четырёхточечную WHFIN-клавиатуру, не сохраняя OTP и не
   подтверждая его автоматически. Вход в Credo setup контекстно включает future transaction monitoring,
   запрашивает общий `RECEIVE_SMS` и может заполнить локальные точки из точного login-шаблона; Inbox для

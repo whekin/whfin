@@ -518,27 +518,28 @@ explicit action in transaction details — says whose money it really was.
 ## The runway is a shape, not a sentence
 
 "Does what I have last until I am paid?" is a question about time. The card answered it with four
-facts joined by separators — the daily rate, the next bill, the usual payday, the estimate, the outer
-bound — which ran to three lines on a phone and eight in Russian at font scale 1.5, with the glyph
-floating somewhere in the middle of the paragraph.
+facts joined by separators — the daily rate, the next bill, the usual payday, the estimate — which ran
+to three lines on a phone and eight in Russian at font scale 1.5, with the glyph floating somewhere in
+the middle of the paragraph.
 
 `WhfinRunwayTimeline` draws it instead. One rule spans the window from today to whichever comes last,
-the payday's outer bound or the day the money runs out; the filled part is the money, the mark on it
-is the day it ends, and the gap between that mark and the payday mark is the shortfall the title
-names. The fill is the warning colour only when the money does not reach the payday. The component
+the expected payday or the day the money runs out; the filled part is the money, the mark on it is the
+day it ends, and the gap between that mark and the payday mark is the shortfall the title names. The fill is the warning colour only when the money does not reach the payday. The component
 owns no dates and no money: `runwayShape` in the feature layer turns a `HomeRunway` into fractions of
 that window, and the labels arrive already formatted.
 
 Labels sit under their own marks and are placed in the order they must survive a collision — where
-the money ends, when it is refilled, the outer bound, then today. A label that would touch one
+the money ends, when it is refilled, then today. A label that would touch one
 already placed is dropped rather than shifted, because a date under the wrong mark is worse than no
 date, and the rule still shows the shape. In Russian at font 1.5 that is exactly what happens to the
 payday label, and the title still names the date.
 
 What the drawing says is struck from the sentence beneath it: the collapsed card keeps only the daily
-rate and the next bills, and the payday window — ordinary day, the weekend it moved off, the outer
-bound — waits inside the calculation. Without a declared payday there is no window to divide, and the
-card keeps its original sentence.
+rate and the next bills, and the payday sentence — the ordinary day and the weekend it moved off —
+waits inside the calculation. Without a payday still ahead there is no window to divide: no declared
+source, or an estimate already behind us, and the card keeps its original sentence. In that second
+case the sentence is that it is waiting for the payment, because the next payday is not known until
+this one lands.
 
 ## Who was paid: the rung between a category and a payment (2026-09-01)
 

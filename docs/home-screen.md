@@ -48,7 +48,7 @@ today's spendable balance and is never spread back into future days.
 
 Proven monthly obligations are scheduled separately on their usual dates. The same strict recurrence
 evidence as `Still due` is used, but the horizon crosses a calendar boundary through the end of the
-next declared payday window. A payment within the detector's 40% variation band settles that occurrence;
+next declared payday. A payment within the detector's 40% variation band settles that occurrence;
 a smaller partial payment leaves the typical amount minus what was paid. An unpaid
 one remains due after its expected day. Home walks those dates and ordinary days in between to find the
 first day the balance cannot cover. This preserves both sides of the distinction:
@@ -64,19 +64,26 @@ Consequences of keeping the monthly projection and the forward cash reading sepa
 - Statistics can still state the honest projected total for the whole month;
 - a short runway names the expected gap and the first recurring payment behind it.
 
-Payday timing is not a uniform window. `expectedDayFrom` is the **usual payday**;
-`expectedDayTo` is the rare **payday deadline**. The main row answers `Should last until the usual
-payday` or `May be X short by the usual payday`. A usual Saturday/Sunday moves the conservative normal
-estimate to Monday, capped by the declared deadline. Public holidays are not inferred, and an earlier
-arrival remains upside rather than a promise. If the ordinary date has already passed without an
-observed arrival, the deadline becomes the live scenario.
+Payday is one estimate, not a window. `expectedDayFrom` is the day money usually lands;
+`weekendRule` says what the payer does when that day is not a working one — `EARLIER` (paid before
+the weekend), `LATER` (paid after it) or `ANY_DAY`. There is no declared outer bound: an app holding
+a "latest by" date starts calling a real payment late on a day the owner never agreed to. Public
+holidays are not inferred — they need a per-country calendar the app does not have — and an earlier
+arrival remains upside rather than a promise. A day the month does not have is clamped to the last
+day it does; a weekend shift may cross into the previous or the following month, and that date is
+kept as it falls.
 
-The deadline stays visible as a separate fallback in the expanded calculation: `If delayed until D`.
-It never controls the main warning while the usual scenario is still live. Without a payday the row
-reports at most 45 days, using bills scheduled over that same horizon. It never extrapolates a
-reassuring number of days beyond a payday for which later bills have not been scheduled. Zero and
-negative available balances remain warnings, not missing input. Bills due on a scenario's date are
-included conservatively. No incoming salary is added to the current balance.
+The main row answers `Should last until D` or `May be X short by D`. Once the estimate has passed
+with the money still outstanding, the row says it is waiting for the payment instead: no negative
+days, no accusation, and no jump to next month, because the next payday is not known until this one
+lands. Nothing is forecast past a date already behind us, and the timeline draws nothing — a passed
+estimate cannot anchor a rule. Bills keep arriving during that wait, so their horizon falls back to
+the same 45-day quiet window used when no payday is declared at all.
+
+Without a payday the row reports at most 45 days, using bills scheduled over that same horizon. It
+never extrapolates a reassuring number of days beyond a payday for which later bills have not been
+scheduled. Zero and negative available balances remain warnings, not missing input. Bills due on the
+payday itself are included conservatively. No incoming salary is added to the current balance.
 
 The row expands to show every expected bill, the total needed until payday, any remaining balance and
 the limits of the estimate. New one-off purchases cannot be predicted. Monthly recurrence and the
@@ -84,15 +91,16 @@ large-purchase threshold are heuristics, not a user-confirmed schedule or a guar
 have answered before a forecast appears; the ViewModel publishes the forecast and `Still due` together,
 off the UI thread, and re-evaluates when the calendar date changes.
 
-Payday timing comes from declared `income_sources`. Once a matching ledger arrival is visible, the
-current month's timing is skipped and the next covered month becomes the answer. A source that starts
-after its usual payday does not invent a special first payment, and a source whose era ended promises
-nothing.
+Payday timing comes from declared `income_sources`. A month whose declared amount has been received in
+full is skipped and the next covered month becomes the answer. A source that starts after its usual
+payday does not invent a special first payment, and a source whose era ended promises nothing.
 
-An arrival can settle the forecast only for a unique source on the declared account/currency, at the
-exact declared amount, between three days before the usual date and the deadline. Transfers, balance
-adjustments, debt allocations and system-category rows cannot do so. Other credits are not assumed to
-be salary; without stronger evidence the declared timing remains in force.
+Only money the owner confirmed as that source's pay can settle a month — a link in
+`income_source_payments`, or a credit from a counterparty they confirmed earlier. An unanswered
+credit, even one for exactly the declared amount, leaves the payday where it is: a refund and a
+salary are the same shape in a ledger, and moving the forecast a month forward on a guess tells
+somebody they have been paid when they have not. Transfers, balance adjustments, debt allocations and
+system-category rows are never even candidates.
 
 ## Still due
 

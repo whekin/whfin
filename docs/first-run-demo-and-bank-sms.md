@@ -57,7 +57,7 @@ For the current Credo dogfood build, the recommended guided-but-skippable sequen
 5. The optional personal-finance tail is explicit and ordered: a dedicated Cash step opens the cash
    editor immediately (name presets such as Cash/Pocket money/At home, custom name, current balance,
    or skip), then a dedicated Salary step declares an income source (amount, currency, receiving
-   account, day window and start date, or skip). Neither step invents a transaction; both return to
+   account, payday with its weekend rule, and start date, or skip). Neither step invents a transaction; both return to
    the resumable wizard.
 6. After Cash and Salary, the wizard reaches a concise Ready outcome and then Home. Generic account
    creation remains available from Accounts for anything outside this first-run path.
