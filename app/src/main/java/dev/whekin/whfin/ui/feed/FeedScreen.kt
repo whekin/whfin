@@ -37,6 +37,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.History
@@ -249,6 +250,8 @@ fun FeedScreen(
     onOpenDataHealth: () -> Unit = {},
     onOpenCredoSync: () -> Unit = {},
     onOpenAccounts: () -> Unit = {},
+    /** Home carries the app's stable way into Settings; it is not a property of Accounts. */
+    onOpenSettings: (() -> Unit)? = null,
     hasLowBalanceNotificationPermission: Boolean = true,
     onRequestLowBalanceNotificationPermission: () -> Unit = {},
     addRequestKey: Int = 0,
@@ -482,18 +485,17 @@ fun FeedScreen(
                     valueClickLabel = stringResource(R.string.net_worth_rotate),
                 ) {
                     if (mode == FeedMode.HOME) {
-                        WhfinIconButton(
-                            icon = Icons.AutoMirrored.Filled.TrendingUp,
-                            contentDescription = stringResource(R.string.analytics_open),
-                            onClick = onOpenAnalytics,
-                            outlined = false,
-                        )
-                        WhfinIconButton(
-                            icon = Icons.AutoMirrored.Outlined.ReceiptLong,
-                            contentDescription = stringResource(R.string.transactions_history_title),
-                            onClick = onOpenHistory,
-                            outlined = false,
-                        )
+                        // Analytics and the full record are destinations now, so the two icons that
+                        // used to be their only doors are gone from here. What the header keeps is
+                        // the one thing that had no stable place at all.
+                        onOpenSettings?.let { openSettings ->
+                            WhfinIconButton(
+                                icon = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.settings_title),
+                                onClick = openSettings,
+                                outlined = false,
+                            )
+                        }
                     } else {
                         WhfinIconButton(
                             icon = if (showSearch) Icons.Default.Close else Icons.Default.Search,

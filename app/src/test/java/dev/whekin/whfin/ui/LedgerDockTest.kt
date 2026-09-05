@@ -35,15 +35,29 @@ class LedgerDockTest {
             }
         }
 
+        val tags = listOf("dock-feed", "dock-transactions", "dock-accounts", "dock-analytics")
+        tags.forEach { compose.onNodeWithTag(it).assertExists() }
+
         compose.onNodeWithTag("dock-feed").assertIsSelected()
-        compose.onNodeWithTag("dock-accounts").assertIsNotSelected().performClick()
-        compose.onNodeWithTag("dock-feed").assertIsNotSelected()
-        compose.onNodeWithTag("dock-accounts").assertIsSelected()
-        compose.onNodeWithTag("dock-feed").performClick()
-        compose.onNodeWithTag("dock-feed").assertIsSelected()
+        tags.drop(1).forEach { compose.onNodeWithTag(it).assertIsNotSelected() }
+
+        // Each destination selects itself and nothing else: four peers, one mark.
+        tags.forEachIndexed { index, tag ->
+            compose.onNodeWithTag(tag).performClick()
+            assertEquals(index, selected)
+            compose.onNodeWithTag(tag).assertIsSelected()
+            tags.filterNot { it == tag }.forEach { other ->
+                compose.onNodeWithTag(other).assertIsNotSelected()
+            }
+        }
+
+        // The create action rides the same rhythm without being a fifth destination: it makes a
+        // row, it is not a place, so it never takes the selection with it.
+        compose.onNodeWithTag("dock-analytics").assertIsSelected()
         compose.onNodeWithContentDescription("New transaction").assertExists()
         compose.onNodeWithTag("dock-add").assertTextEquals("New").performClick()
-        assertEquals(0, selected)
+        assertEquals(3, selected)
+        compose.onNodeWithTag("dock-analytics").assertIsSelected()
         assertEquals(1, addRequests)
     }
 }

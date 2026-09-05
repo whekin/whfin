@@ -70,6 +70,8 @@
     <string name="personal_setup_continue_action">Перейти к моим финансам</string>
     <string name="tab_feed">Главная</string>
     <string name="tab_accounts">Счета</string>
+    <string name="tab_transactions">Операции</string>
+    <string name="tab_analytics">Аналитика</string>
     <string name="dock_add">Новая</string>
     <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
@@ -1204,7 +1206,7 @@
     <string name="account_overview_other_currencies">Другие валюты</string>
     <string name="account_overview_other_currencies_hint">Те же деньги в валюте, в которой они лежат</string>
     <string name="account_overview_no_other_currencies">Остатков в других валютах нет.</string>
-    <string name="analytics_title">Статистика</string>
+    <string name="analytics_title">Аналитика</string>
     <string name="analytics_expenses_title">Расходы</string>
     <string name="analytics_expenses_total">Всего расходов</string>
     <string name="analytics_expenses_composition">Куда ушли деньги</string>

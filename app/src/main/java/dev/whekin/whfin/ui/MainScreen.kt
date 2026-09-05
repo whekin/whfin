@@ -4,8 +4,6 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -14,6 +12,12 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp as FilledTrendingUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong as FilledReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.filled.AccountBalanceWallet as FilledAccountBalanceWallet
 import androidx.compose.material.icons.filled.Home as FilledHome
 import androidx.compose.material.icons.filled.Settings
@@ -51,6 +55,8 @@ import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.rememberWhfinBackGesture
 import dev.whekin.whfin.core.ui.whfinPredictiveBack
+import dev.whekin.whfin.ui.feed.AddTransactionSheet
+import dev.whekin.whfin.ui.feed.CategoryRanker
 import dev.whekin.whfin.ui.feed.FeedScreen
 import dev.whekin.whfin.ui.feed.FeedMode
 import dev.whekin.whfin.ui.feed.FeedViewModel
@@ -108,14 +114,23 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
     },
 )
 
-/** Home and Accounts. The create action in the middle of the dock is not a page. */
-internal const val PRIMARY_PAGES = 2
+/**
+ * The four places the app is always one tap from, in the order the dock shows them.
+ *
+ * They are peers, not a hierarchy: the ledger, its full record, where the money sits and what it
+ * did. Two of them used to be doors hidden behind icons beside a balance — a route you had to
+ * remember rather than see. The create action lives between them in the dock and is not one of
+ * them: it makes a row, it is not a place.
+ */
+internal enum class RootDestination { Home, Transactions, Accounts, Analytics }
 
-internal enum class SecondaryDestination { TransactionHistory, Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, Analytics, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
+internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
 
 internal enum class ShellScene(val depth: Int) {
-    Primary(0),
-    TransactionHistory(1),
+    Home(0),
+    Transactions(0),
+    Accounts(0),
+    Analytics(0),
     Settings(1),
     CredoSync(2),
     Statements(2),
@@ -123,9 +138,8 @@ internal enum class ShellScene(val depth: Int) {
     AccountOverview(1),
     Savings(1),
     AccountTransactions(1),
-    Analytics(1),
-    AnalyticsExpenses(2),
-    AnalyticsTransactions(3),
+    AnalyticsExpenses(1),
+    AnalyticsTransactions(2),
     AppLock(2),
     Backup(2),
     Corrections(2),
@@ -154,26 +168,32 @@ internal fun shellTargetFor(
     secondaryDestination: SecondaryDestination?,
     accountTransactionsId: Long?,
     analyticsTransactions: AnalyticsTransactionsRequest?,
+    root: RootDestination = RootDestination.Home,
 ): ShellTarget = when {
     analyticsTransactions != null -> ShellTarget(
         ShellScene.AnalyticsTransactions,
         analytics = analyticsTransactions,
     )
-    secondaryDestination == null -> ShellTarget(ShellScene.Primary)
+    secondaryDestination == null -> ShellTarget(
+        when (root) {
+            RootDestination.Home -> ShellScene.Home
+            RootDestination.Transactions -> ShellScene.Transactions
+            RootDestination.Accounts -> ShellScene.Accounts
+            RootDestination.Analytics -> ShellScene.Analytics
+        },
+    )
     secondaryDestination == SecondaryDestination.AccountTransactions -> ShellTarget(
         ShellScene.AccountTransactions,
         accountId = accountTransactionsId,
     )
     else -> ShellTarget(
         when (secondaryDestination) {
-            SecondaryDestination.TransactionHistory -> ShellScene.TransactionHistory
             SecondaryDestination.Settings -> ShellScene.Settings
             SecondaryDestination.CredoSync -> ShellScene.CredoSync
             SecondaryDestination.Statements -> ShellScene.Statements
             SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
             SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
             SecondaryDestination.Savings -> ShellScene.Savings
-            SecondaryDestination.Analytics -> ShellScene.Analytics
             SecondaryDestination.AnalyticsExpenses -> ShellScene.AnalyticsExpenses
             SecondaryDestination.AppLock -> ShellScene.AppLock
             SecondaryDestination.Backup -> ShellScene.Backup
@@ -197,6 +217,24 @@ internal fun shellTargetFor(
 internal fun shellTransitionIsForward(from: ShellTarget, to: ShellTarget): Boolean =
     to.scene.depth >= from.scene.depth
 
+/** Where a root sits in the dock, or null for anything that is not one. */
+internal fun rootOrder(scene: ShellScene): Int? = when (scene) {
+    ShellScene.Home -> 0
+    ShellScene.Transactions -> 1
+    ShellScene.Accounts -> 2
+    ShellScene.Analytics -> 3
+    else -> null
+}
+
+/**
+ * Two roots are a change of subject, not a step in or out.
+ *
+ * They fade through each other with a small shift towards the one being opened; a full push would
+ * say the reader had gone a level deeper into something, and they have not.
+ */
+internal fun shellTransitionIsBetweenRoots(from: ShellTarget, to: ShellTarget): Boolean =
+    rootOrder(from.scene) != null && rootOrder(to.scene) != null && from.scene != to.scene
+
 internal fun appLockReturnDestination(
     caller: SecondaryDestination?,
 ): SecondaryDestination = caller ?: SecondaryDestination.Settings
@@ -205,8 +243,14 @@ internal fun appLockReturnDestination(
 internal fun credoBackDestination(caller: SecondaryDestination?): SecondaryDestination? =
     caller
 
-/** Bottom destinations are peers, but Android Back still returns from Accounts to the Home root. */
-internal fun primaryTabAfterBack(currentTab: Int): Int? = 0.takeIf { currentTab != 0 }
+/**
+ * Dock destinations are peers, but Android Back still returns to Home from any of them.
+ *
+ * One step, never a trail: tapping through the dock is browsing, not descending, so Back must not
+ * replay the order the destinations happened to be visited in.
+ */
+internal fun rootAfterBack(current: RootDestination): RootDestination? =
+    RootDestination.Home.takeIf { current != RootDestination.Home }
 
 internal data class SecondaryBackResult(
     val destination: SecondaryDestination?,
@@ -287,21 +331,32 @@ fun MainScreen(
     onDeveloperModeChange: (Boolean) -> Unit = {},
     feedViewModel: FeedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
-    LaunchedEffect(initialTab) { tab = initialTab.coerceIn(0, 1) }
-    // `tab` stays the shell's own idea of where the user is — Back, the widget's entry point and
-    // the create action all set it — and the pager is kept in step in both directions.
-    val pagerState = rememberPagerState(initialPage = tab, pageCount = { PRIMARY_PAGES })
-    LaunchedEffect(tab) {
-        if (pagerState.currentPage != tab) pagerState.animateScrollToPage(tab)
-    }
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.settledPage }.collect { settled -> tab = settled }
-    }
+    // The widget and the launcher shortcut still speak in the old two-page vocabulary: 0 is the
+    // ledger, anything else is Accounts.
+    fun rootFor(entryTab: Int) =
+        if (entryTab == 0) RootDestination.Home else RootDestination.Accounts
+    var root by rememberSaveable { mutableStateOf(rootFor(initialTab)) }
+    LaunchedEffect(initialTab) { root = rootFor(initialTab) }
+    // The rule under the dock travels rather than blinking, so the dock is told a position and this
+    // is the only thing that still animates between destinations. The pager is gone: two of the
+    // four roots answer horizontal drags of their own — analytics moves through time that way —
+    // and a pager underneath would have been a second reader of the same gesture.
+    val dockSelection by animateFloatAsState(
+        targetValue = root.ordinal.toFloat(),
+        animationSpec = WhfinMotion.standard(),
+        label = "dock-selection",
+    )
+    // Each root keeps what the reader left there — a search, a filter, a period, a scroll position —
+    // because switching destinations is not leaving them.
+    val rootStates = rememberSaveableStateHolder()
     var accountAddRequestKey by rememberSaveable {
         mutableIntStateOf(if (initialAccountAddRequest) 1 else 0)
     }
     var addRequestKey by rememberSaveable { mutableIntStateOf(0) }
+    // The create action belongs to the shell, not to one destination. It used to send the reader to
+    // Home first and leave them there afterwards, so writing something down from Accounts or from
+    // analytics cost the place they were reading.
+    var composerOpen by rememberSaveable { mutableStateOf(false) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var secondaryBackStack by rememberSaveable {
         mutableStateOf<List<SecondaryDestination>>(emptyList())
@@ -316,7 +371,12 @@ fun MainScreen(
     // Held by the shell rather than inside the screen so its Back and its title are the shell's,
     // and a queue can never be left open behind a screen the user has already exited.
     var categoryQueue by rememberSaveable { mutableStateOf<CategoryQueue?>(null) }
-    val target = shellTargetFor(secondaryDestination, accountTransactionsId, analyticsTransactions)
+    val target = shellTargetFor(
+        secondaryDestination,
+        accountTransactionsId,
+        analyticsTransactions,
+        root,
+    )
     val scene = target.scene
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -395,31 +455,14 @@ fun MainScreen(
             }
         }
     }
-    // Leaving a screen is a pull; returning from Accounts to Home is not leaving anything, it is
-    // the same swipe the finger can make on the page itself. So the two Back cases are answered
-    // with two different gestures instead of one animation pretending to fit both.
-    val backGesture = rememberWhfinBackGesture(enabled = scene != ShellScene.Primary) {
-        goBack(withHaptic = false)
-    }
-    PredictiveBackHandler(
-        enabled = scene == ShellScene.Primary && primaryTabAfterBack(tab) != null,
-    ) { events ->
-        try {
-            pagerState.scroll {
-                var travelled = 0f
-                events.collect { event ->
-                    val pulled = event.progress.coerceIn(0f, 1f)
-                    val pageSize = pagerState.layoutInfo.pageSize.toFloat().coerceAtLeast(1f)
-                    scrollBy(-(pulled - travelled) * pageSize)
-                    travelled = pulled
-                }
-            }
-            // Committing only moves the shell's own idea of the tab; the pager follows it through
-            // the same path a dock tap takes, so both ways of going back settle identically.
-            tab = 0
-        } catch (_: CancellationException) {
-            pagerState.animateScrollToPage(tab)
-        }
+    // Leaving a screen is a pull, and so is returning to Home from another root: both are "out of
+    // here", and answering them with one gesture is what makes Back feel like one thing.
+    val onRoot = rootOrder(scene) != null
+    val backGesture = rememberWhfinBackGesture(
+        // While the composer is up it owns Back: it has unsaved work to ask about.
+        enabled = !composerOpen && (!onRoot || rootAfterBack(root) != null),
+    ) {
+        if (onRoot) root = RootDestination.Home else goBack(withHaptic = false)
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -448,13 +491,22 @@ fun MainScreen(
                         // A short directional shift under a fade keeps the direction legible even
                         // when the first frames are dropped.
                         val forward = shellTransitionIsForward(initialState, targetState)
-                        val enter = fadeIn(sceneFadeIn) +
-                            slideInHorizontally(sceneTravel) { width ->
-                                if (forward) width / 8 else -width / 8
+                        // Two roots are a change of subject: they fade through each other, the way
+                        // the dock's own peers always did, with the shift following the direction
+                        // the dock moved. A push there would claim a level was entered.
+                        val betweenRoots = shellTransitionIsBetweenRoots(initialState, targetState)
+                        val rightwards = if (betweenRoots) {
+                            (rootOrder(targetState.scene) ?: 0) > (rootOrder(initialState.scene) ?: 0)
+                        } else {
+                            forward
+                        }
+                        val enter = fadeIn(if (betweenRoots) paneFadeIn else sceneFadeIn) +
+                            slideInHorizontally(if (betweenRoots) paneTravel else sceneTravel) { width ->
+                                if (rightwards) width / 8 else -width / 8
                             }
-                        val exit = fadeOut(sceneFadeOut) +
-                            slideOutHorizontally(sceneTravel) { width ->
-                                if (forward) -width / 8 else width / 8
+                        val exit = fadeOut(if (betweenRoots) paneFadeOut else sceneFadeOut) +
+                            slideOutHorizontally(if (betweenRoots) paneTravel else sceneTravel) { width ->
+                                if (rightwards) -width / 8 else width / 8
                             }
                         (enter togetherWith exit).apply {
                             targetContentZIndex = if (forward) 1f else -1f
@@ -464,82 +516,67 @@ fun MainScreen(
                 ) { targetShell ->
                     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         when (targetShell.scene) {
-                            ShellScene.Primary -> Column(Modifier.fillMaxSize()) {
-                        // Two peer destinations are pages, not a hierarchy: the finger moves
-                        // between them directly and the dock reads the same scroll position, so
-                        // the whole shell answers the gesture while it is happening.
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            beyondViewportPageCount = 1,
-                            key = { page -> page },
-                        ) { currentTab ->
-                            // The neighbouring page is kept composed so a swipe starts on a drawn
-                            // screen rather than a blank one, but a page nobody is looking at must
-                            // not be readable: without this, a screen reader — and anything else
-                            // walking the tree — finds two Accounts screens, one of them invisible.
-                            val onScreen = currentTab == pagerState.currentPage ||
-                                currentTab == pagerState.targetPage
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .then(
-                                        if (onScreen) {
-                                            Modifier
-                                        } else {
-                                            Modifier.semantics { hideFromAccessibility() }
+                            ShellScene.Home, ShellScene.Transactions,
+                            ShellScene.Accounts, ShellScene.Analytics,
+                            -> Column(Modifier.fillMaxSize()) {
+                        // A root keeps its own saved state across a change of destination: the
+                        // search typed into the record, the period chosen in analytics, where each
+                        // list was scrolled to. Switching is not leaving.
+                        rootStates.SaveableStateProvider(targetShell.scene) {
+                            Box(Modifier.fillMaxWidth().weight(1f)) {
+                                when (targetShell.scene) {
+                                    ShellScene.Home -> FeedScreen(
+                                        mode = FeedMode.HOME,
+                                        showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
+                                        onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
+                                        onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
+                                        showCredoSyncReminder = !demoMode,
+                                        showSetupInvitation = showSetupInvitation,
+                                        onResumeSetup = onResumeSetup,
+                                        onDismissSetupInvitation = onDismissSetupInvitation,
+                                        onOpenAnalytics = { root = RootDestination.Analytics },
+                                        onOpenHistory = { root = RootDestination.Transactions },
+                                        onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
+                                        onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
+                                        onOpenAccounts = { root = RootDestination.Accounts },
+                                        onOpenSettings = { open(SecondaryDestination.Settings) },
+                                        hasLowBalanceNotificationPermission = demoMode || hasLowBalanceNotificationPermission,
+                                        onRequestLowBalanceNotificationPermission = onRequestLowBalanceNotificationPermission,
+                                        addRequestKey = addRequestKey,
+                                        onAddRequestConsumed = { addRequestKey = 0 },
+                                        viewModel = feedViewModel,
+                                    )
+                                    ShellScene.Transactions -> FeedScreen(
+                                        mode = FeedMode.HISTORY,
+                                        showSmsOnboarding = false,
+                                        onEnableSms = {},
+                                        onDismissSmsOnboarding = {},
+                                        viewModel = feedViewModel,
+                                    )
+                                    ShellScene.Accounts -> AccountsScreen(
+                                        addRequestKey = accountAddRequestKey,
+                                        onAddRequestConsumed = { accountAddRequestKey = 0 },
+                                        onOpenStatements = { open(SecondaryDestination.Statements) },
+                                        onOpenOverview = { open(SecondaryDestination.AccountOverview) },
+                                        onOpenSavings = { open(SecondaryDestination.Savings) },
+                                        onOpenSettings = { open(SecondaryDestination.Settings) },
+                                        onOpenAccountTransactions = ::openAccountTransactions,
+                                    )
+                                    else -> AnalyticsScreen(
+                                        onBack = null,
+                                        onOpenExpenses = { open(SecondaryDestination.AnalyticsExpenses) },
+                                        onOpenTransactions = { request ->
+                                            haptics.performHapticFeedback(WhfinHaptics.navigation)
+                                            analyticsTransactions = request
                                         },
-                                    ),
-                            ) {
-                            if (currentTab == 0) FeedScreen(
-                                mode = FeedMode.HOME,
-                                showSmsOnboarding = smsImportEnabled && !hasSmsPermission && !smsPermissionPromptDismissed,
-                                onEnableSms = if (canRequestSmsPermission) onRequestSmsPermission else onOpenSystemSettings,
-                                onDismissSmsOnboarding = onDismissSmsPermissionPrompt,
-                                showCredoSyncReminder = !demoMode,
-                                showSetupInvitation = showSetupInvitation,
-                                onResumeSetup = onResumeSetup,
-                                onDismissSetupInvitation = onDismissSetupInvitation,
-                                onOpenAnalytics = { open(SecondaryDestination.Analytics) },
-                                onOpenHistory = { open(SecondaryDestination.TransactionHistory) },
-                                onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
-                                onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
-                                onOpenAccounts = { tab = 1 },
-                                hasLowBalanceNotificationPermission = demoMode || hasLowBalanceNotificationPermission,
-                                onRequestLowBalanceNotificationPermission = onRequestLowBalanceNotificationPermission,
-                                addRequestKey = addRequestKey,
-                                onAddRequestConsumed = { addRequestKey = 0 },
-                                viewModel = feedViewModel,
-                            ) else AccountsScreen(
-                                addRequestKey = accountAddRequestKey,
-                                onAddRequestConsumed = { accountAddRequestKey = 0 },
-                                onOpenStatements = { open(SecondaryDestination.Statements) },
-                                onOpenOverview = { open(SecondaryDestination.AccountOverview) },
-                                onOpenSavings = { open(SecondaryDestination.Savings) },
-                                onOpenSettings = { open(SecondaryDestination.Settings) },
-                                onOpenAccountTransactions = ::openAccountTransactions,
-                            )
+                                    )
+                                }
                             }
                         }
                         LedgerDock(
-                            selection = pagerState.currentPage + pagerState.currentPageOffsetFraction,
-                            onAdd = {
-                                tab = 0
-                                addRequestKey += 1
-                            },
-                            onSelect = { tab = it },
-                        )
-                    }
-                    ShellScene.TransactionHistory -> SecondaryPage(
-                        title = stringResource(R.string.transactions_history_title),
-                        onBack = { goBack(withHaptic = true) },
-                    ) {
-                        FeedScreen(
-                            mode = FeedMode.HISTORY,
-                            showSmsOnboarding = false,
-                            onEnableSms = {},
-                            onDismissSmsOnboarding = {},
-                            viewModel = feedViewModel,
+                            selection = dockSelection,
+                            onAdd = { composerOpen = true },
+                            onSelect = { root = RootDestination.entries[it] },
                         )
                     }
                     ShellScene.Settings -> SecondaryPage(
@@ -627,7 +664,7 @@ fun MainScreen(
                             onRequestReceivePermission = onRequestSmsPermission,
                             onOpenFeed = {
                                 haptics.performHapticFeedback(WhfinHaptics.navigation)
-                                tab = 0
+                                root = RootDestination.Home
                                 secondaryDestination = null
                                 secondaryBackStack = emptyList()
                             },
@@ -728,14 +765,6 @@ fun MainScreen(
                         title = stringResource(R.string.people_title),
                         onBack = { goBack(withHaptic = true) },
                     ) { PeopleRoute() }
-                    ShellScene.Analytics -> AnalyticsScreen(
-                        onBack = { goBack(withHaptic = true) },
-                        onOpenExpenses = { open(SecondaryDestination.AnalyticsExpenses) },
-                        onOpenTransactions = { request ->
-                            haptics.performHapticFeedback(WhfinHaptics.navigation)
-                            analyticsTransactions = request
-                        },
-                    )
                     ShellScene.AnalyticsExpenses -> ExpenseAnalysisScreen(
                         onBack = { goBack(withHaptic = true) },
                         onOpenTransactions = { request ->
@@ -756,6 +785,12 @@ fun MainScreen(
         }
         }
     }
+    // Last in the body on purpose: the sheet's own Back — which asks before discarding — must be
+    // the innermost handler, or the shell's would answer first and close the shell instead.
+    if (composerOpen) ShellComposer(
+        viewModel = feedViewModel,
+        onDismiss = { composerOpen = false },
+    )
 }
 
 @Composable
@@ -791,19 +826,66 @@ private fun SecondaryPage(
     }
 }
 
+/**
+ * Writing something down, from wherever the reader happens to be.
+ *
+ * The composer used to live inside the ledger screen, so the create action first moved the reader to
+ * that screen and left them there when the sheet closed. Held by the shell, it opens over whatever
+ * destination asked for it and gives that destination back.
+ */
+@Composable
+private fun ShellComposer(viewModel: FeedViewModel, onDismiss: () -> Unit) {
+    val accounts by viewModel.accounts.collectAsState()
+    val categories by viewModel.categoriesByUsage.collectAsState()
+    val people by viewModel.people.collectAsState()
+    val counterparties by viewModel.counterparties.collectAsState()
+    val suggester by viewModel.categorySuggester.collectAsState()
+    val rankCategories: CategoryRanker = remember(suggester) {
+        { list, amountMinor, currency ->
+            suggester?.rankCategories(list, amountMinor?.let { -kotlin.math.abs(it) }, currency) ?: list
+        }
+    }
+    AddTransactionSheet(
+        accounts = accounts,
+        categories = categories,
+        people = people,
+        onDismiss = onDismiss,
+        onSave = { manual -> viewModel.addManual(manual); onDismiss() },
+        onSaveDebt = { debt -> viewModel.addDebt(debt); onDismiss() },
+        onCreateCategory = viewModel::createCategory,
+        onCreateCashCurrency = viewModel::createCashCurrency,
+        rankCategories = rankCategories,
+        counterparties = counterparties,
+    )
+}
+
 @Composable internal fun LedgerDock(selection: Float, onAdd: () -> Unit, onSelect: (Int) -> Unit) {
     WhfinDock(
-        leading = WhfinDockDestination(
-            icon = Icons.Outlined.Home,
-            selectedIcon = Icons.Filled.FilledHome,
-            label = stringResource(R.string.tab_feed),
-            testTag = "dock-feed",
-        ),
-        trailing = WhfinDockDestination(
-            icon = Icons.Outlined.AccountBalanceWallet,
-            selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
-            label = stringResource(R.string.tab_accounts),
-            testTag = "dock-accounts",
+        destinations = listOf(
+            WhfinDockDestination(
+                icon = Icons.Outlined.Home,
+                selectedIcon = Icons.Filled.FilledHome,
+                label = stringResource(R.string.tab_feed),
+                testTag = "dock-feed",
+            ),
+            WhfinDockDestination(
+                icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                selectedIcon = Icons.AutoMirrored.Filled.FilledReceiptLong,
+                label = stringResource(R.string.tab_transactions),
+                testTag = "dock-transactions",
+            ),
+            WhfinDockDestination(
+                icon = Icons.Outlined.AccountBalanceWallet,
+                selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
+                label = stringResource(R.string.tab_accounts),
+                testTag = "dock-accounts",
+            ),
+            WhfinDockDestination(
+                icon = Icons.AutoMirrored.Outlined.TrendingUp,
+                selectedIcon = Icons.AutoMirrored.Filled.FilledTrendingUp,
+                label = stringResource(R.string.tab_analytics),
+                testTag = "dock-analytics",
+            ),
         ),
         selection = selection,
         addLabel = stringResource(R.string.dock_add),

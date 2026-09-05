@@ -645,6 +645,36 @@ second line carries only what has not already been said — the bank when and on
 to more than one, the product, and the number only when the title is a chosen name. The currency is
 never repeated, because the list's own label states it.
 
+## The shell
+
+Four destinations, always one tap away: **Home · History · Accounts · Analytics** (`RootDestination`).
+The record of transactions and the analytics screen used to be doors behind two icons beside a
+balance — a route the reader had to remember rather than see — and Settings belonged to Accounts,
+which is not where anyone looks for it. It now sits in Home's header, in the slot those two icons
+vacated.
+
+The create action stays in the middle of the dock with the destinations flanking it. It keeps the
+same icon-over-label rhythm without a fill, a lift or a selection rule, because it makes a row; it is
+not a place. It is owned by the shell, so it opens over whatever destination asked for it and gives
+that destination back — it used to live inside the ledger screen, which meant writing something down
+from Accounts moved the reader to Home and left them there.
+
+There is no pager between the roots. Two of them answer horizontal drags of their own — analytics
+moves through time that way — and a pager underneath would have been a second reader of the same
+gesture. Roots fade through each other with a small shift towards the one being opened; a full push
+would claim a level was entered. `rememberSaveableStateHolder` keeps each root's own saved state, so
+a search typed into the record, a chosen period and a scroll position survive a change of
+destination: switching is not leaving.
+
+Back is one step, never a trail: from any root it returns to Home, and from a secondary screen it
+pops to the root that opened it. Tapping through the dock is browsing, not descending, so Back does
+not replay the order destinations happened to be visited in.
+
+A dock label follows the reader's text scale only as far as 1.25×. The dock is fixed furniture and
+four names share the width with the create action; past that point the extra size costs the letters
+that carry the meaning, and "Анали…" names nothing. It is a growth cap, not a shrink — at scale 1.5
+the label still renders larger than it does at 1.0.
+
 ## Comparison base
 
 A number is only ever compared with a number measured the same way. The rule is one rule for the

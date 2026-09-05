@@ -10,6 +10,9 @@ import org.junit.Test
 
 class ShellNavigationTest {
 
+    private val homeRoot = shellTargetFor(null, null, null, RootDestination.Home)
+    private val analyticsRoot = shellTargetFor(null, null, null, RootDestination.Analytics)
+
     private val request = AnalyticsTransactionsRequest(
         period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
         categoryFilterEnabled = true,
@@ -33,36 +36,50 @@ class ShellNavigationTest {
     @Test
     fun `monthly transactions are a scene of their own instead of a nested layer`() {
         val target = shellTargetFor(
-            secondaryDestination = SecondaryDestination.Analytics,
+            secondaryDestination = null,
             accountTransactionsId = null,
             analyticsTransactions = request,
+            root = RootDestination.Analytics,
         )
 
         assertEquals(ShellScene.AnalyticsTransactions, target.scene)
         assertEquals(request, target.analytics)
         assertTrue(
             "opening the month must read as going deeper",
-            shellTransitionIsForward(shellTargetFor(SecondaryDestination.Analytics, null, null), target),
+            shellTransitionIsForward(analyticsRoot, target),
         )
     }
 
     @Test
-    fun `returning from the month lands back on statistics, not the feed`() {
-        val analytics = shellTargetFor(SecondaryDestination.Analytics, null, null)
-        val month = shellTargetFor(SecondaryDestination.Analytics, null, request)
+    fun `returning from the month lands back on analytics, not the feed`() {
+        val month = shellTargetFor(null, null, request, RootDestination.Analytics)
 
-        assertFalse(shellTransitionIsForward(month, analytics))
-        assertEquals(ShellScene.Analytics, analytics.scene)
+        assertFalse(shellTransitionIsForward(month, analyticsRoot))
+        assertEquals(ShellScene.Analytics, analyticsRoot.scene)
     }
 
     @Test
-    fun `transaction history is one level below home`() {
-        val home = shellTargetFor(null, null, null)
-        val history = shellTargetFor(SecondaryDestination.TransactionHistory, null, null)
-
-        assertEquals(ShellScene.TransactionHistory, history.scene)
-        assertTrue(shellTransitionIsForward(home, history))
-        assertFalse(shellTransitionIsForward(history, home))
+    fun `the four destinations are peers, and Back from any of them is Home`() {
+        // The record and analytics used to be rooms behind an icon beside a balance. As
+        // destinations they are neither above nor below the others, and Back is one step out
+        // rather than a replay of the order they happened to be visited in.
+        RootDestination.entries.forEach { destination ->
+            val target = shellTargetFor(null, null, null, destination)
+            assertEquals(0, target.scene.depth)
+            assertEquals(destination.ordinal, rootOrder(target.scene))
+        }
+        assertTrue(shellTransitionIsBetweenRoots(homeRoot, analyticsRoot))
+        assertFalse(shellTransitionIsBetweenRoots(homeRoot, homeRoot))
+        assertFalse(
+            shellTransitionIsBetweenRoots(
+                homeRoot,
+                shellTargetFor(SecondaryDestination.Settings, null, null),
+            ),
+        )
+        assertEquals(RootDestination.Home, rootAfterBack(RootDestination.Analytics))
+        assertEquals(RootDestination.Home, rootAfterBack(RootDestination.Transactions))
+        assertEquals(RootDestination.Home, rootAfterBack(RootDestination.Accounts))
+        assertEquals(null, rootAfterBack(RootDestination.Home))
     }
 
     @Test
@@ -76,13 +93,12 @@ class ShellNavigationTest {
     }
 
     @Test
-    fun `spending analysis is a child of statistics`() {
-        val analytics = shellTargetFor(SecondaryDestination.Analytics, null, null)
+    fun `spending analysis is a step inside analytics`() {
         val spending = shellTargetFor(SecondaryDestination.AnalyticsExpenses, null, null)
 
         assertEquals(ShellScene.AnalyticsExpenses, spending.scene)
-        assertTrue(shellTransitionIsForward(analytics, spending))
-        assertFalse(shellTransitionIsForward(spending, analytics))
+        assertTrue(shellTransitionIsForward(analyticsRoot, spending))
+        assertFalse(shellTransitionIsForward(spending, analyticsRoot))
     }
 
     @Test
@@ -183,7 +199,7 @@ class ShellNavigationTest {
 
     @Test
     fun `Back from Accounts opened by the low balance warning returns to Home`() {
-        assertEquals(0, primaryTabAfterBack(currentTab = 1))
-        assertEquals(null, primaryTabAfterBack(currentTab = 0))
+        assertEquals(RootDestination.Home, rootAfterBack(RootDestination.Accounts))
+        assertEquals(null, rootAfterBack(RootDestination.Home))
     }
 }

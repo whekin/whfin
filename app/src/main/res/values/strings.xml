@@ -67,6 +67,8 @@
     <string name="personal_setup_continue_action">Continue to my finances</string>
     <string name="tab_feed">Home</string>
     <string name="tab_accounts">Accounts</string>
+    <string name="tab_transactions">History</string>
+    <string name="tab_analytics">Analytics</string>
     <string name="dock_add">New</string>
     <string name="feed_empty">No transactions yet.\nImport a bank statement to get started.</string>
     <string name="home_empty_title">Your financial picture will appear here</string>
@@ -1150,7 +1152,7 @@
     <string name="account_overview_other_currencies">Other currencies</string>
     <string name="account_overview_other_currencies_hint">The same money in the currency it is actually held in</string>
     <string name="account_overview_no_other_currencies">No balances in other currencies.</string>
-    <string name="analytics_title">Statistics</string>
+    <string name="analytics_title">Analytics</string>
     <string name="analytics_expenses_title">Spending</string>
     <string name="analytics_expenses_total">Total spending</string>
     <string name="analytics_expenses_composition">Where it went</string>

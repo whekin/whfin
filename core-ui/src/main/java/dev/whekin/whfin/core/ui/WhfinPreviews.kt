@@ -21,6 +21,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Search
@@ -133,15 +137,27 @@ fun WhfinShellChromeGallery() {
             }
             Spacer(Modifier.weight(1f))
             WhfinDock(
-                leading = WhfinDockDestination(
-                    icon = Icons.AutoMirrored.Outlined.ReceiptLong,
-                    selectedIcon = Icons.AutoMirrored.Filled.FilledReceiptLong,
-                    label = "Transactions",
-                ),
-                trailing = WhfinDockDestination(
-                    icon = Icons.Outlined.AccountBalanceWallet,
-                    selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
-                    label = "Accounts",
+                destinations = listOf(
+                    WhfinDockDestination(
+                        icon = Icons.Outlined.Home,
+                        selectedIcon = Icons.Filled.Home,
+                        label = "Home",
+                    ),
+                    WhfinDockDestination(
+                        icon = Icons.AutoMirrored.Outlined.ReceiptLong,
+                        selectedIcon = Icons.AutoMirrored.Filled.FilledReceiptLong,
+                        label = "History",
+                    ),
+                    WhfinDockDestination(
+                        icon = Icons.Outlined.AccountBalanceWallet,
+                        selectedIcon = Icons.Filled.FilledAccountBalanceWallet,
+                        label = "Accounts",
+                    ),
+                    WhfinDockDestination(
+                        icon = Icons.AutoMirrored.Outlined.TrendingUp,
+                        selectedIcon = Icons.AutoMirrored.Filled.TrendingUp,
+                        label = "Analytics",
+                    ),
                 ),
                 selection = 0f,
                 addLabel = "New",

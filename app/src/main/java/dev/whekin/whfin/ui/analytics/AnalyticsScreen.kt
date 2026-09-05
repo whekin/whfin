@@ -97,7 +97,7 @@ import kotlin.math.abs
 
 @Composable
 internal fun AnalyticsScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     viewModel: AnalyticsViewModel = viewModel(),
@@ -131,7 +131,7 @@ internal fun AnalyticsScaffold(
     title: String,
     emptyTitle: String,
     emptyBody: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onPreviousPeriod: () -> Unit,
     onNextPeriod: () -> Unit,
     onScaleChange: (AnalyticsScale) -> Unit,
@@ -139,7 +139,10 @@ internal fun AnalyticsScaffold(
     listTestTag: String,
     content: LazyListScope.(AnalyticsData) -> Unit,
 ) {
-    val navigationBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // A root destination sits above the dock, and the dock already answers the navigation bar. Only
+    // a screen that owns the whole window pays that inset itself, or the list ends in dead space.
+    val navigationBottom = if (onBack == null) 0.dp
+    else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val swipe = periodSwipe(
             width = maxWidth,
@@ -289,7 +292,7 @@ private const val FLING_MIN_PROGRESS = .25f
 @Composable
 internal fun AnalyticsContent(
     model: AnalyticsUiModel,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onPreviousPeriod: () -> Unit,
     onNextPeriod: () -> Unit,
     onScaleChange: (AnalyticsScale) -> Unit,
@@ -368,7 +371,10 @@ internal fun AnalyticsContent(
 }
 
 @Composable
-internal fun AnalyticsHeader(onBack: () -> Unit, title: String = stringResource(R.string.analytics_title)) {
+internal fun AnalyticsHeader(
+    onBack: (() -> Unit)?,
+    title: String = stringResource(R.string.analytics_title),
+) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth().statusBarsPadding()) {
             Row(
@@ -376,8 +382,13 @@ internal fun AnalyticsHeader(onBack: () -> Unit, title: String = stringResource(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                WhfinBackButton(stringResource(R.string.action_back), onBack)
-                Text(title, style = MaterialTheme.typography.headlineSmall)
+                // A root destination has nowhere to go back to: the dock is where it came from.
+                if (onBack != null) WhfinBackButton(stringResource(R.string.action_back), onBack)
+                Text(
+                    title,
+                    Modifier.padding(start = if (onBack == null) 8.dp else 0.dp),
+                    style = MaterialTheme.typography.headlineSmall,
+                )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
