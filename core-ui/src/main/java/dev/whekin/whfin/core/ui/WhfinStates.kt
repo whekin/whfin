@@ -130,20 +130,20 @@ fun WhfinWorkspaceStrip(
                     )
                     Spacer(Modifier.width(10.dp))
                 }
+                // One line, because the strip sits above every screen and its two lines cost the
+                // ledger a row on all of them. What it has to keep saying is which data this is and
+                // how to leave it, and that fits in a sentence. A problem is the exception: it is
+                // news, not a standing label, and it gets its own line back.
                 Column(Modifier.weight(1f)) {
                     Text(
-                        title,
+                        if (problem == null) "$title · $supportingText" else title,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 2,
                     )
-                    Text(
-                        problem ?: supportingText,
+                    if (problem != null) Text(
+                        problem,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (problem == null) {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .72f)
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        },
+                        color = MaterialTheme.colorScheme.error,
                         maxLines = 2,
                     )
                 }

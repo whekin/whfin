@@ -796,7 +796,7 @@
     <string name="settings_catalog_section">Категории и люди</string>
     <string name="categories_title">Категории</string>
     <string name="categories_settings_summary">Названия, иконки, порядок</string>
-    <string name="category_intelligence_title">Умные категории</string>
+    <string name="category_intelligence_title">Автокатегории</string>
     <string name="category_intelligence_loading">Считаем покрытие категориями…</string>
     <string name="category_intelligence_error">Локальная проверка не завершилась. Ничего не изменено — можно попробовать ещё раз.</string>
     <string name="category_intelligence_settings_summary">Покрытие и правила</string>
@@ -804,7 +804,7 @@
     <string name="category_intelligence_coverage">Категория есть у %1$d из %2$d расходов</string>
     <string name="category_intelligence_no_expenses">Расходов пока нет</string>
     <string name="category_intelligence_no_expenses_body">Покрытие появится после первого расхода.</string>
-    <string name="category_intelligence_local_title">Локальный анализ</string>
+    <string name="category_intelligence_local_title">Локальные правила</string>
     <string name="category_intelligence_local_body">Запомненные решения и надёжные офлайн-правила срабатывают, когда SMS или выписка Credo создаёт операцию.</string>
     <string name="category_intelligence_checking">Проверяем неизвестных мерчантов по локальным правилам…</string>
     <string name="category_intelligence_no_matches">Всё, что умеют распознавать текущие локальные правила, уже разобрано.</string>

@@ -770,7 +770,7 @@
     <string name="settings_catalog_section">Categories &amp; people</string>
     <string name="categories_title">Categories</string>
     <string name="categories_settings_summary">Names, icons, order</string>
-    <string name="category_intelligence_title">Category intelligence</string>
+    <string name="category_intelligence_title">Automatic categories</string>
     <string name="category_intelligence_loading">Calculating category coverage…</string>
     <string name="category_intelligence_error">The local check did not finish. Nothing was changed; you can try again.</string>
     <string name="category_intelligence_settings_summary">Coverage and automatic rules</string>
@@ -778,7 +778,7 @@
     <string name="category_intelligence_coverage">%1$d of %2$d expenses have a category</string>
     <string name="category_intelligence_no_expenses">No expenses yet</string>
     <string name="category_intelligence_no_expenses_body">Coverage will appear after the first expense.</string>
-    <string name="category_intelligence_local_title">Local intelligence</string>
+    <string name="category_intelligence_local_title">Offline rules</string>
     <string name="category_intelligence_local_body">Remembered choices and safe offline rules run whenever SMS or a Credo statement creates a transaction.</string>
     <string name="category_intelligence_checking">Checking every unknown merchant against local rules…</string>
     <string name="category_intelligence_no_matches">Everything recognized by the current local rules is already categorized.</string>

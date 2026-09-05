@@ -277,7 +277,16 @@ private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifi
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        Text(
+                        // With nothing selected the ring used to announce "100% · All expenses",
+                        // which is true of every ring ever drawn and says nothing about this one.
+                        // The centre carries the amount the ring is made of until a slice is
+                        // chosen; then the share is the fact worth having there.
+                        if (selectedFilter == null) WhfinAmount(
+                            formatMinor(data.expenseMinor, "GEL"),
+                            symbol = currencySymbol("GEL"),
+                            style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center,
+                        ) else Text(
                             NumberFormat.getPercentInstance().format(selectedShare),
                             style = MaterialTheme.typography.titleLarge,
                             textAlign = TextAlign.Center,

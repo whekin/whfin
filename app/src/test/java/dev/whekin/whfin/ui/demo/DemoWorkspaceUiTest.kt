@@ -35,8 +35,8 @@ class DemoWorkspaceUiTest {
             }
         }
 
-        compose.onNodeWithText("Demo workspace").assertIsDisplayed()
-        compose.onNodeWithText("Synthetic data").assertIsDisplayed()
+        // One line above every screen: which data this is, and the way out. Both facts stay.
+        compose.onNodeWithText("Demo workspace · Synthetic data").assertIsDisplayed()
         compose.onNodeWithText("Use my data").assertIsDisplayed().performClick()
         assertTrue(exited)
     }
@@ -57,7 +57,7 @@ class DemoWorkspaceUiTest {
         }
 
         compose.onNodeWithText("Personal destination").assertIsDisplayed()
-        compose.onNodeWithText("Demo workspace").assertDoesNotExist()
+        compose.onNodeWithText("Demo workspace · Synthetic data").assertDoesNotExist()
         compose.onNodeWithText("Use my data").assertDoesNotExist()
     }
 }
