@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 5
+const val WHFIN_DATABASE_VERSION = 6
 
 @Database(
     entities = [
@@ -84,7 +84,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
     }
 }
 
@@ -152,5 +152,12 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_income_source_payments_transactionId` " +
                 "ON `income_source_payments` (`transactionId`)",
         )
+    }
+}
+
+/** The hand-made link outgrew the wallet it was built for and is now named for what it is. */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE `transfer_groups` SET `type` = 'OWN_LINK' WHERE `type` = 'CRYPTO_BRIDGE'")
     }
 }

@@ -376,6 +376,10 @@ interface MerchantDao {
 interface TransactionDao {
     @Insert suspend fun insertTransferGroup(group: TransferGroupEntity): Long
 
+    /** Groups the owner joined by hand, so the ledger can offer to take exactly those apart. */
+    @Query("SELECT id FROM transfer_groups WHERE type = 'OWN_LINK'")
+    fun observeOwnLinkGroupIds(): Flow<List<Long>>
+
     @Query("SELECT * FROM transfer_groups WHERE id = :id")
     suspend fun transferGroupById(id: Long): TransferGroupEntity?
 
@@ -519,7 +523,7 @@ interface TransactionDao {
         "JOIN accounts a ON a.id = t.accountId " +
             "JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
-            "AND g.type != 'CRYPTO_BRIDGE' " +
+            "AND g.type != 'OWN_LINK' " +
             "AND (t.source IN ('STATEMENT', 'SMS') " +
             "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%')) " +
             "AND NOT EXISTS (SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +

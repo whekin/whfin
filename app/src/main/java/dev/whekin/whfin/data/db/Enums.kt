@@ -20,7 +20,16 @@ enum class StatementSourceType { ACCOUNT, CARD }
 /** How a statement reached WHFIN; kept separately from the bank account/card it describes. */
 enum class StatementImportOrigin { FILE, CREDO_SYNC }
 
-enum class TransferGroupType { TRANSFER, CONVERSION, CARD_TOPUP, SAVINGS, CRYPTO_SWAP, CRYPTO_BRIDGE }
+/**
+ * Why two or more rows are one movement.
+ *
+ * [OWN_LINK] is the only one the owner makes by hand, which is exactly why automatic pairing must
+ * leave it alone: it exists for movements no rule can derive — a wallet withdrawal that reappears
+ * in a bank days later through an exchange, cash handed over by a neighbour — where the only thing
+ * connecting the two sides is that the owner watched it happen. It was called CRYPTO_BRIDGE while
+ * a wallet was the only case it served.
+ */
+enum class TransferGroupType { TRANSFER, CONVERSION, CARD_TOPUP, SAVINGS, CRYPTO_SWAP, OWN_LINK }
 
 enum class CategoryKind { EXPENSE, INCOME }
 

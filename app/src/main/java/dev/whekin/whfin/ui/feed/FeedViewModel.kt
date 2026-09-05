@@ -17,6 +17,9 @@ import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.ui.bank.SupportedBankApp
 import dev.whekin.whfin.ui.bank.bankAppForGroup
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.transfer.OwnTransferRepository
+import dev.whekin.whfin.data.transfer.OwnTransferSide
+import dev.whekin.whfin.data.transfer.OwnTransfers
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CounterpartyProfile
 import dev.whekin.whfin.data.db.MerchantEntity
@@ -344,6 +347,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     val categories: StateFlow<List<CategoryEntity>> = db.categoryDao().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val ownTransfers = OwnTransferRepository(db)
+
+    /** Which movements the owner joined themselves, and can therefore take apart again. */
+    val ownLinkGroupIds: StateFlow<Set<Long>> = db.transactionDao().observeOwnLinkGroupIds()
+        .map(List<Long>::toSet)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val accounts: StateFlow<List<AccountEntity>> = db.accountDao().observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -807,6 +817,50 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAllocations(item: FeedItem) {
         mutate { transactionMutations.replaceAllocations(item.tx.id, emptyList()) }
     }
+
+    /**
+     * The rows that could be the far side of one movement, read once when the sheet opens.
+     *
+     * Deliberately a snapshot rather than a flow: the owner is answering about the ledger they are
+     * looking at, and a list that reshuffled underneath them would move the row they were reaching
+     * for. The write re-checks everything anyway, so a stale offer fails loudly instead of linking
+     * something the ledger has since changed.
+     */
+    suspend fun ownTransferCandidates(item: FeedItem): List<OwnTransferSide> = withContext(Dispatchers.Default) {
+        val allocated = db.transactionAllocationDao().allForIntegrity()
+            .mapTo(mutableSetOf()) { it.transactionId } +
+            db.debtDao().allEventsForIntegrity().mapNotNull { it.transactionId }
+        OwnTransfers.candidatesFor(
+            item.tx,
+            db.transactionDao().allForIntegrity().filter { !it.isVoided },
+            db.accountDao().allActive(),
+            allocated,
+        )
+    }
+
+    fun linkOwnTransfer(item: FeedItem, sides: List<OwnTransferSide>) =
+        mutate { ownTransfers.link(listOf(item.tx.id) + sides.map { it.transaction.id }) }
+
+    /** Cash the owner received has no statement behind it; they write the far side themselves. */
+    fun recordOwnTransferLeg(
+        item: FeedItem,
+        accountId: Long,
+        amountMinor: Long,
+        currency: String,
+        occurredAt: Long,
+    ) = mutate {
+        ownTransfers.linkToNewLeg(
+            transactionId = item.tx.id,
+            accountId = accountId,
+            // The far side always faces the other way: money that left has to arrive somewhere.
+            amountMinor = if (item.tx.amountMinor < 0) amountMinor else -amountMinor,
+            currency = currency,
+            occurredAt = occurredAt,
+        )
+    }
+
+    fun unlinkOwnTransfer(item: FeedItem) =
+        mutate { ownTransfers.unlink(requireNotNull(item.tx.transferGroupId)) }
 
     /**
      * Разбить расход по людям (вариант 1: справочное измерение, свой расход не меняется).

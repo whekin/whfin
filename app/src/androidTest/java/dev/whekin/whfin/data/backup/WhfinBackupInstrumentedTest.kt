@@ -73,7 +73,7 @@ class WhfinBackupInstrumentedTest {
         val summary = WhfinBackupManager(target).restore(ByteArrayInputStream(original))
         val restored = export(target)
 
-        assertEquals(27, summary.rowCount)
+        assertEquals(28, summary.rowCount)
         assertEquals(original.toString(Charsets.UTF_8), restored.toString(Charsets.UTF_8))
     }
 
@@ -193,6 +193,31 @@ class WhfinBackupInstrumentedTest {
         }
         // Room would only fail later, while observing a query, so the file must be refused up front.
         assertEquals(1, target.openHelper.writableDatabase.longForQuery("SELECT COUNT(*) FROM debt_cases"))
+        Unit
+    }
+
+    /**
+     * A file written before a constant was renamed is the same fact under an older name.
+     *
+     * Rejecting it would mean the owner's existing copies stop restoring on the day of the rename,
+     * so the old spelling is rewritten on the way in — the only point where both names can meet
+     * before the value reaches a column Room reads as an enum.
+     */
+    @Test
+    fun restore_acceptsTheOldNameOfARenamedTransferGroupType() = runBlocking {
+        seedEveryTable(source)
+        seedEveryTable(target)
+        val older = export(source).toString(Charsets.UTF_8)
+            .replace("\"type\": \"OWN_LINK\"", "\"type\": \"CRYPTO_BRIDGE\"")
+        check(older.contains("CRYPTO_BRIDGE")) { "The fixture must contain a hand-made link to rename." }
+
+        WhfinBackupManager(target).restore(ByteArrayInputStream(older.toByteArray()))
+
+        assertEquals(
+            1,
+            target.openHelper.writableDatabase
+                .longForQuery("SELECT COUNT(*) FROM transfer_groups WHERE type = 'OWN_LINK'"),
+        )
         Unit
     }
 
@@ -368,6 +393,8 @@ class WhfinBackupInstrumentedTest {
             sqlite.execSQL("INSERT INTO payment_instruments VALUES (1, 1, 'PHYSICAL_CARD', '0001', 'Main card', 0, 0)")
             sqlite.execSQL("INSERT INTO instrument_account_links VALUES (1, 1)")
             sqlite.execSQL("INSERT INTO transfer_groups VALUES (1, 'TRANSFER', 'Test transfer', 1000)")
+            // A hand-made link, so the rename path has something to rewrite on the way back in.
+            sqlite.execSQL("INSERT INTO transfer_groups VALUES (2, 'OWN_LINK', NULL, 1000)")
             sqlite.execSQL("INSERT INTO statement_sources VALUES (1, 1, 'ACCOUNT', 1, NULL, 'GE01')")
             sqlite.execSQL("INSERT INTO categories VALUES (1, 'Groceries', NULL, 'EXPENSE', 'ShoppingCart', -123, 0, 0)")
             sqlite.execSQL("INSERT INTO merchants VALUES (1, 'nikora', 'Nikora', 1)")

@@ -111,7 +111,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         val row = entry.row
         val draft = db.transactionDao().byId(entry.transactionId) ?: return
         val explicitBridge = draft.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
-            ?.type == dev.whekin.whfin.data.db.TransferGroupType.CRYPTO_BRIDGE
+            ?.type == dev.whekin.whfin.data.db.TransferGroupType.OWN_LINK
         val merchant = merchantFor(row)
         db.transactionDao().update(
             draft.copy(
@@ -152,7 +152,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         val sms = db.transactionDao().byId(entry.transactionId) ?: return
 
         val duplicateBridge = duplicate.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
-            ?.takeIf { it.type == dev.whekin.whfin.data.db.TransferGroupType.CRYPTO_BRIDGE }
+            ?.takeIf { it.type == dev.whekin.whfin.data.db.TransferGroupType.OWN_LINK }
         if (duplicateBridge != null) {
             // The owner may have linked the statement copy before its SMS duplicate was found.
             // Move that decision to the surviving row; it is not a derived bank pairing.

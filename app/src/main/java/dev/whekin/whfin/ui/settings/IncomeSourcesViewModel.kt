@@ -7,7 +7,6 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.crypto.CryptoBankTransfer
 import dev.whekin.whfin.data.income.WeekendRule
-import dev.whekin.whfin.data.crypto.CryptoBankTransferRepository
 import dev.whekin.whfin.data.crypto.CryptoHistoryRepository
 import dev.whekin.whfin.data.crypto.HttpCryptoTransferProvider
 import dev.whekin.whfin.data.crypto.cryptoBankCandidates
@@ -20,6 +19,7 @@ import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.data.income.IncomeExpectations
 import dev.whekin.whfin.data.income.IncomeSourceRepository
 import dev.whekin.whfin.data.preferences.UiPreferences
+import dev.whekin.whfin.data.transfer.OwnTransferRepository
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -49,7 +49,7 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val preferences = UiPreferences(app)
     private val sources = IncomeSourceRepository(db)
-    private val bridges = CryptoBankTransferRepository(db)
+    private val ownTransfers = OwnTransferRepository(db)
     private val zone = ZoneId.systemDefault()
     private val reading = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
@@ -144,8 +144,10 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun forgetPayment(transaction: TransactionEntity) = mutate { sources.forgetPayment(transaction.id) }
 
-    fun link(transfer: CryptoBankTransfer) = mutate { bridges.link(transfer.withdrawal.id, transfer.credit.id) }
-    fun unlink(transfer: CryptoBankTransfer) = mutate { bridges.unlink(requireNotNull(transfer.withdrawal.transferGroupId)) }
+    fun link(transfer: CryptoBankTransfer) =
+        mutate { ownTransfers.link(listOf(transfer.withdrawal.id, transfer.credit.id)) }
+    fun unlink(transfer: CryptoBankTransfer) =
+        mutate { ownTransfers.unlink(requireNotNull(transfer.withdrawal.transferGroupId)) }
     fun end(source: IncomeSourceEntity) = mutate {
         db.incomeSourceDao().upsert(source.copy(endedOn = maxOf(source.startedOn, LocalDate.now(zone).toEpochDay())))
     }

@@ -131,6 +131,15 @@ internal data class BackupTable(
      * older copies stop restoring the first time a table is added.
      */
     val sinceVersion: Int = 1,
+    /**
+     * Values an older file may still spell the old way, by column.
+     *
+     * A constant that was renamed is the same fact under a new name, and a file written before the
+     * rename cannot know about it. Rewriting on the way in is the only place the two spellings can
+     * meet: past this point the value goes straight into a column Room reads as an enum, where an
+     * unknown constant is a crash on open with no way back.
+     */
+    val renamedEnumValues: Map<String, Map<String, String>> = emptyMap(),
 ) {
     /** What a file written by [databaseVersion] must contain. */
     fun requiredColumns(databaseVersion: Int): List<String> =
@@ -142,7 +151,7 @@ private val SAVINGS_MODES = setOf("FLEXIBLE_RESERVE", "GOAL", "TERM_DEPOSIT")
 private val FUND_ROLES = setOf("AVAILABLE", "RESERVE")
 private val BANK_PRODUCTS = setOf("CURRENT_ACCOUNT", "DEMAND_DEPOSIT", "TERM_DEPOSIT")
 private val TRANSFER_GROUP_TYPES =
-    setOf("TRANSFER", "CONVERSION", "CARD_TOPUP", "SAVINGS", "CRYPTO_SWAP", "CRYPTO_BRIDGE")
+    setOf("TRANSFER", "CONVERSION", "CARD_TOPUP", "SAVINGS", "CRYPTO_SWAP", "OWN_LINK")
 
 internal object WhfinBackupSchema {
     const val FORMAT = "whfin-backup"
@@ -192,6 +201,7 @@ internal object WhfinBackupSchema {
             "transfer_groups",
             listOf("id", "type", "note", "createdAt"),
             enumColumns = mapOf("type" to TRANSFER_GROUP_TYPES),
+            renamedEnumValues = mapOf("type" to mapOf("CRYPTO_BRIDGE" to "OWN_LINK")),
         ),
         BackupTable(
             "statement_sources",
@@ -454,7 +464,18 @@ internal object WhfinBackupCodec {
             throw WhfinBackupException("Backup is missing tables: ${requiredMissing.joinToString()}.")
         }
         val tables = parsedTables + missingTables.associateWith { emptyList() }
-        tables.forEach { (tableName, rows) ->
+        val renamed = tables.mapValues { (tableName, rows) ->
+            val table = WhfinBackupSchema.byName.getValue(tableName)
+            if (table.renamedEnumValues.isEmpty()) return@mapValues rows
+            rows.map { row ->
+                row.mapValues { (column, value) ->
+                    val replacement = (value as? BackupValue.Text)
+                        ?.let { table.renamedEnumValues[column]?.get(it.value) }
+                    replacement?.let(BackupValue::Text) ?: value
+                }
+            }
+        }
+        renamed.forEach { (tableName, rows) ->
             val table = WhfinBackupSchema.byName.getValue(tableName)
             rows.forEach { row ->
                 validateColumns(table, row, dbVersion)
@@ -474,9 +495,9 @@ internal object WhfinBackupCodec {
                 appVersion = version,
                 databaseVersion = dbVersion,
                 primaryCurrency = currency,
-                rowCount = tables.values.sumOf(List<*>::size),
+                rowCount = renamed.values.sumOf(List<*>::size),
             ),
-            rowsByTable = tables,
+            rowsByTable = renamed,
         )
     }
 

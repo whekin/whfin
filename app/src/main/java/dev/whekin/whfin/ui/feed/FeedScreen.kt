@@ -181,6 +181,9 @@ import dev.whekin.whfin.data.notifications.physicalCardBalanceStatus
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.data.db.AccountEntity
+import dev.whekin.whfin.data.transfer.OwnTransferSide
+import dev.whekin.whfin.ui.transfer.OwnTransferChoice
+import dev.whekin.whfin.ui.transfer.OwnTransferSheet
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.TransactionEntity
@@ -292,6 +295,8 @@ fun FeedScreen(
     var correctFor by remember { mutableStateOf<FeedItem?>(null) }
     var debtFor by remember { mutableStateOf<FeedItem?>(null) }
     var splitFor by remember { mutableStateOf<FeedItem?>(null) }
+    var ownTransferFor by remember { mutableStateOf<FeedItem?>(null) }
+    val ownLinkGroupIds by viewModel.ownLinkGroupIds.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
     var statusFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -901,7 +906,43 @@ fun FeedScreen(
                 viewModel.updateStatus(item, TxStatus.CONFIRMED)
                 details = null
             },
+            // Only a plain, unspoken-for row can be joined: a split or a debt already says whose
+            // money it is, and a row already inside a movement has its answer.
+            onOwnTransfer = if (
+                item.tx.transferGroupId == null && !item.tx.isTransfer && !item.isDebt &&
+                item.splitOnPeople.isEmpty() && item.tx.amountMinor != 0L
+            ) {{
+                details = null
+                ownTransferFor = item
+            }} else null,
+            onClearOwnTransfer = if (item.tx.transferGroupId in ownLinkGroupIds) {{
+                viewModel.unlinkOwnTransfer(item)
+                details = null
+            }} else null,
         )
+    }
+
+    ownTransferFor?.let { item ->
+        val accountList by viewModel.accounts.collectAsState()
+        var candidates by remember(item.tx.id) { mutableStateOf<List<OwnTransferSide>?>(null) }
+        LaunchedEffect(item.tx.id) { candidates = viewModel.ownTransferCandidates(item) }
+        candidates?.let { offered ->
+            OwnTransferSheet(
+                transaction = item.tx,
+                candidates = offered,
+                accounts = accountList,
+                onDismiss = { ownTransferFor = null },
+                onConfirm = { choice ->
+                    when (choice) {
+                        is OwnTransferChoice.Existing -> viewModel.linkOwnTransfer(item, choice.sides)
+                        is OwnTransferChoice.Recorded -> viewModel.recordOwnTransferLeg(
+                            item, choice.accountId, choice.amountMinor, choice.currency, choice.occurredAt,
+                        )
+                    }
+                    ownTransferFor = null
+                },
+            )
+        }
     }
 
     statusFor?.let { item ->
@@ -1001,6 +1042,8 @@ internal fun TransactionDetailsSheet(
     onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
     onConfirm: (() -> Unit)? = null,
+    onOwnTransfer: (() -> Unit)? = null,
+    onClearOwnTransfer: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1020,6 +1063,8 @@ internal fun TransactionDetailsSheet(
             onClearSplit = onClearSplit,
             onChangeStatus = onChangeStatus,
             onConfirm = onConfirm,
+            onOwnTransfer = onOwnTransfer,
+            onClearOwnTransfer = onClearOwnTransfer,
         )
     }
 }
@@ -1038,6 +1083,8 @@ private fun TransactionDetailsContent(
     onClearSplit: (() -> Unit)? = null,
     onChangeStatus: (() -> Unit)? = null,
     onConfirm: (() -> Unit)? = null,
+    onOwnTransfer: (() -> Unit)? = null,
+    onClearOwnTransfer: (() -> Unit)? = null,
 ) {
     val tx = item.tx
     val presentationAmount = transactionPresentationAmount(tx)
@@ -1073,7 +1120,8 @@ private fun TransactionDetailsContent(
     // стоит первым и единственным залитым действием, а не спрятан за отдельным status-листом.
     val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING }
     val hasQuickActions = confirmPending != null || onEdit != null || onCorrect != null || onDebt != null ||
-        onClearDebt != null || onSplit != null || onClearSplit != null
+        onClearDebt != null || onSplit != null || onClearSplit != null ||
+        onOwnTransfer != null || onClearOwnTransfer != null
 
     LazyColumn(
         modifier.fillMaxWidth().heightIn(max = 680.dp),
@@ -1274,6 +1322,19 @@ private fun TransactionDetailsContent(
                         DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_clear), onClearSplit)
                     } else if (onSplit != null) item {
                         DetailQuickAction(Icons.AutoMirrored.Filled.CallSplit, stringResource(R.string.split_action_short), onSplit)
+                    }
+                    if (onClearOwnTransfer != null) item {
+                        DetailQuickAction(
+                            Icons.Default.SwapHoriz,
+                            stringResource(R.string.own_transfer_unlink),
+                            onClearOwnTransfer,
+                        )
+                    } else if (onOwnTransfer != null) item {
+                        DetailQuickAction(
+                            Icons.Default.SwapHoriz,
+                            stringResource(R.string.own_transfer_action),
+                            onOwnTransfer,
+                        )
                     }
                 }
             }

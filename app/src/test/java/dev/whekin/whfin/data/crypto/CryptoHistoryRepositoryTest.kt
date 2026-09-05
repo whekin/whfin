@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.data.db.*
 import dev.whekin.whfin.data.income.IncomeSourceRepository
+import dev.whekin.whfin.data.transfer.OwnTransferRepository
 import java.math.BigInteger
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -101,8 +102,8 @@ class CryptoHistoryRepositoryTest {
         val bank = db.accountDao().insert(AccountEntity(name = "Bank", type = AccountType.BANK, currency = "GEL"))
         val credit = db.transactionDao().insert(TransactionEntity(accountId = bank, amountMinor = 450000, currency = "GEL",
             occurredAt = at - 86_400_000, status = TxStatus.CONFIRMED, source = TxSource.STATEMENT))
-        val bridges = CryptoBankTransferRepository(db)
-        bridges.link(out.id, credit)
+        val bridges = OwnTransferRepository(db)
+        bridges.link(listOf(out.id, credit))
         val linked = db.transactionDao().byId(credit)!!
         assertTrue(linked.isTransfer)
         assertEquals(450000L, linked.amountMinor)
@@ -120,7 +121,7 @@ class CryptoHistoryRepositoryTest {
         val accountId = db.accountDao().insert(AccountEntity(name = "Bank", type = AccountType.BANK, currency = "GEL", groupId = group))
         val credit = db.transactionDao().insert(TransactionEntity(accountId = accountId, amountMinor = 450000, currency = "GEL",
             occurredAt = at, status = TxStatus.CONFIRMED, source = TxSource.SMS))
-        CryptoBankTransferRepository(db).link(out.id, credit)
+        OwnTransferRepository(db).link(listOf(out.id, credit))
         val bridge = db.transactionDao().byId(credit)!!.transferGroupId
         val day = java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.of("UTC")).toLocalDate()
         val row = dev.whekin.whfin.data.statement.StatementRow(day,
