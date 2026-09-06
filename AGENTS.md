@@ -819,6 +819,19 @@ This is a single-context repository with root domain documentation and system-wi
   составе 139 instrumented). В момент установки WHFIN был foreground у владельца, поэтому апдейт его
   перезапустил; сам я приложение не запускал — маршрутизацию процентов и лист выбора на личных данных
   проверяет владелец.
+  Dogfood `0.3.23 (35)` установлен signed in-place upgrade поверх `0.3.22 (34)` на Samsung S25:
+  full unit suite (864 passed, 2 skipped), R8/lintVital, package/version и release certificate
+  `af6009…fae92` сверены до установки — SHA-256 вытянутого `base.apk` (`56792651…45f4545c`) совпал с
+  записанным для 0.3.22, то есть с 2026-09-05 на телефоне ничего не менялось. После `install -r`
+  version/certificate и SHA-256 установленного `base.apk` (`0edbd01a…33df859d`) совпали с собранным
+  APK; `firstInstallTime` (2026-08-16 19:13:46) сохранился, `READ_SMS`/`RECEIVE_SMS`/
+  `POST_NOTIFICATIONS` остались выданы, FATAL в logcat нет. Экран был выключен (`Dozing`), foreground
+  владельца — лаунчер; WHFIN намеренно не запускался.
+  **Это обновление везёт три миграции схемы сразу: 3→4 (`weekendRule`), 4→5
+  (`income_source_payments`), 5→6 (`CRYPTO_BRIDGE` → `OWN_LINK`).** Все три закреплены instrumented-
+  тестами и прошли на disposable Pixel, но на личной базе выполнятся при первом открытии. Прогнать
+  их сейчас на устройстве было нельзя: подключённый телефон блокирует `connectedAndroidTest` (и
+  правильно). Первое открытие и проверку новой аналитики на своих данных делает владелец.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
