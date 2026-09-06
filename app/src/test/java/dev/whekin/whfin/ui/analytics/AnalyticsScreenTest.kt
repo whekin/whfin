@@ -19,7 +19,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -61,7 +60,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(5)
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-open-categories"))
         // The itemised list lives on Spending alone; Statistics must not carry a second one.
         compose.onNodeWithTag("analytics-category-1").assertDoesNotExist()
         compose.onNodeWithTag("analytics-open-categories").performScrollTo().performClick()
@@ -94,7 +93,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-trend").performScrollTo()
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
         compose.waitForIdle()
@@ -130,7 +129,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(4)
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-change-2"))
         compose.onNodeWithTag("analytics-change-2").performClick()
         compose.waitForIdle()
 
@@ -201,7 +200,7 @@ class AnalyticsScreenTest {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ExpenseAnalysisContent(
                         model = model(contentData.copy(
-                            spendingAverageMinor = 60_000,
+                            baseline = baseline(60_000),
                             categoryValues = listOf(
                                 AnalyticsCategoryValue(1, "Food", "ShoppingCart", 0xff4f725f.toInt(), 50_000, 40_000),
                                 AnalyticsCategoryValue(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 35_000),
@@ -254,10 +253,11 @@ class AnalyticsScreenTest {
         // The month title is a control now — it zooms out to its year — so the text it prints
         // lives one level below the merged click target.
         compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).assertTextEquals("July 2026")
-        compose.onNodeWithTag("analytics-trend").performScrollTo()
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
-        compose.onNodeWithTag("analytics-list").performScrollToIndex(1)
+        // The title itself is merged into its zoom-out control, so the control is what a scroll can find.
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-view-year"))
         compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).assertTextEquals("June 2026")
     }
 
@@ -324,7 +324,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-trend").performScrollTo()
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
@@ -554,10 +554,18 @@ class AnalyticsScreenTest {
             daysElapsed = 20,
             daysTotal = 31,
             projectedExpenseMinor = 124_000,
-            previousPeriodExpenseMinor = 70_000,
+            typicalWholeExpenseMinor = 70_000,
         ),
         categoryChanges = listOf(
             AnalyticsCategoryChange(2, "Transport", "DirectionsBus", 0xffc96d4f.toInt(), 30_000, 20_000),
         ),
+        baseline = baseline(70_000),
+    )
+
+    private fun baseline(expenseMinor: Long) = AnalyticsBaseline(
+        periods = (4..6).map { AnalyticsPeriod.month(YearMonth.of(2026, it)) },
+        requestedPeriods = 3,
+        expenseMinor = expenseMinor,
+        wholeExpenseMinor = expenseMinor,
     )
 }

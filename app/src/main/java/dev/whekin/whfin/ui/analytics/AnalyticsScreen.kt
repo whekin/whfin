@@ -94,6 +94,13 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.abs
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 internal fun AnalyticsScreen(
@@ -319,6 +326,29 @@ internal fun AnalyticsContent(
                 PeriodResult(data, onOpenExpenses)
             }
         }
+        // How much, how far that is from ordinary, what made the difference — and only then the
+        // shape of the year. The chart used to stand second, so the answer to "why was it more"
+        // began below the fold on a screen whose whole purpose is to answer it.
+        item(key = "changes") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                SpendingDifference(
+                    data = data,
+                    onOpenTransactions = onOpenTransactions,
+                )
+            }
+        }
+        data.pace?.let { pace ->
+            item(key = "pace") {
+                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                    SpendingPace(data, pace)
+                }
+            }
+        }
+        item(key = "categories") {
+            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
+                CategoryShape(data = data, onOpenExpenses = onOpenExpenses)
+            }
+        }
         item(key = "trend") {
             Box(
                 Modifier
@@ -332,29 +362,6 @@ internal fun AnalyticsContent(
                     onShowAllTrend = onShowAllTrend,
                     onOpenTransactions = onOpenTransactions,
                 )
-            }
-        }
-        data.pace?.let { pace ->
-            item(key = "pace") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                    SpendingPace(data.expenseMinor, pace, data.period.scale)
-                }
-            }
-        }
-        if (data.categoryChanges.isNotEmpty()) {
-            item(key = "changes") {
-                Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                    CategoryChanges(
-                        changes = data.categoryChanges,
-                        period = data.period,
-                        onOpenTransactions = onOpenTransactions,
-                    )
-                }
-            }
-        }
-        item(key = "categories") {
-            Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                CategoryShape(data = data, onOpenExpenses = onOpenExpenses)
             }
         }
         if (data.unaccountedNetMinor != 0L) item(key = "unaccounted") {
@@ -566,9 +573,8 @@ private fun AnalyticsMetric(
 
 @Composable
 private fun SpendingPace(
-    expenseMinor: Long,
+    data: AnalyticsData,
     pace: AnalyticsPace,
-    scale: AnalyticsScale,
 ) {
     Column(
         Modifier.testTag("analytics-pace"),
@@ -595,15 +601,22 @@ private fun SpendingPace(
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
-                    Text(
-                        comparisonText(
-                            pace.projectedExpenseMinor,
-                            pace.previousPeriodExpenseMinor,
-                            scale,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (data.baseline.isKnown) {
+                        Text(
+                            differenceText(pace.projectedExpenseMinor, pace.typicalWholeExpenseMinor),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // A projection runs to the end of the period, so its partner stays whole:
+                        // the caption names those periods rather than the day-window above.
+                        baselineCaption(data.baseline, comparisonDays = null)?.let { caption ->
+                            Text(
+                                caption,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
@@ -612,18 +625,13 @@ private fun SpendingPace(
                 ) {
                     AnalyticsMetric(
                         stringResource(R.string.analytics_spent_so_far),
-                        formatMinor(expenseMinor, "GEL"),
+                        formatMinor(data.expenseMinor, "GEL"),
                         MaterialTheme.colorScheme.onSurface,
                         Modifier.weight(1f),
                     )
-                    AnalyticsMetric(
-                        stringResource(
-                            when (scale) {
-                                AnalyticsScale.MONTH -> R.string.analytics_previous_month_expenses
-                                AnalyticsScale.YEAR -> R.string.analytics_previous_year_expenses
-                            },
-                        ),
-                        formatMinor(pace.previousPeriodExpenseMinor, "GEL"),
+                    if (data.baseline.isKnown) AnalyticsMetric(
+                        stringResource(R.string.analytics_pace_typical),
+                        formatMinor(pace.typicalWholeExpenseMinor, "GEL"),
                         MaterialTheme.colorScheme.onSurfaceVariant,
                         Modifier.weight(1f),
                     )
@@ -633,17 +641,24 @@ private fun SpendingPace(
     }
 }
 
+/**
+ * What made this period differ from an ordinary one.
+ *
+ * The screen used to list the three categories that had moved most since the previous month, beside
+ * a total that was measured against a three-month average — two bases, no way to tell them apart,
+ * and no arithmetic connecting the rows to the number above them. Now one base serves both: each
+ * row is a category's share of the very difference stated at the top, the rows that are not shown
+ * are named as a remainder rather than dropped, and the column adds up exactly.
+ *
+ * Nothing here is called a cause. The rows state what changed and open the payments behind it; why
+ * it changed is the reader's to decide.
+ */
 @Composable
-private fun CategoryChanges(
-    changes: List<AnalyticsCategoryChange>,
-    period: AnalyticsPeriod,
+private fun SpendingDifference(
+    data: AnalyticsData,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
 ) {
-    val fallbackColors = listOf(
-        WhfinThemeTokens.colors.clay,
-        WhfinThemeTokens.colors.bottle,
-        MaterialTheme.colorScheme.secondary,
-    )
+    val month = data.period.scale == AnalyticsScale.MONTH
     Column(
         Modifier.testTag("analytics-changes"),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -651,31 +666,91 @@ private fun CategoryChanges(
         WhfinSectionHeader(
             title = stringResource(R.string.analytics_changes_title),
             supportingText = stringResource(
-                when (period.scale) {
-                    AnalyticsScale.MONTH -> R.string.analytics_changes_hint
-                    AnalyticsScale.YEAR -> R.string.analytics_changes_hint_year
-                },
+                if (month) R.string.analytics_changes_hint else R.string.analytics_changes_hint_year,
             ),
         )
-        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-            changes.forEachIndexed { index, change ->
-                val name = change.name ?: stringResource(R.string.analytics_uncategorized)
-                CategoryChangeRow(
-                    change = change,
-                    name = name,
-                    color = change.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
-                    divider = index < changes.lastIndex,
-                    onClick = {
-                        onOpenTransactions(
-                            AnalyticsTransactionsRequest(
-                                period = period,
-                                categoryFilterEnabled = true,
-                                categoryId = change.categoryId,
-                                filterName = name,
-                                expectedExpenseMinor = change.expenseMinor,
-                            ),
+        if (!data.baseline.isKnown) {
+            // Missing months are not cheap months. Rather than divide by periods nobody imported
+            // and report the shortfall as a surge, the block says it cannot compare.
+            Text(
+                stringResource(
+                    if (month) R.string.analytics_baseline_none else R.string.analytics_baseline_none_year,
+                ),
+                modifier = Modifier.testTag("analytics-no-baseline"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+        val totalDelta = data.expenseMinor - data.baseline.expenseMinor
+        var expanded by rememberSaveable(data.period) { mutableStateOf(false) }
+        val changes = data.categoryChanges
+        val shown = if (expanded) changes else changes.take(MAIN_CAUSES)
+        // Whatever is not on screen is still part of the difference, so it is stated rather than
+        // left for the reader to discover that the rows do not add up.
+        val rest = totalDelta - shown.sumOf { it.deltaMinor }
+        val widest = maxOf(
+            shown.maxOfOrNull { abs(it.deltaMinor) } ?: 0L,
+            abs(rest),
+            1L,
+        )
+        val fallbackColors = listOf(
+            WhfinThemeTokens.colors.clay,
+            WhfinThemeTokens.colors.bottle,
+            MaterialTheme.colorScheme.secondary,
+        )
+        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        differenceText(data.expenseMinor, data.baseline.expenseMinor),
+                        modifier = Modifier.testTag("analytics-difference"),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (totalDelta > 0L) MaterialTheme.colorScheme.tertiary
+                        else MaterialTheme.colorScheme.primary,
+                    )
+                    baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
+                        Text(
+                            caption,
+                            modifier = Modifier.testTag("analytics-difference-base"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    },
+                    }
+                }
+                if (shown.isNotEmpty() || rest != 0L) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                shown.forEachIndexed { index, change ->
+                    val name = change.name ?: stringResource(R.string.analytics_uncategorized)
+                    CategoryChangeRow(
+                        change = change,
+                        name = name,
+                        color = change.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
+                        widestMinor = widest,
+                        onClick = {
+                            onOpenTransactions(
+                                AnalyticsTransactionsRequest(
+                                    period = data.period,
+                                    categoryFilterEnabled = true,
+                                    categoryId = change.categoryId,
+                                    filterName = name,
+                                    expectedExpenseMinor = change.expenseMinor,
+                                ),
+                            )
+                        },
+                    )
+                }
+                if (rest != 0L) ChangeRemainder(rest, widest)
+                if (changes.size > MAIN_CAUSES) WhfinButton(
+                    label = if (expanded) stringResource(R.string.analytics_changes_show_main)
+                    else stringResource(R.string.analytics_changes_show_all, changes.size),
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth().testTag("analytics-changes-expand"),
+                    style = WhfinActionStyle.Secondary,
                 )
             }
         }
@@ -687,63 +762,139 @@ private fun CategoryChangeRow(
     change: AnalyticsCategoryChange,
     name: String,
     color: Color,
-    divider: Boolean,
+    widestMinor: Long,
     onClick: () -> Unit,
 ) {
-    val deltaColor = if (change.deltaMinor > 0L) {
-        MaterialTheme.colorScheme.tertiary
+    val deltaText = formatMinor(change.deltaMinor, "GEL", withSign = true)
+    val supporting = if (change.expenseMinor == 0L) {
+        // A category that stopped explains as much of the difference as a new expense does.
+        stringResource(R.string.analytics_change_nothing, formatMinor(change.typicalExpenseMinor, "GEL"))
     } else {
-        MaterialTheme.colorScheme.primary
+        stringResource(
+            R.string.analytics_change_actual,
+            formatMinor(change.expenseMinor, "GEL"),
+            formatMinor(change.typicalExpenseMinor, "GEL"),
+        )
     }
+    val description = stringResource(R.string.analytics_changes_contribution, name, deltaText)
     Surface(
         onClick = onClick,
+        // Nothing to open for a category that spent nothing here; its payments are in other months.
+        enabled = change.expenseMinor > 0L,
         modifier = Modifier
             .fillMaxWidth()
+            .semantics { contentDescription = description }
             .testTag("analytics-change-${change.categoryId ?: "none"}"),
-        shape = androidx.compose.ui.graphics.RectangleShape,
+        shape = MaterialTheme.shapes.small,
         color = Color.Transparent,
     ) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(34.dp).background(color.copy(alpha = .14f), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    Modifier.size(38.dp).background(color.copy(alpha = .14f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        CategoryIcons.resolve(change.icon),
-                        contentDescription = null,
-                        tint = color,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.titleMedium)
-                    // Раздел уже подписан «Крупнейшие сдвиги категорий с прошлого месяца»,
-                    // поэтому префикс «Изменение:» в каждой строке только удлинял её.
-                    WhfinAmount(
-                        formatMinor(change.deltaMinor, "GEL", withSign = true),
-                        symbol = currencySymbol("GEL"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = deltaColor,
-                    )
-                }
-                WhfinAmount(
-                    formatMinor(change.expenseMinor, "GEL"),
-                    symbol = currencySymbol("GEL"),
-                    style = MaterialTheme.typography.titleMedium,
+                Icon(
+                    CategoryIcons.resolve(change.icon),
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(18.dp),
                 )
             }
-            if (divider) HorizontalDivider(
-                Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant,
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ChangeBar(change.deltaMinor, widestMinor)
+            }
+            // The row states its contribution, not the category total: a column of totals beside a
+            // difference reads as a list of separate expenses that happen to be near each other.
+            WhfinAmount(
+                deltaText,
+                symbol = currencySymbol("GEL"),
+                style = MaterialTheme.typography.titleMedium,
+                color = changeColor(change.deltaMinor),
             )
         }
     }
 }
+
+@Composable
+private fun ChangeRemainder(amountMinor: Long, widestMinor: Long) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(vertical = 8.dp)
+            .testTag("analytics-changes-rest"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.size(34.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                stringResource(R.string.analytics_changes_rest),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            ChangeBar(amountMinor, widestMinor)
+        }
+        WhfinAmount(
+            formatMinor(amountMinor, "GEL", withSign = true),
+            symbol = currencySymbol("GEL"),
+            style = MaterialTheme.typography.titleMedium,
+            color = changeColor(amountMinor),
+        )
+    }
+}
+
+/**
+ * One contribution drawn from a centre line: right for more than usual, left for less.
+ *
+ * Rows all of one direction would need no centre, but a difference is made of both, and a bar that
+ * only ever grew rightwards would make a category that fell look like one that rose a little.
+ */
+@Composable
+private fun ChangeBar(valueMinor: Long, widestMinor: Long) {
+    val fraction = (abs(valueMinor).toFloat() / widestMinor.coerceAtLeast(1L)).coerceIn(0f, 1f)
+    val color = changeColor(valueMinor)
+    Row(
+        Modifier.fillMaxWidth().padding(top = 2.dp).height(11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            if (valueMinor < 0L) Box(
+                Modifier.fillMaxWidth(fraction).height(5.dp).background(color, CircleShape),
+            )
+        }
+        // The zero mark has to be visible, or the bars read as arbitrary underlines rather than
+        // as distances from an ordinary level.
+        Box(
+            Modifier
+                .width(1.5.dp)
+                .height(11.dp)
+                .background(MaterialTheme.colorScheme.outline),
+        )
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (valueMinor > 0L) Box(
+                Modifier.fillMaxWidth(fraction).height(5.dp).background(color, CircleShape),
+            )
+        }
+    }
+}
+
+@Composable
+private fun changeColor(valueMinor: Long): Color =
+    if (valueMinor > 0L) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+
+/** How many causes are shown before the rest is folded into one honest remainder. */
+private const val MAIN_CAUSES = 3
 
 /**
  * The shape of the period's spending, and one way into the screen that itemises it.
@@ -867,17 +1018,26 @@ internal fun PeriodTrend(
                             style = MaterialTheme.typography.titleLarge,
                         )
                     }
-                    Text(
-                        comparisonText(
-                            selectedValue,
-                            previousValue,
-                            period.scale,
-                            partial = data.comparisonDays != null,
-                        ),
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // The chart's own footer compares neighbouring bars, which is a different base
+                    // from the ordinary level above it — so it names the month it used. Two
+                    // comparisons may differ; neither may leave the reader guessing which is which.
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                        Text(
+                            trendComparisonText(selectedValue, previousValue, period.scale),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // Named only when there is a base: "Base: July" under "no comparable
+                        // expenses in the previous month" would contradict the line above it.
+                        if (previousValue > 0L) Text(
+                            stringResource(
+                                R.string.analytics_trend_base,
+                                periodSpanText(period.previous(), data.comparisonDays),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 WhfinButton(
                     label = stringResource(R.string.analytics_view_transactions),
@@ -965,52 +1125,24 @@ internal fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
 }
 
 /**
- * The comparison sentence, which has to say what it compared against.
+ * The chart footer's own comparison: this bar against the one before it.
  *
- * "88% less than the previous month" on the fifth was five days measured against thirty. The
- * arithmetic behind it now stops at the same day of the earlier period, and the sentence says so —
- * a reader cannot tell a part-period comparison from a whole one by the percentage alone.
+ * A percentage is right here and wrong above: bars are levels of the same shape, so their ratio is
+ * the reading, while an ordinary level can honestly be zero and a percentage of it cannot.
  */
 @Composable
-private fun comparisonText(
-    current: Long,
-    previous: Long,
-    scale: AnalyticsScale,
-    partial: Boolean = false,
-): String {
-    val month = scale == AnalyticsScale.MONTH
+private fun trendComparisonText(current: Long, previous: Long, scale: AnalyticsScale): String {
     if (previous <= 0L) return stringResource(
-        if (month) R.string.analytics_no_previous else R.string.analytics_no_previous_year,
+        if (scale == AnalyticsScale.MONTH) R.string.analytics_no_previous
+        else R.string.analytics_no_previous_year,
     )
     val percent = abs(current - previous).toDouble() / previous * 100.0
-    val formatted = NumberFormat.getPercentInstance().apply { maximumFractionDigits = 0 }.format(percent / 100.0)
+    val formatted = NumberFormat.getPercentInstance().apply { maximumFractionDigits = 0 }
+        .format(percent / 100.0)
     return when {
-        current > previous -> stringResource(
-            when {
-                partial && month -> R.string.analytics_more_than_partial
-                partial -> R.string.analytics_more_than_partial_year
-                month -> R.string.analytics_more_than_previous
-                else -> R.string.analytics_more_than_previous_year
-            },
-            formatted,
-        )
-        current < previous -> stringResource(
-            when {
-                partial && month -> R.string.analytics_less_than_partial
-                partial -> R.string.analytics_less_than_partial_year
-                month -> R.string.analytics_less_than_previous
-                else -> R.string.analytics_less_than_previous_year
-            },
-            formatted,
-        )
-        else -> stringResource(
-            when {
-                partial && month -> R.string.analytics_same_as_partial
-                partial -> R.string.analytics_same_as_partial_year
-                month -> R.string.analytics_same_as_previous
-                else -> R.string.analytics_same_as_previous_year
-            },
-        )
+        current > previous -> stringResource(R.string.analytics_trend_more, formatted)
+        current < previous -> stringResource(R.string.analytics_trend_less, formatted)
+        else -> stringResource(R.string.analytics_trend_same)
     }
 }
 
@@ -1046,6 +1178,12 @@ private val previewData = AnalyticsData(
         AnalyticsMonthValue(YearMonth.of(2026, month), listOf(82, 91, 76, 104, 98, 96, 109, 0, 0, 0, 0, 0)[month - 1] * 1_000L)
     },
     previousTrendExpenseMinor = 96_000,
+    baseline = AnalyticsBaseline(
+        periods = (4..6).map { AnalyticsPeriod.month(YearMonth.of(2026, it)) },
+        requestedPeriods = 3,
+        expenseMinor = 100_587,
+        wholeExpenseMinor = 96_000,
+    ),
     unaccountedNetMinor = 4_200,
     otherCurrencyExpenses = listOf(AnalyticsCurrencyValue("USD", 6_900)),
     pendingCount = 2,
@@ -1054,7 +1192,7 @@ private val previewData = AnalyticsData(
         daysElapsed = 20,
         daysTotal = 31,
         projectedExpenseMinor = 169_147,
-        previousPeriodExpenseMinor = 96_000,
+        typicalWholeExpenseMinor = 96_000,
     ),
     categoryChanges = listOf(
         AnalyticsCategoryChange(1, "Groceries", "ShoppingCart", 0xff4f725f.toInt(), 38_200, 22_400),
@@ -1071,7 +1209,7 @@ private val previewYearData = previewData.copy(
         daysElapsed = 224,
         daysTotal = 365,
         projectedExpenseMinor = 11_870_000,
-        previousPeriodExpenseMinor = 10_240_000,
+        typicalWholeExpenseMinor = 10_240_000,
     ),
     previousTrendExpenseMinor = 10_240_000,
 )

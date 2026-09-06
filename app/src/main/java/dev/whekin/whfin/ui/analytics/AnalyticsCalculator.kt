@@ -65,28 +65,64 @@ internal data class AnalyticsPace(
     val daysElapsed: Int,
     val daysTotal: Int,
     val projectedExpenseMinor: Long,
-    val previousPeriodExpenseMinor: Long,
+    /**
+     * The ordinary level of a whole period.
+     *
+     * A projection reaches the end of this period, so it can only be read against periods that also
+     * ran to their end — and against several of them rather than the one immediately before, which
+     * on its own is as likely to be the unusual month as this one is.
+     */
+    val typicalWholeExpenseMinor: Long,
 )
 
+/**
+ * The ordinary level this period is measured against, and how much of it is actually known.
+ *
+ * A missing month is not a cheap month. Dividing by three when only two months were ever imported
+ * deflates the baseline and turns ordinary spending into a reported surge, so the average is taken
+ * over the periods that carry records and the screen says how many those were.
+ */
+internal data class AnalyticsBaseline(
+    /** Preceding periods that carry any record at all, oldest first. */
+    val periods: List<AnalyticsPeriod>,
+    /** How many were asked for: three months, or the one preceding year. */
+    val requestedPeriods: Int,
+    /** Average spending of [periods] over the same stretch of days as the selected period. */
+    val expenseMinor: Long,
+    /** Average spending of [periods] over their whole length. */
+    val wholeExpenseMinor: Long,
+) {
+    val isKnown: Boolean get() = periods.isNotEmpty()
+    val isComplete: Boolean get() = periods.size >= requestedPeriods
+}
+
+/**
+ * One category's share of the difference between this period and the ordinary one.
+ *
+ * The contributions are built so that they add up to the total difference exactly: every category
+ * that spent anything in either window is here, and the rounding left over by dividing a baseline
+ * between them is handed out rather than dropped. A block that says "700 more than usual" above
+ * rows that sum to 680 is asking to be disbelieved.
+ */
 internal data class AnalyticsCategoryChange(
     val categoryId: Long?,
     val name: String?,
     val icon: String?,
     val color: Int?,
     val expenseMinor: Long,
-    /** The same stretch of the previous period, so the delta compares like with like. */
-    val previousExpenseMinor: Long,
+    /** This category's ordinary level over the same stretch of the baseline periods. */
+    val typicalExpenseMinor: Long,
     /**
-     * The whole previous period.
+     * The ordinary level over whole baseline periods.
      *
      * Kept beside the windowed figure because the two answer different pairings: a delta is asked of
-     * equal stretches, and a projection to the end of this period can only be read against a period
-     * that also ran to its end.
+     * equal stretches, and a projection to the end of this period can only be read against periods
+     * that also ran to their end.
      */
-    val previousWholeExpenseMinor: Long = previousExpenseMinor,
+    val typicalWholeExpenseMinor: Long = typicalExpenseMinor,
     val projectedExpenseMinor: Long? = null,
 ) {
-    val deltaMinor: Long get() = expenseMinor - previousExpenseMinor
+    val deltaMinor: Long get() = expenseMinor - typicalExpenseMinor
 }
 
 internal data class AnalyticsData(
@@ -97,7 +133,14 @@ internal data class AnalyticsData(
     val categoryValues: List<AnalyticsCategoryValue>,
     /** Counterparties of the selected period, scoped by the same filter the trend chart is showing. */
     val merchantValues: List<AnalyticsMerchantValue> = emptyList(),
-    val spendingAverageMinor: Long = 0L,
+    /**
+     * The ordinary level, and the only base every block on both analytics screens compares against.
+     *
+     * Two screens that each hold their own idea of "usual" can only make a reader wonder which one
+     * is the truth, so the hero on Spending, the contributions here and the projection all read
+     * this one figure.
+     */
+    val baseline: AnalyticsBaseline = AnalyticsBaseline(emptyList(), 0, 0L, 0L),
     val trendFilter: AnalyticsTrendFilter,
     val trendFilterName: String?,
     val trendValues: List<AnalyticsMonthValue>,
@@ -282,15 +325,30 @@ internal fun calculateAnalytics(
     val expensesWithin: (AnalyticsPeriod) -> Long = { scope ->
         -baseSlices.filter { withinComparison(scope, it) }.sumOf { it.gelMinor!!.coerceAtMost(0L) }
     }
-    val previousBase = baseSlices.filter { withinComparison(previousPeriod, it) }
-    val previousExpenses = expensesWithin(previousPeriod)
-    // The projection reaches the end of the period, so the only honest partner for it is a whole
-    // period — this one stays complete on purpose.
-    val previousWholeExpenses = -baseSlices
-        .filter { previousPeriod.contains(it.month) }
-        .sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    val comparisonPeriods = (1..period.comparisonPeriods).map(period::shiftedBack)
-    val spendingAverage = comparisonPeriods.sumOf(expensesWithin) / comparisonPeriods.size
+    val wholeExpensesWithin: (AnalyticsPeriod) -> Long = { scope ->
+        -baseSlices.filter { scope.contains(it.month) }.sumOf { it.gelMinor!!.coerceAtMost(0L) }
+    }
+    // A period with no records at all is not a period without spending. Dividing by three when only
+    // two months were ever imported deflates the baseline, and ordinary spending then gets reported
+    // as a surge. Only the periods that carry records enter the average, and how many they were
+    // travels with it so the screen can say so instead of implying a full comparison.
+    val recordedMonths = transactions
+        .asSequence()
+        .filterNot { it.isVoided || it.isOpeningBalanceAnchor() }
+        .map { YearMonth.from(Instant.ofEpochMilli(it.occurredAt).atZone(zoneId)) }
+        .toSet()
+    val baselinePeriods = (period.comparisonPeriods downTo 1)
+        .map(period::shiftedBack)
+        .filter { scope -> recordedMonths.any(scope::contains) }
+    val baselineCount = baselinePeriods.size
+    val baseline = AnalyticsBaseline(
+        periods = baselinePeriods,
+        requestedPeriods = period.comparisonPeriods,
+        expenseMinor = if (baselineCount == 0) 0L
+        else baselinePeriods.sumOf(expensesWithin) / baselineCount,
+        wholeExpenseMinor = if (baselineCount == 0) 0L
+        else baselinePeriods.sumOf(wholeExpensesWithin) / baselineCount,
+    )
     val pace = if (period.isCurrent(today)) {
         val daysElapsed = period.daysElapsed(today)
         val daysTotal = period.daysTotal(today)
@@ -303,7 +361,7 @@ internal fun calculateAnalytics(
             daysElapsed = daysElapsed,
             daysTotal = daysTotal,
             projectedExpenseMinor = projection,
-            previousPeriodExpenseMinor = previousWholeExpenses,
+            typicalWholeExpenseMinor = baseline.wholeExpenseMinor,
         )
     } else {
         null
@@ -312,20 +370,18 @@ internal fun calculateAnalytics(
         .filter { it.gelMinor!! < 0L }
         .groupBy { it.groupId }
         .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
-    val previousCategoryExpenses = previousBase
-        .filter { it.gelMinor!! < 0L }
-        .groupBy { it.groupId }
-        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
-    val previousWholeCategoryExpenses = baseSlices
-        .filter { previousPeriod.contains(it.month) && it.gelMinor!! < 0L }
-        .groupBy { it.groupId }
-        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
-    val averageCategoryExpenses = baseSlices
-        .filter { slice ->
-            comparisonPeriods.any { withinComparison(it, slice) } && slice.gelMinor!! < 0L
-        }
-        .groupBy { it.groupId }
-        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } / comparisonPeriods.size }
+    val categoryTypical = shareOfBaseline(
+        slices = baseSlices,
+        periods = baselinePeriods,
+        within = withinComparison,
+        total = baseline.expenseMinor,
+    )
+    val categoryTypicalWhole = shareOfBaseline(
+        slices = baseSlices,
+        periods = baselinePeriods,
+        within = { scope, slice -> scope.contains(slice.month) },
+        total = baseline.wholeExpenseMinor,
+    )
     // One list of categories, one window: the selected period, each row carrying its own baseline.
     // Statistics used to hold a second list over a rolling 1/3/6/12-month window, so the same screen
     // answered two different questions of time without saying which was which.
@@ -338,21 +394,23 @@ internal fun calculateAnalytics(
                 icon = category?.icon,
                 color = category?.color,
                 expenseMinor = expenseMinor,
-                averageExpenseMinor = averageCategoryExpenses[categoryId] ?: 0L,
+                averageExpenseMinor = categoryTypical[categoryId] ?: 0L,
             )
         }
         .sortedByDescending { it.expenseMinor }
-    val categoryChanges = currentCategoryExpenses
-        .map { (categoryId, expenseMinor) ->
+    // Every category that spent in either window, so a category that stopped is still an answer:
+    // "nothing this month, 300 usually" explains as much of the difference as a new expense does.
+    val categoryChanges = (currentCategoryExpenses.keys + categoryTypical.keys)
+        .map { categoryId ->
             val category = categoryId?.let(categoryById::get)
             AnalyticsCategoryChange(
                 categoryId = categoryId,
                 name = category?.name,
                 icon = category?.icon,
                 color = category?.color,
-                expenseMinor = expenseMinor,
-                previousExpenseMinor = previousCategoryExpenses[categoryId] ?: 0L,
-                previousWholeExpenseMinor = previousWholeCategoryExpenses[categoryId] ?: 0L,
+                expenseMinor = currentCategoryExpenses[categoryId] ?: 0L,
+                typicalExpenseMinor = categoryTypical[categoryId] ?: 0L,
+                typicalWholeExpenseMinor = categoryTypicalWhole[categoryId] ?: 0L,
                 projectedExpenseMinor = pace?.let {
                     projectCurrentExpenses(
                         selectedBase.filter { slice ->
@@ -365,8 +423,10 @@ internal fun calculateAnalytics(
             )
         }
         .filter { it.deltaMinor != 0L }
-        .sortedByDescending { abs(it.deltaMinor) }
-        .take(3)
+        .sortedWith(
+            compareByDescending<AnalyticsCategoryChange> { abs(it.deltaMinor) }
+                .thenBy { it.categoryId ?: Long.MAX_VALUE },
+        )
 
     val matchesTrendFilter: (AnalyticsSlice) -> Boolean = { slice ->
         when (trendFilter) {
@@ -425,7 +485,7 @@ internal fun calculateAnalytics(
         expenseMinor = expenses,
         categoryValues = categoryValues,
         merchantValues = merchantValues,
-        spendingAverageMinor = spendingAverage,
+        baseline = baseline,
         trendFilter = trendFilter,
         trendFilterName = (trendFilter as? AnalyticsTrendFilter.Category)
             ?.categoryId
@@ -445,6 +505,42 @@ internal fun calculateAnalytics(
         comparisonDays = comparisonDays,
         categoryChanges = categoryChanges,
     )
+}
+
+/**
+ * Splits a baseline average between the categories that produced it, losing nothing to rounding.
+ *
+ * Dividing each category's own total by the number of periods truncates once per category, so the
+ * parts came out below the whole by up to one minor unit each — and a block that says "700 more
+ * than usual" above rows summing to 680 is asking to be disbelieved. The units the division drops
+ * are handed to the categories whose remainder was largest, the same rule an apportionment uses, so
+ * the parts add up to [total] exactly.
+ */
+private fun shareOfBaseline(
+    slices: List<AnalyticsSlice>,
+    periods: List<AnalyticsPeriod>,
+    within: (AnalyticsPeriod, AnalyticsSlice) -> Boolean,
+    total: Long,
+): Map<Long?, Long> {
+    if (periods.isEmpty()) return emptyMap()
+    val count = periods.size
+    val sums = slices
+        .filter { slice -> slice.gelMinor!! < 0L && periods.any { within(it, slice) } }
+        .groupBy(AnalyticsSlice::groupId)
+        .mapValues { (_, values) -> -values.sumOf { it.gelMinor!! } }
+    val shares = sums.mapValues { (_, sum) -> sum / count }.toMutableMap()
+    var leftover = total - shares.values.sum()
+    sums.entries
+        .sortedWith(
+            compareByDescending<Map.Entry<Long?, Long>> { it.value % count }
+                .thenBy { it.key ?: Long.MAX_VALUE },
+        )
+        .forEach { entry ->
+            if (leftover <= 0L) return@forEach
+            shares[entry.key] = (shares[entry.key] ?: 0L) + 1L
+            leftover--
+        }
+    return shares
 }
 
 /**

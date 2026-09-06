@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -117,13 +118,18 @@ class AnalyticsCalculatorTest {
         assertEquals(YearMonth.of(2026, 12), data.trendValues.last().month)
         assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.take(3).map { it.expenseMinor })
         assertTrue(data.trendValues.drop(3).all { it.expenseMinor == 0L })
-        assertEquals(1_000L, data.spendingAverageMinor)
+        // December 2025 carries no record at all, and a month nobody imported is not a month
+        // without spending: the average is taken over January and February and says so.
+        assertEquals(1_500L, data.baseline.expenseMinor)
+        assertEquals(2, data.baseline.periods.size)
+        assertEquals(3, data.baseline.requestedPeriods)
+        assertFalse(data.baseline.isComplete)
         assertEquals(
             3_000L,
             data.categoryValues.single { it.categoryId == food.id }.expenseMinor,
         )
         assertEquals(
-            1_000L,
+            1_500L,
             data.categoryValues.single { it.categoryId == food.id }.averageExpenseMinor,
         )
     }
@@ -187,7 +193,7 @@ class AnalyticsCalculatorTest {
                 daysElapsed = 10,
                 daysTotal = 31,
                 projectedExpenseMinor = 124_000,
-                previousPeriodExpenseMinor = 30_000,
+                typicalWholeExpenseMinor = 30_000,
             ),
             data.pace,
         )
@@ -199,7 +205,8 @@ class AnalyticsCalculatorTest {
                     icon = transport.icon,
                     color = transport.color,
                     expenseMinor = 30_000,
-                    previousExpenseMinor = 10_000,
+                    typicalExpenseMinor = 10_000,
+                    typicalWholeExpenseMinor = 10_000,
                     projectedExpenseMinor = 93_000,
                 ),
                 AnalyticsCategoryChange(
@@ -208,7 +215,8 @@ class AnalyticsCalculatorTest {
                     icon = food.icon,
                     color = food.color,
                     expenseMinor = 10_000,
-                    previousExpenseMinor = 20_000,
+                    typicalExpenseMinor = 20_000,
+                    typicalWholeExpenseMinor = 20_000,
                     projectedExpenseMinor = 31_000,
                 ),
             ),
@@ -528,7 +536,7 @@ class AnalyticsCalculatorTest {
         assertEquals(YearMonth.of(2026, 12), data.trendValues.last().month)
         assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.map { it.expenseMinor }.filter { it > 0L })
         assertEquals(5_000L, data.previousTrendExpenseMinor)
-        assertEquals(5_000L, data.spendingAverageMinor)
+        assertEquals(5_000L, data.baseline.expenseMinor)
         // Categories follow the period, so a year's categories add up to the year's expenses.
         assertEquals(data.expenseMinor, data.categoryValues.sumOf { it.expenseMinor })
     }
@@ -554,7 +562,7 @@ class AnalyticsCalculatorTest {
         assertEquals(81, running.pace?.daysElapsed)
         assertEquals(365, running.pace?.daysTotal)
         assertEquals(20_000L * 365 / 81, running.pace?.projectedExpenseMinor)
-        assertEquals(60_000L, running.pace?.previousPeriodExpenseMinor)
+        assertEquals(60_000L, running.pace?.typicalWholeExpenseMinor)
 
         val finished = calculateAnalytics(
             transactions = transactions,

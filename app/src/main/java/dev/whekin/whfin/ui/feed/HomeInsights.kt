@@ -8,13 +8,13 @@ import kotlin.math.abs
 internal sealed interface HomeInsight {
     data class SpendingPace(
         val projectedExpenseMinor: Long,
-        val previousMonthExpenseMinor: Long,
+        val typicalMonthExpenseMinor: Long,
     ) : HomeInsight
 
     data class CategoryDriver(
         val name: String?,
         val projectedExpenseMinor: Long,
-        val previousMonthExpenseMinor: Long,
+        val typicalMonthExpenseMinor: Long,
     ) : HomeInsight
 }
 
@@ -32,27 +32,31 @@ internal fun deriveHomeInsights(data: AnalyticsData): List<HomeInsight> {
     if (pace.daysElapsed < MIN_DAYS_FOR_PROJECTION || data.expenseMinor <= 0L) return emptyList()
 
     val result = mutableListOf<HomeInsight>()
-    if (isMeaningfulChange(pace.projectedExpenseMinor, pace.previousPeriodExpenseMinor)) {
+    if (data.baseline.isKnown &&
+        isMeaningfulChange(pace.projectedExpenseMinor, pace.typicalWholeExpenseMinor)
+    ) {
         result += HomeInsight.SpendingPace(
             projectedExpenseMinor = pace.projectedExpenseMinor,
-            previousMonthExpenseMinor = pace.previousPeriodExpenseMinor,
+            typicalMonthExpenseMinor = pace.typicalWholeExpenseMinor,
         )
     }
 
     // Both readings here are projections to the end of the month, so both are read against whole
-    // months. The windowed figure beside it answers a different question — what has changed so far —
-    // and belongs to the Statistics list, not to a forecast.
+    // months, and against several of them rather than the one before — a single previous month is
+    // as likely to be the unusual one as this month is. The windowed figure beside it answers a
+    // different question — what has changed so far — and belongs to the Analytics list.
+    if (!data.baseline.isKnown) return result.take(MAX_HOME_INSIGHTS)
     data.categoryChanges
         .asSequence()
         .map { change -> change to projectCategory(change, pace.daysElapsed, pace.daysTotal) }
         .firstOrNull { (change, projected) ->
-            isMeaningfulChange(projected, change.previousWholeExpenseMinor)
+            isMeaningfulChange(projected, change.typicalWholeExpenseMinor)
         }
         ?.let { (change, projected) ->
             result += HomeInsight.CategoryDriver(
                 name = change.name,
                 projectedExpenseMinor = projected,
-                previousMonthExpenseMinor = change.previousWholeExpenseMinor,
+                typicalMonthExpenseMinor = change.typicalWholeExpenseMinor,
             )
         }
 

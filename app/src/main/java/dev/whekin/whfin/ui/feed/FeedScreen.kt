@@ -2737,9 +2737,9 @@ private fun MonthlyFlowSummary(
                     is HomeInsight.SpendingPace -> insight.projectedExpenseMinor
                     is HomeInsight.CategoryDriver -> insight.projectedExpenseMinor
                 }
-                val previous = when (insight) {
-                    is HomeInsight.SpendingPace -> insight.previousMonthExpenseMinor
-                    is HomeInsight.CategoryDriver -> insight.previousMonthExpenseMinor
+                val typical = when (insight) {
+                    is HomeInsight.SpendingPace -> insight.typicalMonthExpenseMinor
+                    is HomeInsight.CategoryDriver -> insight.typicalMonthExpenseMinor
                 }
                 MonthFlowLine(
                     label = when (insight) {
@@ -2755,11 +2755,11 @@ private fun MonthlyFlowSummary(
                         )
                     },
                     amount = formatMinor(projected, "GEL"),
-                    color = if (projected < previous) MaterialTheme.colorScheme.primary
+                    color = if (projected < typical) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.tertiary,
                     supporting = stringResource(
-                        R.string.home_insight_previous_month,
-                        formatMinor(previous, "GEL"),
+                        R.string.home_insight_typical_month,
+                        formatMinor(typical, "GEL"),
                     ),
                 )
             }

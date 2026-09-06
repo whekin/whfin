@@ -1,9 +1,11 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.ui.analytics.AnalyticsBaseline
 import dev.whekin.whfin.ui.analytics.AnalyticsCategoryChange
 import dev.whekin.whfin.ui.analytics.AnalyticsData
 import dev.whekin.whfin.ui.analytics.AnalyticsMonthValue
 import dev.whekin.whfin.ui.analytics.AnalyticsPace
+import dev.whekin.whfin.ui.analytics.AnalyticsPeriod
 import dev.whekin.whfin.ui.analytics.AnalyticsTrendFilter
 import java.time.YearMonth
 import org.junit.Assert.assertEquals
@@ -51,7 +53,7 @@ class HomeInsightsTest {
         pace: AnalyticsPace,
         categoryChanges: List<AnalyticsCategoryChange>,
     ) = AnalyticsData(
-        period = dev.whekin.whfin.ui.analytics.AnalyticsPeriod.month(YearMonth.of(2026, 8)),
+        period = AnalyticsPeriod.month(YearMonth.of(2026, 8)),
         incomeMinor = 0,
         expenseMinor = pace.projectedExpenseMinor * pace.daysElapsed / pace.daysTotal,
         categoryValues = emptyList(),
@@ -65,11 +67,17 @@ class HomeInsightsTest {
         hasAnyTransactions = true,
         pace = pace,
         categoryChanges = categoryChanges,
+        baseline = AnalyticsBaseline(
+            periods = (5..7).map { AnalyticsPeriod.month(YearMonth.of(2026, it)) },
+            requestedPeriods = 3,
+            expenseMinor = pace.typicalWholeExpenseMinor,
+            wholeExpenseMinor = pace.typicalWholeExpenseMinor,
+        ),
     )
 
     private fun change(
         expenseMinor: Long,
-        previousExpenseMinor: Long,
+        typicalExpenseMinor: Long,
         name: String? = "Groceries",
     ) = AnalyticsCategoryChange(
         categoryId = 1,
@@ -77,6 +85,16 @@ class HomeInsightsTest {
         icon = "ShoppingCart",
         color = null,
         expenseMinor = expenseMinor,
-        previousExpenseMinor = previousExpenseMinor,
+        typicalExpenseMinor = typicalExpenseMinor,
     )
+
+    @Test
+    fun `without a recorded baseline home says nothing about the usual`() {
+        val data = analyticsData(
+            pace = AnalyticsPace(10, 30, 180_000, 100_000),
+            categoryChanges = listOf(change(40_000, 30_000, "Eating out")),
+        ).copy(baseline = AnalyticsBaseline(emptyList(), 3, 0L, 0L))
+
+        assertTrue(deriveHomeInsights(data).isEmpty())
+    }
 }

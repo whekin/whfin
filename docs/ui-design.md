@@ -658,9 +658,10 @@ them, at the size of the screen. Each row draws its own share as a hairline unde
 thing being compared already is, and the row still selects the category the way the ring's slices
 did.
 
-Analytics and Spending divide the work: the destination answers how the period went — result, pace,
-what changed, the year — and Spending answers where the money went. Neither makes the reader pass
-through the other's totals to reach its own.
+Analytics and Spending divide the work: the destination answers **why** the period differs from an
+ordinary one, and Spending answers **where** the money went. Neither makes the reader pass through
+the other's totals to reach its own, and both read the same base, so the two can never state
+comparisons that contradict each other.
 
 ## The shell
 
@@ -670,11 +671,14 @@ balance — a route the reader had to remember rather than see — and Settings 
 which is not where anyone looks for it. It now sits in Home's header, in the slot those two icons
 vacated.
 
-The create action stays in the middle of the dock with the destinations flanking it. It keeps the
-same icon-over-label rhythm without a fill, a lift or a selection rule, because it makes a row; it is
-not a place. It is owned by the shell, so it opens over whatever destination asked for it and gives
-that destination back — it used to live inside the ledger screen, which meant writing something down
-from Accounts moved the reader to Home and left them there.
+The create action stays in the middle of the dock with the destinations flanking it, and it no longer
+dresses like them. With two destinations, standing between them was enough to say "not one of you";
+with four it read as a fifth section — same slot, same glyph weight, same word underneath. It is a
+control, so it takes the one thing no destination has: a surface. A filled disc, no label, the name
+in the content description where a screen reader still announces it as a button. It is owned by the
+shell, so it opens over whatever destination asked for it and gives that destination back — it used
+to live inside the ledger screen, which meant writing something down from Accounts moved the reader
+to Home and left them there.
 
 There is no pager between the roots. Two of them answer horizontal drags of their own — analytics
 moves through time that way — and a pager underneath would have been a second reader of the same
@@ -687,10 +691,18 @@ Back is one step, never a trail: from any root it returns to Home, and from a se
 pops to the root that opened it. Tapping through the dock is browsing, not descending, so Back does
 not replay the order destinations happened to be visited in.
 
-A dock label follows the reader's text scale only as far as 1.25×. The dock is fixed furniture and
-four names share the width with the create action; past that point the extra size costs the letters
-that carry the meaning, and "Анали…" names nothing. It is a growth cap, not a shrink — at scale 1.5
-the label still renders larger than it does at 1.0.
+Dock labels answer a large text size with geometry first. Above 1.15× the dock spends everything
+that is not a letter — its own margins drop from 20dp to 8dp and the gaps between slots close — and
+the create action asks for 56dp instead of 64dp now that it carries no word. Only if the widest name
+still does not fit does the type size come down, and then by exactly the ratio that name needs,
+measured in the style the dock actually draws. One size serves all four labels: four different sizes
+in one row of furniture reads as a defect. The floor is the size the dock renders at scale 1.0, so
+the labels are never smaller than a reader who asked for no enlargement already sees.
+
+The blanket 1.25× cap this replaced shrank names that fit perfectly well and still cut "Анали…" at
+1.5. The check is a device test (`LedgerDockLabelsTest`) that asks the layout itself whether any
+label reported visual overflow; the same assertion under Robolectric is worthless, because its text
+measurement is stubbed and reports overflow for "Home" at the ordinary size.
 
 ## Comparison base
 
@@ -704,10 +716,61 @@ month and a reader moving between them cannot hold four conventions at once.
   many days the comparison covers, or null when it covers whole periods.
 - A **projection** reaches the end of the period, so it keeps whole periods on the other side, and
   the label says it is a projection. `AnalyticsCategoryChange` therefore carries both figures:
-  `previousExpenseMinor` for the like-for-like delta and `previousWholeExpenseMinor` for the forecast.
-- The sentence names the base. "88% less than the previous month" on the fifth was five days measured
-  against thirty; the wording now ends "by this day" whenever the period is still running, and the
-  average on Spending says it covers the same days of the earlier months.
+  `typicalExpenseMinor` for the like-for-like delta and `typicalWholeExpenseMinor` for the forecast.
+- The base is **the ordinary level**, not the previous period: the average of up to three preceding
+  months (one preceding year), held in `AnalyticsBaseline` and read by Home's outlook, the "what
+  changed" block, the projection and Spending's hero alike. One month is as likely to be the unusual
+  one as this month is.
+- Only the periods that carry records enter the average. A month nobody imported is not a month
+  without spending; dividing by three when two months exist deflates the baseline and reports an
+  ordinary life as a surge. `AnalyticsBaseline.periods` is what was found, `requestedPeriods` is what
+  was asked for, and the caption says so when they differ.
+- With no earlier record at all there is no comparison — the block says it cannot compare instead of
+  measuring against an invented zero. A recorded month that genuinely held no spending is a real
+  zero: the difference is stated in money, and no percentage is printed anywhere in this block,
+  because a percentage of zero means nothing.
+- The caption names the base in dates rather than in adverbs: "Usual: May, June, July", or "Usual:
+  days 1–10 of May, June, July" while the period is still running. "By this day" named nothing a
+  reader could check.
+- The chart footer compares neighbouring bars, which is a different base from the ordinary level
+  above it, so it prints its own — "Base: July". Two comparisons may differ; neither may leave the
+  reader guessing which is which.
 - Chart bars stay whole months. A chart of months that drew part of one would be lying about its own
   axis; the comparison under it is the thing that gets cut to size.
 
+
+## What made the difference
+
+Analytics answers "why did this period cost more?" directly, above every chart. The block states one
+difference — "443.22 ₾ more than usual" — names the base under it, and then attributes that
+difference to categories.
+
+The attribution is arithmetic, not ranking. Each row is a category's contribution: what it spent in
+this period minus its share of the ordinary level. The rows therefore add up to the number stated
+above them, exactly:
+
+- Every category that spent in **either** window is included, so a category that stopped counts as
+  much as one that started: "nothing this period, 206.67 ₾ usually" explains as much as a new expense.
+- The baseline is split between categories by apportionment. Dividing each category's own total by
+  the number of periods truncates once per category, and the parts came out below the whole by up to
+  one minor unit each; the units the division drops go to the largest remainders. A block that says
+  "443.22 more than usual" over rows summing to 443.20 is asking to be disbelieved.
+- Three causes are shown. Everything else is one **"Other changes"** row carrying the exact
+  remainder, and one tap opens the full list — at which point the remainder is zero and the row is
+  gone.
+- Each row draws its contribution as a bar from a centre line, right for more and left for less. A
+  bar that only grew rightwards would make a category that fell look like one that rose a little.
+- The row's own number is the contribution, not the category total. A column of totals beside a
+  difference reads as a list of separate expenses that happen to be near each other.
+- Tapping a row opens the payments behind it, with the period and category kept. That is where a
+  reader checks whether "Health" was dental work — the block never says so. It names categories and
+  amounts; the reason is the reader's to decide, and an inference drawn from a merchant name would be
+  a guess printed as a fact.
+
+Three things this deliberately does not conflate: the largest category of spending, the category that
+grew most, and one large purchase. In the QA scenario rent is by far the largest expense and
+contributes nothing, which is exactly the answer a screen that merely ranked spending would get wrong.
+
+An ordinary level is not a budget. The block never calls spending above it an overspend: there is no
+user-declared target in WHFIN yet, and inventing one out of history would put words in the owner's
+mouth.

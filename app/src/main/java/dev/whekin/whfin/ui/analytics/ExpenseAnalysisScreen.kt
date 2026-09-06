@@ -188,19 +188,24 @@ private fun ExpenseHero(
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.tertiary,
         )
+        // The same base, the same sentence and the same caption as the overview screen: two screens
+        // each holding their own idea of "usual" can only make a reader wonder which one is true.
         Text(
-            averageComparisonText(data.expenseMinor, data.spendingAverageMinor, data.period.scale),
+            if (data.baseline.isKnown) differenceText(data.expenseMinor, data.baseline.expenseMinor)
+            else stringResource(
+                if (data.period.scale == AnalyticsScale.MONTH) R.string.analytics_baseline_none
+                else R.string.analytics_baseline_none_year,
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // While the month is still running, the average it is measured against covers the same days
-        // of each earlier month. Five days against three whole months was the old reading, and the
-        // sentence above cannot carry that qualification without becoming a paragraph.
-        if (data.comparisonDays != null) Text(
-            stringResource(R.string.analytics_partial_average),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
+            Text(
+                caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (data.pendingCount > 0) Text(
             stringResource(R.string.analytics_pending, data.pendingCount),
             style = MaterialTheme.typography.bodySmall,
@@ -568,30 +573,6 @@ private fun averageDeltaText(current: Long, average: Long): String? {
     return formatMinor(difference, "GEL", withSign = true)
 }
 
-@Composable
-private fun averageComparisonText(current: Long, average: Long, scale: AnalyticsScale): String {
-    // A month is read against the previous three; a year has only the year before it to be read against.
-    val month = scale == AnalyticsScale.MONTH
-    if (average <= 0L) return stringResource(
-        if (month) R.string.analytics_expenses_no_average else R.string.analytics_expenses_no_average_year,
-    )
-    val difference = abs(current - average)
-    val amount = formatMinor(difference, "GEL")
-    return when {
-        current > average -> stringResource(
-            if (month) R.string.analytics_expenses_above_average else R.string.analytics_expenses_above_average_year,
-            amount,
-        )
-        current < average -> stringResource(
-            if (month) R.string.analytics_expenses_below_average else R.string.analytics_expenses_below_average_year,
-            amount,
-        )
-        else -> stringResource(
-            if (month) R.string.analytics_expenses_at_average else R.string.analytics_expenses_at_average_year,
-        )
-    }
-}
-
 private val expensePreviewData = AnalyticsData(
     period = AnalyticsPeriod.month(YearMonth.of(2026, 7)),
     incomeMinor = 730_800,
@@ -612,7 +593,12 @@ private val expensePreviewData = AnalyticsData(
         AnalyticsMerchantValue(6, "Aversi", 9_450, 3),
         AnalyticsMerchantValue(null, null, 7_820, 6),
     ),
-    spendingAverageMinor = 549_100,
+    baseline = AnalyticsBaseline(
+        periods = (4..6).map { AnalyticsPeriod.month(YearMonth.of(2026, it)) },
+        requestedPeriods = 3,
+        expenseMinor = 549_100,
+        wholeExpenseMinor = 640_000,
+    ),
     trendFilter = AnalyticsTrendFilter.All,
     trendFilterName = null,
     trendValues = (1..12).map { month ->
@@ -655,7 +641,12 @@ private fun ExpenseAnalysisYearPreview() {
                     expensePreviewData.copy(
                         period = AnalyticsPeriod.year(YearMonth.of(2026, 7)),
                         expenseMinor = 6_294_000,
-                        spendingAverageMinor = 5_810_000,
+                        baseline = AnalyticsBaseline(
+                            periods = listOf(AnalyticsPeriod.year(YearMonth.of(2025, 1))),
+                            requestedPeriods = 1,
+                            expenseMinor = 5_810_000,
+                            wholeExpenseMinor = 5_810_000,
+                        ),
                     ),
                 ),
                 {}, {}, {}, {}, {}, {}, {}, {},

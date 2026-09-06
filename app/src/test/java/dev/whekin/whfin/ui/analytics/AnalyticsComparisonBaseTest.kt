@@ -46,10 +46,10 @@ class AnalyticsComparisonBaseTest {
         assertEquals(5, data.comparisonDays)
         // Only the 3 August payment falls inside the first five days; the 20 August one does not.
         assertEquals(10_000L, data.previousTrendExpenseMinor)
-        assertEquals(10_000L, data.categoryChanges.single().previousExpenseMinor)
+        assertEquals(10_000L, data.categoryChanges.single().typicalExpenseMinor)
         // The projection still reaches month end, so its own base stays the whole month.
-        assertEquals(100_000L, data.pace?.previousPeriodExpenseMinor)
-        assertEquals(100_000L, data.categoryChanges.single().previousWholeExpenseMinor)
+        assertEquals(100_000L, data.pace?.typicalWholeExpenseMinor)
+        assertEquals(100_000L, data.categoryChanges.single().typicalWholeExpenseMinor)
     }
 
     @Test
