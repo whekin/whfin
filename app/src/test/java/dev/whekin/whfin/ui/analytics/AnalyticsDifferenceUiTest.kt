@@ -20,6 +20,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.onAllNodesWithTag
+import org.junit.Assert.assertTrue
+import kotlin.math.abs
 
 /**
  * The block that answers "why did this month cost more" on the real calculation.
@@ -38,9 +41,9 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.DEARER)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-changes"))
-        compose.onNodeWithText("443.22 ₾ more than usual").assertIsDisplayed()
+        compose.onNodeWithText("443.22 ₾ above the recorded average").assertIsDisplayed()
         // The base is spelled out: three named months, not "by this day".
-        compose.onNodeWithText("Usual: May, June, July").assertIsDisplayed()
+        compose.onNodeWithText("Averaged over May, June, July").assertIsDisplayed()
         listOf("analytics-change-4", "analytics-change-5", "analytics-change-6").forEach { tag ->
             compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag(tag))
             compose.onNodeWithTag(tag).assertIsDisplayed()
@@ -49,6 +52,40 @@ class AnalyticsDifferenceUiTest {
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-changes-rest"))
         compose.onNodeWithTag("analytics-changes-rest").assertIsDisplayed()
         compose.onNodeWithText("-170.11 ₾").assertIsDisplayed()
+    }
+
+    @Test
+    fun theBaseNeverClaimsAMonthWasRecordedInFull() {
+        content(AnalyticsScenario.Shape.DEARER)
+
+        // A month holding one row is not a month that held one payment, and WHFIN cannot show any
+        // month complete: it records statement periods per imported account and nothing for cash,
+        // manual entries or an account nobody imported. So the average is called what it provably
+        // is, and the rest is said quietly next to it.
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-limit"))
+        compose.onNodeWithText(
+            "Counted from recorded spending; those months may be incomplete",
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun everyBarIsMeasuredFromOneAxis() {
+        content(AnalyticsScenario.Shape.DEARER)
+
+        // Scrolled so the remainder is on screen with the rows: it is the row most likely to drift,
+        // having no icon of its own and a different trailing amount.
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-changes-rest"))
+        val axes = compose.onAllNodesWithTag("analytics-change-axis", useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            // A row scrolled past the bottom of a short test window is composed but never placed,
+            // and an unplaced node reports an empty rect rather than a position.
+            .filterNot { it.boundsInRoot.isEmpty }
+            .map { it.boundsInRoot.left }
+        // The bars used to live inside the text column, whose width followed the width of the
+        // amount printed beside it, so each row put its zero somewhere else and the column of bars
+        // compared nothing. Rows may differ in height; their zero may not differ in place.
+        assertTrue("expected several bars, found ${axes.size}", axes.size >= 3)
+        assertTrue("zero marks drift: $axes", axes.all { abs(it - axes.first()) < 0.5f })
     }
 
     @Test
@@ -99,7 +136,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.ZERO_BASELINE)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference"))
-        compose.onNodeWithText("2,650.00 ₾ more than usual").assertIsDisplayed()
+        compose.onNodeWithText("2,650.00 ₾ above the recorded average").assertIsDisplayed()
     }
 
     @Test
@@ -107,7 +144,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.CHEAPER)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference"))
-        compose.onNodeWithText("451.78 ₾ less than usual").assertIsDisplayed()
+        compose.onNodeWithText("451.78 ₾ below the recorded average").assertIsDisplayed()
     }
 
     @Test
@@ -115,7 +152,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.SHORT_HISTORY)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-base"))
-        compose.onNodeWithText("Usual: July · 1 of 3 months recorded").assertIsDisplayed()
+        compose.onNodeWithText("Averaged over July · 1 of 3 months recorded").assertIsDisplayed()
     }
 
     @Test
@@ -123,7 +160,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.DEARER, running = true)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-base"))
-        compose.onNodeWithText("Usual: days 1–10 of May, June, July").assertIsDisplayed()
+        compose.onNodeWithText("Averaged over days 1–10 of May, June, July").assertIsDisplayed()
     }
 
     @Test

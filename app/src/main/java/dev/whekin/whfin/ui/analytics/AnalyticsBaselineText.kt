@@ -72,6 +72,18 @@ internal fun differenceText(current: Long, typical: Long): String {
     )
 }
 
+/**
+ * What the base cannot promise.
+ *
+ * WHFIN records statement periods per imported account, and nothing at all for cash, manual entries
+ * or an account nobody has imported — so no month can be shown to be complete, and a month holding
+ * one row must not be read as a month that held one payment. The average is therefore never called
+ * usual or normal; it is called what it provably is, an average of what was recorded, and this line
+ * says the rest quietly rather than in an alarm.
+ */
+@Composable
+internal fun baselineLimitation(): String = stringResource(R.string.analytics_baseline_limitation)
+
 /** The same naming for a single period, used where a chart compares with the bar before it. */
 @Composable
 internal fun periodSpanText(period: AnalyticsPeriod, comparisonDays: Int?): String =

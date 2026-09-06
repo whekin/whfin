@@ -658,10 +658,15 @@ them, at the size of the screen. Each row draws its own share as a hairline unde
 thing being compared already is, and the row still selects the category the way the ring's slices
 did.
 
-Analytics and Spending divide the work: the destination answers **why** the period differs from an
-ordinary one, and Spending answers **where** the money went. Neither makes the reader pass through
-the other's totals to reach its own, and both read the same base, so the two can never state
+Analytics and Spending divide the work: the destination answers **why** the period differs from the
+recorded average, and Spending answers **where** the money went. Neither makes the reader pass
+through the other's totals to reach its own, and both read the same base, so the two can never state
 comparisons that contradict each other.
+
+Analytics reaches Spending through one row, not a picture. A full-width colour bar used to stand
+there under a heading with a framed button below it, and it carried no names, no amounts and no
+scale — five anonymous colours whose only reading was "some categories are bigger than others",
+above a button leading to the screen that shows the same proportions with the names beside them.
 
 ## The shell
 
@@ -717,10 +722,17 @@ month and a reader moving between them cannot hold four conventions at once.
 - A **projection** reaches the end of the period, so it keeps whole periods on the other side, and
   the label says it is a projection. `AnalyticsCategoryChange` therefore carries both figures:
   `typicalExpenseMinor` for the like-for-like delta and `typicalWholeExpenseMinor` for the forecast.
-- The base is **the ordinary level**, not the previous period: the average of up to three preceding
+- The base is **an average of what was recorded**, not the previous period: up to three preceding
   months (one preceding year), held in `AnalyticsBaseline` and read by Home's outlook, the "what
   changed" block, the projection and Spending's hero alike. One month is as likely to be the unusual
   one as this month is.
+- It is never called usual, normal or typical **in the copy**. WHFIN records statement periods per
+  imported account and nothing at all for cash, manual entries or an account nobody has imported, so
+  no month can be shown to be complete and a month holding one row must not be read as a month that
+  held one payment. The sentence says what is provable — "443.22 ₾ above the recorded average" — and
+  a quiet line beside the base says the rest: "Counted from recorded spending; those months may be
+  incomplete." No warning colour, no icon: it is a property of every average this app can compute,
+  not an incident.
 - Only the periods that carry records enter the average. A month nobody imported is not a month
   without spending; dividing by three when two months exist deflates the baseline and reports an
   ordinary life as a surge. `AnalyticsBaseline.periods` is what was found, `requestedPeriods` is what
@@ -729,9 +741,9 @@ month and a reader moving between them cannot hold four conventions at once.
   measuring against an invented zero. A recorded month that genuinely held no spending is a real
   zero: the difference is stated in money, and no percentage is printed anywhere in this block,
   because a percentage of zero means nothing.
-- The caption names the base in dates rather than in adverbs: "Usual: May, June, July", or "Usual:
-  days 1–10 of May, June, July" while the period is still running. "By this day" named nothing a
-  reader could check.
+- The caption names the base in dates rather than in adverbs: "Averaged over May, June, July", or
+  "Averaged over days 1–10 of May, June, July" while the period is still running. "By this day"
+  named nothing a reader could check.
 - The chart footer compares neighbouring bars, which is a different base from the ordinary level
   above it, so it prints its own — "Base: July". Two comparisons may differ; neither may leave the
   reader guessing which is which.
@@ -756,10 +768,20 @@ above them, exactly:
   one minor unit each; the units the division drops go to the largest remainders. A block that says
   "443.22 more than usual" over rows summing to 443.20 is asking to be disbelieved.
 - Three causes are shown. Everything else is one **"Other changes"** row carrying the exact
-  remainder, and one tap opens the full list — at which point the remainder is zero and the row is
-  gone.
+  remainder, and one quiet line — not a framed button — opens the full list, at which point the
+  remainder is zero and the row is gone.
 - Each row draws its contribution as a bar from a centre line, right for more and left for less. A
   bar that only grew rightwards would make a category that fell look like one that rose a little.
+- The bar spans the **whole row**, not the text column beside the amount. Inside that column its
+  width followed the width of the amount printed on the right — "+518.33" and "-12.92" are not the
+  same length — so every row put its zero somewhere else and a column of bars compared nothing. One
+  axis, one money scale for the block, and a length that depends on the contribution and on nothing
+  else. `AnalyticsDifferenceUiTest` asserts the zero marks share a position rather than pinning any
+  padding.
+- The block has no container. It explains; it does not ask for a decision, and a tonal card with a
+  heading, a subheading, a rule and a framed button around five short rows was more furniture than
+  answer. The heading carries no supporting line either: "what each category added to the
+  difference" is what a column of signed contributions under a stated difference already is.
 - The row's own number is the contribution, not the category total. A column of totals beside a
   difference reads as a list of separate expenses that happen to be near each other.
 - Tapping a row opens the payments behind it, with the period and category kept. That is where a

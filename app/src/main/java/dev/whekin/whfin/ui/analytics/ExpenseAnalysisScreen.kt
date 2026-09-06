@@ -189,19 +189,28 @@ private fun ExpenseHero(
             color = MaterialTheme.colorScheme.tertiary,
         )
         // The same base, the same sentence and the same caption as the overview screen: two screens
-        // each holding their own idea of "usual" can only make a reader wonder which one is true.
-        Text(
-            if (data.baseline.isKnown) differenceText(data.expenseMinor, data.baseline.expenseMinor)
-            else stringResource(
-                if (data.period.scale == AnalyticsScale.MONTH) R.string.analytics_baseline_none
-                else R.string.analytics_baseline_none_year,
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
+        // each holding their own idea of what is normal can only make a reader wonder which is true.
+        // The three lines are one statement, so they sit together rather than drifting apart.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                caption,
+                if (data.baseline.isKnown) differenceText(data.expenseMinor, data.baseline.expenseMinor)
+                else stringResource(
+                    if (data.period.scale == AnalyticsScale.MONTH) R.string.analytics_baseline_none
+                    else R.string.analytics_baseline_none_year,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
+                Text(
+                    caption,
+                    modifier = Modifier.testTag("expense-difference-base"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (data.baseline.isKnown) Text(
+                baselineLimitation(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -211,105 +220,6 @@ private fun ExpenseHero(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-private data class ExpenseRingSlice(
-    val categoryId: Long?,
-    val expenseMinor: Long,
-    val color: Color,
-    val other: Boolean = false,
-)
-
-@Composable
-private fun ExpenseDistribution(data: AnalyticsData, modifier: Modifier = Modifier) {
-    val fallbackColors = listOf(
-        WhfinThemeTokens.colors.bottle,
-        WhfinThemeTokens.colors.clay,
-        MaterialTheme.colorScheme.secondary,
-        WhfinThemeTokens.colors.sage,
-        MaterialTheme.colorScheme.tertiary,
-    )
-    val colored = data.categoryValues.mapIndexed { index, value ->
-        ExpenseRingSlice(
-            categoryId = value.categoryId,
-            expenseMinor = value.expenseMinor,
-            color = value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
-        )
-    }
-    val slices = if (colored.size <= 6) colored else colored.take(5) + ExpenseRingSlice(
-        categoryId = null,
-        expenseMinor = colored.drop(5).sumOf { it.expenseMinor },
-        color = MaterialTheme.colorScheme.outline,
-        other = true,
-    )
-    val selectedFilter = data.trendFilter as? AnalyticsTrendFilter.Category
-    val selectedValue = selectedFilter?.let { filter ->
-        data.categoryValues.firstOrNull { it.categoryId == filter.categoryId }
-    }
-    val selectedIndex = selectedFilter?.let { filter ->
-        slices.indexOfFirst { !it.other && it.categoryId == filter.categoryId }.takeIf { it >= 0 }
-    }
-    val selectedName = when {
-        selectedFilter == null -> stringResource(R.string.analytics_all_expenses)
-        selectedValue?.name != null -> selectedValue.name
-        else -> stringResource(R.string.analytics_uncategorized)
-    }
-    val selectedShare = if (data.expenseMinor <= 0L) 0.0 else {
-        (selectedValue?.expenseMinor ?: data.expenseMinor).toDouble() / data.expenseMinor
-    }
-
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        WhfinSectionHeader(
-            title = stringResource(R.string.analytics_expenses_composition),
-        )
-        if (data.categoryValues.isEmpty()) {
-            WhfinStatePane(
-                state = WhfinPaneState.Empty,
-                title = stringResource(R.string.analytics_expenses_empty_title),
-                body = stringResource(R.string.analytics_expenses_empty_body),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                WhfinDonutChart(
-                    segments = slices.map { WhfinDistributionSegment(it.expenseMinor.toFloat(), it.color) },
-                    contentDescription = stringResource(
-                        R.string.analytics_expenses_distribution_description,
-                        formatMinor(data.expenseMinor, "GEL"),
-                    ),
-                    selectedIndex = selectedIndex,
-                ) {
-                    Column(
-                        Modifier.width(112.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        // With nothing selected the ring used to announce "100% · All expenses",
-                        // which is true of every ring ever drawn and says nothing about this one.
-                        // The centre carries the amount the ring is made of until a slice is
-                        // chosen; then the share is the fact worth having there.
-                        if (selectedFilter == null) WhfinAmount(
-                            formatMinor(data.expenseMinor, "GEL"),
-                            symbol = currencySymbol("GEL"),
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
-                        ) else Text(
-                            NumberFormat.getPercentInstance().format(selectedShare),
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            selectedName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 

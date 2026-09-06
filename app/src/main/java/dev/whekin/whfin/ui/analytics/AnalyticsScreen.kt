@@ -101,6 +101,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import dev.whekin.whfin.core.ui.WhfinLedgerRow
 
 @Composable
 internal fun AnalyticsScreen(
@@ -346,7 +347,7 @@ internal fun AnalyticsContent(
         }
         item(key = "categories") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
-                CategoryShape(data = data, onOpenExpenses = onOpenExpenses)
+                SpendingLink(data = data, onOpenExpenses = onOpenExpenses)
             }
         }
         item(key = "trend") {
@@ -661,14 +662,11 @@ private fun SpendingDifference(
     val month = data.period.scale == AnalyticsScale.MONTH
     Column(
         Modifier.testTag("analytics-changes"),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        WhfinSectionHeader(
-            title = stringResource(R.string.analytics_changes_title),
-            supportingText = stringResource(
-                if (month) R.string.analytics_changes_hint else R.string.analytics_changes_hint_year,
-            ),
-        )
+        // No supporting line: "what each category added to the difference" is what a column of
+        // signed contributions under a stated difference already is.
+        WhfinSectionHeader(title = stringResource(R.string.analytics_changes_title))
         if (!data.baseline.isKnown) {
             // Missing months are not cheap months. Rather than divide by periods nobody imported
             // and report the shortfall as a surge, the block says it cannot compare.
@@ -689,6 +687,7 @@ private fun SpendingDifference(
         // Whatever is not on screen is still part of the difference, so it is stated rather than
         // left for the reader to discover that the rows do not add up.
         val rest = totalDelta - shown.sumOf { it.deltaMinor }
+        // One scale for the whole block, so a bar's length is a sum of money and nothing else.
         val widest = maxOf(
             shown.maxOfOrNull { abs(it.deltaMinor) } ?: 0L,
             abs(rest),
@@ -699,61 +698,64 @@ private fun SpendingDifference(
             WhfinThemeTokens.colors.bottle,
             MaterialTheme.colorScheme.secondary,
         )
-        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        differenceText(data.expenseMinor, data.baseline.expenseMinor),
-                        modifier = Modifier.testTag("analytics-difference"),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (totalDelta > 0L) MaterialTheme.colorScheme.tertiary
-                        else MaterialTheme.colorScheme.primary,
-                    )
-                    baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
-                        Text(
-                            caption,
-                            modifier = Modifier.testTag("analytics-difference-base"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (shown.isNotEmpty() || rest != 0L) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                shown.forEachIndexed { index, change ->
-                    val name = change.name ?: stringResource(R.string.analytics_uncategorized)
-                    CategoryChangeRow(
-                        change = change,
-                        name = name,
-                        color = change.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
-                        widestMinor = widest,
-                        onClick = {
-                            onOpenTransactions(
-                                AnalyticsTransactionsRequest(
-                                    period = data.period,
-                                    categoryFilterEnabled = true,
-                                    categoryId = change.categoryId,
-                                    filterName = name,
-                                    expectedExpenseMinor = change.expenseMinor,
-                                ),
-                            )
-                        },
-                    )
-                }
-                if (rest != 0L) ChangeRemainder(rest, widest)
-                if (changes.size > MAIN_CAUSES) WhfinButton(
-                    label = if (expanded) stringResource(R.string.analytics_changes_show_main)
-                    else stringResource(R.string.analytics_changes_show_all, changes.size),
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.fillMaxWidth().testTag("analytics-changes-expand"),
-                    style = WhfinActionStyle.Secondary,
+        // No container. This block explains; it does not ask for a decision, and a tonal card with
+        // a heading, a subheading, a rule and a framed button around five short rows was more
+        // furniture than answer.
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                differenceText(data.expenseMinor, data.baseline.expenseMinor),
+                modifier = Modifier.testTag("analytics-difference"),
+                style = MaterialTheme.typography.titleLarge,
+                color = if (totalDelta > 0L) MaterialTheme.colorScheme.tertiary
+                else MaterialTheme.colorScheme.primary,
+            )
+            baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
+                Text(
+                    caption,
+                    modifier = Modifier.testTag("analytics-difference-base"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Text(
+                baselineLimitation(),
+                modifier = Modifier.testTag("analytics-difference-limit"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+        if (shown.isNotEmpty() || rest != 0L) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        shown.forEachIndexed { index, change ->
+            val name = change.name ?: stringResource(R.string.analytics_uncategorized)
+            CategoryChangeRow(
+                change = change,
+                name = name,
+                color = change.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
+                widestMinor = widest,
+                onClick = {
+                    onOpenTransactions(
+                        AnalyticsTransactionsRequest(
+                            period = data.period,
+                            categoryFilterEnabled = true,
+                            categoryId = change.categoryId,
+                            filterName = name,
+                            expectedExpenseMinor = change.expenseMinor,
+                        ),
+                    )
+                },
+            )
+        }
+        if (rest != 0L) ChangeRemainder(rest, widest)
+        if (changes.size > MAIN_CAUSES) WhfinButton(
+            label = if (expanded) stringResource(R.string.analytics_changes_show_main)
+            else stringResource(R.string.analytics_changes_show_all, changes.size),
+            onClick = { expanded = !expanded },
+            // Unfolding a list is not an action anyone needs a filled or framed button for.
+            modifier = Modifier.testTag("analytics-changes-expand"),
+            style = WhfinActionStyle.Quiet,
+        )
     }
 }
 
@@ -788,89 +790,97 @@ private fun CategoryChangeRow(
         shape = MaterialTheme.shapes.small,
         color = Color.Transparent,
     ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier.size(34.dp).background(color.copy(alpha = .14f), CircleShape),
-                contentAlignment = Alignment.Center,
+        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    CategoryIcons.resolve(change.icon),
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(18.dp),
+                Box(
+                    Modifier.size(32.dp).background(color.copy(alpha = .14f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        CategoryIcons.resolve(change.icon),
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(17.dp),
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(name, style = MaterialTheme.typography.titleMedium)
+                    // What it spent and what it usually spends, kept beside each other and kept
+                    // distinct from the contribution on the right: one is a level, one is a change.
+                    Text(
+                        supporting,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // The row states its contribution, not the category total: a column of totals beside
+                // a difference reads as a list of separate expenses that happen to be near each other.
+                WhfinAmount(
+                    deltaText,
+                    symbol = currencySymbol("GEL"),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = changeColor(change.deltaMinor),
                 )
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    supporting,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                ChangeBar(change.deltaMinor, widestMinor)
-            }
-            // The row states its contribution, not the category total: a column of totals beside a
-            // difference reads as a list of separate expenses that happen to be near each other.
-            WhfinAmount(
-                deltaText,
-                symbol = currencySymbol("GEL"),
-                style = MaterialTheme.typography.titleMedium,
-                color = changeColor(change.deltaMinor),
-            )
+            ChangeBar(change.deltaMinor, widestMinor)
         }
     }
 }
 
 @Composable
 private fun ChangeRemainder(amountMinor: Long, widestMinor: Long) {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .padding(vertical = 8.dp)
+            .padding(vertical = 6.dp)
             .testTag("analytics-changes-rest"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Spacer(Modifier.size(34.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Spacer(Modifier.size(32.dp))
             Text(
                 stringResource(R.string.analytics_changes_rest),
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            ChangeBar(amountMinor, widestMinor)
+            WhfinAmount(
+                formatMinor(amountMinor, "GEL", withSign = true),
+                symbol = currencySymbol("GEL"),
+                style = MaterialTheme.typography.titleMedium,
+                color = changeColor(amountMinor),
+            )
         }
-        WhfinAmount(
-            formatMinor(amountMinor, "GEL", withSign = true),
-            symbol = currencySymbol("GEL"),
-            style = MaterialTheme.typography.titleMedium,
-            color = changeColor(amountMinor),
-        )
+        ChangeBar(amountMinor, widestMinor)
     }
 }
 
 /**
  * One contribution drawn from a centre line: right for more than usual, left for less.
  *
- * Rows all of one direction would need no centre, but a difference is made of both, and a bar that
- * only ever grew rightwards would make a category that fell look like one that rose a little.
+ * The bar spans the whole row rather than the text column beside the amount. Inside that column its
+ * width followed the width of the amount printed on the right — "+518.33" and "-12.92" are not the
+ * same length — so every row put its zero in a slightly different place and the column of bars
+ * compared nothing. Full width gives every row, the remainder included, one vertical axis.
  */
 @Composable
 private fun ChangeBar(valueMinor: Long, widestMinor: Long) {
     val fraction = (abs(valueMinor).toFloat() / widestMinor.coerceAtLeast(1L)).coerceIn(0f, 1f)
     val color = changeColor(valueMinor)
     Row(
-        Modifier.fillMaxWidth().padding(top = 2.dp).height(11.dp),
+        Modifier.fillMaxWidth().padding(top = 3.dp).height(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
             if (valueMinor < 0L) Box(
-                Modifier.fillMaxWidth(fraction).height(5.dp).background(color, CircleShape),
+                Modifier.fillMaxWidth(fraction).height(4.dp).background(color, CircleShape),
             )
         }
         // The zero mark has to be visible, or the bars read as arbitrary underlines rather than
@@ -878,12 +888,13 @@ private fun ChangeBar(valueMinor: Long, widestMinor: Long) {
         Box(
             Modifier
                 .width(1.5.dp)
-                .height(11.dp)
-                .background(MaterialTheme.colorScheme.outline),
+                .height(9.dp)
+                .background(MaterialTheme.colorScheme.outline)
+                .testTag("analytics-change-axis"),
         )
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (valueMinor > 0L) Box(
-                Modifier.fillMaxWidth(fraction).height(5.dp).background(color, CircleShape),
+                Modifier.fillMaxWidth(fraction).height(4.dp).background(color, CircleShape),
             )
         }
     }
@@ -897,50 +908,31 @@ private fun changeColor(valueMinor: Long): Color =
 private const val MAIN_CAUSES = 3
 
 /**
- * The shape of the period's spending, and one way into the screen that itemises it.
+ * The way into the screen that itemises this period's spending.
  *
- * Statistics used to carry a full category list of its own next to Spending's, each over a
- * different window. Two lists of the same categories can only make a reader wonder which one is
- * the truth, so the composition question now belongs to Spending alone and Statistics keeps the
- * bar that answers it at a glance.
+ * A full-width colour bar used to stand here with a heading and a framed button under it. The bar
+ * carried no names, no amounts and no scale — five anonymous colours whose only reading was "some
+ * categories are bigger than others" — and the screen it led to shows the same proportions with the
+ * names beside them. A row that says where it goes costs one line and answers the same amount.
  */
 @Composable
-private fun CategoryShape(data: AnalyticsData, onOpenExpenses: () -> Unit) {
-    val fallbackColors = listOf(
-        WhfinThemeTokens.colors.bottle,
-        WhfinThemeTokens.colors.clay,
-        MaterialTheme.colorScheme.secondary,
-        WhfinThemeTokens.colors.sage,
-        MaterialTheme.colorScheme.tertiary,
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        WhfinSectionHeader(
-            title = stringResource(R.string.analytics_expenses_composition),
-            supportingText = stringResource(R.string.analytics_categories_hint),
+private fun SpendingLink(data: AnalyticsData, onOpenExpenses: () -> Unit) {
+    if (data.categoryValues.isEmpty()) return
+    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+        WhfinLedgerRow(
+            title = stringResource(R.string.analytics_open_spending),
+            icon = Icons.AutoMirrored.Filled.List,
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+            trailing = {
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            onClick = onOpenExpenses,
+            modifier = Modifier.testTag("analytics-open-categories"),
         )
-        if (data.categoryValues.isEmpty()) {
-            Text(
-                stringResource(R.string.analytics_empty_title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            WhfinDistributionBar(
-                data.categoryValues.mapIndexed { index, value ->
-                    WhfinDistributionSegment(
-                        value.expenseMinor.toFloat(),
-                        value.color?.let(::Color) ?: fallbackColors[index % fallbackColors.size],
-                    )
-                },
-            )
-            WhfinButton(
-                label = stringResource(R.string.analytics_expenses_by_category),
-                onClick = onOpenExpenses,
-                modifier = Modifier.fillMaxWidth().testTag("analytics-open-categories"),
-                style = WhfinActionStyle.Secondary,
-                leadingIcon = Icons.AutoMirrored.Filled.List,
-            )
-        }
     }
 }
 
