@@ -888,7 +888,6 @@ private fun ShellComposer(viewModel: FeedViewModel, onDismiss: () -> Unit) {
             ),
         ),
         selection = selection,
-        addLabel = stringResource(R.string.dock_add),
         addContentDescription = stringResource(R.string.add_transaction),
         onAdd = onAdd,
         onSelect = onSelect,

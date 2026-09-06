@@ -50,7 +50,10 @@ data class WhfinSizes(
     val buttonHeight: Dp = 52.dp,
     val dockHeight: Dp = 64.dp,
     val dockIcon: Dp = 22.dp,
-    val dockCenterSlot: Dp = 64.dp,
+    /** Width of the create action's slot: a control, so it takes only what a control needs. */
+    val dockAction: Dp = 56.dp,
+    /** The disc the create action is drawn on — the one surface in an otherwise flat dock. */
+    val dockActionMark: Dp = 44.dp,
     val ledgerMarker: Dp = 3.dp,
     /** Width of the rule that marks the dock destination being read. */
     val dockRule: Dp = 22.dp,

@@ -160,7 +160,6 @@ fun WhfinShellChromeGallery() {
                     ),
                 ),
                 selection = 0f,
-                addLabel = "New",
                 addContentDescription = "Add transaction",
                 onAdd = {},
                 onSelect = {},

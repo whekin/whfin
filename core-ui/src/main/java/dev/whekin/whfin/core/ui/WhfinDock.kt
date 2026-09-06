@@ -3,11 +3,11 @@ package dev.whekin.whfin.core.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,10 +37,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.lerp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.isUnspecified
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
@@ -55,9 +59,13 @@ data class WhfinDockDestination(
  * The primary WHFIN shell: the app's stable destinations and one independent create action.
  *
  * The dock is deliberately grounded in the screen canvas. Selection is shown by a filled glyph,
- * stronger label and color, plus one thin ledger rule that travels between the destinations. The
- * create action shares the same visual rhythm without pretending to be a destination: it sits in the
- * middle of the row, so the destinations flank it and it is never mistaken for one more of them.
+ * stronger label and color, plus one thin ledger rule that travels between the destinations.
+ *
+ * The create action does not borrow their shape. With two destinations, standing between them was
+ * enough to say "not one of you"; with four it read as a fifth section — same slot, same glyph
+ * weight, same label underneath. It is a control, so it is given the one thing no destination has:
+ * a surface. A filled disc with no label cannot be mistaken for a place, and the destinations keep
+ * the labels, the rule and the flat ground to themselves.
  *
  * [selection] is a position, not an index, so the rule can travel rather than blink: the caller
  * animates it, and it may sit between two items while the change is happening.
@@ -66,7 +74,6 @@ data class WhfinDockDestination(
 fun WhfinDock(
     destinations: List<WhfinDockDestination>,
     selection: Float,
-    addLabel: String,
     addContentDescription: String,
     onAdd: () -> Unit,
     onSelect: (Int) -> Unit,
@@ -77,6 +84,13 @@ fun WhfinDock(
     val addAfter = destinations.size / 2
     val spacing = WhfinThemeTokens.spacing
     val sizes = WhfinThemeTokens.sizes
+    // Geometry answers the reader's text size before the text does. Four names and a control share
+    // one phone width, so at a large scale the dock first spends its own margins and the air between
+    // the slots — everything that is not a letter — and only then considers the letters.
+    val fontScale = LocalDensity.current.fontScale
+    val roomy = fontScale <= COMPACT_SCALE
+    val railPadding = if (roomy) spacing.rail else spacing.xs
+    val itemGap = if (roomy) spacing.xs else 0.dp
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background,
@@ -86,73 +100,78 @@ fun WhfinDock(
                 modifier = Modifier.padding(horizontal = spacing.rail),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .heightIn(min = sizes.dockHeight)
-                    .padding(horizontal = spacing.rail),
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                destinations.take(addAfter).forEachIndexed { index, destination ->
-                    WhfinDockItem(
-                        destination = destination,
-                        emphasis = dockEmphasis(position, index),
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelect(index) },
-                    )
-                }
-                Surface(
-                    onClick = onAdd,
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val slotWidth = (
+                    maxWidth - railPadding * 2 - sizes.dockAction - itemGap * destinations.size
+                    ) / destinations.size - DOCK_ITEM_PADDING * 2
+                val labelSize = dockLabelSize(destinations, slotWidth)
+                Row(
                     modifier = Modifier
-                        .width(sizes.dockCenterSlot)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                         .heightIn(min = sizes.dockHeight)
-                        .testTag("dock-add")
-                        .semantics { role = Role.Button },
-                    shape = MaterialTheme.shapes.medium,
-                    color = Color.Transparent,
+                        .padding(horizontal = railPadding),
+                    horizontalArrangement = Arrangement.spacedBy(itemGap),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 3.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Spacer(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(sizes.ledgerMarker),
+                    destinations.take(addAfter).forEachIndexed { index, destination ->
+                        WhfinDockItem(
+                            destination = destination,
+                            emphasis = dockEmphasis(position, index),
+                            labelSize = labelSize,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSelect(index) },
                         )
-                        WhfinDockAddMark(
-                            contentDescription = addContentDescription,
-                            modifier = Modifier
-                                .padding(top = 3.dp)
-                                .size(sizes.dockIcon),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            text = addLabel,
-                            modifier = Modifier.padding(top = 2.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                    }
+                    WhfinDockAction(
+                        contentDescription = addContentDescription,
+                        onClick = onAdd,
+                    )
+                    destinations.drop(addAfter).forEachIndexed { offset, destination ->
+                        val index = addAfter + offset
+                        WhfinDockItem(
+                            destination = destination,
+                            emphasis = dockEmphasis(position, index),
+                            labelSize = labelSize,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSelect(index) },
                         )
                     }
                 }
-                destinations.drop(addAfter).forEachIndexed { offset, destination ->
-                    val index = addAfter + offset
-                    WhfinDockItem(
-                        destination = destination,
-                        emphasis = dockEmphasis(position, index),
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelect(index) },
-                    )
-                }
             }
         }
+    }
+}
+
+/**
+ * One type size for every dock label, chosen from the widest name and the room it actually has.
+ *
+ * A blanket cap on the text scale shrank names that fit perfectly well; per-label auto-sizing would
+ * set four different sizes in one row of furniture. The longest name decides for all of them, and
+ * the floor is the size the dock renders at scale 1.0 — the labels never come out smaller than a
+ * reader who asked for no enlargement already sees.
+ */
+@Composable
+private fun dockLabelSize(destinations: List<WhfinDockDestination>, slotWidth: Dp): TextUnit {
+    val base = MaterialTheme.typography.labelMedium.fontSize
+    val style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    if (base.isUnspecified || slotWidth <= 0.dp) return base
+    return remember(destinations, slotWidth, density.density, density.fontScale, style) {
+        // Measured in the style the dock actually draws — family, weight and letter spacing
+        // included. A bare TextStyle(fontSize) measures a different typeface and reports room the
+        // real one does not have, which is how a shorter name ended up as the ellipsised one.
+        val widest = destinations.maxOf { destination ->
+            measurer.measure(destination.label, style = style).size.width
+        }
+        val available = with(density) { slotWidth.toPx() }
+        if (widest <= available) return@remember base
+        // Advance width is very close to linear in point size, so one measurement is enough; the
+        // margin absorbs the hinting that is not.
+        val ratio = (available / widest) * DOCK_LABEL_SAFETY
+        val floor = 1f / density.fontScale.coerceAtLeast(1f)
+        base * ratio.coerceIn(floor.coerceAtMost(1f), 1f)
     }
 }
 
@@ -164,6 +183,46 @@ fun WhfinDock(
  */
 private fun dockEmphasis(position: Float, index: Int): Float =
     (1f - kotlin.math.abs(position - index)).coerceIn(0f, 1f)
+
+/**
+ * The create action: the only thing in the dock that is pressed rather than gone to.
+ *
+ * It carries no label because the disc already says it is a control, and a word underneath was
+ * exactly what made it read as a fifth destination. The name lives in the content description,
+ * where a screen reader still announces it as a button.
+ */
+@Composable
+private fun WhfinDockAction(
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    val sizes = WhfinThemeTokens.sizes
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .width(sizes.dockAction)
+            .heightIn(min = sizes.dockHeight)
+            .testTag("dock-add")
+            .semantics { role = Role.Button },
+        color = Color.Transparent,
+    ) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier.size(sizes.dockActionMark),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    WhfinDockAddMark(
+                        contentDescription = contentDescription,
+                        modifier = Modifier.size(sizes.dockIcon),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun WhfinDockAddMark(
@@ -203,6 +262,7 @@ private fun WhfinDockAddMark(
 private fun WhfinDockItem(
     destination: WhfinDockDestination,
     emphasis: Float,
+    labelSize: TextUnit,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
@@ -239,7 +299,7 @@ private fun WhfinDockItem(
             // words rather than on air beside them.
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 3.dp),
+                .padding(horizontal = DOCK_ITEM_PADDING, vertical = 3.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -280,20 +340,11 @@ private fun WhfinDockItem(
                     tint = contentColor.copy(alpha = emphasis),
                 )
             }
-            // Four names share a phone's width with the create action, and a destination whose name
-            // is cut in half is not named at all — "Анали…" tells the reader nothing. The dock is
-            // fixed furniture: its labels follow the reader's text size, but only so far, because
-            // past that point the extra size costs the letters that carry the meaning. The cap is a
-            // growth limit, not a shrink: at 1.5 the label still renders larger than it does at 1.0.
-            val labelStyle = MaterialTheme.typography.labelMedium.let { base ->
-                val scale = LocalDensity.current.fontScale
-                if (scale <= DOCK_LABEL_MAX_SCALE) base
-                else base.copy(fontSize = base.fontSize * (DOCK_LABEL_MAX_SCALE / scale))
-            }
             Text(
                 text = destination.label,
                 modifier = Modifier.padding(top = 2.dp),
-                style = labelStyle.copy(
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = labelSize,
                     fontWeight = lerp(FontWeight.Medium, FontWeight.SemiBold, emphasis),
                 ),
                 color = contentColor,
@@ -305,5 +356,10 @@ private fun WhfinDockItem(
     }
 }
 
-/** How far a dock label follows the reader's text scale before the slot runs out of room. */
-private const val DOCK_LABEL_MAX_SCALE = 1.25f
+/** Above this text scale the dock gives up its margins and the gaps between slots to the words. */
+private const val COMPACT_SCALE = 1.15f
+
+/** Room kept beside a label so hinting cannot push the last glyph into an ellipsis. */
+private const val DOCK_LABEL_SAFETY = .94f
+
+private val DOCK_ITEM_PADDING = 2.dp

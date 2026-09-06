@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,6 +16,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -51,11 +54,13 @@ class LedgerDockTest {
             }
         }
 
-        // The create action rides the same rhythm without being a fifth destination: it makes a
-        // row, it is not a place, so it never takes the selection with it.
+        // The create action is not a fifth destination and no longer dresses like one: it is a
+        // button, announced by name, carrying no label of its own, and it never takes the selection.
         compose.onNodeWithTag("dock-analytics").assertIsSelected()
         compose.onNodeWithContentDescription("New transaction").assertExists()
-        compose.onNodeWithTag("dock-add").assertTextEquals("New").performClick()
+        compose.onNodeWithTag("dock-add").assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        compose.onNodeWithTag("dock-add").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
+        compose.onNodeWithTag("dock-add").performClick()
         assertEquals(3, selected)
         compose.onNodeWithTag("dock-analytics").assertIsSelected()
         assertEquals(1, addRequests)
