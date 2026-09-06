@@ -95,7 +95,7 @@ class AnalyticsScreenTest {
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
-        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
+        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
         compose.waitForIdle()
         compose.onNodeWithTag("analytics-view-transactions").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(timeoutMillis = 1_000) { opened != null }
@@ -224,7 +224,7 @@ class AnalyticsScreenTest {
         compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         // A category row states its distance from the comparison base as a signed number; the
         // sentence naming that base is printed once, on the section heading.
-        compose.onNodeWithText("+100.00 ₾", substring = true).assertExists()
+        compose.onNodeWithText("+100.00 ₾", substring = true).assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
     }
@@ -325,8 +325,8 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
-        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
-        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
+        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
 
@@ -355,8 +355,8 @@ class AnalyticsScreenTest {
         }
 
         compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-trend"))
-        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
-        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
+        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+        compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
 
@@ -436,7 +436,7 @@ class AnalyticsScreenTest {
         compose.onNodeWithTag("expense-merchants-sort-amount").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("expense-merchants-sort-count").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("expense-merchant-1").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("614.00 ₾").assertIsDisplayed()
+        compose.onNodeWithText("614.00 ₾").assertIsDisplayed()
     }
 
     @Test

@@ -14,6 +14,15 @@ fun parseToMinor(text: String): Long? {
         ?.takeIf { it != 0L }
 }
 
+/**
+ * The gap between an amount and its sign, which no line break may fall into.
+ *
+ * "166.64 ₾ · average 64.47 ₾" inside a row wrapped after the number and left the lari sign alone on
+ * the next line. An amount and its currency are one word; the sentence around them still has plenty
+ * of ordinary spaces to break at.
+ */
+private const val NBSP = '\u00A0'
+
 /** Символ валюты, который [formatMinor] подставляет в строку; нужен для тихого набора символа. */
 fun currencySymbol(currency: String): String = when (currency.uppercase()) {
     "GEL" -> "₾"
@@ -50,7 +59,7 @@ fun formatDecimal(amount: BigDecimal, currency: String): String {
     val text = formatter.format(amount.abs())
     return when (currency.uppercase()) {
         "USD", "GBP" -> "$sign${currencySymbol(currency)}$text"
-        else -> "$sign$text ${currencySymbol(currency)}"
+        else -> "$sign$text$NBSP${currencySymbol(currency)}"
     }
 }
 
@@ -70,6 +79,6 @@ fun formatMinor(amountMinor: Long, currency: String, withSign: Boolean = false):
     val amount = formatter.format(value)
     return when (normalizedCurrency) {
         "USD", "GBP" -> "$sign$symbol$amount"
-        else -> "$sign$amount $symbol"
+        else -> "$sign$amount$NBSP$symbol"
     }
 }

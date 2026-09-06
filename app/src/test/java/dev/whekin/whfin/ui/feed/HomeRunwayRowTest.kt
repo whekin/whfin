@@ -57,16 +57,16 @@ class HomeRunwayRowTest {
             }
         }
 
-        compose.onNodeWithText("May be 1,300.00 ₾ short by 4 Sep").assertExists()
-        compose.onNodeWithText("Day-to-day: ~100.00 ₾ a day", substring = true).assertExists()
-        compose.onNodeWithText("Landlord 1,200.00 ₾ on 3 Sep", substring = true).assertExists()
+        compose.onNodeWithText("May be 1,300.00 ₾ short by 4 Sep").assertExists()
+        compose.onNodeWithText("Day-to-day: ~100.00 ₾ a day", substring = true).assertExists()
+        compose.onNodeWithText("Landlord 1,200.00 ₾ on 3 Sep", substring = true).assertExists()
         // The dates are marks on the rule now, so the sentence naming the whole payday window
         // waits inside the calculation instead of repeating what the drawing already says.
         compose.onAllNodesWithText("usual date 5 Sep · with weekends 4 Sep", substring = true)
             .assertCountEquals(0)
         compose.onNodeWithContentDescription("Calculation details").performClick()
         compose.onNodeWithText("usual date 5 Sep · with weekends 4 Sep", substring = true).assertExists()
-        compose.onNodeWithText("~1,200.00 ₾ · expected 3 Sep").assertExists()
+        compose.onNodeWithText("~1,200.00 ₾ · expected 3 Sep").assertExists()
         compose.onNodeWithText("Future one-off purchases are not predicted.", substring = true).assertExists()
     }
 }

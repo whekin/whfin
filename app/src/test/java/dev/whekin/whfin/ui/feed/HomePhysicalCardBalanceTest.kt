@@ -37,7 +37,7 @@ class HomePhysicalCardBalanceTest {
 
         compose.onNodeWithText("Low balance · a payment may be declined").assertIsDisplayed()
         compose.onNodeWithText("Everyday · ••0001").assertIsDisplayed()
-        compose.onNodeWithText("99.99 ₾").assertIsDisplayed()
+        compose.onNodeWithText("99.99 ₾").assertIsDisplayed()
         compose.onAllNodesWithText("Top up").assertCountEquals(0)
     }
 

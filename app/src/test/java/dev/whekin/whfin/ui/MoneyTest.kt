@@ -29,7 +29,7 @@ class MoneyTest {
 
     @Test
     fun `gel keeps postfix symbol`() {
-        assertEquals("23.60 ₾", formatMinor(2_360, "GEL"))
-        assertEquals("-23.60 ₾", formatMinor(-2_360, "GEL", withSign = true))
+        assertEquals("23.60 ₾", formatMinor(2_360, "GEL"))
+        assertEquals("-23.60 ₾", formatMinor(-2_360, "GEL", withSign = true))
     }
 }

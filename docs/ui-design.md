@@ -730,9 +730,14 @@ month and a reader moving between them cannot hold four conventions at once.
   imported account and nothing at all for cash, manual entries or an account nobody has imported, so
   no month can be shown to be complete and a month holding one row must not be read as a month that
   held one payment. The sentence says what is provable — "443.22 ₾ above the recorded average" — and
-  a quiet line beside the base says the rest: "Counted from recorded spending; those months may be
-  incomplete." No warning colour, no icon: it is a property of every average this app can compute,
-  not an incident.
+  one line under it carries both the base and the caveat: "From records for May–July · history may
+  be incomplete". No warning colour, no icon: it is a property of every average this app can
+  compute, not an incident.
+- That line **opens**. The caveat is permanent, so it is cheap to state and has to stay short; the
+  reasoning behind it is worth reading once, and a paragraph about statement coverage repeated under
+  every comparison on two screens is a paragraph nobody reads twice. Tapping the base gives the
+  window it averaged, how many of the periods it asked for actually hold records, and why no month
+  can be shown complete.
 - Only the periods that carry records enter the average. A month nobody imported is not a month
   without spending; dividing by three when two months exist deflates the baseline and reports an
   ordinary life as a surge. `AnalyticsBaseline.periods` is what was found, `requestedPeriods` is what
@@ -741,9 +746,10 @@ month and a reader moving between them cannot hold four conventions at once.
   measuring against an invented zero. A recorded month that genuinely held no spending is a real
   zero: the difference is stated in money, and no percentage is printed anywhere in this block,
   because a percentage of zero means nothing.
-- The caption names the base in dates rather than in adverbs: "Averaged over May, June, July", or
-  "Averaged over days 1–10 of May, June, July" while the period is still running. "By this day"
-  named nothing a reader could check.
+- The caption names the base in dates rather than in adverbs: "From records for May–July", or
+  "…for days 1–10 of May–July" while the period is still running. "By this day" named nothing a
+  reader could check. Consecutive periods contract to a range; a set with a gap in it is still
+  listed in full, because a gap is not a range.
 - The chart footer compares neighbouring bars, which is a different base from the ordinary level
   above it, so it prints its own — "Base: July". Two comparisons may differ; neither may leave the
   reader guessing which is which.
@@ -796,3 +802,17 @@ contributes nothing, which is exactly the answer a screen that merely ranked spe
 An ordinary level is not a budget. The block never calls spending above it an overspend: there is no
 user-declared target in WHFIN yet, and inventing one out of history would put words in the owner's
 mouth.
+
+## Amounts do not break in half
+
+An amount and its currency sign are one word. `formatMinor` and `formatDecimal` join them with a
+non-breaking space, so "166.64 ₾ · average 64.47 ₾" inside a row wraps at the separator rather than
+leaving a lari sign alone on the next line. The sentence around an amount still has ordinary spaces
+to break at; the amount itself has none.
+
+## Quiet actions align with what they belong to
+
+`WhfinButton(style = Quiet, alignsWithContent = true)` drops Material's 14dp label inset, so an
+inline action — "All changes (5)" under a column of rows — starts where those rows start. The inset
+stays the default where a quiet action sits beside another action, because there it is the space
+between them.

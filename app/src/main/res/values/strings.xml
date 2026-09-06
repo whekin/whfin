@@ -1179,14 +1179,20 @@
     <string name="analytics_projected">Projected spend</string>
     <string name="analytics_spent_so_far">Spent so far</string>
     <!-- The comparison base, always named rather than implied. -->
-    <string name="analytics_baseline_usual">Averaged over %1$s</string>
+    <string name="analytics_baseline_range">%1$s–%2$s</string>
+    <string name="analytics_baseline_details_window">The average covers %1$s — the same stretch of days that has passed in this period.</string>
+    <string name="analytics_baseline_details_window_whole">The average covers %1$s, whole periods, because a projection runs to the end of this one.</string>
+    <string name="analytics_baseline_details_found">Of the %1$d preceding periods, %2$d hold records.</string>
+    <string name="analytics_baseline_details_limit">WHFIN keeps the period of every statement it has imported for a bank account, and nothing at all for cash, manual entries or an account nobody has imported. So no month can be shown to be complete: a month holding one row may be a month with one payment, or a month only one row was imported from. The average is what was recorded, and nothing stronger.</string>
+    <string name="analytics_baseline_details_close">Close</string>
+    <string name="analytics_baseline_usual">From records for %1$s · history may be incomplete</string>
     <string name="analytics_baseline_days">days 1–%1$d of %2$s</string>
     <string name="analytics_baseline_days_year">the same days of %1$s</string>
-    <string name="analytics_baseline_incomplete">%1$s · %2$d of %3$d months recorded</string>
-    <string name="analytics_baseline_incomplete_year">%1$s · %2$d of %3$d years recorded</string>
+    <string name="analytics_baseline_incomplete">From records for %1$s · %2$d of %3$d months</string>
+    <string name="analytics_baseline_incomplete_year">From records for %1$s · %2$d of %3$d years</string>
     <string name="analytics_baseline_none">No earlier months are recorded, so there is nothing to compare with</string>
     <string name="analytics_baseline_none_year">No earlier year is recorded, so there is nothing to compare with</string>
-    <string name="analytics_baseline_limitation">Counted from recorded spending; those months may be incomplete</string>
+    <string name="analytics_baseline_details">How this average is counted</string>
     <string name="analytics_open_spending">See what the money went on</string>
     <string name="analytics_difference_more">%1$s above the recorded average</string>
     <string name="analytics_difference_less">%1$s below the recorded average</string>

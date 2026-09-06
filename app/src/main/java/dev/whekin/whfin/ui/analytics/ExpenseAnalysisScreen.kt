@@ -201,19 +201,7 @@ private fun ExpenseHero(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
-                Text(
-                    caption,
-                    modifier = Modifier.testTag("expense-difference-base"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (data.baseline.isKnown) Text(
-                baselineLimitation(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            BaselineNote(data.baseline, data.comparisonDays)
         }
         if (data.pendingCount > 0) Text(
             stringResource(R.string.analytics_pending, data.pendingCount),

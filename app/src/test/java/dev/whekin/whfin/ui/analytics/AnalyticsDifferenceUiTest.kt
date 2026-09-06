@@ -23,6 +23,7 @@ import org.robolectric.annotation.Config
 import androidx.compose.ui.test.onAllNodesWithTag
 import org.junit.Assert.assertTrue
 import kotlin.math.abs
+import androidx.compose.ui.unit.dp
 
 /**
  * The block that answers "why did this month cost more" on the real calculation.
@@ -41,9 +42,9 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.DEARER)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-changes"))
-        compose.onNodeWithText("443.22 ₾ above the recorded average").assertIsDisplayed()
+        compose.onNodeWithText("443.22 ₾ above the recorded average").assertIsDisplayed()
         // The base is spelled out: three named months, not "by this day".
-        compose.onNodeWithText("Averaged over May, June, July").assertIsDisplayed()
+        compose.onNodeWithText("From records for May–July · history may be incomplete").assertIsDisplayed()
         listOf("analytics-change-4", "analytics-change-5", "analytics-change-6").forEach { tag ->
             compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag(tag))
             compose.onNodeWithTag(tag).assertIsDisplayed()
@@ -51,7 +52,7 @@ class AnalyticsDifferenceUiTest {
         // Groceries and Eating out are not shown, so what they add is stated rather than dropped.
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-changes-rest"))
         compose.onNodeWithTag("analytics-changes-rest").assertIsDisplayed()
-        compose.onNodeWithText("-170.11 ₾").assertIsDisplayed()
+        compose.onNodeWithText("-170.11 ₾").assertIsDisplayed()
     }
 
     @Test
@@ -60,12 +61,35 @@ class AnalyticsDifferenceUiTest {
 
         // A month holding one row is not a month that held one payment, and WHFIN cannot show any
         // month complete: it records statement periods per imported account and nothing for cash,
-        // manual entries or an account nobody imported. So the average is called what it provably
-        // is, and the rest is said quietly next to it.
-        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-limit"))
+        // manual entries or an account nobody imported. The caveat rides on one line; the reasoning
+        // behind it opens from that line rather than repeating under every comparison.
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-base"))
+        compose.onNodeWithTag("analytics-difference-base").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("How this average is counted").assertIsDisplayed()
         compose.onNodeWithText(
-            "Counted from recorded spending; those months may be incomplete",
+            "Of the 3 preceding periods, 3 hold records.",
         ).assertIsDisplayed()
+        compose.onNodeWithText("WHFIN keeps the period", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun everyContributionKeepsAFullTouchTarget() {
+        content(AnalyticsScenario.Shape.DEARER)
+
+        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-change-5"))
+        val minimum = with(compose.density) { 48.dp.toPx() }
+        val rows = listOf("analytics-change-4", "analytics-change-5", "analytics-difference-base")
+            .map { it to compose.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+            .filterNot { it.second.isEmpty }
+        // The visible row may be shorter than the target that opens it; the target may not be.
+        rows.forEach { (tag, bounds) ->
+            assertTrue("$tag is only ${bounds.height}px tall", bounds.height >= minimum)
+        }
+        // And two targets stacked in a column must not overlap, or the wrong one takes the tap.
+        rows.map { it.second }.sortedBy { it.top }.zipWithNext { above, below ->
+            assertTrue("targets overlap: $above / $below", above.bottom <= below.top + 0.5f)
+        }
     }
 
     @Test
@@ -136,7 +160,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.ZERO_BASELINE)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference"))
-        compose.onNodeWithText("2,650.00 ₾ above the recorded average").assertIsDisplayed()
+        compose.onNodeWithText("2,650.00 ₾ above the recorded average").assertIsDisplayed()
     }
 
     @Test
@@ -144,7 +168,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.CHEAPER)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference"))
-        compose.onNodeWithText("451.78 ₾ below the recorded average").assertIsDisplayed()
+        compose.onNodeWithText("451.78 ₾ below the recorded average").assertIsDisplayed()
     }
 
     @Test
@@ -152,7 +176,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.SHORT_HISTORY)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-base"))
-        compose.onNodeWithText("Averaged over July · 1 of 3 months recorded").assertIsDisplayed()
+        compose.onNodeWithText("From records for July · 1 of 3 months").assertIsDisplayed()
     }
 
     @Test
@@ -160,7 +184,7 @@ class AnalyticsDifferenceUiTest {
         content(AnalyticsScenario.Shape.DEARER, running = true)
 
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-difference-base"))
-        compose.onNodeWithText("Averaged over days 1–10 of May, June, July").assertIsDisplayed()
+        compose.onNodeWithText("From records for days 1–10 of May–July · history may be incomplete").assertIsDisplayed()
     }
 
     @Test

@@ -69,8 +69,8 @@ class TransactionDetailsSheetTest {
                 )
             }
         }
-        compose.onNode(hasText("7.62 €", substring = true)).assertIsDisplayed()
-        compose.onNode(hasText("0.00 ₾", substring = true)).assertDoesNotExist()
+        compose.onNode(hasText("7.62 €", substring = true)).assertIsDisplayed()
+        compose.onNode(hasText("0.00 ₾", substring = true)).assertDoesNotExist()
     }
 
     @Test

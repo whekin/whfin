@@ -52,7 +52,7 @@ class SavingsScreenTest {
         compose.onNodeWithText("Pace").performClick()
         compose.onNodeWithTag("savings-list").performScrollToIndex(3)
         compose.onNodeWithTag("whfin-savings-pace-bar-11").assertExists()
-        compose.onNodeWithContentDescription("December 2026, +240.00 ₾, Current monthly plan 1,000.00 ₾")
+        compose.onNodeWithContentDescription("December 2026, +240.00 ₾, Current monthly plan 1,000.00 ₾")
             .assertExists()
     }
 
@@ -73,10 +73,10 @@ class SavingsScreenTest {
         compose.runOnIdle { assertEquals(0, writes) }
         compose.onNodeWithTag("savings-open-calendar").performScrollTo().performClick()
         compose.onNodeWithTag("savings-date-picker").assertExists()
-        compose.onNodeWithTag("savings-projected-at-date").assertTextEquals("30,000.00 ₾")
+        compose.onNodeWithTag("savings-projected-at-date").assertTextEquals("30,000.00 ₾")
         compose.onNodeWithText("Monday, February 15, 2027", useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.OnClick) { it() }
-        compose.onNodeWithTag("savings-projected-at-date").assertTextEquals("28,000.00 ₾")
+        compose.onNodeWithTag("savings-projected-at-date").assertTextEquals("28,000.00 ₾")
         compose.onNodeWithContentDescription("Cancel").performClick()
         compose.onNodeWithText("Save").performClick()
         compose.runOnIdle { assertEquals(1, writes) }
@@ -90,7 +90,7 @@ class SavingsScreenTest {
         compose.onNodeWithContentDescription("Explore future reserve by month").assertExists()
         compose.onNodeWithContentDescription("Explore future reserve by month")
             .performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
-        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("18,400.00 ₾")
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("18,400.00 ₾")
     }
 
     @Test
@@ -118,7 +118,7 @@ class SavingsScreenTest {
                 { amount, goal, date -> savedAmount = amount; savedDate = date; assertEquals(3_000_000L, goal) }, null,
             ) }
         }
-        compose.onNodeWithText("Use 2,000.00 ₾ per month").performScrollTo().performClick()
+        compose.onNodeWithText("Use 2,000.00 ₾ per month").performScrollTo().performClick()
         compose.onNodeWithText("Save").performClick()
         compose.runOnIdle {
             assertEquals(200_000L, savedAmount)

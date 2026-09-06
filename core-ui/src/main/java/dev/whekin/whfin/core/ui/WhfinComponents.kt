@@ -117,6 +117,15 @@ fun WhfinButton(
     enabled: Boolean = true,
     style: WhfinActionStyle = WhfinActionStyle.Primary,
     leadingIcon: ImageVector? = null,
+    /**
+     * Whether the label should start where the surrounding text starts.
+     *
+     * A quiet action is a line of the content it belongs to, and Material insets a text button's
+     * label by 14dp — enough to leave "All changes (5)" visibly out of line with the rows above it.
+     * The inset stays the default for actions that sit beside other actions, where it is the space
+     * between them.
+     */
+    alignsWithContent: Boolean = false,
 ) {
     val content: @Composable RowScope.() -> Unit = {
         if (leadingIcon != null) {
@@ -156,7 +165,10 @@ fun WhfinButton(
             modifier = sized,
             enabled = enabled,
             shapes = shapes,
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(
+                horizontal = if (alignsWithContent) 0.dp else 14.dp,
+                vertical = 12.dp,
+            ),
             content = content,
         )
         WhfinActionStyle.Destructive -> Button(

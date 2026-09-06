@@ -1233,14 +1233,20 @@
     <string name="analytics_projected">Прогноз расходов</string>
     <string name="analytics_spent_so_far">Уже потрачено</string>
     <!-- База сравнения всегда названа, а не подразумевается. -->
-    <string name="analytics_baseline_usual">Среднее за %1$s</string>
+    <string name="analytics_baseline_range">%1$s–%2$s</string>
+    <string name="analytics_baseline_details_window">Среднее считается за %1$s — тот же отрезок дней, что уже прошёл в этом периоде.</string>
+    <string name="analytics_baseline_details_window_whole">Среднее считается за %1$s, целые периоды, потому что прогноз доходит до конца текущего.</string>
+    <string name="analytics_baseline_details_found">Из %1$d предыдущих периодов записи есть в %2$d.</string>
+    <string name="analytics_baseline_details_limit">WHFIN хранит период каждой загруженной выписки по банковскому счёту и ничего — по наличным, ручным операциям и счёту, который не импортировали. Поэтому подтвердить, что месяц записан целиком, нечем: месяц с одной записью может быть месяцем с одним платежом, а может — месяцем, из которого загрузилась одна строка. Среднее — это то, что записано, и ничего больше.</string>
+    <string name="analytics_baseline_details_close">Закрыть</string>
+    <string name="analytics_baseline_usual">По записям за %1$s · история может быть неполной</string>
     <string name="analytics_baseline_days">1–%1$d числа %2$s</string>
     <string name="analytics_baseline_days_year">те же дни %1$s года</string>
-    <string name="analytics_baseline_incomplete">%1$s · записаны %2$d из %3$d месяцев</string>
-    <string name="analytics_baseline_incomplete_year">%1$s · записаны %2$d из %3$d лет</string>
+    <string name="analytics_baseline_incomplete">По записям за %1$s · %2$d из %3$d месяцев</string>
+    <string name="analytics_baseline_incomplete_year">По записям за %1$s · %2$d из %3$d лет</string>
     <string name="analytics_baseline_none">Прошлые месяцы не записаны — сравнивать не с чем</string>
     <string name="analytics_baseline_none_year">Прошлый год не записан — сравнивать не с чем</string>
-    <string name="analytics_baseline_limitation">Считается по записанным расходам; история за эти месяцы может быть неполной</string>
+    <string name="analytics_baseline_details">Как считается среднее</string>
     <string name="analytics_open_spending">Посмотреть, на что ушли деньги</string>
     <string name="analytics_difference_more">На %1$s выше среднего по записям</string>
     <string name="analytics_difference_less">На %1$s ниже среднего по записям</string>

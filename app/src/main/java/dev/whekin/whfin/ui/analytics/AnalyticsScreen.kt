@@ -609,14 +609,8 @@ private fun SpendingPace(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         // A projection runs to the end of the period, so its partner stays whole:
-                        // the caption names those periods rather than the day-window above.
-                        baselineCaption(data.baseline, comparisonDays = null)?.let { caption ->
-                            Text(
-                                caption,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        // the note names those periods rather than the day window above.
+                        BaselineNote(data.baseline, data.comparisonDays, wholePeriods = true)
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -709,20 +703,7 @@ private fun SpendingDifference(
                 color = if (totalDelta > 0L) MaterialTheme.colorScheme.tertiary
                 else MaterialTheme.colorScheme.primary,
             )
-            baselineCaption(data.baseline, data.comparisonDays)?.let { caption ->
-                Text(
-                    caption,
-                    modifier = Modifier.testTag("analytics-difference-base"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                baselineLimitation(),
-                modifier = Modifier.testTag("analytics-difference-limit"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            BaselineNote(data.baseline, data.comparisonDays)
         }
         if (shown.isNotEmpty() || rest != 0L) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -752,9 +733,11 @@ private fun SpendingDifference(
             label = if (expanded) stringResource(R.string.analytics_changes_show_main)
             else stringResource(R.string.analytics_changes_show_all, changes.size),
             onClick = { expanded = !expanded },
-            // Unfolding a list is not an action anyone needs a filled or framed button for.
+            // Unfolding a list is not an action anyone needs a filled or framed button for, and its
+            // label belongs in the column the rows above it start in.
             modifier = Modifier.testTag("analytics-changes-expand"),
             style = WhfinActionStyle.Quiet,
+            alignsWithContent = true,
         )
     }
 }
