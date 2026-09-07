@@ -342,6 +342,7 @@ fun DataHealthScreen(
                     supportingText = status.lastImportAt?.let { millis ->
                         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
                             .withLocale(Locale.getDefault())
+                            // When the check last ran: the reader's clock, not a ledger day.
                             .format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
                     } ?: stringResource(R.string.data_health_status_sync_never),
                     supportingMaxLines = 3,

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Immutable
 internal data class AnalyticsTransactionsRequest(
@@ -58,7 +59,7 @@ private data class HistoryBase(
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class AnalyticsTransactionsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
-    private val zoneId = ZoneId.systemDefault()
+    private val zoneId = LedgerCalendar.zone
     private val request = MutableStateFlow<AnalyticsTransactionsRequest?>(null)
 
     private val cardHints = combine(

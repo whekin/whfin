@@ -9,6 +9,7 @@ import dev.whekin.whfin.data.statement.StatementFile
 import dev.whekin.whfin.data.statement.StatementParsers
 import java.io.InputStream
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 /**
  * Bank-neutral pipeline: statement file -> ledger.
@@ -66,7 +67,7 @@ class StatementImporter(private val db: WhfinDatabase) {
                 inserted == 0 && reconciled == 0 && reviewCount == 0
     }
 
-    private val zone = ZoneId.of("Asia/Tbilisi")
+    private val zone = LedgerCalendar.zone
 
     /** Re-runs pairing when a newly imported currency ledger makes old conversions matchable. */
     suspend fun repairTransferGroups() = TransferPairing(db, zone).repairAll()

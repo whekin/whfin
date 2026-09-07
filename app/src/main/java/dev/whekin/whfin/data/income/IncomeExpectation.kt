@@ -8,6 +8,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 /**
  * What a declared source said would arrive this month, next to what did.
@@ -106,7 +107,7 @@ object IncomeExpectations {
         transactions: List<TransactionEntity>,
         month: YearMonth,
         today: LocalDate,
-        zone: ZoneId = ZoneId.systemDefault(),
+        zone: ZoneId = LedgerCalendar.zone,
         payments: List<IncomeSourcePaymentEntity> = emptyList(),
     ): List<IncomeExpectation> {
         val confirmedBySource = payments.groupBy({ it.incomeSourceId }, { it.transactionId })

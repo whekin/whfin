@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.WhfinDatabase
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 /** A change of receiving account starts a new era instead of moving earlier pay to another account. */
 class IncomeSourceRepository(private val db: WhfinDatabase) {
@@ -37,7 +38,7 @@ class IncomeSourceRepository(private val db: WhfinDatabase) {
     suspend fun confirmPayment(
         sourceId: Long,
         transactionId: Long,
-        zone: ZoneId = ZoneId.systemDefault(),
+        zone: ZoneId = LedgerCalendar.zone,
         today: LocalDate = LocalDate.now(zone),
     ) = db.withTransaction {
         val source = requireNotNull(db.incomeSourceDao().byId(sourceId)) { "No such income source" }

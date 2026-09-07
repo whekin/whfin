@@ -8,6 +8,7 @@ import dev.whekin.whfin.data.db.TxSource
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 /**
  * The reserve snapshot and controlled saving flow for one calendar month.
@@ -61,7 +62,7 @@ fun calculateSavingsAnalytics(
     currency: String,
     fromMonth: YearMonth,
     throughMonth: YearMonth,
-    zoneId: ZoneId = ZoneId.systemDefault(),
+    zoneId: ZoneId = LedgerCalendar.zone,
 ): SavingsAnalytics {
     require(!fromMonth.isAfter(throughMonth)) {
         "fromMonth must not be after throughMonth"

@@ -78,6 +78,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
+import dev.whekin.whfin.data.LedgerCalendar
 
 data class ManualTransaction(
     val accountId: Long,
@@ -238,7 +239,7 @@ fun AddTransactionSheet(
                 personId = debtPersonId, personName = debtPersonName.takeIf { debtPersonId == null },
                 direction = debtDirection, amountMinor = savedAmountMinor, currency = if (debtHasMovement) account?.currency ?: debtCurrency else debtCurrency,
                 accountId = account?.id?.takeIf { debtHasMovement },
-                occurredAt = day.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                occurredAt = LedgerCalendar.instantOf(day, time),
                 note = note.trim().takeIf(String::isNotEmpty),
             ))
             return

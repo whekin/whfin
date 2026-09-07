@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import dev.whekin.whfin.data.LedgerCalendar
 
 internal sealed interface AccountTransactionsUiState {
     data object Loading : AccountTransactionsUiState
@@ -39,7 +40,7 @@ private data class AccountHistoryBase(
 internal class AccountTransactionsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val accountId = MutableStateFlow<Long?>(null)
-    private val zoneId = ZoneId.systemDefault()
+    private val zoneId = LedgerCalendar.zone
 
     private val cardHints = combine(
         db.paymentInstrumentDao().observeActive(),

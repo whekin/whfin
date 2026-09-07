@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dev.whekin.whfin.data.LedgerCalendar
 
 data class PersonListRow(
     val person: PersonEntity,
@@ -29,7 +30,7 @@ data class PersonListRow(
 
 class PeopleViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
-    private val zone = ZoneId.systemDefault()
+    private val zone = LedgerCalendar.zone
 
     private val monthBounds = YearMonth.now(zone).let { month ->
         val from = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()

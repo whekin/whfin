@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.whekin.whfin.data.LedgerCalendar
 
 data class SavingsMonthUi(
     val month: YearMonth,
@@ -125,7 +126,7 @@ private fun List<SavingsPlanEntity>.planFor(month: YearMonth): SavingsPlanEntity
 class SavingsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val repository = SavingsPlanRepository(db)
-    private val zone = ZoneId.systemDefault()
+    private val zone = LedgerCalendar.zone
     private val selectedCurrency = MutableStateFlow<String?>(null)
     private val accountsAndGroups = combine(
         db.accountDao().observeActive(), db.financialGroupDao().observeActive(), ::Pair,

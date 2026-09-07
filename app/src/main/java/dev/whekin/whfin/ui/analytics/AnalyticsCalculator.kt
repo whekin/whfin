@@ -17,6 +17,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
+import dev.whekin.whfin.data.LedgerCalendar
 
 internal sealed interface AnalyticsTrendFilter {
     data object All : AnalyticsTrendFilter
@@ -296,7 +297,7 @@ internal fun calculateAnalytics(
     allocations: List<TransactionAllocationEntity>,
     period: AnalyticsPeriod,
     trendFilter: AnalyticsTrendFilter,
-    zoneId: ZoneId = ZoneId.systemDefault(),
+    zoneId: ZoneId = LedgerCalendar.zone,
     today: LocalDate = LocalDate.now(zoneId),
     merchants: List<MerchantEntity> = emptyList(),
 ): AnalyticsData {

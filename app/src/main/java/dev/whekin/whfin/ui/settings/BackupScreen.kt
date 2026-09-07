@@ -422,6 +422,8 @@ internal fun BackupScreen(
                         R.string.backup_safety_body,
                         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
                             .withLocale(currentLocale)
+                            // When a copy was taken is an event in the reader's own day, not a
+                            // ledger day, so it stays on the system zone.
                             .format(takenAt.atZone(ZoneId.systemDefault())),
                     ),
                     supportingMaxLines = 6,

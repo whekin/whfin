@@ -757,6 +757,45 @@ month and a reader moving between them cannot hold four conventions at once.
   axis; the comparison under it is the thing that gets cut to size.
 
 
+## Which day a row belongs to
+
+An instant has no day until some zone is asked, and WHFIN used to ask two. The importers read the
+wall clock a bank prints in Tbilisi time — right, because that is the clock the bank wrote it by —
+and the feed and analytics then bucketed the resulting instant using the phone's own zone, also
+right on its own terms.
+
+They agree only while the phone sits on +04. Away from it, an operation near the end of a Tbilisi
+day moves to the next day in the feed and in the monthly totals, and on the last evening of a month
+into the next month. How much of the evening moves depends on how far the reader has gone: one hour
+of it in Almaty, four in Bangkok.
+
+**The bank's calendar wins**, and `LedgerCalendar` (`data/LedgerCalendar.kt`) owns it. A ledger
+exists to be checked against the bank's, and a Sunday-evening payment the statement files under
+Sunday must not be filed here under Monday because its owner was travelling.
+
+- Everything that turns an instant into a day, a month or an analytics period reads
+  `LedgerCalendar.zone` — feed grouping, analytics windows (`AnalyticsPeriod.dayIndex` and
+  `AnalyticsData.comparisonDays` follow it through `calculateAnalytics`), account activity, savings
+  months, income expectations, per-person months.
+- So does everything that turns a day the **owner picked** into an instant: the composer, a new
+  debt, an own-transfer date. A row written on one calendar and read back on another would land a
+  manual evening expense on the wrong day.
+- Defaults on the pure calculators default to the same zone, so a caller that forgets does not
+  quietly reintroduce a second answer.
+- What keeps the system zone: the time something happened to the **reader** rather than to their
+  money — when a backup was taken, when a sync last ran, when an integrity check was recorded. Those
+  sites say so in a comment.
+- Nothing stored changes. This is only how an instant becomes a day; timestamps and the schema are
+  untouched.
+
+A second country makes this a property of the bank rather than of the app — `zone` would move onto
+`BankProfile` and a row would take the calendar of the bank that issued it. Until WHFIN reads a bank
+outside Georgia there is one answer, and offering a setting nobody can fill in correctly would be
+worse than the assumption.
+
+`LedgerCalendarTest` sets the JVM's own zone east of Tbilisi before every case, because on +04 the
+two answers coincide and any assertion would pass by accident.
+
 ## What made the difference
 
 Analytics answers "why did this period cost more?" directly, above every chart. The block states one

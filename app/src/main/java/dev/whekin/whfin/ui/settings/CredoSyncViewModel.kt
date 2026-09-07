@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.whekin.whfin.data.LedgerCalendar
 
 enum class CredoSyncStage { Disconnected, Connecting, AwaitingOtp, Connected, Syncing }
 
@@ -138,7 +139,7 @@ class CredoSyncViewModel internal constructor(
     private val db = (app as WhfinApp).db
     /** Cleared with this process; deliberately never saved to a Bundle, preferences, or Room. */
     val loginDraft = CredoLoginDraft()
-    private val zone = ZoneId.of("Asia/Tbilisi")
+    private val zone = LedgerCalendar.zone
     private val _state = MutableStateFlow(
         CredoSyncUiState(
             hasSavedPassword = secretStore.hasCredentials(),

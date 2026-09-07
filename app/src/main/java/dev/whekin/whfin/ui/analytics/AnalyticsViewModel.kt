@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.whekin.whfin.data.LedgerCalendar
 
 internal sealed interface AnalyticsUiState {
     data object Loading : AnalyticsUiState
@@ -64,7 +65,7 @@ private data class AnalyticsWindow(
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
-    private val zoneId = ZoneId.systemDefault()
+    private val zoneId = LedgerCalendar.zone
     private val initialMonth = YearMonth.now(zoneId)
     private val window = MutableStateFlow(
         AnalyticsWindow(AnalyticsPeriod.month(initialMonth)),

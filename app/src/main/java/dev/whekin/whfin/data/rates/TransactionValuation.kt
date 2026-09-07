@@ -9,6 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
+import dev.whekin.whfin.data.LedgerCalendar
 
 /**
  * Books the GEL value of a foreign-currency row once, at the rate of the day it happened.
@@ -23,7 +24,7 @@ import kotlinx.coroutines.CancellationException
 class TransactionValuationRepository(
     private val db: WhfinDatabase,
     private val provider: HistoricalRateProvider,
-    private val zone: ZoneId = ZoneId.of("Asia/Tbilisi"),
+    private val zone: ZoneId = LedgerCalendar.zone,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
 

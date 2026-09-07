@@ -65,6 +65,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
 fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
@@ -172,7 +173,7 @@ fun IncomeSourcesScreen(
                         supportingText = listOfNotNull(
                             question.transaction.rawCounterparty?.takeIf(String::isNotBlank),
                             Instant.ofEpochMilli(question.transaction.occurredAt)
-                                .atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                                .atZone(LedgerCalendar.zone).toLocalDate().toString(),
                             stringResource(
                                 if (question.confirmed) R.string.income_payment_confirmed
                                 else R.string.income_payment_candidate,
@@ -195,7 +196,7 @@ fun IncomeSourcesScreen(
                         title = "${formatMinor(-transfer.withdrawal.amountMinor, transfer.withdrawal.currency)} → ${formatMinor(transfer.credit.amountMinor, transfer.credit.currency)}",
                         supportingText = listOf(
                             transfer.credit.rawCounterparty ?: state.accounts.firstOrNull { it.id == transfer.credit.accountId }?.name.orEmpty(),
-                            Instant.ofEpochMilli(transfer.credit.occurredAt).atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                            Instant.ofEpochMilli(transfer.credit.occurredAt).atZone(LedgerCalendar.zone).toLocalDate().toString(),
                             stringResource(if (linked) R.string.crypto_bridge_linked else R.string.crypto_bridge_review),
                         ).joinToString(" · "),
                         onClick = { selectedTransfer = transfer }, divider = true,
@@ -243,7 +244,7 @@ fun IncomeSourcesScreen(
                     question.source.label,
                     question.transaction.rawCounterparty?.takeIf(String::isNotBlank),
                     Instant.ofEpochMilli(question.transaction.occurredAt)
-                        .atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                        .atZone(LedgerCalendar.zone).toLocalDate().toString(),
                 ).joinToString(" · "),
             )
             Text(
@@ -274,7 +275,7 @@ fun IncomeSourcesScreen(
                     supportingText = listOf(
                         state.accounts.firstOrNull { it.id == transaction.accountId }?.name.orEmpty(),
                         transaction.rawCounterparty.orEmpty(),
-                        Instant.ofEpochMilli(transaction.occurredAt).atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                        Instant.ofEpochMilli(transaction.occurredAt).atZone(LedgerCalendar.zone).toLocalDate().toString(),
                     ).filter(String::isNotBlank).joinToString(" · "),
                 )
             }

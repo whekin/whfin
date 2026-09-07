@@ -24,6 +24,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
+import dev.whekin.whfin.data.LedgerCalendar
 
 data class SmsImportResult(
     val outcome: SmsDiagnosticOutcome,
@@ -52,7 +53,7 @@ internal fun isDepositLedger(account: AccountEntity): Boolean =
 
 /** Converts a Credo SMS classification into a visible diagnostic and, when possible, an active transaction. */
 class SmsTransactionImporter(private val db: WhfinDatabase) {
-    private val zone = ZoneId.of("Asia/Tbilisi")
+    private val zone = LedgerCalendar.zone
     private val statementEvidence = SmsStatementEvidence(db, zone)
 
     /** A reversal follows its payment closely; a wider window would retract an unrelated purchase. */

@@ -35,6 +35,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
 fun CorrectionsScreen(viewModel: FeedViewModel = viewModel()) {
@@ -67,7 +68,7 @@ fun CorrectionsScreen(viewModel: FeedViewModel = viewModel()) {
                         )
                         Text(
                             "${formatMinor(row.amountMinor, row.currency)} · " +
-                                Instant.ofEpochMilli(row.occurredAt).atZone(ZoneId.systemDefault())
+                                Instant.ofEpochMilli(row.occurredAt).atZone(LedgerCalendar.zone)
                                     .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

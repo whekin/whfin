@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.whekin.whfin.data.LedgerCalendar
 
 data class IncomeSourcesState(
     val expectations: List<IncomeExpectation>,
@@ -50,7 +51,7 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val preferences = UiPreferences(app)
     private val sources = IncomeSourceRepository(db)
     private val ownTransfers = OwnTransferRepository(db)
-    private val zone = ZoneId.systemDefault()
+    private val zone = LedgerCalendar.zone
     private val reading = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
     private val readFailed = MutableStateFlow(false)

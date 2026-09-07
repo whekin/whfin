@@ -68,6 +68,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 internal data class CredoSyncReminder(
     val daysSinceSync: Int?,
@@ -297,7 +298,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val debtRepository = dev.whekin.whfin.data.debt.DebtRepository(db)
     private val smsImporter = SmsTransactionImporter(db)
     private val transactionMutations = TransactionMutationModule(db)
-    private val zone = ZoneId.systemDefault()
+    private val zone = LedgerCalendar.zone
 
     /** Contradictions the last integrity pass found; Home says so rather than only the log. */
     val integrityIssues: StateFlow<Int> = (app as WhfinApp).integrityIssues

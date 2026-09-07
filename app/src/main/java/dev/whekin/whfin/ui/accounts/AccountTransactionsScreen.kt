@@ -80,6 +80,7 @@ import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
 internal fun AccountTransactionsScreen(
@@ -669,7 +670,7 @@ private fun AccountTransactionsPreview() {
         currency = "GEL",
         iban = "GE00CD0000000000000001",
     )
-    val now = LocalDate.of(2026, 7, 14).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val now = LedgerCalendar.startOfDay(LocalDate.of(2026, 7, 14))
     val items = listOf(
         FeedItem(
             tx = TransactionEntity(

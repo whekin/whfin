@@ -7,6 +7,7 @@ import dev.whekin.whfin.data.db.WhfinDatabase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 enum class IntegritySeverity { ERROR, WARNING }
 
@@ -28,7 +29,7 @@ data class IntegrityReport(val issues: List<IntegrityIssue>) {
  */
 class DataIntegrityChecker(
     private val db: WhfinDatabase,
-    private val zone: ZoneId = ZoneId.of("Asia/Tbilisi"),
+    private val zone: ZoneId = LedgerCalendar.zone,
 ) {
     private fun Long.dayIn(zone: ZoneId): LocalDate =
         Instant.ofEpochMilli(this).atZone(zone).toLocalDate()

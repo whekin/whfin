@@ -418,6 +418,7 @@ private fun formatBackupTime(epochMillis: Long): String =
 
 private fun formatBackupInstant(instant: Instant): String =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+        // An upload time is the reader's own clock, not the bank's calendar.
         .withZone(ZoneId.systemDefault())
         .format(instant)
 

@@ -55,6 +55,7 @@ import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
 internal fun AnalyticsTransactionsScreen(
@@ -233,7 +234,7 @@ private val previewItems = run {
                 accountId = 1,
                 amountMinor = -12_480,
                 currency = "GEL",
-                occurredAt = LocalDate.of(2026, 7, 12).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                occurredAt = LedgerCalendar.startOfDay(LocalDate.of(2026, 7, 12)),
                 merchantId = 1,
                 categoryId = 1,
                 status = TxStatus.CONFIRMED,
@@ -251,7 +252,7 @@ private val previewItems = run {
                 accountId = 1,
                 amountMinor = -25_720,
                 currency = "GEL",
-                occurredAt = LocalDate.of(2026, 7, 5).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                occurredAt = LedgerCalendar.startOfDay(LocalDate.of(2026, 7, 5)),
                 merchantId = 2,
                 categoryId = 1,
                 status = TxStatus.CONFIRMED,

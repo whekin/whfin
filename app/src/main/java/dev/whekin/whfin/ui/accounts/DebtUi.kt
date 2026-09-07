@@ -42,6 +42,7 @@ import dev.whekin.whfin.core.ui.WhfinSwitch
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
+import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
 fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
@@ -213,7 +214,7 @@ private fun DebtLedgerContent(
         primaryLabel = stringResource(R.string.action_save),
         primaryEnabled = minor != null && (personId != null || personName.isNotBlank()),
         onPrimary = {
-            save(NewDebt(personId, personName.takeIf { personId == null }, direction, minor!!, currency, accountId, LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()))
+            save(NewDebt(personId, personName.takeIf { personId == null }, direction, minor!!, currency, accountId, LedgerCalendar.startOfDay(LedgerCalendar.today())))
         },
     ) {
         WhfinChoiceRail {

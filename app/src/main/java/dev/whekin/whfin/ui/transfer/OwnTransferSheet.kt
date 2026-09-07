@@ -31,6 +31,7 @@ import dev.whekin.whfin.ui.formatMinor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import dev.whekin.whfin.data.LedgerCalendar
 
 /** What the owner chose to do with the far side of a movement. */
 sealed interface OwnTransferChoice {
@@ -59,7 +60,7 @@ fun OwnTransferSheet(
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
     onConfirm: (OwnTransferChoice) -> Unit,
-    zone: ZoneId = ZoneId.systemDefault(),
+    zone: ZoneId = LedgerCalendar.zone,
 ) {
     var selected by remember(transaction.id) { mutableStateOf<Set<Long>>(emptySet()) }
     var recording by remember(transaction.id) { mutableStateOf(candidates.isEmpty()) }
