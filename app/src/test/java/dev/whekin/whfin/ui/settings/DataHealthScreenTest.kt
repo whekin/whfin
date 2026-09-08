@@ -20,6 +20,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.performScrollTo
+import org.junit.Assert.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -121,5 +123,37 @@ class DataHealthScreenTest {
         compose.onNodeWithText(summary).performClick()
 
         assertTrue(opened)
+    }
+
+    @Test
+    fun aFindingNamesTheOperationAndOpensIt() {
+        var opened: Long? = null
+        val issue = IntegrityIssue(
+            code = "duplicate_statement_row",
+            severity = IntegritySeverity.ERROR,
+            entity = "transactions",
+            entityId = 4293,
+            message = "An SMS row stands beside a statement row of the same money.",
+        )
+        compose.setContent {
+            WhfinTheme {
+                DataHealthScreen(
+                    state = DataHealthViewModel.State.Checked(
+                        issues = listOf(issue),
+                        flagged = mapOf(4293L to "2026-09-05 · Courtyard Coffee · Everyday · -21.13 ₾"),
+                    ),
+                    onOpenTransaction = { opened = it },
+                )
+            }
+        }
+
+        // A finding used to be a database id. Nobody can find #4293 in a ledger, so the only way to
+        // act on one was to scroll looking for something that looked doubled.
+        compose.onNodeWithText("2026-09-05 · Courtyard Coffee · Everyday · -21.13 ₾")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+
+        assertEquals(4293L, opened)
     }
 }

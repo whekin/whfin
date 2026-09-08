@@ -69,6 +69,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import dev.whekin.whfin.data.LedgerCalendar
+import kotlinx.coroutines.flow.first
 
 internal data class CredoSyncReminder(
     val daysSinceSync: Int?,
@@ -303,6 +304,25 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     /** Contradictions the last integrity pass found; Home says so rather than only the log. */
     val integrityIssues: StateFlow<Int> = (app as WhfinApp).integrityIssues
 
+    /**
+     * Whether Home should say anything about the books at all.
+     *
+     * A contradiction is worth knowing about and is not an emergency: the accounts still open, the
+     * numbers still add up for everything else. Left as a permanent block on the first screen it
+     * became a demand — the only way to stop seeing it was to go and fix it — so it can be set
+     * aside, and it comes back on its own when the findings change rather than never.
+     */
+    val integrityNoticeVisible: StateFlow<Boolean> = combine(
+        (app as WhfinApp).integritySignature,
+        UiPreferences(app).acknowledgedIntegrity,
+    ) { signature, acknowledged -> signature != null && signature != acknowledged }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun acknowledgeIntegrity() {
+        val signature = (getApplication<Application>() as WhfinApp).integritySignature.value ?: return
+        viewModelScope.launch { preferences.acknowledgeIntegrity(signature) }
+    }
+
     private val _rejected = MutableStateFlow<MutationRejection?>(null)
 
     /**
@@ -444,6 +464,26 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     ) { txs, merchants, categories, accounts, masksByAccount ->
         buildBaseFeedItems(txs, merchants, categories, accounts, masksByAccount, zone)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * One row by id, built the same way the feed builds every other row.
+     *
+     * The window the ledger loads is the latest few hundred rows, and a Data health finding can
+     * point at something older. Falling back to the database keeps the answer the same whether or
+     * not the row happened to be on screen.
+     */
+    suspend fun itemById(id: Long): FeedItem? {
+        items.value.firstOrNull { it.tx.id == id }?.let { return it }
+        val row = db.transactionDao().byId(id) ?: return null
+        return buildBaseFeedItems(
+            transactions = listOf(row),
+            merchants = db.merchantDao().observeAll().first(),
+            categories = categories.first(),
+            accounts = accounts.first(),
+            masksByAccount = cardHints.first(),
+            zone = zone,
+        ).firstOrNull()
+    }
 
     val items: StateFlow<List<FeedItem>> = combine(
         baseItems,

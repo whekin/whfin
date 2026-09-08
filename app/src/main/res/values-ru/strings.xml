@@ -78,6 +78,7 @@
     <string name="home_setup_invitation_body">Банковского счёта пока нет. Настройка подключит Credo, прочитает историю и разметит то, что сможет сама.</string>
     <string name="home_setup_invitation_action">Настроить</string>
     <string name="home_setup_invitation_dismiss">Больше не предлагать настройку</string>
+    <string name="home_integrity_dismiss">Не сейчас</string>
     <string name="home_integrity_title">Фоновая проверка нашла, что стоит перепроверить</string>
     <plurals name="home_integrity_body">
         <item quantity="one">%1$d бухгалтерская связь может быть неверной. Счета доступны — можно посмотреть позже.</item>
@@ -1350,7 +1351,6 @@
     <string name="sms_kind_cash_deposit">Внесение наличных</string>
     <string name="sms_kind_interest">Проценты по вкладу</string>
     <string name="sms_outcome_canceled">Отменено банком</string>
-    <string name="feed_filter_drafts">Черновики</string>
     <string name="transactions_select_all_action">Выделить всё</string>
     <string name="sms_batch_card_title">Карте ••%1$s нужен счёт</string>
     <string name="sms_batch_card_body">Одна привязка импортирует %1$d ожидающих операций</string>

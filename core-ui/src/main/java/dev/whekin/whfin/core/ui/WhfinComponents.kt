@@ -805,9 +805,20 @@ fun WhfinChoiceRail(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(end = 28.dp),
     itemSpacing: Dp = 8.dp,
+    /**
+     * Which option is currently on, when the rail may open already scrolled past it.
+     *
+     * A rail the reader scrolled themselves needs nothing: they know where they left it. One that
+     * opens with a choice the app made — a filter applied by "Review all", say — has to show that
+     * choice, or the sheet answers "what is on?" with a row of options that all look off.
+     */
+    revealIndex: Int? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val state = rememberLazyListState()
+    LaunchedEffect(revealIndex) {
+        revealIndex?.takeIf { it > 0 }?.let { state.scrollToItem(it) }
+    }
     val fadeStart by remember { derivedStateOf { state.canScrollBackward } }
     val fadeEnd by remember { derivedStateOf { state.canScrollForward } }
     LazyRow(

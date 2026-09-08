@@ -198,6 +198,7 @@ import dev.whekin.whfin.ui.analytics.AnalyticsUiModel
 import dev.whekin.whfin.ui.analytics.AnalyticsCurrencyValue
 import dev.whekin.whfin.ui.analytics.AnalyticsUiState
 import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
+import androidx.compose.material.icons.outlined.FactCheck
 
 internal sealed interface FeedTimelineEntry {
     val day: LocalDate
@@ -247,6 +248,8 @@ fun FeedScreen(
     onDismissSetupInvitation: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    /** "Review all" opens the same set Home just listed, not the whole ledger. */
+    onReviewAll: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
     onOpenCredoSync: () -> Unit = {},
     onOpenAccounts: () -> Unit = {},
@@ -256,6 +259,12 @@ fun FeedScreen(
     onRequestLowBalanceNotificationPermission: () -> Unit = {},
     addRequestKey: Int = 0,
     onAddRequestConsumed: () -> Unit = {},
+    /** One-shot: open the record with the "needs a decision" filter already applied. */
+    reviewRequestKey: Int = 0,
+    onReviewRequestConsumed: () -> Unit = {},
+    /** One-shot: open this row's details, wherever it sits in the ledger. */
+    openTransactionId: Long? = null,
+    onOpenTransactionConsumed: () -> Unit = {},
     viewModel: FeedViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -270,6 +279,7 @@ fun FeedScreen(
     val unroutedOperations by viewModel.unroutedOperations.collectAsState()
     val rejected by viewModel.rejected.collectAsState()
     val integrityIssues by viewModel.integrityIssues.collectAsState()
+    val integrityNoticeVisible by viewModel.integrityNoticeVisible.collectAsState()
     val credoReminder by viewModel.credoSyncReminder.collectAsState()
     val physicalCardBalances by viewModel.physicalCardBalances.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -310,6 +320,23 @@ fun FeedScreen(
     var showSearch by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(FeedFilter.ALL) }
+    // Applied once per request rather than on every visit, so a later return to the record keeps
+    // whatever the reader last chose.
+    LaunchedEffect(reviewRequestKey) {
+        if (reviewRequestKey != 0) {
+            filter = FeedFilter.NEEDS_REVIEW
+            onReviewRequestConsumed()
+        }
+    }
+    LaunchedEffect(openTransactionId) {
+        openTransactionId?.let { id ->
+            // Read by id rather than searched for in the loaded window: a finding can point at a
+            // row far older than the last few hundred, and arriving at a screen that silently shows
+            // nothing would be worse than the bare id it replaced.
+            details = viewModel.itemById(id)
+            onOpenTransactionConsumed()
+        }
+    }
     var sort by remember { mutableStateOf(FeedSort.NEWEST) }
     var categoryFilters by remember { mutableStateOf(emptySet<Long>()) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
@@ -334,13 +361,7 @@ fun FeedScreen(
     val homeInsights = homeAnalytics?.let(::deriveHomeInsights).orEmpty()
     val runway = cashForecast?.runway
     val visibleItems = items.filter { item ->
-        val matchesType = when (filter) {
-            FeedFilter.ALL -> true
-            FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
-            FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
-            FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
-            FeedFilter.DRAFTS -> item.tx.status == TxStatus.PENDING
-        }
+        val matchesType = matchesFeedFilter(item, filter)
         val haystack = listOfNotNull(
             item.transferSummary, item.merchant?.displayName, item.tx.rawCounterparty,
             item.tx.note, item.account?.name, item.account?.iban, item.category?.name,
@@ -363,8 +384,11 @@ fun FeedScreen(
                 diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP ||
                 diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
                 diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
-            // An unrouted message is not a draft to confirm: it still needs an account first.
-            FeedFilter.DRAFTS -> false
+            // An unrouted message cannot be confirmed — it needs an account first — but it is
+            // exactly as much "something the owner still has to answer" as a draft is, and Home
+            // counts it as one. A filter that dropped it would send "Review all" to a shorter list
+            // than the one it was pressed from.
+            FeedFilter.NEEDS_REVIEW -> true
         }
         val haystack = listOfNotNull(
             diagnostic.counterparty,
@@ -551,7 +575,7 @@ fun FeedScreen(
             val presentNotices = buildSet {
                 if (lowCardBalances.isNotEmpty()) add(HomeNotice.CARD_BALANCE)
                 if (showSetupInvitation) add(HomeNotice.SETUP)
-                if (integrityIssues > 0) add(HomeNotice.INTEGRITY)
+                if (integrityIssues > 0 && integrityNoticeVisible) add(HomeNotice.INTEGRITY)
                 if (credoReminder != null && showCredoSyncReminder) add(HomeNotice.CREDO_SYNC)
                 if (showSmsOnboarding) add(HomeNotice.SMS_ONBOARDING)
             }
@@ -564,7 +588,7 @@ fun FeedScreen(
                     HomeSectionHeader(
                         title = stringResource(R.string.home_needs_attention),
                         action = stringResource(R.string.home_review_all).takeIf { attention.isNotEmpty() },
-                        onAction = onOpenHistory,
+                        onAction = onReviewAll,
                         icon = Icons.Outlined.PendingActions,
                     )
                 }
@@ -581,7 +605,9 @@ fun FeedScreen(
                     )
                     HomeNotice.SETUP -> SetupInvitationCard(onResumeSetup, onDismissSetupInvitation)
                     // Technical state stays quiet unless the ledger contradicts itself; everything
-                    // else about it lives in Data health.
+                    // else about it lives in Data health. It says so with the icon of a check that
+                    // ran, not a warning triangle: the accounts are open and the money is countable,
+                    // and it can be set aside until the findings themselves change.
                     HomeNotice.INTEGRITY -> WhfinNotice(
                         title = stringResource(R.string.home_integrity_title),
                         body = pluralStringResource(
@@ -589,10 +615,13 @@ fun FeedScreen(
                             integrityIssues,
                             integrityIssues,
                         ),
-                        icon = Icons.Default.ReportProblem,
+                        icon = Icons.Outlined.FactCheck,
                         kind = WhfinNoticeKind.Info,
                         actionLabel = stringResource(R.string.data_health_title),
                         onAction = onOpenDataHealth,
+                        dismissIcon = Icons.Default.Close,
+                        dismissContentDescription = stringResource(R.string.home_integrity_dismiss),
+                        onDismiss = viewModel::acknowledgeIntegrity,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     HomeNotice.CREDO_SYNC -> credoReminder?.let { reminder ->
@@ -1810,7 +1839,22 @@ internal fun SplitSheet(
     }
 }
 
-private enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, DRAFTS }
+internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW }
+
+/**
+ * Which rows a filter keeps.
+ *
+ * Named rather than inlined because one of them has to agree with something outside this screen:
+ * `NEEDS_REVIEW` is where "Review all" on Home leads, so it has to hold exactly what
+ * [homeAttention] just listed — pending drafts and unrouted messages both.
+ */
+internal fun matchesFeedFilter(item: FeedItem, filter: FeedFilter): Boolean = when (filter) {
+    FeedFilter.ALL -> true
+    FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
+    FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
+    FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
+    FeedFilter.NEEDS_REVIEW -> item.tx.status == TxStatus.PENDING
+}
 private enum class FeedSort { NEWEST, OLDEST, AMOUNT }
 
 @Composable
@@ -1857,7 +1901,7 @@ private fun FeedFilterSheet(
             FeedFilter.EXPENSES -> categories.filter { it.kind == CategoryKind.EXPENSE }
             FeedFilter.INCOME -> categories.filter { it.kind == CategoryKind.INCOME }
             FeedFilter.TRANSFERS -> emptyList()
-            FeedFilter.DRAFTS, FeedFilter.ALL -> categories
+            FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> categories
         }
     }
     val quickCategories = remember(eligibleCategories, draftCategories) {
@@ -1936,9 +1980,13 @@ private fun FeedFilterSheet(
                     FeedFilter.EXPENSES to R.string.feed_filter_expenses,
                     FeedFilter.INCOME to R.string.feed_filter_income,
                     FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
-                    FeedFilter.DRAFTS to R.string.feed_filter_drafts,
+                    FeedFilter.NEEDS_REVIEW to R.string.home_needs_attention,
                 )
-                WhfinChoiceRail {
+                WhfinChoiceRail(
+                    // The sheet may open on a filter the app applied rather than the reader, and a
+                    // rail scrolled past it would answer "what is on?" with options that all read off.
+                    revealIndex = filterOptions.indexOfFirst { it.first == draftFilter },
+                ) {
                     items(filterOptions, key = { it.first.name }) { (value, label) ->
                     WhfinFilterPill(
                         label = stringResource(label),
@@ -1948,7 +1996,7 @@ private fun FeedFilterSheet(
                             FeedFilter.EXPENSES -> Icons.Default.ArrowUpward
                             FeedFilter.INCOME -> Icons.Default.ArrowDownward
                             FeedFilter.TRANSFERS -> Icons.Default.SwapHoriz
-                            FeedFilter.DRAFTS -> Icons.Default.Schedule
+                            FeedFilter.NEEDS_REVIEW -> Icons.Outlined.PendingActions
                         },
                         onClick = {
                             draftFilter = value
@@ -1960,7 +2008,7 @@ private fun FeedFilterSheet(
                                     categories.any { it.id == id && it.kind == CategoryKind.INCOME }
                                 }
                                 FeedFilter.TRANSFERS -> emptySet()
-                                FeedFilter.DRAFTS, FeedFilter.ALL -> draftCategories
+                                FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> draftCategories
                             }
                         },
                     )

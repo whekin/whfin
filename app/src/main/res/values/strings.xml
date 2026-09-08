@@ -75,6 +75,7 @@
     <string name="home_setup_invitation_body">No bank account here yet. Setup connects Credo, reads your history and files what it can by itself.</string>
     <string name="home_setup_invitation_action">Set up</string>
     <string name="home_setup_invitation_dismiss">Don’t offer setup again</string>
+    <string name="home_integrity_dismiss">Not now</string>
     <string name="home_integrity_title">A background check found something to recheck</string>
     <plurals name="home_integrity_body">
         <item quantity="one">One bookkeeping link may be wrong. Your accounts stay available; review it when convenient.</item>
@@ -1292,7 +1293,6 @@
     <string name="sms_kind_cash_deposit">Cash deposit</string>
     <string name="sms_kind_interest">Deposit interest</string>
     <string name="sms_outcome_canceled">Canceled by the bank</string>
-    <string name="feed_filter_drafts">Drafts</string>
     <string name="transactions_select_all_action">Select all</string>
     <string name="sms_batch_card_title">Card ••%1$s needs an account</string>
     <string name="sms_batch_card_body">Linking it once imports %1$d waiting operations</string>

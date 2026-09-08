@@ -56,6 +56,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import dev.whekin.whfin.data.LedgerCalendar
+import dev.whekin.whfin.ui.formatMinor
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 
 /**
  * What the ledger says about itself.
@@ -67,7 +70,11 @@ import kotlinx.coroutines.launch
 class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
     sealed interface State {
         data object Checking : State
-        data class Checked(val issues: List<IntegrityIssue>) : State
+        data class Checked(
+            val issues: List<IntegrityIssue>,
+            /** What each flagged row actually is, so a finding is findable without hunting an id. */
+            val flagged: Map<Long, String> = emptyMap(),
+        ) : State
     }
 
     /** What the ledger currently holds that a person may want to act on. */
@@ -97,10 +104,31 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
     private val _repairState = MutableStateFlow(RepairState())
     val repairState: StateFlow<RepairState> = _repairState.asStateFlow()
 
+    /**
+     * The human name of a flagged row: the date, who it was with, and how much.
+     *
+     * A finding used to be a database id. Nobody can find `#4293` in a ledger, so the only way to
+     * act on a finding was to scroll looking for something that looked doubled.
+     */
+    private suspend fun describe(issue: IntegrityIssue): Pair<Long, String>? {
+        if (issue.entity != "transactions") return null
+        val id = issue.entityId ?: return null
+        val row = db.transactionDao().byId(id) ?: return null
+        val name = row.rawCounterparty ?: row.note
+        val account = db.accountDao().byId(row.accountId)?.name
+        return id to listOfNotNull(
+            LedgerCalendar.dayOf(row.occurredAt).toString(),
+            name,
+            account,
+            formatMinor(row.amountMinor, row.currency),
+        ).joinToString(" · ")
+    }
+
     fun check() {
         _state.value = State.Checking
         viewModelScope.launch {
-            _state.value = State.Checked(checker.run().issues)
+            val issues = checker.run().issues
+            _state.value = State.Checked(issues, issues.mapNotNull { describe(it) }.toMap())
             _status.value = Status(
                 pending = db.transactionDao().pendingCount(),
                 unrouted = db.smsDiagnosticDao().observeUnrouted().first().size,
@@ -119,7 +147,7 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
             StatementImporter(db).repairTransferGroups()
             val report = checker.run()
             val remaining = report.issues.count { it.code.contains("transfer_group") }
-            _state.value = State.Checked(report.issues)
+            _state.value = State.Checked(report.issues, report.issues.mapNotNull { describe(it) }.toMap())
             _repairState.value = RepairState(
                 repaired = (before - remaining).coerceAtLeast(0),
                 remaining = remaining,
@@ -154,6 +182,7 @@ private fun groupedIntegrityIssues(issues: List<IntegrityIssue>): List<Integrity
 fun DataHealthRoute(
     onOpenCorrections: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
+    onOpenTransaction: (Long) -> Unit = {},
     viewModel: DataHealthViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -168,6 +197,7 @@ fun DataHealthRoute(
         onRepairTransfers = viewModel::repairTransfers,
         onOpenCorrections = onOpenCorrections,
         onOpenBackup = onOpenBackup,
+        onOpenTransaction = onOpenTransaction,
     )
 }
 
@@ -180,6 +210,7 @@ fun DataHealthScreen(
     onRepairTransfers: () -> Unit = {},
     onOpenCorrections: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
+    onOpenTransaction: (Long) -> Unit = {},
 ) {
     var showTechnicalDetails by remember { mutableStateOf(false) }
     LazyColumn(
@@ -216,6 +247,7 @@ fun DataHealthScreen(
         }
 
         val issues = (state as? DataHealthViewModel.State.Checked)?.issues.orEmpty()
+        val flagged = (state as? DataHealthViewModel.State.Checked)?.flagged.orEmpty()
         if (issues.isNotEmpty()) {
             val families = groupedIntegrityIssues(issues)
             val transferIssues = issues.filter { it.code.contains("transfer_group") }
@@ -266,6 +298,12 @@ fun DataHealthScreen(
                 item {
                     WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                         otherFamilies.forEachIndexed { index, family ->
+                            // The named rows a finding points at. A finding used to be a database
+                            // id, and nobody can find "#4293" in a ledger — the only way to act on
+                            // one was to scroll looking for something that looked doubled.
+                            val named = family.issues.mapNotNull { issue ->
+                                issue.entityId?.let { id -> flagged[id]?.let { id to it } }
+                            }
                             WhfinLedgerRow(
                                 title = stringResource(family.label),
                                 supportingText = pluralStringResource(
@@ -274,8 +312,18 @@ fun DataHealthScreen(
                                     family.issues.size,
                                 ),
                                 supportingMaxLines = 2,
-                                divider = index < otherFamilies.lastIndex,
+                                divider = named.isNotEmpty() || index < otherFamilies.lastIndex,
                             )
+                            named.forEachIndexed { row, (id, label) ->
+                                WhfinLedgerRow(
+                                    title = label,
+                                    titleMaxLines = 2,
+                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    onClick = { onOpenTransaction(id) },
+                                    divider = row < named.lastIndex || index < otherFamilies.lastIndex,
+                                )
+                            }
                         }
                     }
                 }

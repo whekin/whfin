@@ -62,6 +62,20 @@ internal class UiPreferences(
 ) {
     constructor(context: Context) : this(context.whfinUiPreferences)
 
+    /**
+     * The set of integrity findings the owner has already seen and chosen to leave alone.
+     *
+     * Stored as a signature rather than a flag, so "not now" is not "never": the notice comes back
+     * by itself the moment the findings change — a new rule fires, or the same rule fires on more
+     * rows. A contradiction in the books is worth knowing about; it is not worth a standing demand
+     * on the first screen that only silence can end.
+     */
+    val acknowledgedIntegrity: Flow<String?> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[AcknowledgedIntegrity] }
+
     val smsPermissionPromptDismissed: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
@@ -165,6 +179,10 @@ internal class UiPreferences(
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
     }
 
+    suspend fun acknowledgeIntegrity(signature: String) {
+        dataStore.edit { preferences -> preferences[AcknowledgedIntegrity] = signature }
+    }
+
     suspend fun setSmsImportEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[SmsImportEnabled] = enabled
@@ -217,6 +235,7 @@ internal class UiPreferences(
     }
 
     private companion object {
+        val AcknowledgedIntegrity = stringPreferencesKey("acknowledged_integrity")
         val SmsPermissionPromptDismissed = booleanPreferencesKey("sms_permission_prompt_dismissed")
         val SmsImportEnabled = booleanPreferencesKey("sms_import_enabled")
         val AppLockTimeoutKey = intPreferencesKey("app_lock_timeout")

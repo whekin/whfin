@@ -356,6 +356,11 @@ fun MainScreen(
     // Home first and leave them there afterwards, so writing something down from Accounts or from
     // analytics cost the place they were reading.
     var composerOpen by rememberSaveable { mutableStateOf(false) }
+    // "Review all" is a request, not a state: applied once when the record opens, so a later visit
+    // keeps whatever filter the reader last chose.
+    var historyReviewKey by rememberSaveable { mutableIntStateOf(0) }
+    /** A row the reader asked to see by id — from a Data health finding, not from the ledger. */
+    var openTransactionId by rememberSaveable { mutableStateOf<Long?>(null) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var secondaryBackStack by rememberSaveable {
         mutableStateOf<List<SecondaryDestination>>(emptyList())
@@ -498,6 +503,10 @@ fun MainScreen(
                                         onDismissSetupInvitation = onDismissSetupInvitation,
                                         onOpenAnalytics = { root = RootDestination.Analytics },
                                         onOpenHistory = { root = RootDestination.Transactions },
+                                        onReviewAll = {
+                                            historyReviewKey += 1
+                                            root = RootDestination.Transactions
+                                        },
                                         onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
                                         onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
                                         onOpenAccounts = { root = RootDestination.Accounts },
@@ -513,6 +522,10 @@ fun MainScreen(
                                         showSmsOnboarding = false,
                                         onEnableSms = {},
                                         onDismissSmsOnboarding = {},
+                                        reviewRequestKey = historyReviewKey,
+                                        onReviewRequestConsumed = { historyReviewKey = 0 },
+                                        openTransactionId = openTransactionId,
+                                        onOpenTransactionConsumed = { openTransactionId = null },
                                         viewModel = feedViewModel,
                                     )
                                     ShellScene.Accounts -> AccountsScreen(
@@ -679,6 +692,16 @@ fun MainScreen(
                         DataHealthRoute(
                             onOpenCorrections = { open(SecondaryDestination.Corrections) },
                             onOpenBackup = { open(SecondaryDestination.Backup) },
+                            // A finding names a row; opening it is what makes the finding usable.
+                            // It lands in the record with that row's own details already open, so
+                            // "Correct imported transaction" is one step away instead of a search.
+                            onOpenTransaction = { id ->
+                                haptics.performHapticFeedback(WhfinHaptics.navigation)
+                                openTransactionId = id
+                                root = RootDestination.Transactions
+                                secondaryDestination = null
+                                secondaryBackStack = emptyList()
+                            },
                         )
                     }
                     ShellScene.Privacy -> SecondaryPage(

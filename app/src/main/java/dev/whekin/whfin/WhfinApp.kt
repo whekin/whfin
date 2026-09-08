@@ -22,6 +22,7 @@ import dev.whekin.whfin.data.demo.RuntimeModeStore
 import dev.whekin.whfin.data.integrity.DataIntegrityChecker
 import dev.whekin.whfin.data.sms.CredoOtpInbox
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceMonitor
+import dev.whekin.whfin.data.integrity.IntegrityIssue
 
 class WhfinApp : Application() {
 
@@ -39,6 +40,7 @@ class WhfinApp : Application() {
         get() = runtimeModes.demoMode
 
     private val _integrityIssues = MutableStateFlow(0)
+    private val _integritySignature = MutableStateFlow<String?>(null)
 
     /**
      * How many contradictions the last check found in the personal ledger.
@@ -47,6 +49,16 @@ class WhfinApp : Application() {
      * not on every screen. Screens read the answer; they never sit on the ledger recomputing it.
      */
     val integrityIssues: StateFlow<Int> = _integrityIssues.asStateFlow()
+
+    /**
+     * What the last check found, as one comparable string.
+     *
+     * Home offers to leave a finding alone, and "leave alone" has to mean this exact set of
+     * findings: acknowledging a duplicated row must not also silence a broken transfer discovered
+     * next week. Distinct rule codes and the count are enough — the row ids change as the ledger
+     * grows without the books being any more or less contradictory.
+     */
+    val integritySignature: StateFlow<String?> = _integritySignature.asStateFlow()
 
     /**
      * One piece of startup maintenance, insulated from the others.
@@ -72,6 +84,7 @@ class WhfinApp : Application() {
             Log.e("WHFIN", "Ledger integrity issues: ${report.issues.joinToString { it.code }}")
         }
         _integrityIssues.value = report.issues.size
+        _integritySignature.value = integritySignature(report.issues)
     }
 
     suspend fun setDemoMode(enabled: Boolean) {
@@ -137,3 +150,16 @@ class WhfinApp : Application() {
         physicalCardBalanceMonitor.start()
     }
 }
+
+/**
+ * What a set of findings is, as one comparable string.
+ *
+ * Home offers to leave a finding alone, and "leave alone" has to mean this exact set: acknowledging
+ * a duplicated row must not also silence a broken transfer found next week. Distinct rule codes and
+ * the count are enough — row ids change as the ledger grows without the books being any more or
+ * less contradictory.
+ */
+internal fun integritySignature(issues: List<IntegrityIssue>): String? = issues
+    .takeIf { it.isNotEmpty() }
+    ?.let { found -> found.map { it.code }.distinct().sorted().joinToString(",") + "|" + found.size }
+
