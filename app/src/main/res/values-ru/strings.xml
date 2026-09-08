@@ -613,6 +613,18 @@
     </plurals>
     <string name="data_health_repair_action">Связать переводы заново</string>
     <string name="data_health_repairing">Связываю…</string>
+    <string name="data_health_duplicates_title">Одна и та же операция записана дважды</string>
+    <plurals name="data_health_duplicates_body">
+        <item quantity="one">Сообщение банка и строка выписки описывают одну операцию. Сведение оставит строку выписки, а копия перестанет считаться; ничего не удаляется.</item>
+        <item quantity="few">Сообщения банка и строки выписки описывают %1$d операции дважды. Сведение оставит строки выписки, а копии перестанут считаться; ничего не удаляется.</item>
+        <item quantity="many">Сообщения банка и строки выписки описывают %1$d операций дважды. Сведение оставит строки выписки, а копии перестанут считаться; ничего не удаляется.</item>
+        <item quantity="other">Сообщения банка и строки выписки описывают %1$d операции дважды. Сведение оставит строки выписки, а копии перестанут считаться; ничего не удаляется.</item>
+    </plurals>
+    <string name="data_health_merge_action">Свести в одну</string>
+    <string name="data_health_merging">Свожу…</string>
+    <string name="data_health_merge_done">Сведено в одну</string>
+    <string name="data_health_merge_partial">Часть осталась двойной</string>
+    <string name="data_health_merge_result">Сведено %1$d, осталось %2$d. У оставшихся больше одной подходящей строки выписки — их нужно посмотреть глазами.</string>
     <string name="data_health_repair_done">Связи переводов восстановлены</string>
     <string name="data_health_repair_partial">Некоторые связи ещё нужно проверить</string>
     <string name="data_health_repair_result">Исправлено: %1$d · осталось: %2$d.</string>

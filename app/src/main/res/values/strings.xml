@@ -589,6 +589,16 @@
     </plurals>
     <string name="data_health_repair_action">Relink transfers</string>
     <string name="data_health_repairing">Relinking…</string>
+    <string name="data_health_duplicates_title">The same operation is written down twice</string>
+    <plurals name="data_health_duplicates_body">
+        <item quantity="one">A message and a statement line describe one operation. Folding them into one keeps the statement line and stops the copy from counting; nothing is deleted.</item>
+        <item quantity="other">Messages and statement lines describe %1$d operations twice over. Folding them into one keeps the statement lines and stops the copies from counting; nothing is deleted.</item>
+    </plurals>
+    <string name="data_health_merge_action">Fold into one</string>
+    <string name="data_health_merging">Folding…</string>
+    <string name="data_health_merge_done">Folded into one</string>
+    <string name="data_health_merge_partial">Some are still doubled</string>
+    <string name="data_health_merge_result">%1$d folded, %2$d left. What is left has more than one statement line it could belong to, so it needs an eye.</string>
     <string name="data_health_repair_done">Transfer links repaired</string>
     <string name="data_health_repair_partial">Some links still need review</string>
     <string name="data_health_repair_result">Repaired: %1$d · remaining: %2$d.</string>

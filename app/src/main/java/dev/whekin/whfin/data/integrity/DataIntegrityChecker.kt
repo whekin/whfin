@@ -163,9 +163,13 @@ class DataIntegrityChecker(
             }
 
             // The two layers describe the same money, so an SMS row that stands beside a statement
-            // row of the same ledger, amount and day is one purchase counted twice. The automatic
-            // paths no longer create these, but a ledger that already holds a pair from an older
-            // build has no other way to learn of it: nothing about either row looks wrong alone.
+            // row of the same ledger, amount and day is one purchase counted twice. Reconciliation
+            // catches almost all of them at import, but it identifies a payment by who it was with,
+            // and the two channels do not always write that the same way — a counterparty printed
+            // in Georgian on the statement and romanized in the message went unrecognised until the
+            // names were compared through a shared skeleton. Nothing about either row looks wrong
+            // alone, so this is the only thing that can tell the owner, and it stays whatever else
+            // is fixed upstream.
             val statementByDay = transactions
                 .filterNot { it.isVoided }
                 .filter { it.source == TxSource.STATEMENT }

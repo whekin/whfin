@@ -28,10 +28,17 @@ object MerchantNormalizer {
      * Processors routinely append a product/site suffix in SMS while statements retain only the
      * acquirer prefix (`ANTHROPIC* CLAUDE.AI` versus `ANTHROPIC`). Short prefixes are refused so two
      * unrelated shops cannot collapse merely because their names start alike.
+     *
+     * The two channels also differ in alphabet — `შპს უნოტრონ` in the statement, `SHPS UNOTRON` in
+     * the message — so both sides are read through [GeorgianLatin.skeleton] first. The stored
+     * dictionary key stays whatever the bank wrote: [normalize] is what merchant memory is keyed by,
+     * and rewriting it would orphan every category the owner has taught.
      */
     fun equivalent(firstRaw: String?, secondRaw: String?): Boolean {
-        val first = firstRaw?.let(::normalize).orEmpty()
-        val second = secondRaw?.let(::normalize).orEmpty()
+        // Compared through the shared skeleton, because one bank writes the same counterparty in
+        // Georgian on the statement and in Latin in its messages.
+        val first = firstRaw?.let(::normalize)?.let(GeorgianLatin::skeleton).orEmpty()
+        val second = secondRaw?.let(::normalize)?.let(GeorgianLatin::skeleton).orEmpty()
         if (first.isEmpty() || second.isEmpty()) return false
         if (first == second) return true
         if (first.length == second.length) return false

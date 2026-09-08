@@ -341,6 +341,61 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
     }
 
     /**
+     * Folds a message's row into the statement row that describes the same operation.
+     *
+     * This is what an import does when it recognises the draft it is confirming; it exists
+     * separately because a pair can already be in the ledger from before the import learned to see
+     * it — a counterparty written in Georgian on the statement and romanized in the message shared
+     * no characters, so both were kept. Correcting is the wrong verb for it: a correction adds a
+     * balancing adjustment and says the bank was wrong, while here the bank said one true thing
+     * twice, and the second copy simply stops counting while naming the row that stays.
+     */
+    suspend fun mergeDuplicate(duplicateId: Long, survivorId: Long): MutationReport = db.withTransaction {
+        val duplicate = db.transactionDao().byId(duplicateId)
+        val survivor = db.transactionDao().byId(survivorId)
+        if (duplicate == null || survivor == null || duplicateId == survivorId) {
+            return@withTransaction MutationReport(changed = 0, skipped = 1)
+        }
+        val sameMoney = duplicate.accountId == survivor.accountId &&
+            duplicate.amountMinor == survivor.amountMinor &&
+            duplicate.currency == survivor.currency
+        val shapes = duplicate.source == TxSource.SMS && survivor.source == TxSource.STATEMENT &&
+            !duplicate.isVoided && !survivor.isVoided &&
+            duplicate.correctionOfTransactionId == null &&
+            db.transactionDao().activeCorrectionsFor(duplicate.id).isEmpty()
+        if (!sameMoney || !shapes) return@withTransaction MutationReport(
+            changed = 0,
+            skipped = 1,
+            skippedReason = MutationRejection.IMPORTED_IS_PROTECTED,
+        )
+        // A share or a debt says something about this copy that the survivor does not carry, and
+        // retiring the row would take that statement with it.
+        if (hasDebtEvent(duplicate) || db.transactionAllocationDao().forTransaction(duplicate.id).isNotEmpty()) {
+            return@withTransaction MutationReport(
+                changed = 0,
+                skipped = 1,
+                skippedReason = if (hasDebtEvent(duplicate)) MutationRejection.DEBT_LINKED
+                else MutationRejection.ALLOCATIONS_LOCK_AMOUNT,
+            )
+        }
+        duplicate.transferGroupId
+            ?.takeIf { it != survivor.transferGroupId }
+            ?.let { groupId ->
+                db.transactionDao().clearTransferGroups(listOf(groupId))
+                db.transactionDao().deleteTransferGroups(listOf(groupId))
+            }
+        db.transactionDao().update(
+            duplicate.copy(
+                externalKey = null,
+                transferGroupId = null,
+                isVoided = true,
+                mergedIntoTransactionId = survivor.id,
+            ),
+        )
+        MutationReport(changed = 1, skipped = 0)
+    }
+
+    /**
      * Voids statement/SMS truth by adding a balancing adjustment and hiding the source row from all
      * active projections. The source and the adjustment remain in the database for audit/backup.
      */

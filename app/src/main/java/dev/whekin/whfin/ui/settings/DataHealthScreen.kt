@@ -59,6 +59,8 @@ import kotlinx.coroutines.launch
 import dev.whekin.whfin.data.LedgerCalendar
 import dev.whekin.whfin.ui.formatMinor
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import dev.whekin.whfin.data.mutation.TransactionMutationModule
+import androidx.compose.ui.platform.testTag
 
 /**
  * What the ledger says about itself.
@@ -95,6 +97,7 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
     private val whfinApp = app as WhfinApp
     private val db = whfinApp.db
     private val checker = DataIntegrityChecker(db)
+    private val mutations = TransactionMutationModule(db)
     private val _state = MutableStateFlow<State>(State.Checking)
     val state: StateFlow<State> = _state.asStateFlow()
 
@@ -103,6 +106,9 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _repairState = MutableStateFlow(RepairState())
     val repairState: StateFlow<RepairState> = _repairState.asStateFlow()
+
+    private val _mergeState = MutableStateFlow(RepairState())
+    val mergeState: StateFlow<RepairState> = _mergeState.asStateFlow()
 
     /**
      * The human name of a flagged row: the date, who it was with, and how much.
@@ -136,6 +142,42 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
                 archivedAccounts = db.accountDao().observeArchived().first().size,
                 lastImportAt = db.statementImportDao().observeAll().first().firstOrNull()?.importedAt,
             )
+        }
+    }
+
+    /**
+     * Folds each doubled operation into the statement line that describes it.
+     *
+     * Only an unambiguous pair is folded: one message beside exactly one statement line of the same
+     * account, amount and day. Two payments of the same size on one day are indistinguishable, and
+     * picking one would retire the wrong copy — those stay listed for a person to look at.
+     */
+    fun mergeDuplicates() {
+        if (_mergeState.value.repairing) return
+        viewModelScope.launch {
+            _mergeState.value = RepairState(repairing = true)
+            val doubled = checker.run().issues
+                .filter { it.code == "duplicate_statement_row" }
+                .mapNotNull { it.entityId }
+                .distinct()
+            var merged = 0
+            doubled.forEach { smsId ->
+                val sms = db.transactionDao().byId(smsId) ?: return@forEach
+                val day = LedgerCalendar.dayOf(sms.occurredAt)
+                val survivor = db.transactionDao().statementCandidates(
+                    sms.accountId,
+                    LedgerCalendar.startOfDay(day),
+                    LedgerCalendar.startOfDay(day.plusDays(1)) - 1,
+                ).filter { it.amountMinor == sms.amountMinor }.singleOrNull() ?: return@forEach
+                if (mutations.mergeDuplicate(smsId, survivor.id).changed > 0) merged++
+            }
+            val report = checker.run()
+            _state.value = State.Checked(report.issues, report.issues.mapNotNull { describe(it) }.toMap())
+            _mergeState.value = RepairState(
+                repaired = merged,
+                remaining = report.issues.count { it.code == "duplicate_statement_row" },
+            )
+            whfinApp.refreshIntegrity()
         }
     }
 
@@ -188,13 +230,16 @@ fun DataHealthRoute(
     val state by viewModel.state.collectAsState()
     val status by viewModel.status.collectAsState()
     val repairState by viewModel.repairState.collectAsState()
+    val mergeState by viewModel.mergeState.collectAsState()
     LaunchedEffect(Unit) { viewModel.check() }
     DataHealthScreen(
         state = state,
         status = status,
         repairState = repairState,
+        mergeState = mergeState,
         onCheck = viewModel::check,
         onRepairTransfers = viewModel::repairTransfers,
+        onMergeDuplicates = viewModel::mergeDuplicates,
         onOpenCorrections = onOpenCorrections,
         onOpenBackup = onOpenBackup,
         onOpenTransaction = onOpenTransaction,
@@ -206,8 +251,10 @@ fun DataHealthScreen(
     state: DataHealthViewModel.State,
     status: DataHealthViewModel.Status = DataHealthViewModel.Status(),
     repairState: DataHealthViewModel.RepairState = DataHealthViewModel.RepairState(),
+    mergeState: DataHealthViewModel.RepairState = DataHealthViewModel.RepairState(),
     onCheck: () -> Unit = {},
     onRepairTransfers: () -> Unit = {},
+    onMergeDuplicates: () -> Unit = {},
     onOpenCorrections: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
     onOpenTransaction: (Long) -> Unit = {},
@@ -250,6 +297,41 @@ fun DataHealthScreen(
         val flagged = (state as? DataHealthViewModel.State.Checked)?.flagged.orEmpty()
         if (issues.isNotEmpty()) {
             val families = groupedIntegrityIssues(issues)
+            val doubledIssues = issues.filter { it.code == "duplicate_statement_row" }
+            if (doubledIssues.isNotEmpty()) item(key = "duplicate-merge") {
+                WhfinNotice(
+                    title = stringResource(R.string.data_health_duplicates_title),
+                    body = pluralStringResource(
+                        R.plurals.data_health_duplicates_body,
+                        doubledIssues.size,
+                        doubledIssues.size,
+                    ),
+                    icon = Icons.Default.Restore,
+                    kind = WhfinNoticeKind.Info,
+                    actionLabel = if (mergeState.repairing) {
+                        stringResource(R.string.data_health_merging)
+                    } else {
+                        stringResource(R.string.data_health_merge_action)
+                    },
+                    onAction = onMergeDuplicates,
+                    modifier = Modifier.fillMaxWidth().testTag("data-health-merge"),
+                )
+            }
+            mergeState.repaired?.let { folded ->
+                item(key = "merge-result") {
+                    WhfinNotice(
+                        title = if (mergeState.remaining == 0) {
+                            stringResource(R.string.data_health_merge_done)
+                        } else {
+                            stringResource(R.string.data_health_merge_partial)
+                        },
+                        body = stringResource(R.string.data_health_merge_result, folded, mergeState.remaining),
+                        icon = Icons.Default.CheckCircle,
+                        kind = if (mergeState.remaining == 0) WhfinNoticeKind.Info else WhfinNoticeKind.Attention,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
             val transferIssues = issues.filter { it.code.contains("transfer_group") }
             if (transferIssues.isNotEmpty()) item(key = "transfer-repair") {
                 WhfinNotice(

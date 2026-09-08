@@ -49,6 +49,33 @@ class StatementReconcilerTest {
     }
 
     @Test
+    fun theSameCounterpartyInTwoAlphabets_isOneOperation() {
+        // Credo files an incoming transfer under the Georgian name and announces it romanized. As
+        // strings the two share no character, so before this the statement line was inserted beside
+        // the message that already recorded it and the money was counted twice.
+        val match = StatementReconciler.match(
+            row(
+                merchant = "\u10e8\u10de\u10e1 \u10e3\u10dc\u10dd\u10e2\u10e0\u10dd\u10dc",
+                amountMinor = 694_800,
+            ).copy(operation = StatementOperation.TRANSFER_IN),
+            listOf(draft(11, "SHPS UNOTRON", 694_800)),
+        )
+
+        assertEquals(11L, match?.id)
+    }
+
+    @Test
+    fun twoDifferentGeorgianCounterparties_stayApart() {
+        assertNull(
+            StatementReconciler.match(
+                row(merchant = "\u10dc\u10d8\u10d9\u10dd\u10e0\u10d0", amountMinor = -1_250)
+                    .copy(operation = StatementOperation.TRANSFER_IN),
+                listOf(draft(12, "SHPS UNOTRON", -1_250)),
+            ),
+        )
+    }
+
+    @Test
     fun theAmountOnlyBreaksTies() {
         // A card paid abroad is charged in another currency than the SMS announced, so the amounts
         // routinely differ; a single merchant match still identifies the purchase.
