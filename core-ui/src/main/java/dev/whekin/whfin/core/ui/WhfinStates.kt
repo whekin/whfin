@@ -55,6 +55,15 @@ fun WhfinNotice(
     kind: WhfinNoticeKind = WhfinNoticeKind.Info,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    /**
+     * A second way out, named.
+     *
+     * Some notices can be set aside rather than answered, and an unlabelled cross in the corner is
+     * not how a reader learns that: it reads as "close this card", which is a guess about whether
+     * the thing comes back. A word says what happens.
+     */
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null,
     dismissIcon: ImageVector? = null,
     dismissContentDescription: String? = null,
     onDismiss: (() -> Unit)? = null,
@@ -87,12 +96,33 @@ fun WhfinNotice(
                 }
             }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (actionLabel != null && onAction != null) WhfinButton(
-                actionLabel,
-                onAction,
-                Modifier.fillMaxWidth(),
-                style = if (kind == WhfinNoticeKind.Error) WhfinActionStyle.Destructive else WhfinActionStyle.Primary,
-            )
+            if (actionLabel != null && onAction != null) {
+                if (secondaryActionLabel != null && onSecondaryAction != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        WhfinButton(
+                            secondaryActionLabel,
+                            onSecondaryAction,
+                            Modifier.weight(1f),
+                            style = WhfinActionStyle.Secondary,
+                        )
+                        WhfinButton(
+                            actionLabel,
+                            onAction,
+                            Modifier.weight(1f),
+                            style = if (kind == WhfinNoticeKind.Error) WhfinActionStyle.Destructive
+                            else WhfinActionStyle.Primary,
+                        )
+                    }
+                } else {
+                    WhfinButton(
+                        actionLabel,
+                        onAction,
+                        Modifier.fillMaxWidth(),
+                        style = if (kind == WhfinNoticeKind.Error) WhfinActionStyle.Destructive
+                        else WhfinActionStyle.Primary,
+                    )
+                }
+            }
         }
     }
 }

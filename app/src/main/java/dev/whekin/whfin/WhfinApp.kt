@@ -41,6 +41,7 @@ class WhfinApp : Application() {
 
     private val _integrityIssues = MutableStateFlow(0)
     private val _integritySignature = MutableStateFlow<String?>(null)
+    private val _integrityCodes = MutableStateFlow<List<String>>(emptyList())
 
     /**
      * How many contradictions the last check found in the personal ledger.
@@ -59,6 +60,15 @@ class WhfinApp : Application() {
      * grows without the books being any more or less contradictory.
      */
     val integritySignature: StateFlow<String?> = _integritySignature.asStateFlow()
+
+    /**
+     * Which rules fired, so Home can say what was found rather than that something was.
+     *
+     * "A background check found something to recheck" is the sentence of a program that will not
+     * say what it means. One rule firing has a name a person can weigh — an operation recorded
+     * twice is a small, specific thing — and weighing it is exactly what the notice is asking for.
+     */
+    val integrityCodes: StateFlow<List<String>> = _integrityCodes.asStateFlow()
 
     /**
      * One piece of startup maintenance, insulated from the others.
@@ -85,6 +95,7 @@ class WhfinApp : Application() {
         }
         _integrityIssues.value = report.issues.size
         _integritySignature.value = integritySignature(report.issues)
+        _integrityCodes.value = report.issues.map { it.code }.distinct().sorted()
     }
 
     suspend fun setDemoMode(enabled: Boolean) {

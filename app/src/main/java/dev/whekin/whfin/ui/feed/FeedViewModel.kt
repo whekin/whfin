@@ -312,6 +312,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * became a demand — the only way to stop seeing it was to go and fix it — so it can be set
      * aside, and it comes back on its own when the findings change rather than never.
      */
+    /** Which rules fired, so the notice can name the finding instead of hinting at one. */
+    val integrityCodes: StateFlow<List<String>> = (app as WhfinApp).integrityCodes
+
     val integrityNoticeVisible: StateFlow<Boolean> = combine(
         (app as WhfinApp).integritySignature,
         UiPreferences(app).acknowledgedIntegrity,

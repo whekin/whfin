@@ -199,6 +199,7 @@ import dev.whekin.whfin.ui.analytics.AnalyticsCurrencyValue
 import dev.whekin.whfin.ui.analytics.AnalyticsUiState
 import dev.whekin.whfin.ui.analytics.AnalyticsViewModel
 import androidx.compose.material.icons.outlined.FactCheck
+import dev.whekin.whfin.ui.settings.integrityFamilyLabel
 
 internal sealed interface FeedTimelineEntry {
     val day: LocalDate
@@ -280,6 +281,7 @@ fun FeedScreen(
     val rejected by viewModel.rejected.collectAsState()
     val integrityIssues by viewModel.integrityIssues.collectAsState()
     val integrityNoticeVisible by viewModel.integrityNoticeVisible.collectAsState()
+    val integrityCodes by viewModel.integrityCodes.collectAsState()
     val credoReminder by viewModel.credoSyncReminder.collectAsState()
     val physicalCardBalances by viewModel.physicalCardBalances.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -608,21 +610,11 @@ fun FeedScreen(
                     // else about it lives in Data health. It says so with the icon of a check that
                     // ran, not a warning triangle: the accounts are open and the money is countable,
                     // and it can be set aside until the findings themselves change.
-                    HomeNotice.INTEGRITY -> WhfinNotice(
-                        title = stringResource(R.string.home_integrity_title),
-                        body = pluralStringResource(
-                            R.plurals.home_integrity_body,
-                            integrityIssues,
-                            integrityIssues,
-                        ),
-                        icon = Icons.Outlined.FactCheck,
-                        kind = WhfinNoticeKind.Info,
-                        actionLabel = stringResource(R.string.data_health_title),
-                        onAction = onOpenDataHealth,
-                        dismissIcon = Icons.Default.Close,
-                        dismissContentDescription = stringResource(R.string.home_integrity_dismiss),
-                        onDismiss = viewModel::acknowledgeIntegrity,
-                        modifier = Modifier.fillMaxWidth(),
+                    HomeNotice.INTEGRITY -> HomeIntegrityNotice(
+                        count = integrityIssues,
+                        codes = integrityCodes,
+                        onOpenDataHealth = onOpenDataHealth,
+                        onSetAside = viewModel::acknowledgeIntegrity,
                     )
                     HomeNotice.CREDO_SYNC -> credoReminder?.let { reminder ->
                         CredoSyncReminderCard(reminder, onOpenCredoSync)
@@ -1838,6 +1830,43 @@ internal fun SplitSheet(
         }
     }
 }
+
+/**
+ * What the books say about themselves, said once and without an alarm.
+ *
+ * A contradiction is worth knowing about and is not an emergency: the accounts open, everything
+ * else still adds up. Left as a permanent block with a warning triangle and no way out but a
+ * repair, it became a demand — the shortest route to a quiet first screen was to go and fix the
+ * data. So it names what was found rather than that something was, says what is not blocked, and
+ * offers to be set aside in a word instead of an unlabelled cross.
+ */
+@Composable
+internal fun HomeIntegrityNotice(
+    count: Int,
+    codes: List<String>,
+    onOpenDataHealth: () -> Unit,
+    onSetAside: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WhfinNotice(
+        // One kind of finding has a name worth printing; several at once share no name, and the
+        // general sentence is then the honest thing to say.
+        title = integrityNoticeTitle(codes)?.let { stringResource(it) }
+            ?: stringResource(R.string.home_integrity_title),
+        body = pluralStringResource(R.plurals.home_integrity_body, count, count),
+        icon = Icons.Outlined.FactCheck,
+        kind = WhfinNoticeKind.Info,
+        actionLabel = stringResource(R.string.data_health_title),
+        onAction = onOpenDataHealth,
+        secondaryActionLabel = stringResource(R.string.home_integrity_dismiss),
+        onSecondaryAction = onSetAside,
+        modifier = modifier.fillMaxWidth().testTag("home-integrity"),
+    )
+}
+
+/** The family every finding belongs to, when they all belong to one. */
+internal fun integrityNoticeTitle(codes: List<String>): Int? =
+    codes.takeIf { it.isNotEmpty() }?.map(::integrityFamilyLabel)?.distinct()?.singleOrNull()
 
 internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW }
 

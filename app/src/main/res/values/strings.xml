@@ -78,8 +78,8 @@
     <string name="home_integrity_dismiss">Not now</string>
     <string name="home_integrity_title">A background check found something to recheck</string>
     <plurals name="home_integrity_body">
-        <item quantity="one">One bookkeeping link may be wrong. Your accounts stay available; review it when convenient.</item>
-        <item quantity="other">%1$d bookkeeping links may be wrong. Your accounts stay available; review them when convenient.</item>
+        <item quantity="one">Nothing is blocked: your accounts and balances still work. Look when it suits you.</item>
+        <item quantity="other">%1$d of them. Nothing is blocked: your accounts and balances still work. Look when it suits you.</item>
     </plurals>
     <string name="home_spendable">Available to spend</string>
     <string name="home_loading">Reading your ledger</string>
