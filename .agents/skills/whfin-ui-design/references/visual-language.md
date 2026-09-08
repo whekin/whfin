@@ -59,20 +59,40 @@ Material beneath a custom language.
 - Avoid card-in-card. Inside a group, separate rows with rules.
 - Keep the app dock visually grounded but lighter than content: use an inset rule aligned to the 20 dp
   rail and stationary destination glyphs. Show selection with a filled glyph, semibold label, and
-  primary color instead of an extra line or persistent selected-item fill. Align the separate
-  create action to the same icon-and-label rhythm, without a fill or vertical lift. Use the primary color
-  so it stays discoverable without pretending to be a third destination. It must
-  not obscure the last ledger rows.
+  primary color instead of an extra line or persistent selected-item fill. The create action sits
+  between the four destinations and does **not** share their shape: it is a filled disc with no
+  label, because with four sections flanking it the same icon-and-label rhythm read as a fifth one.
+  A control may have a surface; a destination may not. It must not obscure the last ledger rows.
 - Group primary-header actions into one low-tonal rail. Keep every action's 48 dp target and use the
   amount component for the metric so the shell speaks the same numeric language as the ledger.
 - Treat the balance/action context header as the opening ledger row, not persistent chrome: it scrolls away with the screen and yields vertical space to the working content.
 - Preserve only an opaque status-inset-height mask after that row scrolls away; content may continue edge-to-edge behind it, but must not compete visually with system icons.
 
+## Shell
+
+Four destinations, always one tap away: **Home · History · Accounts · Analytics**, all at depth 0, with
+the create action between them. Settings live in Home's header, not inside Accounts. There is no pager:
+two of the four answer horizontal drags of their own — analytics moves through time that way — and a
+pager underneath would be a second reader of the same gesture.
+
+Back is one step, never a trail: from any root it returns to Home, and from a nested scene it pops to
+the root that opened it. Tapping through the dock is browsing, not descending, so Back does not replay
+the order the sections happened to be visited in. The composer belongs to the shell: it opens over
+whatever section asked for it and gives that section back.
+
 ## Screen signatures
 
-### Feed
+### Home and the record of transactions
 
-Make the monthly result the hero, then income/expense context, then search/filter tools. Keep the transaction ledger dense. Transfers are neutral; pending and debt annotations are secondary lines. A permission prompt is an inline notice, not a competing hero card. It must be dismissible, remember that choice, and leave the same control discoverable in Settings.
+Both are the same ledger screen in two modes. **Home answers "what should I do with money today", so it
+opens with what can be spent — not with the month's result.** The month's net is structurally negative
+before payday (salary has not arrived, rent has left), so leading with it made the loudest number on the
+first screen announce an ordinary state as an alarm. Order: available now → how long it lasts → what is
+already promised out of it → what needs a decision → what just happened → and the month last, compactly,
+as two read facts (spent, received) rather than a derived net.
+
+The record of transactions leads with its own context header and search/filter tools. Keep the
+transaction ledger dense. Transfers are neutral; pending and debt annotations are secondary lines. A permission prompt is an inline notice, not a competing hero card. It must be dismissible, remember that choice, and leave the same control discoverable in Settings.
 
 A parsed bank message without a resolved ledger is an Unrouted operation, not a transaction. Show it at
 its real date as a muted ledger row with merchant/counterparty, amount, and an explicit routing action,
@@ -107,23 +127,33 @@ On secondary ledger lists, keep creation as a compact icon action in the header 
 button competing with the editorial title or a FAB covering rows. When the list is empty, repeat the
 action with a clear text label inside the empty state.
 
-### Statistics
+### Analytics
 
-Lead with the selected month's net result, income, and expenses. Category distribution supports rolling 1/3/6/12-month ranges; tapping a category changes a compact twelve-month trend instead of opening a decorative dashboard. Selecting a trend month promotes it to the Statistics period, so the result, rolling category distribution, trend comparison, and transaction drill-down refresh together. Keep the visible twelve-month window stable while selecting a month already inside it, so later months remain available for a direct return in both Statistics and Spending. The selected month/category can open a focused transaction ledger; Back returns to the unchanged Statistics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
+Lead with the selected period's net result, income, and expenses. Selecting a trend month promotes it to the Analytics period, so the result, the difference, the categories and the drill-down refresh together. Keep the visible twelve-month window stable while selecting a month already inside it, so later months remain available for a direct return in both Analytics and Spending. The selected month/category can open a focused transaction ledger; Back returns to the unchanged Analytics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
 
-For the current month, place one spending-pace block after the result: show the elapsed day count,
-a simple month-end expense projection, and the previous full month's expense total. Never project a
-historical month. Follow it with at most three largest absolute category changes among categories
-that have current-month spending; each row opens that category's current-month transaction ledger.
-Keep this sequence as result → pace → drivers → category detail → year trend, without dashboard tiles
-or a second competing hero.
+Answer **why the period differs** before showing any picture of it. The block states one difference
+against the recorded average, names the base on the line under it, and then attributes that difference
+to categories: each row is what a category spent minus its share of the base, so the rows add up to the
+number above them exactly. Include every category that spent in either window, fold what is not shown
+into one "Other changes" row carrying the exact remainder, and open the full list from a quiet line
+rather than a framed button. Draw each contribution as a bar from a shared vertical zero — one axis and
+one money scale for the whole block, length from the contribution and nothing else. The row's own number
+is the contribution, not the category total.
 
-The expense amount opens a focused Spending scene rather than expanding the overview further. That scene
-leads with the selected-month expense total and its average over the three preceding complete months,
-then keeps category ring, rolling twelve-month trend, and category ledger in one connected reading flow.
-The ring is a summary rather than a control: category rows select the trend and the trend action opens the
-filtered transaction ledger. Show at most five named ring segments plus Other, keep uncategorized expenses
-inside the distribution, and keep balance adjustments outside it.
+Never call the base usual, normal or typical: WHFIN cannot show a month complete, so it is the recorded
+average, and one line carries both that and the caveat. Never call spending above it an overspend —
+there is no user-declared target.
+
+For a running period, place the spending-pace block after the difference: elapsed day count, a
+month-end projection, and the same recorded average over whole periods. Never project a historical
+period. Reading order is result → why → pace → where it went → year chart, without dashboard tiles or
+a second competing hero.
+
+Spending is the screen of composition, reached from Analytics by one row rather than a colour bar with
+a button under it. It leads with the period's expense total and the same difference sentence, then
+categories, counterparties and the year chart. There is no ring: it drew the proportions the category
+rows already carry, without a single name beside them and at the size of the screen. Each row draws its
+own share as a hairline under its name.
 
 ### Composer
 
@@ -190,8 +220,22 @@ bank-centred, guided but skippable, and exposes only channels that work for the 
 - Answer the Back gesture continuously: a custom shell must draw the pull with `whfinPredictiveBack`
   rather than committing the destination change at the end of an invisible swipe.
 - Navigate between complete opaque destination surfaces. A destination's system inset, top bar, and body must change under one layout owner; never add a `Scaffold` app-bar slot conditionally while replacing its body.
-- Use a short directional shared-axis transition for hierarchy: forward enters from the right, Back returns toward the right. Preserve dock position when switching peers.
-- Peer destinations are pages the finger can drag, not states of one slot: keep them in a pager, feed the dock the scroll position, and let Back on the second page drag that pager back rather than playing the hierarchy pull.
+- Use a short directional shared-axis transition for **hierarchy**: opening a nested scene enters from the
+  direction it was pushed, Back returns the other way. An eighth of the width under a fade is enough —
+  a destination's first frame is expensive and a full-width push loses a visible chunk of its travel to
+  it, which reads as a stutter.
+- **Roots are a change of subject, not a step: they fade through each other and do not travel.** The
+  sideways shift they used to share with nested scenes is a push in miniature; it claimed a level had
+  been entered when none had, and it slid the page under furniture that was sliding the other way.
+- **Mount the dock once, outside anything that animates the page.** Only the page inside changes. When
+  a nested scene takes the dock away, let the space it occupies grow and shrink with it rather than
+  appearing in one frame, so the page above never jumps by a dock's worth of pixels. Root state
+  (`SaveableStateHolder`, keyed by scene) belongs to the frame too: switching is not leaving.
+- The Back pull is the exception that proves it: `whfinPredictiveBack` is applied outside the frame, so
+  the gesture moves everything the app is showing, dock included. A page that insets while the
+  furniture around it stays put reads as two applications.
+- Judge shell motion with the animation clock held still. A 200 ms transition cannot be inspected with a
+  screen recorder or a loop of screenshots — `ShellFrameTest` steps the clock and asserts what moved.
 - Let a press change shape (`rememberWhfinPressShape`) rather than colour: this palette is quiet by design and a pressed tint reads as noise.
 - Pair explicit destination changes with one subtle platform navigation haptic and switches with the platform on/off haptic. Do not duplicate Android's own Back-gesture feedback or vibrate for scrolling.
 - Animate position or emphasis only when it explains continuity.

@@ -348,7 +348,6 @@ fun MainScreen(
     )
     // Each root keeps what the reader left there — a search, a filter, a period, a scroll position —
     // because switching destinations is not leaving them.
-    val rootStates = rememberSaveableStateHolder()
     var accountAddRequestKey by rememberSaveable {
         mutableIntStateOf(if (initialAccountAddRequest) 1 else 0)
     }
@@ -476,54 +475,17 @@ fun MainScreen(
             onUsePersonal = onExitDemo,
         ) {
             DemoWorkspaceFrame {
-                val sceneTravel = WhfinMotion.travel()
-                val sceneFadeIn = WhfinMotion.standard<Float>()
-                val sceneFadeOut = WhfinMotion.quick<Float>()
-                val paneTravel = WhfinMotion.travel()
-                val paneFadeIn = WhfinMotion.paneEnter<Float>()
-                val paneFadeOut = WhfinMotion.paneExit<Float>()
-                AnimatedContent(
-                    targetState = target,
-                    modifier = Modifier.fillMaxSize(),
-                    transitionSpec = {
-                        // A destination's first frame is expensive, and a full-width push loses a
-                        // visible chunk of its travel to that frame, which reads as a stutter.
-                        // A short directional shift under a fade keeps the direction legible even
-                        // when the first frames are dropped.
-                        val forward = shellTransitionIsForward(initialState, targetState)
-                        // Two roots are a change of subject: they fade through each other, the way
-                        // the dock's own peers always did, with the shift following the direction
-                        // the dock moved. A push there would claim a level was entered.
-                        val betweenRoots = shellTransitionIsBetweenRoots(initialState, targetState)
-                        val rightwards = if (betweenRoots) {
-                            (rootOrder(targetState.scene) ?: 0) > (rootOrder(initialState.scene) ?: 0)
-                        } else {
-                            forward
-                        }
-                        val enter = fadeIn(if (betweenRoots) paneFadeIn else sceneFadeIn) +
-                            slideInHorizontally(if (betweenRoots) paneTravel else sceneTravel) { width ->
-                                if (rightwards) width / 8 else -width / 8
-                            }
-                        val exit = fadeOut(if (betweenRoots) paneFadeOut else sceneFadeOut) +
-                            slideOutHorizontally(if (betweenRoots) paneTravel else sceneTravel) { width ->
-                                if (rightwards) -width / 8 else width / 8
-                            }
-                        (enter togetherWith exit).apply {
-                            targetContentZIndex = if (forward) 1f else -1f
-                        }.using(SizeTransform(clip = false))
-                    },
-                    label = "app-destination",
+                ShellFrame(
+                    target = target,
+                    dockSelection = dockSelection,
+                    onSelectRoot = { root = RootDestination.entries[it] },
+                    onAdd = { composerOpen = true },
                 ) { targetShell ->
-                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                         when (targetShell.scene) {
                             ShellScene.Home, ShellScene.Transactions,
                             ShellScene.Accounts, ShellScene.Analytics,
-                            -> Column(Modifier.fillMaxSize()) {
-                        // A root keeps its own saved state across a change of destination: the
-                        // search typed into the record, the period chosen in analytics, where each
-                        // list was scrolled to. Switching is not leaving.
-                        rootStates.SaveableStateProvider(targetShell.scene) {
-                            Box(Modifier.fillMaxWidth().weight(1f)) {
+                            ->
+                        Box(Modifier.fillMaxSize()) {
                                 when (targetShell.scene) {
                                     ShellScene.Home -> FeedScreen(
                                         mode = FeedMode.HOME,
@@ -571,14 +533,7 @@ fun MainScreen(
                                         },
                                     )
                                 }
-                            }
                         }
-                        LedgerDock(
-                            selection = dockSelection,
-                            onAdd = { composerOpen = true },
-                            onSelect = { root = RootDestination.entries[it] },
-                        )
-                    }
                     ShellScene.Settings -> SecondaryPage(
                         title = stringResource(R.string.settings_title),
                         onBack = { goBack(withHaptic = true) },
@@ -779,7 +734,6 @@ fun MainScreen(
                         )
                     }
                         }
-                    }
                 }
             }
         }
