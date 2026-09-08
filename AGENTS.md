@@ -926,6 +926,18 @@ This is a single-context repository with root domain documentation and system-wi
   тестами и прошли на disposable Pixel, но на личной базе выполнятся при первом открытии. Прогнать
   их сейчас на устройстве было нельзя: подключённый телефон блокирует `connectedAndroidTest` (и
   правильно). Первое открытие и проверку новой аналитики на своих данных делает владелец.
+  Dogfood `0.3.24 (36)` установлен signed in-place upgrade поверх `0.3.23 (35)` на Samsung S25:
+  full unit suite (883 app + core-ui passed, 2 skipped), R8/lintVital, package/version и release
+  certificate `af6009…fae92` сверены до установки — SHA-256 вытянутого `base.apk`
+  (`0edbd01a…33df859d`) совпал с записанным для 0.3.23, то есть с 6 сентября на телефоне ничего не
+  менялось. После `install -r` version/certificate и SHA-256 установленного `base.apk`
+  (`08fb5c4f…10308004`) совпали с собранным APK; `firstInstallTime` (2026-08-16 19:13:46) сохранился,
+  `READ_SMS`/`RECEIVE_SMS`/`POST_NOTIFICATIONS` остались выданы, FATAL в logcat нет. Владелец был в
+  Google Maps — WHFIN намеренно не запускался поверх него.
+  **Схема БД не менялась (v6), миграций при первом открытии не будет** — в отличие от 0.3.23.
+  Едут три изменения: календарь банка для дня операции, неподвижный док при смене раздела, и
+  Data Health/«Разобрать всё»/плашка целостности. Плашку и тап по находке владелец увидит первым:
+  в demo-базе противоречий нет, на его — есть.
   Осталось:
   зашифрованный off-machine backup signing identity и отдельный Google Play signing/release этап.
 - [x] Модель данных пересобрана с clean Room DB v1 base и текущей data-preserving v2 (`whfin.db`,
