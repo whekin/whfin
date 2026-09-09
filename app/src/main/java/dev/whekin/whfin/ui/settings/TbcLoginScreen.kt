@@ -3,6 +3,9 @@ package dev.whekin.whfin.ui.settings
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -69,35 +72,49 @@ internal fun TbcLoginScreen(
     var username by remember { mutableStateOf("") }
     var credential by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    var usePassword by remember(state.hasSaved) { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (state.stage != TbcLoginStage.Connected) Text(stringResource(R.string.tbc_login_intro), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        dev.whekin.whfin.ui.banks.BankBrand("TBC")
         if (state.error != null) {
-            Text(stringResource(tbcErrorText(state.error)), color = MaterialTheme.colorScheme.error)
+            WhfinNotice(title = stringResource(R.string.credo_sync_error_title), body = stringResource(tbcErrorText(state.error)),
+                kind = WhfinNoticeKind.Info, modifier = Modifier.fillMaxWidth())
         }
         when (state.stage) {
             TbcLoginStage.Login -> {
-                if (state.hasSaved && canStoreSession) {
+                if (state.hasSaved && canStoreSession && !usePassword) {
+                    Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.tbc_saved_body), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     WhfinButton(stringResource(R.string.tbc_resume), onRestore, Modifier.fillMaxWidth())
+                    WhfinButton(stringResource(R.string.tbc_use_password), { usePassword = true }, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
                     WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-                }
-                WhfinField(username, { username = it }, stringResource(R.string.credo_sync_username),
-                    keyboardType = KeyboardType.Ascii, modifier = Modifier.fillMaxWidth())
-                WhfinField(credential, { credential = it }, stringResource(R.string.credo_sync_password),
-                    keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-                if (canStoreSession) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.tbc_remember), Modifier.weight(1f))
-                        WhfinSwitch(state.remember, onRemember, contentDescription = stringResource(R.string.tbc_remember))
-                    }
                 } else {
-                    Text(stringResource(R.string.tbc_lock_needed), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.tbc_login_intro), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    WhfinField(username, { username = it }, stringResource(R.string.credo_sync_username),
+                        keyboardType = KeyboardType.Ascii, modifier = Modifier.fillMaxWidth())
+                    WhfinField(credential, { credential = it }, stringResource(R.string.credo_sync_password),
+                        keyboardType = KeyboardType.Password, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                    if (canStoreSession) {
+                        WhfinLedgerRow(title = stringResource(R.string.tbc_remember),
+                            supportingText = stringResource(R.string.tbc_remember_detail), supportingMaxLines = 3,
+                            modifier = Modifier.toggleable(value = state.remember, role = Role.Switch, onValueChange = {
+                                haptics.performHapticFeedback(WhfinHaptics.toggle(it)); onRemember(it)
+                            }),
+                            trailing = { WhfinSwitch(state.remember, null, contentDescription = stringResource(R.string.tbc_remember)) })
+                    } else {
+                        Text(stringResource(R.string.tbc_lock_needed), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    WhfinButton(stringResource(R.string.tbc_login), {
+                        onLogin(username, credential); credential = ""; keyboard?.hide()
+                    }, Modifier.fillMaxWidth(), enabled = username.isNotBlank() && credential.isNotEmpty())
+                    if (state.hasSaved && canStoreSession) WhfinButton(stringResource(R.string.tbc_back_to_saved),
+                        { usePassword = false; credential = "" }, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
                 }
-                WhfinButton(stringResource(R.string.tbc_login), {
-                    onLogin(username, credential); credential = ""; keyboard?.hide()
-                }, Modifier.fillMaxWidth(), enabled = username.isNotBlank() && credential.isNotEmpty())
             }
             TbcLoginStage.Working -> {
                 WhfinLoadingIndicator(Modifier.size(36.dp))
@@ -115,8 +132,12 @@ internal fun TbcLoginScreen(
             }
             TbcLoginStage.Connected -> {
                 Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
+                if (state.hasSaved) Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 state.syncResult?.let { result ->
-                    Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
+                    if (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || result.needsStatement.isEmpty()) {
+                        Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
+                    }
                     if (result.needsStatement.isNotEmpty()) {
                         Text(stringResource(R.string.tbc_initial_statement))
                         var explainBalance by remember { mutableStateOf(false) }
@@ -163,6 +184,7 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "LOGIN" -> R.string.tbc_error_login
     "OTP" -> R.string.tbc_error_code
     "SESSION" -> R.string.tbc_error_session
+    "STORAGE" -> R.string.tbc_error_storage
     "PROTECTION", "RATE_LIMIT" -> R.string.tbc_error_protection
     "NETWORK" -> R.string.tbc_error_network
     "HISTORY_CONFLICT" -> R.string.tbc_history_conflict
@@ -185,4 +207,12 @@ private fun TbcConnectedPreview() = WhfinTheme {
     TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
         accounts = listOf(TbcAccount(1, "GE00TB0000000000000001", "GEL", "Everyday"))), true)
     }
+}
+
+@Preview(showBackground = true, name = "TBC saved")
+@Preview(showBackground = true, name = "TBC saved dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, name = "TBC saved large", fontScale = 1.5f, heightDp = 400)
+@Composable
+private fun TbcSavedPreview() = WhfinTheme {
+    androidx.compose.material3.Surface { TbcLoginScreen(TbcLoginState(hasSaved = true, remember = true), true) }
 }

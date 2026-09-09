@@ -181,6 +181,7 @@ fun AddAccountSheet(
                 }
             }
             if (offerConnection) {
+                dev.whekin.whfin.ui.banks.BankBrand(bankProvider.orEmpty())
                 Text(stringResource(R.string.bank_connect_offer, bankProvider.orEmpty()), style = MaterialTheme.typography.bodyMedium)
                 WhfinButton(stringResource(R.string.bank_create_manually), { manualBank = bankProvider },
                     style = WhfinActionStyle.Quiet, modifier = Modifier.fillMaxWidth())

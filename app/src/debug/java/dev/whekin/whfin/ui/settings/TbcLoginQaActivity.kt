@@ -32,6 +32,7 @@ class TbcLoginQaActivity : ComponentActivity() {
         val initial = TbcLoginState(
             stage = TbcLoginStage.valueOf(intent.getStringExtra("stage") ?: "Login"),
             accounts = accounts, error = intent.getStringExtra("error"),
+            hasSaved = intent.getBooleanExtra("saved", false), remember = intent.getBooleanExtra("saved", false),
             syncResult = if (intent.getStringExtra("stage") == "Connected") {
                 if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
                     dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")),
@@ -52,6 +53,8 @@ class TbcLoginQaActivity : ComponentActivity() {
                             onLogin = { _, _ -> state = state.copy(stage = TbcLoginStage.Code) },
                             onCode = { state = state.copy(stage = TbcLoginStage.Connected) },
                             onRemember = { state = state.copy(remember = it) },
+                            onRestore = { state = state.copy(stage = TbcLoginStage.Connected) },
+                            onForget = { state = state.copy(hasSaved = false, remember = false, stage = TbcLoginStage.Login) },
                             onConfirmBalance = { _, _ -> state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) })
                     }
                     }

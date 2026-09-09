@@ -1,6 +1,11 @@
 package dev.whekin.whfin.ui.feed
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
@@ -23,7 +28,7 @@ internal fun BankSyncSheet(times: List<Pair<String, Long?>>, onDismiss: () -> Un
 
 @Composable
 internal fun BankSyncContent(times: List<Pair<String, Long?>>, onSync: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.bank_sync_title), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.bank_sync_hint), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -36,8 +41,14 @@ internal fun BankSyncContent(times: List<Pair<String, Long?>>, onSync: (String) 
                 age >= 7 -> stringResource(R.string.bank_sync_week_due, age)
                 else -> stringResource(R.string.bank_sync_age, age)
             }
-            WhfinLedgerRow(title = bank, supportingText = description, supportingMaxLines = 3,
-                icon = Icons.Default.Sync, onClick = { onSync(bank) })
+            Column(Modifier.fillMaxWidth().clickable { onSync(bank) }.padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    dev.whekin.whfin.ui.banks.BankBrand(bank)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

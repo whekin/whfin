@@ -1526,9 +1526,9 @@
     <string name="tbc_settings_summary">Войти и загрузить операции</string>
     <string name="tbc_login_intro">Войдите напрямую в TBC для загрузки операций. Пароль и одноразовый код не сохраняются.</string>
     <string name="tbc_login">Войти в TBC</string>
-    <string name="tbc_resume">Использовать сохранённую сессию</string>
-    <string name="tbc_forget">Забыть сессию на этом телефоне</string>
-    <string name="tbc_remember">Сохранить сессию на этом телефоне</string>
+    <string name="tbc_resume">Продолжить с TBC</string>
+    <string name="tbc_forget">Забыть сохранённый вход</string>
+    <string name="tbc_remember">Запомнить вход</string>
     <string name="tbc_lock_needed">Для сохранения сессии задайте код WHFIN в Настройках → Блокировка приложения. Войти можно и без сохранения.</string>
     <string name="tbc_working">Подключаемся к TBC…</string>
     <string name="tbc_code_sms">Введите код из SMS от TBC.</string>
@@ -1542,7 +1542,7 @@
     <string name="tbc_refresh_accounts">Обновить список счетов</string>
     <string name="tbc_error_login">TBC не принял данные входа. Проверьте логин и пароль.</string>
     <string name="tbc_error_code">TBC не принял код. Проверьте его и повторите ввод.</string>
-    <string name="tbc_error_session">Сессия истекла или недоступна. Войдите заново.</string>
+    <string name="tbc_error_session">Сохранённый вход больше не действует. Войдите снова, чтобы продолжить.</string>
     <string name="tbc_error_protection">TBC ограничил запрос. Подождите перед следующей попыткой; автоматического повтора не было.</string>
     <string name="tbc_error_network">Не удалось связаться с TBC. Проверьте подключение.</string>
     <string name="tbc_error_bank_action">Этот вход требует шага, который WHFIN пока не поддерживает. Выполните его в официальном приложении TBC.</string>
@@ -1556,7 +1556,7 @@
     <string name="tbc_history_changed">История изменилась во время загрузки. Повторите синхронизацию.</string>
     <string name="statements_origin_tbc">Синхронизация TBC</string>
     <string name="bank_sync_title">Синхронизировать банки</string>
-    <string name="bank_sync_hint">Выберите банк для загрузки операций. Обновлять можно в любое время; удобно делать это раз в неделю. Банк может запросить код подтверждения.</string>
+    <string name="bank_sync_hint">Обновите операции выбранного банка. Банк может попросить подтвердить вход.</string>
     <string name="bank_sync_first">Подключить или загрузить операции</string>
     <string name="bank_sync_today">Обновлено сегодня · обновить ещё раз</string>
     <string name="bank_sync_age">Обновлено %1$d дн. назад</string>
@@ -1571,4 +1571,10 @@
     <string name="tbc_balance_help_body">Укажите проведённый остаток, без вычета покупок в обработке. Доступный остаток может быть меньше. Сумма должна соответствовать только что загруженной истории; если появились операции, сначала обновите её. Ваш остаток сохранится как оценка, а не как проверенный банком баланс.</string>
     <string name="credo_sync_error_history">История банка изменилась во время загрузки или не прошла проверку. Этот счёт не изменён. Обновите ещё раз; если ошибка повторится, используйте выписку.</string>
     <string name="credo_sync_history_incomplete">История этого счёта загружена не полностью. Уже добавленные операции сохранены. Следующая синхронизация попробует продолжить загрузку.</string>
+    <string name="tbc_remember_detail">Только на этом устройстве. TBC может попросить войти снова.</string>
+    <string name="tbc_saved_title">Вход сохранён</string>
+    <string name="tbc_saved_body">Продолжите, чтобы обновить счета и операции. Пока вход действует, пароль не понадобится.</string>
+    <string name="tbc_use_password">Войти по логину и паролю</string>
+    <string name="tbc_back_to_saved">К сохранённому входу</string>
+    <string name="tbc_error_storage">Вход выполнен, но сохранить его на этом устройстве не удалось.</string>
 </resources>

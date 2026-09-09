@@ -1,7 +1,9 @@
 # TBC in-app sign-in checkpoint
 
-Added 2026-09-09. Since 0.3.28, sign-in/session restoration also starts foreground transaction
-synchronization after a one-time XLSX opening balance. See [history sync](tbc-history-sync.md).
+Added 2026-09-09. Sign-in/session restoration starts foreground transaction synchronization, with
+full initial history and an XLSX or owner-confirmed opening. See [history sync](tbc-history-sync.md).
+Version 0.3.31 fixes authentication persistence and the saved-sign-in screen;
+[connection design](bank-connection-design.md) records the changes and original artwork sources.
 The sections below record the initial authentication checkpoint. Settings → TBC connection opens the native form. The Personal workspace
 alone can connect; Demo disables the entry and the ViewModel also rejects network work in Demo.
 
@@ -13,11 +15,8 @@ It calls password login, OTP certification (SMS or TBC Pass), current-user verif
 mobile account dashboard. It does not register or trust a device, change credentials, issue payments,
 or assume a mobile cookie works on the web API. Normal system TLS verification remains enabled.
 
-A successful session reads the account list, but creates no ledger accounts or transactions. XLSX
-import remains the financial source. Mobile `movementId`/`transactionId` compatibility with XLSX,
-mobile export support, and account-history balance evidence need a real authenticated comparison
-before enabling automatic history writes. The dashboard list is not claimed to enumerate every
-banking product or every currency ledger.
+A successful session reads the account list and starts the history sync described separately.
+The dashboard list is not claimed to enumerate every banking product or every currency ledger.
 
 ## State and recovery
 
@@ -27,8 +26,10 @@ selection stop with an explicit message directing the owner to the bank app. Fai
 retried manually; restart starts a new password login. Rate limits/protection failures are never
 retried automatically. Only one request sequence runs at a time, and leaving the screen cancels it.
 
-After certification, an account-list failure retains a verified session and exposes a retry of that
-read. Session expiry clears local saved state and returns to the password form. No exception contains
+After certification, saving is checkpointed before the account read. An account-list failure retains
+that verified session and the sync button retries the read. Session expiry clears the cookie payload
+and returns to the password form while retaining the owner's opt-in and an explanation for the next
+visit. No exception contains
 a raw bank response. The login, OTP and account APIs are only exercised against scripted responses in
 host tests; the first successful real-bank login was subsequently reported by the owner on the phone,
 including a visible account list (2026-09-09). Session reuse/expiry against the real bank is not yet verified.

@@ -18,7 +18,7 @@ class TbcSessionStoreInstrumentedTest {
             store.clear()
             assertFalse(store.hasSaved())
             store.save(value)
-            assertEquals(value, store.load())
+            assertEquals(value, EncryptedBankSessionStore(context, "tbctest").load())
             assertFalse(file.readBytes().toString(Charsets.ISO_8859_1).contains(value))
             val bytes = file.readBytes()
             bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()

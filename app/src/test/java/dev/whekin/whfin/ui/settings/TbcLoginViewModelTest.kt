@@ -99,7 +99,7 @@ class TbcLoginViewModelTest {
         gateway.accountFailure = true; vm.confirm("0000")
         assertEquals(TbcLoginStage.Connected, settled().stage)
         assertEquals("NETWORK", vm.state.value.error)
-        gateway.accountFailure = false; vm.refreshAccounts()
+        gateway.accountFailure = false; vm.syncTransactions()
         assertEquals(1, settled().accounts.size)
         assertNull(vm.state.value.error)
         assertNull(store.value)
@@ -143,4 +143,33 @@ class TbcLoginViewModelTest {
         assertNull(store.value)
         assertFalse(vm.state.value.remember)
     }
+    @Test fun rememberedSuccessfulAuthenticationSurvivesAFailedAccountReadAndReopen() {
+        vm.storageAllowed(true); vm.setRemember(true)
+        vm.login("example-user", "example-credential"); settled()
+        gateway.accountFailure = true
+        vm.confirm("0000"); settled()
+        assertNotNull("Successful bank authentication must be saved before reading accounts", store.value)
+        vm.leave()
+        assertTrue(vm.state.value.hasSaved)
+        gateway.accountFailure = false
+        vm.restore()
+        assertEquals(TbcLoginStage.Connected, settled().stage)
+        assertEquals(1, gateway.loginCalls)
+    }
+
+    @Test fun rememberChoiceSurvivesExpiryAndViewModelRecreation() {
+        vm.storageAllowed(true); vm.setRemember(true)
+        vm.login("example-user", "example-credential"); settled(); vm.confirm("0000"); settled()
+        vm.leave(); gateway.expired = true; vm.restore(); settled()
+        assertNull(store.value)
+        vm.leave()
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store)
+        assertTrue(vm.state.value.remember)
+        assertFalse(vm.state.value.hasSaved)
+        assertEquals("SESSION", vm.state.value.error)
+        vm.forget()
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store)
+        assertFalse(vm.state.value.remember)
+    }
+
 }

@@ -19,16 +19,19 @@ class TbcLoginVisualTest {
     @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
     @Test fun manualBalanceEnglish() = render("manual-balance-en", stage = "Connected", initial = true)
     @Test fun errorRussian() = render("error-ru", "ru", error = "LOGIN")
+    @Test fun savedEnglishLight() = render("saved-en", saved = true)
+    @Test fun savedRussianDarkLarge() = render("saved-ru-dark-large", "ru", true, 1.5f, saved = true)
+    @Test fun expiredRussian() = render("expired-ru", "ru", error = "SESSION")
     @Test fun keyboardAndSyntheticLoginJourney() = render("ime-journey", journey = true)
     private fun render(name: String, language: String = "en", dark: Boolean = false, font: Float = 1f,
-        stage: String = "Login", error: String? = null, journey: Boolean = false, initial: Boolean = false) {
+        stage: String = "Login", error: String? = null, journey: Boolean = false, initial: Boolean = false, saved: Boolean = false) {
         check(Build.HARDWARE in setOf("ranchu", "goldfish"))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
         val intent = Intent(context, TbcLoginQaActivity::class.java).apply {
             putExtra("language", language); putExtra("dark", dark); putExtra("fontScale", font)
-            putExtra("stage", stage); putExtra("error", error); putExtra("initial", initial)
+            putExtra("stage", stage); putExtra("error", error); putExtra("initial", initial); putExtra("saved", saved)
         }
         val previousIme = device.executeShellCommand("settings get secure show_ime_with_hard_keyboard").trim()
         if (journey || initial) device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
@@ -37,6 +40,7 @@ class TbcLoginVisualTest {
             assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Подключение TBC" else "TBC connection")), 10000))
             device.waitForIdle(1500)
             val out = File(context.getExternalFilesDir(null), "tbc-login-qa").apply { mkdirs() }
+            if (saved) assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             if (journey) {
                 val fields = device.findObjects(By.clazz("android.widget.EditText"))
                 assertEquals(2, fields.size)
@@ -60,6 +64,11 @@ class TbcLoginVisualTest {
             }
             android.os.SystemClock.sleep(400)
             assertTrue(device.takeScreenshot(File(out, "$name.png")))
+            if (saved) {
+                device.findObject(By.text(if (language == "ru") "Продолжить с TBC" else "Continue to TBC")).click()
+                assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Вход в TBC подтверждён" else "TBC sign-in confirmed")), 5000))
+                assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
+            }
             if (initial && language == "en") {
                 val field = device.findObject(By.clazz("android.widget.EditText"))
                 assertNotNull(field)

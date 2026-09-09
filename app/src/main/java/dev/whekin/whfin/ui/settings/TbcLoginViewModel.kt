@@ -30,11 +30,15 @@ class TbcLoginViewModel internal constructor(
     private val factory: () -> TbcGateway,
     private val store: BankSessionStore,
     private val synchronize: (suspend (TbcGateway, (Int, Int) -> Unit) -> dev.whekin.whfin.data.importer.TbcSyncResult)? = null,
+    private val rememberChoice: dev.whekin.whfin.data.security.BankSessionChoice =
+        dev.whekin.whfin.data.security.DeviceBankSessionChoice(app, "tbc"),
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(app, { MobileTbcGateway() }, EncryptedBankSessionStore(app, "tbc"),
         { gateway, progress -> dev.whekin.whfin.data.importer.TbcHistorySync((app as dev.whekin.whfin.WhfinApp).db)
             .sync(gateway, progress = progress) })
-    private val mutable = MutableStateFlow(TbcLoginState(hasSaved = store.hasSaved()))
+    private fun loginState() = TbcLoginState(hasSaved = store.hasSaved(), remember = rememberChoice.read() ?: store.hasSaved(),
+        error = rememberChoice.problem()?.takeUnless { store.hasSaved() })
+    private val mutable = MutableStateFlow(loginState())
     val state = mutable.asStateFlow()
     private var gateway: TbcGateway? = null
     private var challenge: TbcChallenge? = null
@@ -46,11 +50,15 @@ class TbcLoginViewModel internal constructor(
         canRemember = allowed
         if (!allowed) {
             store.clear()
+            rememberChoice.write(false)
             mutable.value = mutable.value.copy(hasSaved = false, remember = false)
         }
     }
     fun setRemember(value: Boolean) {
-        mutable.value = mutable.value.copy(remember = value && canRemember)
+        val remember = value && canRemember
+        rememberChoice.write(remember)
+        if (!remember) store.clear()
+        mutable.value = mutable.value.copy(remember = remember, hasSaved = store.hasSaved())
     }
     fun login(username: String, credential: String) {
         if (username.isBlank() || credential.isEmpty()) return
@@ -76,6 +84,7 @@ class TbcLoginViewModel internal constructor(
         run(TbcLoginStage.Login) {
             val saved = withContext(Dispatchers.IO) { store.load() } ?: throw TbcException("SESSION")
             val client = factory().also { gateway?.clear(); gateway = it }
+            rememberChoice.write(true)
             mutable.value = mutable.value.copy(remember = true)
             connected(client.resume(TbcSession.decode(saved)))
         }
@@ -87,15 +96,26 @@ class TbcLoginViewModel internal constructor(
     private suspend fun connected(value: TbcSession) {
         session = value
         challenge = null
-        // Account fetch must succeed before showing Connected. It never writes the ledger.
+        // Persist verified authentication before any unrelated account/history request can fail.
+        persistSession()
         val accounts = requireNotNull(gateway).accounts()
-        session = requireNotNull(gateway).snapshot()
-        val remember = mutable.value.remember && canRemember
-        withContext(Dispatchers.IO) {
-            if (remember) store.save(requireNotNull(session).encode()) else store.clear()
-        }
+        persistSession() // Account responses can rotate the cookie too.
         mutable.value = mutable.value.copy(accounts = accounts, hasSaved = store.hasSaved(), error = null)
         syncCurrent()
+    }
+
+    private suspend fun persistSession() {
+        session = requireNotNull(gateway).snapshot()
+        val remember = mutable.value.remember && canRemember
+        rememberChoice.write(remember)
+        withContext(Dispatchers.IO) {
+            try {
+                if (remember) store.save(requireNotNull(session).encode()) else store.clear()
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { throw TbcException("STORAGE") }
+        }
+        rememberChoice.reportProblem(null)
+        mutable.value = mutable.value.copy(hasSaved = store.hasSaved())
     }
 
     fun confirmBalance(key: String, amountMinor: Long) {
@@ -114,8 +134,10 @@ class TbcLoginViewModel internal constructor(
     }
 
     fun syncTransactions() {
-        if (session == null) return
-        run(TbcLoginStage.Connected) { syncCurrent() }
+        val verified = session ?: return
+        run(TbcLoginStage.Connected) {
+            if (mutable.value.accounts.isEmpty()) connected(verified) else syncCurrent()
+        }
     }
 
     private suspend fun syncCurrent() {
@@ -126,8 +148,7 @@ class TbcLoginViewModel internal constructor(
         if (result != null && result.errors.isEmpty() && result.needsStatement.isEmpty()) {
             dev.whekin.whfin.data.preferences.UiPreferences(getApplication<Application>()).setLastTbcSyncAt(System.currentTimeMillis())
         }
-        session = client.snapshot()
-        if (mutable.value.remember && canRemember) withContext(Dispatchers.IO) { store.save(requireNotNull(session).encode()) }
+        persistSession()
         mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncProgress = null, syncResult = result)
         if (result != null && result.inserted > 0) {
             val app = getApplication<Application>() as? dev.whekin.whfin.WhfinApp
@@ -147,7 +168,8 @@ class TbcLoginViewModel internal constructor(
             catch (error: Exception) {
                 val code = (error as? TbcException)?.code ?: "RESPONSE"
                 val expired = code == "SESSION"
-                if (expired) { gateway?.clear(); session = null; challenge = null; store.clear() }
+                if (expired) { gateway?.clear(); session = null; challenge = null; store.clear(); rememberChoice.reportProblem("SESSION") }
+                if (code == "STORAGE") rememberChoice.reportProblem("STORAGE")
                 mutable.value = mutable.value.copy(stage = if (expired) TbcLoginStage.Login else if (session != null) TbcLoginStage.Connected else failureStage,
                     hasSaved = store.hasSaved(), error = code, syncProgress = null)
             }
@@ -156,8 +178,8 @@ class TbcLoginViewModel internal constructor(
     fun leave() {
         work?.cancel(); work = null
         gateway?.clear(); gateway = null; session = null; challenge = null
-        mutable.value = TbcLoginState(hasSaved = store.hasSaved())
+        mutable.value = loginState()
     }
-    fun forget() { leave(); store.clear(); mutable.value = TbcLoginState() }
+    fun forget() { leave(); store.clear(); rememberChoice.write(false); rememberChoice.reportProblem(null); mutable.value = TbcLoginState() }
     override fun onCleared() { gateway?.clear() }
 }

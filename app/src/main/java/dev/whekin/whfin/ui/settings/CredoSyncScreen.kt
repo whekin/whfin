@@ -423,6 +423,7 @@ fun CredoSyncScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        dev.whekin.whfin.ui.banks.BankBrand("Credo")
         val savedProfile = usableSavedPassword && state.stage in setOf(
             CredoSyncStage.Disconnected,
             CredoSyncStage.Connecting,
