@@ -22,6 +22,26 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Тестовый вход TBC внутри WHFIN, 0.3.26 (38), 2026-09-09. Настройки → Подключение TBC:
+  мобильный password/OTP API, SMS или TBC Pass, проверка сессии и чтение списка счетов.
+  Это контрольная точка для первого настоящего входа владельца, НЕ автоматический импорт истории.
+  ZenPlugins использует JSON с movementId, без остатков строк и структурированных IBAN;
+  совместимость этих ID и мобильных cookies с XLSX пока не доказана. В учёт вход ничего не пишет.
+  Пароль/OTP только в памяти; сохранение cookies выключено по умолчанию и требует кода WHFIN.
+  BankSessionStore: AES-256-GCM/Keystore, AtomicFile в noBackupFilesDir, bank-specific AAD;
+  повторное использование только через BankCredential gate. Истечение возвращает форму входа,
+  забывание удаляет ciphertext и ключ. Нет регистрации доверенного устройства, easyLogin,
+  replay пароля, платёжных API, автоповторов или ослабления TLS. FLAG_SECURE защищает экран.
+  Demo блокирует сетевые действия в UI и ViewModel. Новый вход не меняет connector Credo.
+  Проверки: 921 app unit/Compose, 0 failures/errors, 4 skipped; 7 instrumented UI/Keystore
+  на emulator-5554 прошли, дополнительно повторён IME journey с ожиданием реальной клавиатуры.
+  RU/EN, light/dark, font 1.5, ошибка, OTP и подтверждённая сессия — кадры просмотрены;
+  /tmp/whfin-tbc-login-final/ и /tmp/whfin-tbc-ime-verified.png. Первый UI-прогон исправлен:
+  QA-host нуждался в Surface для dark contentColor, тест делал Back без фокуса поля OTP.
+  Debug/release R8/lintVital и screenshot validate прошли, references не менялись.
+  Release установлен через install -r на телефон, данные не очищались. НАСТОЯЩИЙ вход в банк
+  ещё не выполнялся: дальше владелец вводит свои данные в приложении. Контракт: docs/tbc-login.md.
+
 - [x] TBC XLSX и переводы между банками (2026-09-09). TBC Online Summary + один лист
   IBAN/валюта входят в общий импорт. Проверяются обороты, цепочка остатков, даты, суммы и
   уникальные Transaction ID. POS и POS wallet — покупки с отдельной датой покупки;

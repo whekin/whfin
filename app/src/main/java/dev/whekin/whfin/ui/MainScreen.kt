@@ -124,7 +124,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
  */
 internal enum class RootDestination { Home, Transactions, Accounts, Analytics }
 
-internal enum class SecondaryDestination { Settings, CredoSync, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
+internal enum class SecondaryDestination { Settings, CredoSync, TbcLogin, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
 
 internal enum class ShellScene(val depth: Int) {
     Home(0),
@@ -133,6 +133,7 @@ internal enum class ShellScene(val depth: Int) {
     Analytics(0),
     Settings(1),
     CredoSync(2),
+    TbcLogin(2),
     Statements(2),
     SmsDiagnostics(2),
     AccountOverview(1),
@@ -190,6 +191,7 @@ internal fun shellTargetFor(
         when (secondaryDestination) {
             SecondaryDestination.Settings -> ShellScene.Settings
             SecondaryDestination.CredoSync -> ShellScene.CredoSync
+            SecondaryDestination.TbcLogin -> ShellScene.TbcLogin
             SecondaryDestination.Statements -> ShellScene.Statements
             SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
             SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
@@ -571,6 +573,7 @@ fun MainScreen(
                             onOpenSystemSettings = onOpenSystemSettings,
                             onOpenStatements = { open(SecondaryDestination.Statements) },
                             onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
+                            onOpenTbc = { open(SecondaryDestination.TbcLogin) },
                             onOpenCredoSync = {
                                 openCredo(
                                     caller = SecondaryDestination.Settings,
@@ -613,6 +616,10 @@ fun MainScreen(
                             onDone = { goBack(withHaptic = true) },
                         )
                     }
+                    ShellScene.TbcLogin -> SecondaryPage(
+                        title = stringResource(R.string.tbc_title),
+                        onBack = { goBack(withHaptic = true) },
+                    ) { dev.whekin.whfin.ui.settings.TbcLoginRoute(appLockHasPin, demoMode) }
                     ShellScene.Statements -> SecondaryPage(
                         title = stringResource(R.string.statements_title),
                         onBack = { goBack(withHaptic = true) },
@@ -771,7 +778,7 @@ fun MainScreen(
 }
 
 @Composable
-private fun SecondaryPage(
+internal fun SecondaryPage(
     title: String,
     onBack: () -> Unit,
     content: @Composable () -> Unit,

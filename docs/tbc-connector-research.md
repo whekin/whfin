@@ -80,3 +80,81 @@ actual download uses GET. Raw traces are not reproduced in the repository.
 The available sources are enough to identify the protocol skeleton and the
 previously missing download method. They do not prove unattended authentication
 or a working automatic connector. File-based XLSX import can ship independently.
+
+## Mobile protocol comparison: ZenPlugins source
+
+Inspected 2026-09-09 at ZenPlugins revision
+`c7af1ee865ae40482694f572e8205babcb8aaf15`. This is primary evidence of what
+that independent connector implements, **not bank documentation or proof that
+these endpoints currently accept a WHFIN session**. No authenticated call was
+made. The previous sections describe TBC's own web client; this section describes
+ZenPlugins' mobile flow.
+
+Its authentication host is `rmbgwauth.tbconline.ge`, distinct from web
+`ribgwauth.tbconline.ge`. It posts JSON to `/v1/auth/loginWithPassword`, optionally
+`/v1/auth/certifyLogin`, and can later use `/v1/auth/easyLogin` after device
+registration. Login includes Base64-encoded JSON device information/data and a
+device ID. OTP certification carries the login `transactionId`, signature type,
+`otpId` and response. The response model exposes `success`,
+`secondPhaseRequired`, `changePasswordRequired` and `userSelectionRequired`, so
+receiving a response does not alone establish a completed login. This source
+also implements device registration and trust/untrust operations; those are
+separate mutations, not necessary assumptions for a first interactive login.
+Sources: [mobile fetch functions](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/fetchApi.ts),
+[authentication models](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/models.ts).
+
+The connector extracts `set-cookie` into an array, explicitly joins it into a
+`Cookie` request header, checks the session using GET
+`https://rmbgwauth.tbconline.ge/v2/usermanagement/userinfo`, and sends the same
+cookie array to data APIs on `rmbgw.tbconline.ge`. This is explicit native HTTP
+forwarding; the helper does not establish browser cookie Domain/Path scope or
+compatibility with either `ribgw` web host. The inspected mobile functions have
+**no XLSX export/download implementation**. They retrieve JSON history; therefore
+mobile authentication must not be treated as proven authorization for the web
+XLSX endpoint.
+Sources: [cookie helper](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/utils.ts),
+[fetch functions](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/fetchApi.ts),
+[synchronization entry point](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/index.ts).
+
+Account discovery uses GET `/products/api/v1/cards` and
+`/dashboard/api/v1/cards-and-accounts` on `rmbgw.tbconline.ge`. The product model
+has an IBAN plus currency-specific accounts containing `id`, `coreAccountId`,
+`balance` and `currency`. Its converter uses **`account.id`**, not
+`coreAccountId`, for history requests, and maps `account.balance` as the current
+balance. Dashboard entries instead have `id`, `iban`, `amount` and `currency`.
+Sources: [fetch functions](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/fetchApi.ts),
+[account models](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/models.ts),
+[account conversion](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/converters.ts).
+
+History uses POST `https://rmbgw.tbconline.ge/pfm/api/v1/transactions/history`.
+The request specifies `coreAccountIds: [{currency, iban, id, type: "200"}]`,
+`pageSize: 100`, `pageType: "History"`, `isChildCardRequest: false`,
+`showBlockedTransactions: false`, and continuation values `lastSortColKey` /
+`lastBlockedMovementDate`. It receives an array of `{date, transactions}` groups;
+`date` is treated as epoch milliseconds. The plugin advances cursors from
+transaction IDs/blocked dates and stops at empty results or its date boundary.
+This is a pagination example, not evidence that a repeated day safely implies
+end-of-history for another implementation.
+Source: [fetchHistoryV2](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/fetchApi.ts).
+
+The modeled history row has `transactionId`, `accountId`, `entryType`,
+`movementId`, `transactionDate`, `localTime`, `title`, `subTitle`, `amount`,
+`currency`, `categoryCode`, `subCategoryCode`, `transactionSubtype`,
+`transactionStatus`, `isDebit`, blocked movement/card/IBAN fields and optional UI
+capability flags. The model comments say ordinary rows have `movementId`, while
+blocked rows have zero transaction ID and null movement/account IDs; ordinary
+row dates come from the outer group or parsed POS description. The converter
+uses **`movementId` as row identity**, retains signed `amount` directly, and uses
+`transactionId` plus title as transfer grouping hints. These IDs are not proven
+to equal the XLSX Transaction ID.
+Sources: [TransactionRecordV2 model](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/models.ts),
+[transaction conversion](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/converters.ts).
+
+There is no per-row balance, statement opening/closing balance, or structured
+counterparty IBAN in that account-history model. Account balances are separate
+snapshots; deposit statements have a different model with a balance. Cross-bank
+transfer recognition and CSV/XLSX deduplication therefore need validation against
+actual owner-authorized mobile responses before replacing the richer file
+import. Whether mobile cookies work with web exports, or whether an equivalent
+mobile XLSX route exists, remains unknown.
+Source: [history and deposit models](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/models.ts).

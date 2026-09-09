@@ -148,6 +148,7 @@ class MainActivity : FragmentActivity() {
     private var mainOpenAccountAdd by mutableStateOf(false)
     private var runtimeModeRestarting = false
     private var resumed = false
+    private var bankScreenVisible = false
     // Set once the locked user asks for the code instead of biometrics, so returning to the foreground
     // does not push the system prompt back over the keypad they chose. Cleared on every unlock.
     private var codeUnlockChosen = false
@@ -756,8 +757,13 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    internal fun protectBankScreen(visible: Boolean) {
+        bankScreenVisible = visible
+        updateWindowPrivacy()
+    }
+
     private fun updateWindowPrivacy() {
-        if (appLock.timeout.enabled && appLock.locked) {
+        if (bankScreenVisible || (appLock.timeout.enabled && appLock.locked)) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else if (resumed) {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)

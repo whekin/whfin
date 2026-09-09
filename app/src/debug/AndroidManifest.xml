@@ -6,5 +6,6 @@
         <activity android:name=".ui.settings.IncomeSourcesQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.transfer.OwnTransferQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.analytics.AnalyticsQaActivity" android:exported="false" />
+        <activity android:name=".ui.settings.TbcLoginQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

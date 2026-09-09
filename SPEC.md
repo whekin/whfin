@@ -212,7 +212,9 @@ hash, тип, masked/parsed поля и результат. История чи�
 ## Вторая волна
 
 - TBC XLSX: ручной импорт одного счёта/валюты, ID-дедуп и переводы Credo ↔ TBC по взаимным
-  реквизитам. CSV/PDF и TBC SMS не подключены; интернет-банк исследуется отдельно.
+  реквизитам. CSV/PDF и TBC SMS не подключены. В Настройках доступен тестовый мобильный вход TBC
+  с OTP и чтением списка счетов; автоматическая история пока не подключена.
+  Контракт: [docs/tbc-login.md](docs/tbc-login.md).
   Контракт: [docs/statement-import.md](docs/statement-import.md).
 - Крипта: небольшой watch-only MVP между TBC и BOG — явные EVM/Tron сети, ETH/TRX/USDT balances,
   manual refresh; без DeFi, ключей и отправки. История Tron USDT/USDC и явная связка вывода
