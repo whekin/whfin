@@ -113,6 +113,29 @@ class TbcLoginViewModelTest {
         assertEquals(TbcLoginStage.Login, settled().stage)
         assertNull(store.value)
     }
+    @Test fun successfulLoginRunsSyncAndTheButtonRunsItAgain() {
+        var calls = 0
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store,
+            synchronize = { _, progress ->
+                calls++; progress(1, 1)
+                dev.whekin.whfin.data.importer.TbcSyncResult(matched = 4)
+            })
+        vm.login("example-user", "example-credential"); settled()
+        vm.confirm("0000")
+        assertEquals(4, settled().syncResult?.matched)
+        assertEquals(1, calls)
+        vm.syncTransactions()
+        settled()
+        assertEquals(2, calls)
+    }
+    @Test fun missingOpeningIsAVisibleResultNotAFalseSuccessfulImport() {
+        val remote = TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store,
+            synchronize = { _, _ -> dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(remote)) })
+        vm.login("example-user", "example-credential"); settled(); vm.confirm("0000")
+        assertEquals(listOf(remote), settled().syncResult?.needsStatement)
+        assertEquals(0, vm.state.value.syncResult?.inserted)
+    }
     @Test fun disablingStorageClearsTheSavedSession() {
         store.value = gateway.snapshot().encode()
         vm.storageAllowed(true); vm.setRemember(true)

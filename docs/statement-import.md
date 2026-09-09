@@ -189,3 +189,8 @@ is absent. No database migration is needed.
 identity, correction, fees, opposite import orders, delayed posting, ambiguity, explicit links and
 allocation protection. Optional private checks use the existing fixture environment variables and an
 isolated Room database. `TbcStatementImportInstrumentedTest` checks Android XML/SQLite on an emulator.
+
+
+TBC foreground API synchronization is described in [history sync](tbc-history-sync.md). It uses the
+same planner/applier after a one-time XLSX opening, records TBC_SYNC provenance, and preserves both
+mobile/file identities on one row. Missing API row balances are never manufactured.

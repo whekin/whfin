@@ -1,7 +1,8 @@
 # TBC in-app sign-in checkpoint
 
-Added 2026-09-09. This is a testable mobile sign-in and account-discovery surface, not automatic
-statement synchronization. Settings → TBC connection opens the native form. The Personal workspace
+Added 2026-09-09. Since 0.3.28, sign-in/session restoration also starts foreground transaction
+synchronization after a one-time XLSX opening balance. See [history sync](tbc-history-sync.md).
+The sections below record the initial authentication checkpoint. Settings → TBC connection opens the native form. The Personal workspace
 alone can connect; Demo disables the entry and the ViewModel also rejects network work in Demo.
 
 ## Scope

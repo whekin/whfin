@@ -4,6 +4,7 @@ import android.os.Build
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpCookie
@@ -37,6 +38,8 @@ interface TbcGateway {
     suspend fun login(username: String, credential: String): TbcLoginResult
     suspend fun confirm(challenge: TbcChallenge, code: String): TbcSession
     suspend fun resume(session: TbcSession): TbcSession
+    suspend fun ledgerAccounts(): List<TbcLedgerAccount> = throw TbcException("HISTORY_FORMAT")
+    suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = throw TbcException("HISTORY_FORMAT")
     suspend fun accounts(): List<TbcAccount>
     fun clear()
     fun snapshot(): TbcSession
@@ -150,7 +153,83 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
             TbcAccount(row.optLong("id").takeIf { it > 0 }, iban, currency, row.optString("name"))
         }.distinctBy { it.iban to it.currency }
     }
-    private fun request(host: String, path: String, body: JSONObject? = null): JSONObject {
+    override suspend fun ledgerAccounts(): List<TbcLedgerAccount> = withContext(Dispatchers.IO) {
+        try {
+            val result = linkedMapOf<String, TbcLedgerAccount>()
+            val products = JSONArray(requestText(API, "/products/api/v1/cards"))
+            for (i in 0 until products.length()) {
+                val product = products.getJSONObject(i)
+                if (product.optBoolean("isChildCard") || product.optBoolean("isCreditCard")) continue
+                val iban = required(product, "iban")
+                val ledgers = product.getJSONArray("accounts")
+                for (j in 0 until ledgers.length()) {
+                    val ledger = ledgers.getJSONObject(j)
+                    val item = TbcLedgerAccount(ledger.getLong("id").toString(), iban, required(ledger, "currency"),
+                        product.optString("friendlyName").takeUnless { it == "null" }.orEmpty(),
+                        ledger.optLong("coreAccountId").takeIf { it > 0 }?.toString(),
+                        ledger.opt("balance")?.takeUnless { it == JSONObject.NULL }?.let { java.math.BigDecimal(it.toString()).movePointRight(2).longValueExact() })
+                    if (!iban.matches(Regex("GE[0-9]{2}TB[0-9]{16}")) || !item.currency.matches(Regex("[A-Z]{3}"))) throw TbcException("HISTORY_ACCOUNT")
+                    if (result.put(item.key, item) != null) throw TbcException("HISTORY_ACCOUNT")
+                }
+            }
+            val dashboard = request(API, "/dashboard/api/v1/cards-and-accounts").getJSONArray("accountsAndDebitCards")
+            for (i in 0 until dashboard.length()) {
+                val item = dashboard.getJSONObject(i)
+                if (item.optString("type") == "Card") continue
+                val iban = required(item, "iban")
+                val currency = required(item, "currency")
+                if (!iban.matches(Regex("GE[0-9]{2}TB[0-9]{16}")) || !currency.matches(Regex("[A-Z]{3}"))) throw TbcException("HISTORY_ACCOUNT")
+                val account = TbcLedgerAccount(item.optLong("id").takeIf { it > 0 }?.toString() ?: iban, iban, currency, item.optString("name"), balanceMinor =
+                    item.opt("amount")?.takeUnless { it == JSONObject.NULL }?.let { java.math.BigDecimal(it.toString()).movePointRight(2).longValueExact() })
+                result.putIfAbsent(account.key, account)
+            }
+            result.values.toList()
+        } catch (e: TbcException) { throw e }
+        catch (_: Exception) { throw TbcException("HISTORY_FORMAT") }
+    }
+
+    override suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = withContext(Dispatchers.IO) {
+        try {
+            val rows = linkedMapOf<String, TbcHistoryRow>()
+            var cursor: Long? = null
+            var blockedCursor: Long? = null
+            var previousDay: java.time.LocalDate? = null
+            val seenCursors = mutableSetOf<String>()
+            repeat(200) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                val body = JSONObject().put("coreAccountIds", JSONArray().put(JSONObject()
+                    .put("currency", account.currency).put("iban", account.iban).put("id", account.id).put("type", "200")))
+                    .put("pageSize", 100).put("pageType", "History").put("isChildCardRequest", false).put("showBlockedTransactions", false)
+                cursor?.let { body.put("lastSortColKey", it) }
+                blockedCursor?.let { body.put("lastBlockedMovementDate", it) }
+                val page = TbcHistoryParser.page(JSONArray(requestText(API, "/pfm/api/v1/transactions/history", body)), account)
+                if (page.empty) return@withContext rows.values.filter { it.row.postedDate in from..through }
+                page.rows.forEach { row ->
+                    if (previousDay != null && row.row.postedDate > previousDay) throw TbcException("HISTORY_PAGE")
+                    previousDay = row.row.postedDate
+                    val existing = rows.putIfAbsent(row.movementId, row)
+                    if (existing != null && existing != row) throw TbcException("HISTORY_CHANGED")
+                    if (row.row.postedDate > through) throw TbcException("HISTORY_CHANGED")
+                }
+                // Repeated days are normal. Stop at a genuinely older day, not at a repeated one.
+                if (page.rows.any { it.row.postedDate < from }) return@withContext rows.values.filter { it.row.postedDate in from..through }
+                val next = page.nextCursor ?: cursor
+                val nextBlocked = page.blockedCursor ?: blockedCursor
+                if (next == null && nextBlocked == null) throw TbcException("HISTORY_PAGE")
+                if (!seenCursors.add("$next|$nextBlocked")) throw TbcException("HISTORY_PAGE")
+                cursor = next; blockedCursor = nextBlocked
+            }
+            throw TbcException("HISTORY_PAGE")
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: TbcException) { throw e }
+        catch (_: Exception) { throw TbcException("HISTORY_FORMAT") }
+    }
+
+    private fun request(host: String, path: String, body: JSONObject? = null): JSONObject =
+        try { JSONObject(requestText(host, path, body)) } catch (e: TbcException) { throw e }
+        catch (_: Exception) { throw TbcException("RESPONSE") }
+
+    private fun requestText(host: String, path: String, body: JSONObject? = null): String {
         val headers = buildMap {
             put("User-Agent", "TBC a$PROTOCOL_APP_VERSION (Android; Android ${Build.VERSION.RELEASE}; ANDROID_PHONE)")
             put("Accept", "application/json")
@@ -170,7 +249,7 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
             429 -> throw TbcException("RATE_LIMIT")
         }
         if (response.status !in 200..299) throw TbcException(if (path.endsWith("certifyLogin") && response.status == 400) "OTP" else "HTTP_${response.status}")
-        return try { JSONObject(response.body) } catch (_: Exception) { throw TbcException("RESPONSE") }
+        return response.body
     }
     private fun required(json: JSONObject, key: String) = json.optString(key).takeIf { it.isNotBlank() && it != "null" } ?: throw TbcException("RESPONSE")
     private fun encode(json: JSONObject) = Base64.encodeToString(json.toString().toByteArray(Charsets.UTF_8), Base64.NO_WRAP)

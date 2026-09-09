@@ -18,6 +18,7 @@
 | SMS банков (Credo / TBC) | оперативная проводка с provenance `SMS`; участия не требует, кроме действительно неоднозначного routing | активная операция, позже тихо сверяется выпиской |
 | Excel-выписка (MYCREDO / TBC xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground batch download тех же XLSX | `confirmed` |
+| TBC mobile connector | foreground API history после начального XLSX, связанные ID обоих источников | `confirmed` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
 | Крипто watch-адреса | EVM/Tron balances; подтверждённая история Tron USDT/USDC | balance snapshot + операции CRYPTO |
 
@@ -223,7 +224,9 @@ TBC: покупки с маской карты, возвраты, пополне
 
 - TBC XLSX: ручной импорт одного счёта/валюты, ID-дедуп и переводы Credo ↔ TBC по взаимным
   реквизитам. CSV/PDF не импортируются; SMS TBC поддерживаются в пределах описанных выше форматов. В Настройках доступен тестовый мобильный вход TBC
-  с OTP и чтением списка счетов; автоматическая история пока не подключена.
+  с OTP, чтением валютных счетов и foreground-синком операций после первого XLSX для начального остатка.
+  Повторный API/XLSX импорт связывает обе идентичности без дубля; неоднозначность останавливает счёт.
+  Контракт истории: [docs/tbc-history-sync.md](docs/tbc-history-sync.md).
   Контракт: [docs/tbc-login.md](docs/tbc-login.md).
   Контракт: [docs/statement-import.md](docs/statement-import.md).
 - Крипта: небольшой watch-only MVP между TBC и BOG — явные EVM/Tron сети, ETH/TRX/USDT balances,

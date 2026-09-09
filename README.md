@@ -23,7 +23,7 @@ transfers, conversions, debts, people, and watch-only crypto assets.
 ## Status
 
 WHFIN is under active development and is not ready for public distribution. The current roadmap covers
-redacted parser-failure sharing, TBC internet-bank research, a constrained EVM/Tron watch-only crypto MVP,
+redacted parser-failure sharing, TBC mobile-history live validation, a constrained EVM/Tron watch-only crypto MVP,
 BOG statement import, and a dedicated Google Play release track. See [SPEC.md](SPEC.md),
 [docs/roadmap.md](docs/roadmap.md), and [docs/production-readiness.md](docs/production-readiness.md).
 

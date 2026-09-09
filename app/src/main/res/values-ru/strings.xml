@@ -1523,8 +1523,8 @@
     <string name="crypto_bridge_effect">Связка сохраняет обе суммы и балансы. Вывод из кошелька и зачисление в банк исключаются из расходов и доходов. Здесь же можно отменить связку.</string>
     <string name="crypto_bridge_sheet_title">Перевод</string>
     <string name="tbc_title">Подключение TBC</string>
-    <string name="tbc_settings_summary">Проверить вход и посмотреть счета</string>
-    <string name="tbc_login_intro">Вход напрямую в TBC с этого телефона. Тестовое подключение читает список счетов; история пока загружается из XLSX. Пароль и одноразовый код не сохраняются.</string>
+    <string name="tbc_settings_summary">Войти и загрузить операции</string>
+    <string name="tbc_login_intro">Войдите напрямую в TBC для загрузки операций. Пароль и одноразовый код не сохраняются.</string>
     <string name="tbc_login">Войти в TBC</string>
     <string name="tbc_resume">Использовать сохранённую сессию</string>
     <string name="tbc_forget">Забыть сессию на этом телефоне</string>
@@ -1547,4 +1547,12 @@
     <string name="tbc_error_network">Не удалось связаться с TBC. Проверьте подключение.</string>
     <string name="tbc_error_bank_action">Этот вход требует шага, который WHFIN пока не поддерживает. Выполните его в официальном приложении TBC.</string>
     <string name="tbc_error_response">TBC вернул неожиданный ответ. Тестовое подключение требует дополнительной проверки.</string>
+    <string name="tbc_sync_action">Синхронизировать операции</string>
+    <string name="tbc_sync_progress">Получаем операции · счёт %1$d из %2$d</string>
+    <string name="tbc_sync_result">Новых: %1$d · сопоставлено: %2$d · счетов без изменений: %3$d</string>
+    <string name="tbc_initial_statement">Один раз загрузите XLSX-выписку для начального остатка этих счетов. После этого новые операции будут поступать через подключение TBC.</string>
+    <string name="tbc_history_conflict">Не удалось однозначно сопоставить историю и выписку. Данные этого счёта не изменены.</string>
+    <string name="tbc_history_format">Не удалось прочитать полную историю счёта. Операции этого счёта не загружены.</string>
+    <string name="tbc_history_changed">История изменилась во время загрузки. Повторите синхронизацию.</string>
+    <string name="statements_origin_tbc">Синхронизация TBC</string>
 </resources>

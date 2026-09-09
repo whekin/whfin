@@ -24,7 +24,7 @@ data class ImportPlan(
 ) {
     val inserted: Int get() = entries.count { it is PlannedRow.Insert }
     val reconciled: Int get() = entries.count {
-        it is PlannedRow.Reconcile || it is PlannedRow.ReconcileDuplicate
+        it is PlannedRow.Reconcile || it is PlannedRow.ReconcileDuplicate || it is PlannedRow.LinkIdentity
     }
     val duplicates: Int get() = entries.count { it is PlannedRow.Duplicate }
     val totalRows: Int get() = entries.size
@@ -36,6 +36,9 @@ data class ImportPlan(
 sealed interface PlannedRow {
     val row: StatementRow
     val externalKey: String
+
+    /** Attach another bank-issued ID without changing the file-authoritative money or user decisions. */
+    data class LinkIdentity(override val row: StatementRow, override val externalKey: String, val transactionId: Long) : PlannedRow
 
     /** A movement WHFIN has never seen. */
     data class Insert(override val row: StatementRow, override val externalKey: String) : PlannedRow

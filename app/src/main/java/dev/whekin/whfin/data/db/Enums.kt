@@ -18,7 +18,7 @@ enum class PaymentInstrumentType { PHYSICAL_CARD, VIRTUAL_CARD }
 enum class StatementSourceType { ACCOUNT, CARD }
 
 /** How a statement reached WHFIN; kept separately from the bank account/card it describes. */
-enum class StatementImportOrigin { FILE, CREDO_SYNC }
+enum class StatementImportOrigin { FILE, CREDO_SYNC, TBC_SYNC }
 
 /**
  * Why two or more rows are one movement.

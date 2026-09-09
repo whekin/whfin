@@ -38,6 +38,9 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         plan.entries.forEach { entry ->
             when (entry) {
                 is PlannedRow.Duplicate -> Unit
+                is PlannedRow.LinkIdentity -> db.transactionDao().byId(entry.transactionId)?.let {
+                    db.transactionDao().update(it.copy(externalKey = entry.externalKey))
+                }
                 is PlannedRow.Insert -> insert(entry, account, statement.currency, now)
                 is PlannedRow.Reconcile -> reconcile(entry, statement.currency)
                 is PlannedRow.ReconcileDuplicate -> reconcileDuplicate(entry, statement.currency)
@@ -123,6 +126,10 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
             }
             db.transactionDao().deleteTransferGroups(listOf(oldGroup))
         }
+        val bankOwn = row.bankTransactionId != null && draft.isTransfer &&
+            dev.whekin.whfin.data.tbc.TbcRowIdentity.mobileFromKey(draft.externalKey.orEmpty()) != null &&
+            draft.note?.substringBefore('\n')?.trim() in setOf("კონვერტაცია", "Transfer between your accounts") &&
+            row.operation !in setOf(StatementOperation.CARD_PAYMENT, StatementOperation.FEE)
         val merchant = merchantFor(row)
         db.transactionDao().update(
             draft.copy(
@@ -144,7 +151,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 note = row.description.takeIf { it != row.merchantRaw },
                 status = TxStatus.CONFIRMED,
                 source = TxSource.STATEMENT,
-                isTransfer = row.operation.isOwnMovement || explicitBridge,
+                isTransfer = row.operation.isOwnMovement || explicitBridge || bankOwn,
                 transferGroupId = if (row.bankTransactionId != null && !explicitBridge) null else draft.transferGroupId,
                 balanceAfterMinor = row.balanceAfterMinor,
                 externalKey = entry.externalKey,

@@ -619,7 +619,7 @@ fun MainScreen(
                     ShellScene.TbcLogin -> SecondaryPage(
                         title = stringResource(R.string.tbc_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { dev.whekin.whfin.ui.settings.TbcLoginRoute(appLockHasPin, demoMode) }
+                    ) { dev.whekin.whfin.ui.settings.TbcLoginRoute(appLockHasPin, demoMode, onOpenStatements = { open(SecondaryDestination.Statements) }) }
                     ShellScene.Statements -> SecondaryPage(
                         title = stringResource(R.string.statements_title),
                         onBack = { goBack(withHaptic = true) },

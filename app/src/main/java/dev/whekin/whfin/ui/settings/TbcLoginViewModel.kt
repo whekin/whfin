@@ -22,13 +22,18 @@ data class TbcLoginState(
     val otpApp: Boolean = false,
     val accounts: List<TbcAccount> = emptyList(),
     val error: String? = null,
+    val syncResult: dev.whekin.whfin.data.importer.TbcSyncResult? = null,
+    val syncProgress: Pair<Int, Int>? = null,
 )
 class TbcLoginViewModel internal constructor(
     app: Application,
     private val factory: () -> TbcGateway,
     private val store: BankSessionStore,
+    private val synchronize: (suspend (TbcGateway, (Int, Int) -> Unit) -> dev.whekin.whfin.data.importer.TbcSyncResult)? = null,
 ) : AndroidViewModel(app) {
-    constructor(app: Application) : this(app, { MobileTbcGateway() }, EncryptedBankSessionStore(app, "tbc"))
+    constructor(app: Application) : this(app, { MobileTbcGateway() }, EncryptedBankSessionStore(app, "tbc"),
+        { gateway, progress -> dev.whekin.whfin.data.importer.TbcHistorySync((app as dev.whekin.whfin.WhfinApp).db)
+            .sync(gateway, progress = progress) })
     private val mutable = MutableStateFlow(TbcLoginState(hasSaved = store.hasSaved()))
     val state = mutable.asStateFlow()
     private var gateway: TbcGateway? = null
@@ -89,12 +94,35 @@ class TbcLoginViewModel internal constructor(
         withContext(Dispatchers.IO) {
             if (remember) store.save(requireNotNull(session).encode()) else store.clear()
         }
-        mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, accounts = accounts, hasSaved = store.hasSaved(), error = null)
+        mutable.value = mutable.value.copy(accounts = accounts, hasSaved = store.hasSaved(), error = null)
+        syncCurrent()
+    }
+
+    fun syncTransactions() {
+        if (session == null) return
+        run(TbcLoginStage.Connected) { syncCurrent() }
+    }
+
+    private suspend fun syncCurrent() {
+        val client = requireNotNull(gateway)
+        val result = synchronize?.invoke(client) { current, total ->
+            mutable.value = mutable.value.copy(syncProgress = current to total)
+        }
+        session = client.snapshot()
+        if (mutable.value.remember && canRemember) withContext(Dispatchers.IO) { store.save(requireNotNull(session).encode()) }
+        mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncProgress = null, syncResult = result)
+        if (result != null && result.inserted > 0) {
+            val app = getApplication<Application>() as? dev.whekin.whfin.WhfinApp
+            if (app != null) viewModelScope.launch(Dispatchers.IO) {
+                runCatching { dev.whekin.whfin.data.rates.TransactionValuationRepository(app.db,
+                    dev.whekin.whfin.data.rates.NbgHistoricalRateProvider()).backfill() }
+            }
+        }
     }
     private fun run(failureStage: TbcLoginStage, block: suspend () -> Unit) {
         if ((getApplication<Application>() as? dev.whekin.whfin.WhfinApp)?.isDemoMode == true) return
         if (work?.isActive == true) return
-        mutable.value = mutable.value.copy(stage = TbcLoginStage.Working, error = null)
+        mutable.value = mutable.value.copy(stage = TbcLoginStage.Working, error = null, syncResult = null, syncProgress = null)
         work = viewModelScope.launch {
             try { block() }
             catch (error: CancellationException) { throw error }
@@ -103,7 +131,7 @@ class TbcLoginViewModel internal constructor(
                 val expired = code == "SESSION"
                 if (expired) { gateway?.clear(); session = null; challenge = null; store.clear() }
                 mutable.value = mutable.value.copy(stage = if (expired) TbcLoginStage.Login else if (session != null) TbcLoginStage.Connected else failureStage,
-                    hasSaved = store.hasSaved(), error = code)
+                    hasSaved = store.hasSaved(), error = code, syncProgress = null)
             }
         }
     }

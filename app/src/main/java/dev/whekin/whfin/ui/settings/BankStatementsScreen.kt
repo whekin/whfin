@@ -428,8 +428,11 @@ private fun AccountHistoryCard(
                 val itemFrom = item.periodFrom?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
                 val itemTo = item.periodTo?.let(LocalDate::ofEpochDay)?.format(formatter) ?: "—"
                 val origin = stringResource(
-                    if (item.origin == StatementImportOrigin.CREDO_SYNC) R.string.statements_origin_credo
-                    else R.string.statements_origin_file,
+                    when (item.origin) {
+                        StatementImportOrigin.CREDO_SYNC -> R.string.statements_origin_credo
+                        StatementImportOrigin.TBC_SYNC -> R.string.statements_origin_tbc
+                        StatementImportOrigin.FILE -> R.string.statements_origin_file
+                    },
                 )
                 val result = stringResource(
                     R.string.statements_history_result,

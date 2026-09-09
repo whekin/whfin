@@ -32,6 +32,11 @@ class TbcLoginQaActivity : ComponentActivity() {
         val initial = TbcLoginState(
             stage = TbcLoginStage.valueOf(intent.getStringExtra("stage") ?: "Login"),
             accounts = accounts, error = intent.getStringExtra("error"),
+            syncResult = if (intent.getStringExtra("stage") == "Connected") {
+                if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
+                    dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")))
+                else dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3, matched = 4, unchanged = 1)
+            } else null,
         )
         setContent {
             var state by remember { mutableStateOf(initial) }

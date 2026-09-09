@@ -1461,8 +1461,8 @@
     <string name="crypto_bridge_effect">Linking keeps both amounts and balances. The wallet withdrawal and bank credit are excluded from expenses and income. You can undo this here.</string>
     <string name="crypto_bridge_sheet_title">Transfer</string>
     <string name="tbc_title">TBC connection</string>
-    <string name="tbc_settings_summary">Test sign-in and view accounts</string>
-    <string name="tbc_login_intro">Sign in directly to TBC from this phone. This test connection reads your account list; history continues to come from XLSX files. Your password and one-time code are not saved.</string>
+    <string name="tbc_settings_summary">Sign in and sync transactions</string>
+    <string name="tbc_login_intro">Sign in directly to TBC to sync transactions. Your password and one-time code are not saved.</string>
     <string name="tbc_login">Sign in to TBC</string>
     <string name="tbc_resume">Use saved session</string>
     <string name="tbc_forget">Forget session on this phone</string>
@@ -1485,4 +1485,12 @@
     <string name="tbc_error_network">Could not reach TBC. Check your connection.</string>
     <string name="tbc_error_bank_action">This sign-in needs a step WHFIN does not support yet. Complete it in the official TBC app.</string>
     <string name="tbc_error_response">TBC returned an unexpected response. This test connection needs further verification.</string>
+    <string name="tbc_sync_action">Sync transactions</string>
+    <string name="tbc_sync_progress">Loading transactions · account %1$d of %2$d</string>
+    <string name="tbc_sync_result">New: %1$d · matched: %2$d · accounts unchanged: %3$d</string>
+    <string name="tbc_initial_statement">Import an XLSX statement once to establish the opening balance for these accounts. After that, new transactions sync through TBC.</string>
+    <string name="tbc_history_conflict">Mobile history and the statement cannot be matched uniquely. This account was left unchanged.</string>
+    <string name="tbc_history_format">Could not read the complete history for this account. Nothing from this account was imported.</string>
+    <string name="tbc_history_changed">History changed during download. Please sync again.</string>
+    <string name="statements_origin_tbc">TBC sync</string>
 </resources>

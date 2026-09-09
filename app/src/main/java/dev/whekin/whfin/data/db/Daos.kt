@@ -464,6 +464,9 @@ interface TransactionDao {
     @Query("SELECT externalKey FROM transactions WHERE accountId = :accountId AND externalKey IS NOT NULL")
     suspend fun externalKeysForAccount(accountId: Long): List<String>
 
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId AND source = 'STATEMENT'")
+    suspend fun allStatementRows(accountId: Long): List<TransactionEntity>
+
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId AND source = 'ADJUSTMENT' " +
             "AND externalKey LIKE 'opening|%' AND isVoided = 0 ORDER BY occurredAt, id LIMIT 1",

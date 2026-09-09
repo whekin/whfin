@@ -16,17 +16,18 @@ class TbcLoginVisualTest {
     @Test fun russianDarkLarge() = render("ru-dark-large", "ru", true, 1.5f)
     @Test fun codeRussian() = render("code-ru", "ru", stage = "Code")
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
+    @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
     @Test fun errorRussian() = render("error-ru", "ru", error = "LOGIN")
     @Test fun keyboardAndSyntheticLoginJourney() = render("ime-journey", journey = true)
     private fun render(name: String, language: String = "en", dark: Boolean = false, font: Float = 1f,
-        stage: String = "Login", error: String? = null, journey: Boolean = false) {
+        stage: String = "Login", error: String? = null, journey: Boolean = false, initial: Boolean = false) {
         check(Build.HARDWARE in setOf("ranchu", "goldfish"))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
         val intent = Intent(context, TbcLoginQaActivity::class.java).apply {
             putExtra("language", language); putExtra("dark", dark); putExtra("fontScale", font)
-            putExtra("stage", stage); putExtra("error", error)
+            putExtra("stage", stage); putExtra("error", error); putExtra("initial", initial)
         }
         val previousIme = device.executeShellCommand("settings get secure show_ime_with_hard_keyboard").trim()
         if (journey) device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")

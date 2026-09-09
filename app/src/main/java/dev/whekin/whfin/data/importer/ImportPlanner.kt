@@ -20,16 +20,20 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
         account: AccountEntity,
         accountCreated: Boolean,
         accountAdopted: Boolean,
+        collectReview: Boolean = true,
     ): ImportPlan {
         val identity = StatementIdentity.of(statement)
         val existingKeys = db.transactionDao().externalKeysForAccount(account.id).toHashSet()
+        val bridge = if (statement.bank.provider == "TBC") TbcSourceBridge.plan(statement, db.transactionDao().allStatementRows(account.id)) else emptyMap()
         // One draft may confirm only one statement line: without this the same SMS would be claimed
         // by every similar row in the file and the rest would be inserted as duplicates of it.
         val claimed = mutableSetOf<Long>()
         val candidatesByWindow = mutableMapOf<Pair<LocalDate, Boolean>, List<dev.whekin.whfin.data.db.TransactionEntity>>()
 
         val entries = statement.rows.map { row ->
-            val key = identity.rowKey(row)
+            val canonical = identity.rowKey(row)
+            bridge[canonical]?.let { return@map it }
+            val key = if (statement.bank.provider == "TBC") TbcSourceBridge.existingKey(row, canonical, existingKeys) else canonical
             val day = row.purchaseDate ?: row.postedDate
             val crossesMidnight = row.operation.isOwnMovement
             val candidates = candidatesByWindow.getOrPut(day to crossesMidnight) {
@@ -86,7 +90,7 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             accountCreated = accountCreated,
             accountAdopted = accountAdopted,
             entries = entries,
-            reviewCandidateIds = reviewCandidates(statement, account, claimed),
+            reviewCandidateIds = if (collectReview) reviewCandidates(statement, account, claimed) else emptyList(),
         )
     }
 

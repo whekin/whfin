@@ -25,7 +25,7 @@ import dev.whekin.whfin.data.tbc.TbcAccount
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
-fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean) {
+fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}) {
     if (demoMode) {
         Text(stringResource(R.string.demo_mode_live_import_unavailable), Modifier.padding(20.dp))
         return
@@ -42,7 +42,7 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean) {
     DisposableEffect(vm) { onDispose { vm.leave() } }
     TbcLoginScreen(state, canStoreSession, vm::login, vm::confirm, vm::setRemember,
         onRestore = { sensitive.require(SensitiveAction.BankCredential) { vm.restore() } },
-        onRefresh = vm::refreshAccounts, onForget = vm::forget, onCancel = vm::leave)
+        onRefresh = vm::syncTransactions, onForget = vm::forget, onCancel = vm::leave, onOpenStatements = onOpenStatements)
 }
 
 @Composable
@@ -56,6 +56,7 @@ internal fun TbcLoginScreen(
     onRefresh: () -> Unit = {},
     onForget: () -> Unit = {},
     onCancel: () -> Unit = {},
+    onOpenStatements: () -> Unit = {},
 ) {
     // Deliberately not rememberSaveable: neither secret belongs in instance state.
     var username by remember { mutableStateOf("") }
@@ -93,7 +94,8 @@ internal fun TbcLoginScreen(
             }
             TbcLoginStage.Working -> {
                 WhfinLoadingIndicator(Modifier.size(36.dp))
-                Text(stringResource(R.string.tbc_working))
+                Text(if (state.syncProgress != null) stringResource(R.string.tbc_sync_progress, state.syncProgress.first, state.syncProgress.second)
+                    else stringResource(R.string.tbc_working))
                 WhfinButton(stringResource(R.string.action_cancel), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
             TbcLoginStage.Code -> {
@@ -106,13 +108,27 @@ internal fun TbcLoginScreen(
             }
             TbcLoginStage.Connected -> {
                 Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.tbc_accounts_note))
+                state.syncResult?.let { result ->
+                    Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
+                    if (result.needsStatement.isNotEmpty()) {
+                        Text(stringResource(R.string.tbc_initial_statement))
+                        result.needsStatement.forEach { Text(it.label) }
+                        WhfinButton(stringResource(R.string.statements_upload), onOpenStatements, Modifier.fillMaxWidth())
+                    }
+                    result.errors.forEach { error ->
+                        Text(error.substringBefore(":") + ": " + stringResource(tbcErrorText(error.substringAfterLast(":").trim())),
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
                 if (state.accounts.isEmpty() && state.error == null) Text(stringResource(R.string.tbc_no_accounts))
-                state.accounts.forEach { account ->
+                state.accounts.filter { account -> state.syncResult?.needsStatement.orEmpty().none {
+                    it.iban == account.iban && it.currency == account.currency
+                } }.forEach { account ->
                     WhfinLedgerRow(title = "${account.currency} · •${account.iban.takeLast(4)}",
                         supportingText = account.name, icon = Icons.Default.AccountBalance)
                 }
-                WhfinButton(stringResource(R.string.tbc_refresh_accounts), onRefresh, Modifier.fillMaxWidth())
+                WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth(),
+                    style = if (state.syncResult?.needsStatement.orEmpty().isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Secondary)
                 WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
         }
@@ -126,6 +142,9 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "SESSION" -> R.string.tbc_error_session
     "PROTECTION", "RATE_LIMIT" -> R.string.tbc_error_protection
     "NETWORK" -> R.string.tbc_error_network
+    "HISTORY_CONFLICT" -> R.string.tbc_history_conflict
+    "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT" -> R.string.tbc_history_format
+    "HISTORY_CHANGED" -> R.string.tbc_history_changed
     "OTP_METHOD", "BANK_ACTION" -> R.string.tbc_error_bank_action
     else -> R.string.tbc_error_response
 }

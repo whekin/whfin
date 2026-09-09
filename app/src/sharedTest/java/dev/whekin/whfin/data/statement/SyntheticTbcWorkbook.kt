@@ -14,11 +14,11 @@ object SyntheticTbcWorkbook {
         listOf("46274", "POS wallet - EXAMPLE DENTIST, 40.00 GEL, Sep  8 2026  8:52PM, MCC: 8071, 000000******0001", "40", "", "203", "Transfer Out And Cash Withdrawal", "GE00TB0000000000000097", "Example Settlement", "ISSTR", "103"),
         listOf("46274", "POS - EXAMPLE BUS, 2.00 GEL, Sep  8 2026 10:22PM, MCC: 4131, 000000******0001", "2", "", "201", "Transfer Out And Cash Withdrawal", "GE00TB0000000000000097", "Example Settlement", "ISSTR", "104"),
     )
-    fun build(rows: List<List<String>> = defaultRows, closing: String = "201", paidOut: String = "49", paidIn: String = "250", iban: String = IBAN): ByteArray {
+    fun build(rows: List<List<String>> = defaultRows, closing: String = "201", paidOut: String = "49", paidIn: String = "250", iban: String = IBAN, opening: String = "0"): ByteArray {
         val summary = listOf(
             listOf("", "Account No:", iban), listOf("", "Currency:", "GEL"),
             listOf("", "Filter Date From:", "45909"), listOf("", "Filter Date To:", "46274"),
-            listOf("", "Starting Balance:", "0"), listOf("", "Closing Balance:", closing),
+            listOf("", "Starting Balance:", opening), listOf("", "Closing Balance:", closing),
             listOf("", "Paid Out:", paidOut), listOf("", "Paid In:", paidIn),
         )
         val header = listOf("Date", "Description", "Paid Out", "Paid In", "Balance", "Type", "Partner's Account", "Partner's Name", "Op. Code", "Transaction ID")

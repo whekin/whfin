@@ -972,7 +972,9 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
     private suspend fun isCoveredByStatement(accountId: Long, occurredAt: Long?): Boolean {
         val at = occurredAt ?: return false
         val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
-        return db.statementImportDao().forAccount(accountId).any { import ->
+        return db.statementImportDao().forAccount(accountId).filter {
+            it.origin != dev.whekin.whfin.data.db.StatementImportOrigin.TBC_SYNC
+        }.any { import ->
             val from = import.periodFrom?.let(LocalDate::ofEpochDay) ?: return@any false
             val to = import.periodTo?.let(LocalDate::ofEpochDay) ?: return@any false
             !day.isBefore(from) && !day.isAfter(to)
