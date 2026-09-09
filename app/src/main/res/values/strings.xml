@@ -1517,4 +1517,5 @@
     <string name="tbc_error_storage">You are signed in, but the sign-in could not be saved on this device.</string>
     <string name="tbc_saved_legacy_body">This device has a saved session from an earlier version. Sign in with your username and password once to remember them too.</string>
     <string name="tbc_otp_autofill">The code can be filled from SMS. Android may ask to read that one message; you still confirm sign-in.</string>
+    <string name="tbc_otp_progress">Digits entered: %1$d</string>
 </resources>

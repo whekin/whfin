@@ -186,6 +186,22 @@ class TbcHistorySyncTest {
         assertEquals(4, db.transactionDao().allForIntegrity().size)
         assertEquals(1, sync().unchanged)
     }
+    @Test fun fourEmptyCurrencyLedgersKeepConfirmedZeroAndDoNotAskAgain() = runBlocking {
+        val accounts = listOf("GEL", "USD", "EUR", "GBP").map { remote.copy(currency = it) }
+        val gateway = Gateway(accounts, accounts.associate { it.key to emptyList<TbcHistoryRow>() })
+        val sync = TbcHistorySync(db)
+        val initial = sync.sync(gateway, today)
+        assertEquals(4, initial.initialHistories.size)
+        initial.initialHistories.forEach { sync.initialize(it, 0L) }
+        assertEquals(4, db.accountDao().allActive().size)
+        accounts.forEach { remote ->
+            val account = requireNotNull(db.accountDao().byIbanAndCurrency(remote.iban, remote.currency))
+            assertEquals(0L, db.statementImportDao().earliestWithOpeningBalance(account.id)?.openingBalanceMinor)
+        }
+        assertTrue(sync.sync(gateway, today).needsStatement.isEmpty())
+        assertTrue(db.transactionDao().allForIntegrity().isEmpty())
+    }
+
     @Test fun manualConfirmationCannotRunTwiceOrUseAnExpiredRead() = runBlocking {
         val initial = sync().initialHistories.single()
         val expired = runCatching { TbcHistorySync(db).initialize(initial.copy(readAt = 1), 0) }.exceptionOrNull()

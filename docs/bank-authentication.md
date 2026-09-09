@@ -32,6 +32,13 @@ Earlier TBC versions stored only cookies. They cannot supply a password they nev
 must enter the username/password once with Remember sign-in enabled. The legacy-session screen says
 this explicitly. Afterwards session expiry no longer requires retyping credentials.
 
+## OTP entry UI
+
+Bank OTP entry reuses `WhfinNumericKeypad` and `WhfinCodeDots`, as App Lock and Credo do.
+Keep code lifetime, supported length and submission policy in the bank feature. TBC uses explicit
+confirmation for both manual and SMS-filled codes. Short screens must scroll, and bottom actions
+must respect navigation bar insets.
+
 ## TBC OTP
 
 The native route registers the foreground receiver before login, opens a challenge-bound inbox and
@@ -49,7 +56,9 @@ single-code template can also be read, still excluding payment/PIN messages. SMS
 requested solely for this path. Provider documentation:
 [SMS User Consent](https://developers.google.com/identity/sms-retriever/user-consent/request).
 
-The code fills the field; confirmation stays explicit. Listening ends at verified authentication,
+TBC uses the same built-in `WhfinNumericKeypad` and `WhfinCodeDots` as Credo, without a system
+IME for OTP. Code length remains bank-specific (TBC accepts 4–8 digits); the accessible indicator
+announces only the digit count. SMS fills the dots; confirmation stays explicit. Listening ends at verified authentication,
 cancellation, screen exit or timeout. It is not used for TBC Pass challenges. The owner's English and transliterated wrapper wording was verified read-only on the phone. Actual
 SMS delivery through the updated app on Samsung still needs owner testing; the emulator exercises the
 production route and receivers.
@@ -62,7 +71,7 @@ rejection, consented generic codes and explicit code submission. Android Keystor
 isolation, reconstruction and independently written legacy Credo ciphertext.
 
 `TbcOtpDeliveryTest` drives the production TBC route with a synthetic bank transport and no-op credential/session stores. The host
-sends the verified wrapper with a synthetic code and hash from `TBCSMS` through `adb emu sms send`; the field fills and the
+sends the verified wrapper with a synthetic code and hash from `TBCSMS` through `adb emu sms send`; the code indicator fills and the
 fake bank receives exactly that code only after the Confirm action. This exercises real emulator
 SMS delivery, not a direct assignment to the input. No live bank credentials or OTP were used.
 

@@ -51,10 +51,54 @@ class TbcSavedLoginScreenTest {
             WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Code), true,
                 incomingOtp = incoming, onOtpConsumed = { incoming = null }, onCode = { submitted = it }) }
         }
-        compose.onNode(hasSetTextAction()).assertTextContains("246810")
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        compose.onNodeWithContentDescription(context.getString(R.string.tbc_otp_progress, 6)).assertExists()
         assertNull(submitted)
         compose.onNodeWithText(context.getString(R.string.tbc_confirm)).performScrollTo().performClick()
         assertEquals("246810", submitted)
+    }
+
+    @Test fun zeroBalanceCanBeConfirmedForEachOfFourCurrencies() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val remotes = listOf("GEL", "USD", "EUR", "GBP").map { currency ->
+            dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", currency, "Everyday")
+        }
+        val confirmed = mutableListOf<Pair<String, Long>>()
+        compose.setContent {
+            var remaining by remember { mutableStateOf(remotes) }
+            WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
+                syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = remaining,
+                    initialHistories = remaining.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
+                        it, java.time.LocalDate.now(), java.time.LocalDate.now(), emptyList()) })), true,
+                onConfirmBalance = { key, amount -> confirmed += key to amount; remaining = remaining.filterNot { it.key == key } }) }
+        }
+        remotes.forEachIndexed { index, remote ->
+            compose.onAllNodes(hasSetTextAction())[0].performScrollTo().performTextInput("0")
+            compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[0].performScrollTo().performClick()
+            compose.runOnIdle { assertEquals(remote.key to 0L, confirmed.getOrNull(index)) }
+        }
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+    }
+
+    @Test fun manualOtpUsesBuiltInKeypadAndExplicitConfirmation() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var submitted: String? = null
+        compose.setContent { WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Code), true,
+            onCode = { submitted = it }) } }
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        "2468".forEach { compose.onNodeWithText(it.toString()).performScrollTo().performClick() }
+        compose.onNodeWithContentDescription(context.getString(R.string.credo_sync_delete_digit)).performScrollTo().performClick()
+        compose.onNodeWithText("0").performScrollTo().performClick()
+        assertNull(submitted)
+        compose.onNodeWithText(context.getString(R.string.tbc_confirm)).performScrollTo().performClick()
+        assertEquals("2460", submitted)
+    }
+
+    @Test fun bookedBalanceAcceptsZeroAndDebtWithoutTruncationOrOverflow() {
+        listOf("0", "0.00", "0,00", " 0 ").forEach { assertEquals(0L, parseBookedBalance(it)) }
+        assertEquals(-1234L, parseBookedBalance("-12,34"))
+        listOf("", "-", "1.234", "9223372036854775808", "1.2.3").forEach { assertNull(parseBookedBalance(it)) }
+        assertNull(dev.whekin.whfin.ui.parseToMinor("0")) // Transaction forms still reject zero.
     }
 
 }

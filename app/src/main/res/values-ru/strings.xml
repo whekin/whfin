@@ -1579,4 +1579,5 @@
     <string name="tbc_error_storage">Вход выполнен, но сохранить его на этом устройстве не удалось.</string>
     <string name="tbc_saved_legacy_body">Здесь сохранена сессия из прежней версии. Один раз войдите по логину и паролю, чтобы запомнить и их.</string>
     <string name="tbc_otp_autofill">Код может заполниться из SMS. Android может попросить доступ к этому сообщению; вход вы подтверждаете сами.</string>
+    <string name="tbc_otp_progress">Введено цифр: %1$d</string>
 </resources>

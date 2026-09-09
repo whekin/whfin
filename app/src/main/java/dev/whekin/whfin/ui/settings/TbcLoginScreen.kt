@@ -149,6 +149,11 @@ internal fun TbcLoginScreen(
         }
     }
     val keyboard = LocalSoftwareKeyboardController.current
+    if (state.stage == TbcLoginStage.Code) {
+        LaunchedEffect(Unit) { keyboard?.hide() }
+        TbcOtpContent(state, code, { code = it }, { onCode(code); code = "" }, onCancel)
+        return
+    }
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         dev.whekin.whfin.ui.banks.BankBrand("TBC")
@@ -196,16 +201,7 @@ internal fun TbcLoginScreen(
                     else stringResource(R.string.tbc_working))
                 WhfinButton(stringResource(R.string.action_cancel), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
-            TbcLoginStage.Code -> {
-                Text(stringResource(if (state.otpApp) R.string.tbc_code_app else R.string.tbc_code_sms))
-                if (!state.otpApp) Text(stringResource(R.string.tbc_otp_autofill), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                WhfinField(code, { code = it.filter(Char::isDigit).take(8) }, stringResource(R.string.tbc_code),
-                    keyboardType = KeyboardType.NumberPassword, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-                WhfinButton(stringResource(R.string.tbc_confirm), { onCode(code); code = ""; keyboard?.hide() },
-                    Modifier.fillMaxWidth(), enabled = code.length in 4..8)
-                WhfinButton(stringResource(R.string.tbc_restart), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-            }
+            TbcLoginStage.Code -> Unit // Dedicated keypad surface above.
             TbcLoginStage.Connected -> {
                 Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
                 if (state.hasSaved) Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.bodySmall,
@@ -224,7 +220,7 @@ internal fun TbcLoginScreen(
                             val initial = result.initialHistories.singleOrNull { it.remote.key == remote.key }
                             if (initial != null) {
                                 var balance by remember(initial.remote.key, initial.readAt) { mutableStateOf("") }
-                                val parsed = dev.whekin.whfin.ui.parseToMinor(balance)
+                                val parsed = parseBookedBalance(balance)
                                 WhfinField(balance, { balance = it },
                                     stringResource(R.string.tbc_booked_balance, remote.label),
                                     keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
@@ -255,6 +251,52 @@ internal fun TbcLoginScreen(
         Spacer(Modifier.height(8.dp))
     }
 }
+
+/** A booked balance can be zero or negative; transaction amount validation is different. */
+internal fun parseBookedBalance(text: String): Long? = runCatching {
+    text.replace(" ", "").replace(',', '.').toBigDecimal().movePointRight(2).longValueExact()
+}.getOrNull()
+
+@Composable
+private fun TbcOtpContent(state: TbcLoginState, code: String, onChange: (String) -> Unit,
+    onSubmit: () -> Unit, onCancel: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize().navigationBarsPadding()) {
+        val compact = maxHeight < 680.dp
+        Column(Modifier.fillMaxSize().then(if (compact) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(if (compact) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
+                Text(stringResource(R.string.tbc_code), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(if (state.otpApp) R.string.tbc_code_app else R.string.tbc_code_sms),
+                    modifier = Modifier.padding(top = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                if (!state.otpApp) Text(stringResource(R.string.tbc_otp_autofill),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                state.error?.let { Text(stringResource(tbcErrorText(it)), color = MaterialTheme.colorScheme.error,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 8.dp)) }
+                WhfinCodeDots(length = maxOf(4, code.length), filled = code.length,
+                    contentDescription = stringResource(R.string.tbc_otp_progress, code.length),
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+            }
+            WhfinNumericKeypad(deleteContentDescription = stringResource(R.string.credo_sync_delete_digit),
+                onDigit = { if (code.length < 8) onChange(code + it) },
+                onBackspace = { onChange(code.dropLast(1)) })
+            WhfinButton(stringResource(R.string.tbc_confirm), onSubmit, Modifier.fillMaxWidth(), enabled = code.length in 4..8)
+            WhfinButton(stringResource(R.string.tbc_restart), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "TBC OTP")
+@Preview(showBackground = true, name = "TBC OTP dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, name = "TBC OTP compact large", fontScale = 1.5f, heightDp = 500)
+@Composable
+private fun TbcOtpPreview() = WhfinTheme { androidx.compose.material3.Surface {
+    TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Code), true)
+} }
 
 internal fun tbcErrorText(code: String): Int = when (code) {
     "LOGIN" -> R.string.tbc_error_login

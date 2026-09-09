@@ -84,3 +84,11 @@ The owner has verified real sign-in and an account list. Actual mobile history r
 correspondence to the owner's file still need the first on-device sync after initialization with a statement or owner-entered balance.
 The implementation uses primary-source protocol evidence documented in
 [tbc-history-research.md](tbc-history-research.md) and never embeds private samples or credentials.
+
+## Zero booked balances
+
+A booked balance can be zero or negative. Its field uses exact minor-unit parsing independently of
+transaction amount validation, which rejects zero. Blank, over-precision and overflowing amounts are
+invalid. Initial confirmation identifies a ledger by IBAN and currency, so four currencies sharing
+one IBAN can each be confirmed at zero. Empty history still persists the opening and full-history
+marker; a subsequent sync must not ask for that opening again.

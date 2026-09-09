@@ -31,11 +31,9 @@ class TbcOtpDeliveryTest {
             device.findObject(By.text(login)).click()
             assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.tbc_code))), 10000))
             val label = context.getString(R.string.tbc_confirm)
-            assertTrue(device.findObject(By.clazz("android.widget.EditText")).text.orEmpty().isEmpty())
+            assertTrue(device.hasObject(By.desc(context.getString(R.string.tbc_otp_progress, 0))))
             instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "TBC_OTP_QA_READY\n") })
-            val deadline = android.os.SystemClock.elapsedRealtime() + 30000
-            while (device.findObject(By.clazz("android.widget.EditText"))?.text.orEmpty().length != 6 && android.os.SystemClock.elapsedRealtime() < deadline) android.os.SystemClock.sleep(100)
-            assertEquals(6, device.findObject(By.clazz("android.widget.EditText")).text.orEmpty().length)
+            assertTrue(device.wait(Until.hasObject(By.desc(context.getString(R.string.tbc_otp_progress, 6))), 30000))
             activity.onActivity { assertEquals(0, it.confirmationCalls) }
             assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "tbc-otp-delivery.png")))
             device.findObject(By.text(label)).click()

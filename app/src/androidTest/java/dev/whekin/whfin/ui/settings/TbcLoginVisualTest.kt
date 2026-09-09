@@ -15,6 +15,7 @@ class TbcLoginVisualTest {
     @Test fun englishLight() = render("en-light")
     @Test fun russianDarkLarge() = render("ru-dark-large", "ru", true, 1.5f)
     @Test fun codeRussian() = render("code-ru", "ru", stage = "Code")
+    @Test fun codeEnglishDarkLarge() = render("code-en-dark-large", dark = true, font = 1.5f, stage = "Code")
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
     @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
     @Test fun manualBalanceEnglish() = render("manual-balance-en", stage = "Connected", initial = true)
@@ -55,15 +56,29 @@ class TbcLoginVisualTest {
                 val button = device.wait(Until.findObject(By.text("Sign in to TBC")), 5000)
                 assertNotNull(button); button.click()
                 assertNotNull(device.wait(Until.findObject(By.text("One-time code")), 5000))
-                val codeField = device.findObject(By.clazz("android.widget.EditText"))
-                codeField.click(); codeField.text = "0000"
-                device.waitForIdle(1000)
-                device.pressBack()
+                assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
+                repeat(4) { device.findObject(By.text("0")).click() }
                 device.findObject(By.text("Confirm sign-in")).click()
                 assertNotNull(device.wait(Until.findObject(By.text("TBC sign-in confirmed")), 5000))
             }
             android.os.SystemClock.sleep(400)
             assertTrue(device.takeScreenshot(File(out, "$name.png")))
+            if (stage == "Code") {
+                assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
+                if (!device.hasObject(By.text("0"))) {
+                    androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true)).scrollTextIntoView("0")
+                }
+                repeat(4) { device.findObject(By.text("0")).click() }
+                val confirm = if (language == "ru") "Подтвердить вход" else "Confirm sign-in"
+                if (!device.hasObject(By.text(confirm))) {
+                    androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true)).scrollTextIntoView(confirm)
+                }
+                device.waitForIdle(1000)
+                android.os.SystemClock.sleep(300)
+                assertTrue(device.takeScreenshot(File(out, "$name-filled.png")))
+                device.findObject(By.text(confirm)).click()
+                assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Вход в TBC подтверждён" else "TBC sign-in confirmed")), 5000))
+            }
             if (saved) {
                 device.findObject(By.text(if (language == "ru") "Продолжить с TBC" else "Continue to TBC")).click()
                 assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Вход в TBC подтверждён" else "TBC sign-in confirmed")), 5000))
@@ -72,7 +87,7 @@ class TbcLoginVisualTest {
             if (initial && language == "en") {
                 val field = device.findObject(By.clazz("android.widget.EditText"))
                 assertNotNull(field)
-                field.click(); field.text = "201.00"
+                field.click(); field.text = "0"
                 val ime = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
                 assertTrue(device.wait(Until.hasObject(By.pkg(ime)), 10000))
                 device.waitForIdle(1000)
