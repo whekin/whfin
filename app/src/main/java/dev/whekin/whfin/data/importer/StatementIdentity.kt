@@ -21,6 +21,9 @@ class StatementIdentity(private val iban: String, private val currency: String) 
 
     /** Stable key of one row within this ledger. Call once per row, in file order. */
     fun rowKey(row: StatementRow): String {
+        row.bankTransactionId?.let { id ->
+            return listOf(ROW_PREFIX, iban, currency, "id", id).joinToString(SEPARATOR)
+        }
         val base = listOf(
             iban,
             currency,

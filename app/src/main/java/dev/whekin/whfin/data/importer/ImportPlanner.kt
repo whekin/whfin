@@ -48,6 +48,22 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             val draft = StatementReconciler.match(row, candidates)
             if (key in existingKeys) {
                 val existing = db.transactionDao().byExternalKey(key)
+                if (row.bankTransactionId != null && existing != null && !existing.isVoided &&
+                    (existing.amountMinor != row.amountMinor || existing.balanceAfterMinor != row.balanceAfterMinor ||
+                        existing.occurredAt != day.atStartOfDay(zone).toInstant().toEpochMilli() ||
+                        existing.postedAt != row.postedDate.atStartOfDay(zone).toInstant().toEpochMilli() ||
+                        existing.note != row.description.takeIf { it != row.merchantRaw } ||
+                        existing.counterpartyIban != row.beneficiaryAccount ||
+                        existing.rawCounterparty != (row.merchantRaw ?: row.beneficiaryName))
+                ) {
+                    if (existing.amountMinor != row.amountMinor &&
+                        (db.transactionAllocationDao().forTransaction(existing.id).isNotEmpty() ||
+                            db.debtDao().eventsForTransaction(existing.id).isNotEmpty())
+                    ) {
+                        throw InvalidStatementException("A changed bank amount is linked to a split or debt. Resolve that link before importing.")
+                    }
+                    return@map PlannedRow.Reconcile(row, key, existing.id)
+                }
                 if (draft != null && existing?.source == dev.whekin.whfin.data.db.TxSource.STATEMENT &&
                     !existing.isVoided
                 ) {

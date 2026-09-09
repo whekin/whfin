@@ -1,7 +1,6 @@
 # Statement import: the bank-neutral boundary
 
-Status: boundary extracted 2026-07-30, Credo is the first adapter. TBC is the next adapter and must
-not need any change in the shared pipeline.
+Status: Credo and TBC XLSX adapters are available (2026-09-09). Both use the same import workflow.
 
 ## Why a boundary
 
@@ -18,12 +17,14 @@ makes a second bank a parser, not a second import workflow.
   The importer creates the bank group and names new ledgers from this, so no bank name is hard-coded
   in the pipeline.
 - `StatementOperation` — bank-neutral row semantics. `isOwnMovement` (own transfer, currency
-  exchange, savings top-up) is the single place that decides what never counts as income or expense.
+  exchange, savings top-up) excludes bank-declared own movements from income and expense. Reciprocal
+  cross-bank evidence and explicit owner links can also establish an internal transfer.
 - `BankStatement` / `StatementRow` — one parsed statement for exactly one currency ledger: IBAN,
-  currency, period, opening/closing balance, and signed minor-unit rows.
+  currency, period, opening/closing balance, signed minor-unit rows, and optional bank transaction IDs.
 - `StatementFile` — the file buffered in memory so every adapter can probe the same bytes and the
   chosen adapter can then read them again.
-- `StatementParser` — one adapter per bank: `bank`, `canParse`, `parse`, and `conversionNoteMarkers`.
+- `StatementParser` — one adapter per bank: `bank`, `canParse`, `parse`, `conversionNoteMarkers`,
+  and optional `originAccountFromNote` for bank-specific reciprocal transfer evidence.
 - `StatementParsers` — the registry. Adding a bank means adding an adapter to `all`, nothing else.
 - `UnsupportedStatementException` — no adapter claimed the file. The UI shows
   `statements_unsupported` instead of a raw parser message.
@@ -145,3 +146,46 @@ there fails before Room is touched instead of guessing GEL or importing without 
   that the history walk abuts its chunks and stops, and what the connected screen says. A scripted
   gateway stands in for the bank: the real login needs the owner's own device and credentials.
 - `CredoStatementParserTest` (JVM, opt-in) — the same structural invariants against private files.
+
+
+## TBC XLSX and cross-bank transfers
+
+TBC Online exports one `Summary` and an `IBAN-currency` sheet. Summary supplies the account,
+currency, Excel-serial period endpoints, opening/closing balances and debit/credit totals. English
+headers on the second transaction row identify columns; the Georgian header above is presentation.
+One account and currency per file is supported. Extra sheets, missing metadata, duplicate IDs,
+invalid money/dates, ambiguous debit/credit, reversed row order or inconsistent turnover stop the
+file before writing. The shared validator also proves the running balance chain. CSV lacks account
+metadata; PDF lacks transaction IDs. Neither is accepted by this adapter.
+
+`POS -` and `POS wallet -` descriptions are card payments even when Type says
+`Transfer Out And Cash Withdrawal`. Their merchant and English purchase timestamp are read from the
+description; posting date remains separate. The observed `*TPC*` debit is a bank package fee. Unknown
+operation types remain ordinary rows with a visible unmapped-label result. No SMS support is implied.
+
+TBC's Transaction ID is scoped by IBAN and currency in the external key. Reimporting identical rows
+is a no-op. A changed amount, date, balance or counterparty under that ID updates the existing row and
+invalidates its old valuation, preserving an existing category and explicit OWN_LINK. A changed amount
+linked to allocations or debt stops the file rather than invalidating those decisions. Credo's existing
+keys remain unchanged. The latest imported file is authoritative; the export does not provide a row
+revision timestamp. Missing rows are not inferred to be cancellations. The bank warns that exports may
+contain unsettled transactions; cancellation/removal reconciliation remains unverified.
+
+`CrossBankTransfers` joins only two imported statement rows from distinct active bank groups when
+currency and opposite signed amounts agree, posting dates differ by at most three days, the debit
+names the destination IBAN, and the credit names the source IBAN. For TBC processor credits, the
+adapter may supply the origin printed after `ა/ნ:` while preserving the processor counterparty.
+Both directions must have exactly one candidate. Matching amounts or owner names alone are insufficient.
+Fee-category rows, allocations, debt-linked rows, voided rows, and existing manual groups are excluded.
+An ambiguous pair remains available for the existing manual Own transfer flow. Separate fee rows
+remain expenses; the amount difference never invents a fee, and no tariff is hard-coded.
+
+Derived cross-bank groups are rebuilt after import and during transfer repair, so later evidence can
+remove an ambiguous or obsolete pair. Explicit OWN_LINK groups are never rebuilt. This extends the
+bank-derived transfer mechanism; it does not replace ADR-0005's manual links where reciprocal evidence
+is absent. No database migration is needed.
+
+`SyntheticTbcWorkbook`, `TbcStatementParserTest`, and `TbcImportTest` cover parsing, balance proof,
+identity, correction, fees, opposite import orders, delayed posting, ambiguity, explicit links and
+allocation protection. Optional private checks use the existing fixture environment variables and an
+isolated Room database. `TbcStatementImportInstrumentedTest` checks Android XML/SQLite on an emulator.

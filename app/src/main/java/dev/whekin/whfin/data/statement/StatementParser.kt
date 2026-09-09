@@ -71,6 +71,9 @@ interface StatementParser {
      */
     fun operationFor(rawLabel: String): StatementOperation? = null
 
+    /** Origin printed in a processor credit's note, if this bank's format proves one. */
+    fun originAccountFromNote(accountIban: String, note: String): String? = null
+
     /** Structural probe over the same bytes [parse] will read. Must not throw. */
     fun canParse(file: StatementFile): Boolean
 
@@ -83,9 +86,12 @@ object StatementParsers {
     /**
      * Probes are strict, so order only matters if two banks ever share a structure.
      */
-    val all: List<StatementParser> = listOf(CredoStatementParser)
+    val all: List<StatementParser> = listOf(CredoStatementParser, dev.whekin.whfin.data.statement.tbc.TbcStatementParser)
 
     val conversionNoteMarkers: List<String> = all.flatMap { it.conversionNoteMarkers }.distinct()
+
+    fun originAccountFromNote(accountIban: String, note: String): String? =
+        all.mapNotNull { it.originAccountFromNote(accountIban, note) }.distinct().singleOrNull()
 
     /**
      * What any supported bank would call this label. Two banks agreeing on a label but not on its

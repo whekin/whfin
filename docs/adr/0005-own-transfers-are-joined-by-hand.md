@@ -16,3 +16,10 @@ what arrived stays a difference — a spread is not a fee, and a fee is only a f
 so. Where the far side must be written down, it is a `MANUAL` row created and linked in one
 transaction, since a half-written movement reads as new money on one side. The intermediary is
 optional information and never an income source.
+
+
+Clarification (2026-09-09): a bank-derived cross-bank TRANSFER may be paired when both statements
+name the opposite owned IBAN, amounts/currency agree, dates fit a bounded window and the pair is
+unique in both directions. TBC can print the origin in its processor-credit description. This is
+reciprocal evidence, unlike the unnamed intermediary cases above. OWN_LINK remains exclusively the
+owner's decision and is preserved by every rebuild. See [statement import](../statement-import.md).

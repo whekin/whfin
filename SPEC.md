@@ -16,7 +16,7 @@
 | Источник | Роль | Статус транзакции |
 |---|---|---|
 | SMS банка (Credo) | оперативная проводка с provenance `SMS`; участия не требует, кроме действительно неоднозначного routing | активная операция, позже тихо сверяется выпиской |
-| Excel-выписка (MYCREDO xlsx) | источник правды, сверка | `confirmed` |
+| Excel-выписка (MYCREDO / TBC xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground batch download тех же XLSX | `confirmed` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
 | Крипто watch-адреса | EVM/Tron balances; подтверждённая история Tron USDT/USDC | balance snapshot + операции CRYPTO |
@@ -211,7 +211,9 @@ hash, тип, masked/parsed поля и результат. История чи�
 
 ## Вторая волна
 
-- Мультибанк: **TBC первым** через ручные statement-файлы и общий bank-neutral importer
+- TBC XLSX: ручной импорт одного счёта/валюты, ID-дедуп и переводы Credo ↔ TBC по взаимным
+  реквизитам. CSV/PDF и TBC SMS не подключены; интернет-банк исследуется отдельно.
+  Контракт: [docs/statement-import.md](docs/statement-import.md).
 - Крипта: небольшой watch-only MVP между TBC и BOG — явные EVM/Tron сети, ETH/TRX/USDT balances,
   manual refresh; без DeFi, ключей и отправки. История Tron USDT/USDC и явная связка вывода
   с банковским зачислением: [docs/crypto-history.md](docs/crypto-history.md). Цены — отдельный slice

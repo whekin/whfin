@@ -46,6 +46,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
 
         OpeningAnchor(db, zone).update(account, statement)
         TransferPairing(db, zone).pairWithinPeriod(account, statement.periodFrom, statement.periodTo)
+        CrossBankTransfers(db).pair()
 
         val importId = db.statementImportDao().insert(
             StatementImportEntity(
@@ -84,7 +85,8 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun insert(entry: PlannedRow.Insert, account: AccountEntity, currency: String, now: Long) {
         val row = entry.row
         val merchant = merchantFor(row)
-        val category = merchant?.categoryId ?: counterpartyCategory(row) ?: operationCategory(row)
+        val category = if (row.operation == StatementOperation.FEE) operationCategory(row)
+            else merchant?.categoryId ?: counterpartyCategory(row) ?: operationCategory(row)
         db.transactionDao().insert(
             TransactionEntity(
                 accountId = account.id,
@@ -112,6 +114,15 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         val draft = db.transactionDao().byId(entry.transactionId) ?: return
         val explicitBridge = draft.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
             ?.type == dev.whekin.whfin.data.db.TransferGroupType.OWN_LINK
+        if (row.bankTransactionId != null && draft.transferGroupId != null && !explicitBridge) {
+            val oldGroup = requireNotNull(draft.transferGroupId)
+            if (db.transactionDao().transferGroupById(oldGroup)?.note == CrossBankTransfers.MARKER) {
+                db.transactionDao().detachCrossBankGroups(listOf(oldGroup))
+            } else {
+                db.transactionDao().clearTransferGroups(listOf(oldGroup))
+            }
+            db.transactionDao().deleteTransferGroups(listOf(oldGroup))
+        }
         val merchant = merchantFor(row)
         db.transactionDao().update(
             draft.copy(
@@ -120,11 +131,13 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 occurredAt = (row.purchaseDate ?: row.postedDate).atMillis(),
                 postedAt = row.postedDate.atMillis(),
                 merchantId = merchant?.id,
-                rawCounterparty = row.merchantRaw,
+                rawCounterparty = row.merchantRaw ?: row.beneficiaryName,
                 counterpartyIban = row.beneficiaryAccount,
                 // The statement is authoritative about the money, not about what the user decided
                 // this row means: a category already on the draft outlives an import that has none.
-                categoryId = merchant?.categoryId
+                categoryId = draft.categoryId.takeIf { row.bankTransactionId != null && draft.source == TxSource.STATEMENT }
+                    ?: (if (row.operation == StatementOperation.FEE) operationCategory(row) else null)
+                    ?: merchant?.categoryId
                     ?: counterpartyCategory(row)
                     ?: operationCategory(row)
                     ?: draft.categoryId,
@@ -132,6 +145,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 status = TxStatus.CONFIRMED,
                 source = TxSource.STATEMENT,
                 isTransfer = row.operation.isOwnMovement || explicitBridge,
+                transferGroupId = if (row.bankTransactionId != null && !explicitBridge) null else draft.transferGroupId,
                 balanceAfterMinor = row.balanceAfterMinor,
                 externalKey = entry.externalKey,
                 // The draft's amount or currency may have changed, so any lari value booked for the

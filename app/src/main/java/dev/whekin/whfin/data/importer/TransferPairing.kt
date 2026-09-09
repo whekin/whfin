@@ -57,6 +57,7 @@ internal class TransferPairing(private val db: WhfinDatabase, private val zone: 
                     )
                 }
             }
+        db.withTransaction { CrossBankTransfers(db).pair() }
     }
 
     private suspend fun pair(

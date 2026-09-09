@@ -5,7 +5,7 @@ quickly, reconcile them against authoritative bank statements, and keep the user
 portable.
 
 The project is an independent prototype by **whekin**. It currently focuses on GEL accounts and Credo
-Bank statement/SMS formats, while its data model is designed for multiple accounts, currencies,
+Bank statement/SMS formats and TBC XLSX statements, while its data model is designed for multiple accounts, currencies,
 transfers, conversions, debts, people, and watch-only crypto assets.
 
 ## Highlights
@@ -23,7 +23,7 @@ transfers, conversions, debts, people, and watch-only crypto assets.
 ## Status
 
 WHFIN is under active development and is not ready for public distribution. The current roadmap covers
-redacted parser-failure sharing, TBC statement import, a constrained EVM/Tron watch-only crypto MVP,
+redacted parser-failure sharing, TBC internet-bank research, a constrained EVM/Tron watch-only crypto MVP,
 BOG statement import, and a dedicated Google Play release track. See [SPEC.md](SPEC.md),
 [docs/roadmap.md](docs/roadmap.md), and [docs/production-readiness.md](docs/production-readiness.md).
 

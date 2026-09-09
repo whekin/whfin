@@ -54,7 +54,7 @@
         <item quantity="other">%1$d accounts in WHFIN · add another if anything is missing</item>
     </plurals>
     <string name="personal_setup_alternative_title">Start from existing data</string>
-    <string name="personal_setup_alternative_body">Use a Credo XLSX statement or restore a portable WHFIN backup instead of connecting MyCredo.</string>
+    <string name="personal_setup_alternative_body">Use a Credo or TBC XLSX statement or restore a portable WHFIN backup instead of connecting MyCredo.</string>
     <string name="personal_setup_other_title">Use a file or existing backup</string>
     <string name="personal_setup_other_body">Both options remain available later in Settings.</string>
     <string name="personal_setup_statement_title">Import a statement file</string>
@@ -919,7 +919,7 @@
     <string name="statements_file_unnamed">Statement</string>
     <string name="statements_file_result">%1$d new · %2$d already imported · %3$d matched</string>
     <string name="account_create_from_statement_title">Fastest: use a statement</string>
-    <string name="account_create_from_statement_summary">We’ll detect Credo, the IBAN, currency and balance, then create or update the right account.</string>
+    <string name="account_create_from_statement_summary">We’ll detect the bank, IBAN, currency and balance, then create or update the right account.</string>
     <string name="statements_working">Importing statement</string>
     <string name="statements_phase_reading">Reading the XLSX file…</string>
     <string name="statements_phase_importing">Adding bank operations…</string>
@@ -943,7 +943,7 @@
     <string name="statements_matched">Drafts matched</string>
     <string name="statements_duplicates">Already imported</string>
     <string name="statements_error">Couldn’t import statement</string>
-    <string name="statements_unsupported">Unsupported statement format. WHFIN reads Credo XLSX statements.</string>
+    <string name="statements_unsupported">Unsupported statement format. WHFIN reads Credo and TBC XLSX statements. For TBC, export one account and currency per file.</string>
     <string name="statements_coverage">Confirmed: %1$s — %2$s</string>
     <string name="statements_never">No statements yet</string>
     <string name="statements_empty_body">Upload an XLSX file here or connect MyCredo to build continuous account coverage.</string>

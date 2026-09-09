@@ -89,4 +89,6 @@ data class StatementRow(
     val merchantRaw: String? = null,
     /** Real purchase date when it differs from [postedDate]. */
     val purchaseDate: LocalDate? = null,
+    /** Bank-issued identity, independent of amount, posting date and running balance. */
+    val bankTransactionId: String? = null,
 )

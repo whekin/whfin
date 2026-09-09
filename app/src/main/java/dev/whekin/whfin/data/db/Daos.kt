@@ -523,7 +523,7 @@ interface TransactionDao {
         "JOIN accounts a ON a.id = t.accountId " +
             "JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
-            "AND g.type != 'OWN_LINK' " +
+            "AND g.type != 'OWN_LINK' AND (g.note IS NULL OR g.note != 'Bank statement transfer') " +
             "AND (t.source IN ('STATEMENT', 'SMS') " +
             "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%')) " +
             "AND NOT EXISTS (SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
@@ -531,6 +531,17 @@ interface TransactionDao {
             "AND (g.note IS NULL OR g.note NOT LIKE 'Credo SMS %')",
     )
     suspend fun rebuildableTransferGroupIds(groupId: Long): List<Long>
+
+    @Query("SELECT id FROM transfer_groups WHERE note = 'Bank statement transfer' AND type = 'TRANSFER'")
+    suspend fun crossBankGroupIds(): List<Long>
+
+    @Query("UPDATE transactions SET transferGroupId = NULL, isTransfer = 0 WHERE transferGroupId IN (:ids)")
+    suspend fun detachCrossBankGroups(ids: List<Long>)
+
+    @Query("SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
+        "WHERE a.type = 'BANK' AND t.source = 'STATEMENT' AND t.isVoided = 0 " +
+        "AND t.transferGroupId IS NULL AND t.isTransfer = 0")
+    suspend fun crossBankCandidates(): List<TransactionEntity>
 
     @Query("UPDATE transactions SET transferGroupId = NULL WHERE id = :id")
     suspend fun clearTransferGroup(id: Long)

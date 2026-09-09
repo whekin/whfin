@@ -57,7 +57,7 @@
         <item quantity="other">В WHFIN %1$d счёта · добавьте ещё, если чего-то не хватает</item>
     </plurals>
     <string name="personal_setup_alternative_title">Начать с готовых данных</string>
-    <string name="personal_setup_alternative_body">Используйте XLSX-выписку Credo или восстановите переносимый бэкап WHFIN вместо подключения MyCredo.</string>
+    <string name="personal_setup_alternative_body">Используйте XLSX-выписку Credo или TBC или восстановите переносимый бэкап WHFIN вместо подключения MyCredo.</string>
     <string name="personal_setup_other_title">Использовать файл или готовый бэкап</string>
     <string name="personal_setup_other_body">Оба варианта останутся доступны позже в Настройках.</string>
     <string name="personal_setup_statement_title">Импортировать файл выписки</string>
@@ -971,7 +971,7 @@
     <string name="statements_file_unnamed">Выписка</string>
     <string name="statements_file_result">%1$d новых · %2$d уже были · %3$d сопоставлено</string>
     <string name="account_create_from_statement_title">Быстрее всего — из выписки</string>
-    <string name="account_create_from_statement_summary">Определим Credo, IBAN, валюту и баланс, затем создадим или обновим нужный счёт.</string>
+    <string name="account_create_from_statement_summary">Определим банк, IBAN, валюту и баланс, затем создадим или обновим нужный счёт.</string>
     <string name="statements_working">Загружаем выписку</string>
     <string name="statements_phase_reading">Читаем XLSX-файл…</string>
     <string name="statements_phase_importing">Добавляем операции банка…</string>
@@ -999,7 +999,7 @@
     <string name="statements_matched">Черновиков найдено</string>
     <string name="statements_duplicates">Уже были загружены</string>
     <string name="statements_error">Не удалось загрузить выписку</string>
-    <string name="statements_unsupported">Формат выписки не поддерживается. WHFIN читает XLSX-выписки Credo.</string>
+    <string name="statements_unsupported">Формат выписки не поддерживается. WHFIN читает XLSX-выписки Credo и TBC. Для TBC выгружайте один счёт и одну валюту в файл.</string>
     <string name="statements_coverage">Подтверждено: %1$s — %2$s</string>
     <string name="statements_never">Выписок пока нет</string>
     <string name="statements_empty_body">Загрузите XLSX здесь или подключите MyCredo, чтобы собрать непрерывное покрытие счёта.</string>
