@@ -431,7 +431,7 @@ private fun AccountHistoryCard(
                     when (item.origin) {
                         StatementImportOrigin.CREDO_SYNC, StatementImportOrigin.CREDO_API -> R.string.statements_origin_credo
                         StatementImportOrigin.USER_OPENING -> R.string.statements_origin_user_opening
-                        StatementImportOrigin.TBC_SYNC -> R.string.statements_origin_tbc
+                        StatementImportOrigin.TBC_SYNC, StatementImportOrigin.TBC_HISTORY -> R.string.statements_origin_tbc
                         StatementImportOrigin.FILE -> R.string.statements_origin_file
                     },
                 )

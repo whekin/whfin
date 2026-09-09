@@ -44,8 +44,8 @@ class CredoHistoryLoadTest {
     private val dispatcher = UnconfinedTestDispatcher()
     private val zone = ZoneId.of("Asia/Tbilisi")
 
-    /** Serves one year per call and opens the second one at zero: the ledger starts there. */
-    private inner class HistoryGateway : CredoGateway {
+    /** Serves one year per call; the API extent independently names the oldest available row. */
+    private inner class HistoryGateway(private val years: Long = 2) : CredoGateway {
         val windows = mutableListOf<Pair<LocalDate, LocalDate>>()
 
         override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
@@ -77,6 +77,12 @@ class CredoHistoryLoadTest {
             val to = toIso.toLocalDate()
             windows += from to to
             val first = windows.size == 1
+            if (years > 2 && windows.size == 3) throw CredoApiException("EMPTY_STATEMENT")
+            if (years > 2 && windows.size == 4) return SyntheticCredoWorkbook.build(
+                periodFrom = from, periodTo = to, openingBalance = "0.00", closingBalance = "0.00",
+                rows = listOf(
+                    Row(date = from, operation = "სხვა ბანკიდან ჩარიცხვა", credit = "50.00", balance = "50.00", description = "Earlier income"),
+                    Row(date = from.plusDays(1), operation = "თანხის გადარიცხვა", debit = "50.00", balance = "0.00", description = "Earlier withdrawal")))
             return SyntheticCredoWorkbook.build(
                 periodFrom = from,
                 periodTo = to,
@@ -99,6 +105,9 @@ class CredoHistoryLoadTest {
                 ),
             )
         }
+
+        override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount) =
+            dev.whekin.whfin.data.credo.CredoHistoryExtent(LocalDate.now(zone).minusYears(years))
 
         private fun String.toLocalDate(): LocalDate =
             Instant.from(DateTimeFormatter.ISO_INSTANT.parse(this)).atZone(zone).toLocalDate()
@@ -145,7 +154,7 @@ class CredoHistoryLoadTest {
         vm.loadHistory()
         await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.results.isNotEmpty() }
 
-        // Two years asked for, then the zero opening ended it — no third request.
+        // Two years asked for, reaching the API extent — the zero opening is not the stop signal.
         assertEquals(2, gateway.windows.size)
         val (firstFrom, _) = gateway.windows[0]
         val (_, secondTo) = gateway.windows[1]
@@ -156,6 +165,19 @@ class CredoHistoryLoadTest {
         assertEquals(2, result.inserted)
         assertEquals(0, vm.state.value.unchanged)
         assertEquals(0, vm.state.value.currentChunk)
+    }
+
+    @Test fun firstConnectionAutomaticallyWalksPastZeroAndAnEmptyYear() {
+        val gateway = HistoryGateway(years = 4)
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(app, gateway, CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        vm.connect("user", "password", remember = false, syncWhenConnected = true)
+        await { vm.state.value.stage == CredoSyncStage.Connected && !vm.state.value.canLoadOlderHistory }
+        assertEquals(4, gateway.windows.size)
+        assertEquals(4, vm.state.value.results.single().inserted)
+        assertNull(vm.state.value.results.single().errorCode)
+        val account = kotlinx.coroutines.runBlocking { db().accountDao().byIbanAndCurrency(SyntheticCredoWorkbook.IBAN, "GEL")!! }
+        assertEquals(9286L, kotlinx.coroutines.runBlocking { db().transactionDao().allForIntegrity().filter { it.accountId == account.id }.sumOf { it.amountMinor } })
     }
 
     /** Serves one usable year and then reports the period as empty, the way a real account starts. */
@@ -227,7 +249,7 @@ class CredoHistoryLoadTest {
     }
 
     @Test
-    fun runningOutOfHistoryIsHowTheWalkEnds_notAFailureToReport() {
+    fun emptyExportDoesNotProveThatOlderHistoryIsUnavailable() {
         // Before an account existed there is nothing to export, and the bank says so.
         val gateway = ShortHistoryGateway("EMPTY_STATEMENT")
 
@@ -235,18 +257,18 @@ class CredoHistoryLoadTest {
 
         assertEquals(2, gateway.downloads)
         val result = vm.state.value.results.single()
-        assertNull(result.errorCode)
+        assertEquals("HISTORY_INCOMPLETE", result.errorCode)
         assertEquals(1, result.inserted)
     }
 
     @Test
-    fun aRealFailureAfterHistoryWasFoundDoesNotEraseWhatWasImported() {
+    fun aRealFailureKeepsImportedCountsAndReportsPartialHistory() {
         val gateway = ShortHistoryGateway("NETWORK_ERROR")
 
         val vm = runHistory(gateway)
 
         val result = vm.state.value.results.single()
-        assertNull(result.errorCode)
+        assertEquals("NETWORK_ERROR", result.errorCode)
         assertEquals(1, result.inserted)
     }
 

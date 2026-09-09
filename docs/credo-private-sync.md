@@ -3,8 +3,8 @@
 Status: experimental personal dogfood, foreground-only. This is not an official bank API
 integration and must not be presented as reliable unattended synchronization.
 
-Current routine behavior in 0.3.29 is documented in [bank API sync](bank-api-sync.md): JSON after
-automatic initial XLSX, a weekly freshness hint and Home action. The export/history and authentication
+Current behavior in 0.3.30 is documented in [bank API sync](bank-api-sync.md): JSON for routine refresh; automatic yearly XLSX windows covering all API-available history on the
+first sync, a weekly freshness hint and Home action. The export/history and authentication
 contracts below remain applicable; older monthly/exclusively-XLSX descriptions are superseded.
 
 ## Product flow

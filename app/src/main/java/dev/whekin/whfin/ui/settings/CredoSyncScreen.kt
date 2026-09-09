@@ -321,8 +321,8 @@ fun CredoSyncRoute(
             otpChallengeKey += 1
             viewModel.resendOtp()
         },
-        onSync = viewModel::sync,
-        onLoadHistory = viewModel::loadHistory,
+        onSync = { viewModel.sync(fullHistory = true) },
+        onLoadHistory = { viewModel.loadHistory() },
         onDisconnect = viewModel::disconnect,
         onDismissError = viewModel::dismissError,
         originalExportOutcome = originalExportOutcome,
@@ -933,6 +933,7 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
     "HISTORY_FORMAT", "HISTORY_CHANGED" -> stringResource(R.string.credo_sync_error_history)
+    "HISTORY_INCOMPLETE", "HISTORY_LIMIT", "HISTORY_UNAVAILABLE" -> stringResource(R.string.credo_sync_history_incomplete)
     "EMPTY_STATEMENT" -> stringResource(R.string.credo_sync_error_empty)
     "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_download)
     "STATEMENT_UNREADABLE", "STATEMENT_REJECTED" -> stringResource(R.string.credo_sync_error_statement)

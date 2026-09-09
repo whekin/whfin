@@ -195,7 +195,7 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
             var blockedCursor: Long? = null
             var previousDay: java.time.LocalDate? = null
             val seenCursors = mutableSetOf<String>()
-            repeat(200) {
+            repeat(1000) {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 val body = JSONObject().put("coreAccountIds", JSONArray().put(JSONObject()
                     .put("currency", account.currency).put("iban", account.iban).put("id", account.id).put("type", "200")))

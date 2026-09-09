@@ -11,6 +11,23 @@ fields appear only after the owner chooses Create manually. Selecting another ba
 Cash and wallet creation keep their existing paths. Successful native Credo login initiated by the form
 now starts the routine sync; opening the screen alone does not initiate a bank login.
 
+## First synchronization (0.3.30)
+
+The first foreground sync now loads all available history automatically, per account. Credo first
+loads its recent window, then lists all history pages with an explicit dateFrom in 1970 (avoiding a server-default recent window) to find the oldest booked
+operation. It walks yearly XLSX windows down to that boundary. Zero openings and empty middle years
+do not stop the walk. Partial failures retain imported rows and counts but do not mark history complete;
+a later sync resumes. Previous completion flags derived from zero balances are invalidated once.
+Newly discovered accounts take this full path even when the other accounts are already complete.
+
+TBC's first read uses no local lower-date cutoff: pagination continues to the bank's empty terminal
+page. TBC_HISTORY records the completed read in the database and portable backup. Existing one-year
+imports are extended on their next sync; known openings are walked back across new older API rows
+without changing the current book balance. Subsequent reads overlap the last month and resume at the
+last successful period if that is older. The page/chunk guards raise errors rather than truncating
+history silently. Available history is not automatically proof of account-opening history: TBC still
+needs a statement or the owner's booked balance when no opening evidence exists.
+
 ## Credo direct history
 
 The existing authentication remains unchanged. Routine sync uses GraphQL transactionPagingList with
@@ -24,8 +41,9 @@ the opposite transfer account. isCardBlock rows are excluded. Money converts exa
 unknown bank labels stay OTHER. Only explicit bank movement labels imply own transfers. Reciprocal
 Credo/TBC transfer pairing and separate fee rows retain the existing shared rules.
 
-The first import and products without history IDs use automatic XLSX export to establish the opening.
-The existing explicit older-history scan remains XLSX based. Some foreign-card conversions are API
+The first import uses automatic XLSX export to establish the opening. The automatic older-history
+walk also uses XLSX, with its extent determined by API. A product without a history ID cannot establish
+that extent and reports the limitation instead of declaring its history complete. Some foreign-card conversions are API
 presentation pairs rather than independent statement movements; these detected groups also use the
 existing automatic export instead of guessing a net amount. Normal subsequent runs fetch JSON.
 Ambiguous API/file correspondence stops the account, leaving its ledger unchanged.
@@ -73,3 +91,10 @@ and explicit manual refusal, bank switching, the actual Home-to-TBC route, TBC b
 visible software keyboard, and backup/restore of USER_OPENING plus linked API/file identities.
 Twelve UI cases passed; six affected cases including backup were repeated after the final QA updates.
 No owner data or live bank login was used for these checks. The physical phone was disconnected.
+
+0.3.30 validation: full host unit/Compose suite passed, then 46 history tests passed after the added
+multi-year cases. The four-year Credo scenario crosses a zero opening and a completely empty middle
+year; TBC reads older-than-year rows and switches to an incremental window after the first completed
+read. Existing openings retain the current balance when older API rows arrive. Release R8/lintVital
+and public-tree checks passed. A disposable-emulator portable backup/restore test preserves
+TBC_HISTORY and repeated sync identity. No live bank history was requested; phone was disconnected.

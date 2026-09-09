@@ -62,6 +62,8 @@ class CredoSyncSkipTest {
 
     private inner class FixedGateway : CredoGateway {
         var downloads = 0
+        override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount) =
+            dev.whekin.whfin.data.credo.CredoHistoryExtent(LocalDate.of(2026, 1, 12))
 
         override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
             operationId = "op",

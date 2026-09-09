@@ -33,15 +33,15 @@ internal class OpeningAnchor(private val db: WhfinDatabase, private val zone: Zo
             Snapshot(LocalDate.ofEpochDay(requireNotNull(it.periodFrom)), requireNotNull(it.openingBalanceMinor))
         }
         var earliest = bankSnapshots.minByOrNull(Snapshot::date) ?: userSnapshots.minByOrNull(Snapshot::date) ?: return
-        // A later bank statement replaces the owner's provisional amount without discarding older
-        // API rows. Walk the bank opening back across those booked rows to the original start.
-        val userStart = userSnapshots.minOfOrNull(Snapshot::date)
-        if (bankSnapshots.isNotEmpty() && userStart != null && userStart < earliest.date) {
-            val before = db.transactionDao().allStatementRows(account.id).filter { tx ->
-                val day = java.time.Instant.ofEpochMilli(tx.postedAt ?: tx.occurredAt).atZone(zone).toLocalDate()
-                !tx.isVoided && day >= userStart && day < earliest.date
-            }.fold(0L) { sum, tx -> Math.addExact(sum, tx.amountMinor) }
-            earliest = Snapshot(userStart, Math.subtractExact(earliest.amountMinor, before))
+        // Earlier API rows may arrive after a file or a provisional opening. Walk that known
+        // opening back rather than adding the older movements on top of today's balance.
+        val rows = db.transactionDao().allStatementRows(account.id).filterNot { it.isVoided }
+        fun postedDay(tx: TransactionEntity) = java.time.Instant.ofEpochMilli(tx.postedAt ?: tx.occurredAt).atZone(zone).toLocalDate()
+        val firstDay = (rows.map(::postedDay) + userSnapshots.map(Snapshot::date)).minOrNull()
+        if (firstDay != null && firstDay < earliest.date) {
+            val before = rows.filter { postedDay(it) < earliest.date }
+                .fold(0L) { sum, tx -> Math.addExact(sum, tx.amountMinor) }
+            earliest = Snapshot(firstDay, Math.subtractExact(earliest.amountMinor, before))
         }
 
         val existing = db.transactionDao().openingAnchor(account.id)

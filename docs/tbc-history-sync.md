@@ -14,9 +14,10 @@ balance before API rows are written. The latter is stored as USER_OPENING and is
 bank evidence. No dashboard/available balance is silently treated as an opening. The owner confirms
 each ledger, including empty ledgers, or uses the optional statement-import action.
 
-After the initial import, history is downloaded through the authenticated mobile API. The window is
-at most the past year and never starts before the known opening period. Existing older history is
-retained. Neither an empty page nor a missing bank row is interpreted as cancellation or permission
+After the initial import, history is downloaded through the authenticated mobile API. The first read now walks all available pages; its completion is recorded as TBC_HISTORY.
+Subsequent reads overlap a month, reaching further back after a missed run. Existing one-year imports
+are extended once, adjusting the opening backwards across earlier booked rows to preserve the current
+balance. Existing older history is retained. Neither an empty page nor a missing bank row is interpreted as cancellation or permission
 to delete a transaction.
 
 ## Retrieval

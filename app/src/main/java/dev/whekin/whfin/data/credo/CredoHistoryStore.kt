@@ -27,6 +27,6 @@ class CredoHistoryStore(context: Context) {
 
     private companion object {
         const val PREFERENCES = "whfin_credo_device"
-        const val KEYS = "history_complete_account_keys"
+        const val KEYS = "history_complete_account_keys_v2"
     }
 }

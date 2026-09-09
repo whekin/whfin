@@ -21,20 +21,27 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val initial = mutableListOf<TbcInitialHistory>()
         val missing = mutableListOf<TbcLedgerAccount>()
         val errors = mutableListOf<String>()
-        data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>)
+        data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean)
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
             progress(index + 1, accounts.size)
             val account = db.accountDao().byIbanAndCurrency(remote.iban, remote.currency)
             val opening = account?.let { db.statementImportDao().earliestWithOpeningBalance(it.id) }
-            val from = maxOf(today.minusYears(1), opening?.periodFrom?.let(LocalDate::ofEpochDay) ?: today.minusYears(1))
+            val imports = account?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
+            val fullHistory = imports.none { it.origin == StatementImportOrigin.TBC_HISTORY }
+            val lastThrough = imports.filter { it.origin in setOf(StatementImportOrigin.TBC_SYNC, StatementImportOrigin.TBC_HISTORY) }
+                .mapNotNull { it.periodTo?.let(LocalDate::ofEpochDay) }.maxOrNull() ?: today.minusMonths(1)
+            // MIN is only a local paging boundary; no impossible date is sent to the bank.
+            val requestedFrom = if (fullHistory) LocalDate.MIN else minOf(today.minusMonths(1), lastThrough)
             val needsOpening = account == null || opening?.periodFrom == null
             if (needsOpening) missing += remote
             try {
-                val rows = gateway.history(remote, from, today)
+                val rows = gateway.history(remote, requestedFrom, today)
+                val from = if (fullHistory) minOf(rows.minOfOrNull { it.row.postedDate } ?: today,
+                    opening?.periodFrom?.let(LocalDate::ofEpochDay) ?: today) else requestedFrom
                 if (account == null || opening?.periodFrom == null) {
                     initial += TbcInitialHistory(remote, from, today, rows)
-                } else ready += Ready(remote, account, from, rows)
+                } else ready += Ready(remote, account, from, rows, fullHistory)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 val code = (e as? TbcException)?.code
@@ -62,8 +69,9 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 StatementValidator.validate(statement)
                 val committed = db.withTransaction {
                     val plan = ImportPlanner(db, LedgerCalendar.zone).plan(statement, item.account, false, false, collectReview = false)
-                    if (!plan.isNoOp) {
-                        ImportApplier(db, LedgerCalendar.zone).apply(plan, item.account, null, StatementImportOrigin.TBC_SYNC)
+                    if (!plan.isNoOp || item.fullHistory) {
+                        ImportApplier(db, LedgerCalendar.zone).apply(plan, item.account, null,
+                            if (item.fullHistory) StatementImportOrigin.TBC_HISTORY else StatementImportOrigin.TBC_SYNC)
                     }
                     SmsTransactionImporter(db).attachUnroutedToStatements()
                     plan
@@ -93,7 +101,7 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             StatementValidator.validate(seed)
             ImportApplier(db, LedgerCalendar.zone).apply(ImportPlan(seed, resolved.account.id, resolved.created, resolved.adopted, emptyList(), emptyList()),
                 resolved.account, null, StatementImportOrigin.USER_OPENING)
-            ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_SYNC)
+            ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_HISTORY)
             SmsTransactionImporter(db).attachUnroutedToStatements()
             plan
         }

@@ -41,10 +41,10 @@ class CredoHistoryScanTest {
     }
 
     @Test
-    fun `a chunk that opens at zero is where the ledger starts`() {
+    fun `a zero opening does not establish the start of a ledger`() {
         val first = statement(from = requested.from, opening = 0, closing = 4_000, rows = 3)
 
-        assertTrue(CredoHistoryScan.reachedBottom(requested, first))
+        assertFalse(CredoHistoryScan.reachedBottom(requested, first))
     }
 
     @Test
@@ -63,10 +63,10 @@ class CredoHistoryScanTest {
     }
 
     @Test
-    fun `an empty year at zero throughout means there was no account yet`() {
+    fun `an empty zero year may be a dormant account`() {
         val before = statement(from = requested.from, opening = 0, closing = 0, rows = 0)
 
-        assertTrue(CredoHistoryScan.reachedBottom(requested, before))
+        assertFalse(CredoHistoryScan.reachedBottom(requested, before))
     }
 
     @Test

@@ -49,7 +49,7 @@ class TbcSyncBackupInstrumentedTest {
             assertEquals(1, sync.sync(gateway, LocalDate.of(2026, 9, 9)).unchanged)
             assertTrue(StatementImporter(db).preview(bytes.inputStream()).changesNothing)
             val account = db.accountDao().byIbanAndCurrency(remote.iban, "GEL")!!
-            assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.TBC_SYNC })
+            assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.TBC_HISTORY })
             assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.USER_OPENING })
             assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
         } finally { db.close() }

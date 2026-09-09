@@ -195,7 +195,7 @@ class CredoSyncViewModel internal constructor(
             )
         ) return
         if (session != null && _state.value.accounts.isNotEmpty()) {
-            sync()
+            sync(fullHistory = true)
             return
         }
         viewModelScope.launch {
@@ -270,7 +270,7 @@ class CredoSyncViewModel internal constructor(
         }
     }
 
-    fun sync() {
+    fun sync(fullHistory: Boolean = false) {
         val activeSession = session ?: return fail("LOGIN_EXPIRED")
         val allAccounts = _state.value.accounts
         if (allAccounts.isEmpty()) return fail("NO_ACCOUNTS")
@@ -431,7 +431,9 @@ class CredoSyncViewModel internal constructor(
                 errorCode = null,
             )
             if (results.none { it.errorCode != null || it.detail != null }) {
-                preferences.setLastCredoSyncAt(System.currentTimeMillis())
+                if (fullHistory && allAccounts.any { it.stableKey !in historyStore.load() }) {
+                    loadHistory(results, unchanged)
+                } else preferences.setLastCredoSyncAt(System.currentTimeMillis())
             }
         }
     }
@@ -439,33 +441,56 @@ class CredoSyncViewModel internal constructor(
     /**
      * Reaches past the year a routine sync covers, one year-long statement at a time.
      *
-     * Separate from [sync] on purpose: this is a one-off that walks each account backwards until the
-     * statements say there is nothing older, while a sync only asks for what is missing at the near
-     * end. Nothing here is automatic — a bank endpoint is not a place to loop unattended.
+     * The first foreground sync calls this after the recent window. Later runs skip completed
+     * accounts; the explicit action resumes an incomplete walk. API pagination establishes the
+     * oldest available row, so a quiet or zero-opening year never truncates the walk.
      */
-    fun loadHistory() {
+    fun loadHistory(carryResults: List<CredoSyncFileResult> = emptyList(), carryUnchanged: Int = 0) {
         val activeSession = session ?: return fail("LOGIN_EXPIRED")
-        val accounts = _state.value.accounts
-        if (accounts.isEmpty()) return fail("NO_ACCOUNTS")
+        val accounts = _state.value.accounts.filter { it.stableKey !in historyStore.load() }
+        if (accounts.isEmpty()) return
         if (_state.value.stage == CredoSyncStage.Syncing) return
+        _state.value = _state.value.copy(stage = CredoSyncStage.Syncing, currentAccountTotal = accounts.size,
+            currentAccount = 1, currentChunk = 1, currentPhase = StatementImporter.Phase.READING,
+            results = emptyList(), resultsAreRetained = false, errorCode = null)
         viewModelScope.launch(syncDispatcher) {
-            _state.value = _state.value.copy(results = emptyList(), resultsAreRetained = false)
-            val results = mutableListOf<CredoSyncFileResult>()
+            val labels = accounts.map { it.maskedLabel }.toSet()
+            val results = carryResults.filterNot { it.accountLabel in labels }.toMutableList()
             val walkedToTheEnd = mutableSetOf<String>()
-            var unchanged = 0
+            var unchanged = (carryUnchanged - accounts.count { account -> carryResults.none { it.accountLabel == account.maskedLabel } }).coerceAtLeast(0)
             for ((index, account) in accounts.withIndex()) {
-                var inserted = 0
-                var duplicates = 0
-                var reconciled = 0
-                val unmappedOperationNames = linkedSetOf<String>()
+                val carried = carryResults.singleOrNull { it.accountLabel == account.maskedLabel }
+                var inserted = carried?.inserted ?: 0
+                var duplicates = carried?.duplicates ?: 0
+                var reconciled = carried?.reconciled ?: 0
+                val unmappedOperationNames = linkedSetOf<String>().apply { addAll(carried?.unmappedOperationNames.orEmpty()) }
                 var errorCode: String? = null
                 var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
                 var failedDetail: String? = null
                 var failedOriginal: FailedStatementStore.Entry? = null
                 var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
 
+                _state.value = _state.value.copy(currentAccount = index + 1, currentChunk = 1)
+                val extent = try { gateway.historyExtent(activeSession, account) }
+                    catch (error: Exception) {
+                        error.throwIfCancellation()
+                        if (error is CredoApiException && error.code.isCredoAuthError()) {
+                            session = null
+                            _state.value = _state.value.copy(stage = CredoSyncStage.Disconnected, errorCode = "SESSION_EXPIRED", results = results + CredoSyncFileResult(account.maskedLabel, inserted = inserted, reconciled = reconciled, errorCode = "SESSION_EXPIRED"))
+                            return@launch
+                        }
+                        errorCode = error.safeCode()
+                        null
+                    }
+                if (extent?.oldestDate?.isAfter(LocalDate.now(zone)) == true) errorCode = "HISTORY_CHANGED"
                 for (chunk in 1..CredoHistoryScan.MAX_CHUNKS) {
-                    val window = CredoHistoryScan.chunkBefore(earliest)
+                    if (errorCode != null) break
+                    if (extent != null && (extent.oldestDate == null || earliest <= extent.oldestDate)) {
+                        walkedToTheEnd += account.stableKey
+                        break
+                    }
+                    val requested = CredoHistoryScan.chunkBefore(earliest)
+                    val window = requested.copy(from = maxOf(requested.from, extent?.oldestDate ?: requested.from))
                     _state.value = _state.value.copy(
                         stage = CredoSyncStage.Syncing,
                         currentAccount = index + 1,
@@ -520,41 +545,39 @@ class CredoSyncViewModel internal constructor(
                         return@launch
                     } catch (error: Exception) {
                         error.throwIfCancellation()
-                        // Walking off the start of an account's life is the normal way this ends,
-                        // not a failure: before it existed there is no statement to export, and the
-                        // bank says so with an empty one. Anything else stops the walk too, but is
-                        // worth reporting — unless this account already got history out of it.
                         val code = error.safeCode()
-                        if (code in NO_MORE_HISTORY) walkedToTheEnd += account.stableKey
-                        if (code !in NO_MORE_HISTORY) {
-                            errorCode = code.takeIf { inserted == 0 && reconciled == 0 }
-                            failedWindow = window
-                            failedDetail = error.safeDetail()
-                            failedOriginal = downloadedBytes?.let { bytes ->
-                                retainFailedStatement(
-                                    account = account,
-                                    bytes = bytes,
-                                    errorCode = code,
-                                    detail = failedDetail,
-                                    askedFrom = window.from.toString(),
-                                    askedTo = window.to.toString(),
-                                )
-                            }
+                        // An empty middle year is not the end. Continue to the oldest API row.
+                        if (code in NO_MORE_HISTORY && extent?.oldestDate != null && window.from > extent.oldestDate) {
+                            earliest = window.from
+                            continue
+                        }
+                        errorCode = if (code in NO_MORE_HISTORY) "HISTORY_INCOMPLETE" else code
+                        failedWindow = window
+                        failedDetail = error.safeDetail()
+                        failedOriginal = downloadedBytes?.let { bytes ->
+                            retainFailedStatement(account, bytes, errorCode, failedDetail, window.from.toString(), window.to.toString())
                         }
                         break
                     }
-                    if (CredoHistoryScan.reachedBottom(window, statement)) {
-                        // The bank has nothing earlier for this account, and that answer will not
-                        // change; the walk never has to be offered for it again.
+                    if (extent == null && CredoHistoryScan.reachedBottom(window, statement)) {
                         walkedToTheEnd += account.stableKey
+                        break
+                    }
+                    if (extent?.oldestDate != null && statement.periodFrom != null && statement.periodFrom > window.from) {
+                        errorCode = "HISTORY_INCOMPLETE"
                         break
                     }
                     earliest = statement.periodFrom ?: window.from
                 }
 
+                if (errorCode == null && account.stableKey !in walkedToTheEnd) {
+                    if (extent != null && (extent.oldestDate == null || earliest <= extent.oldestDate)) walkedToTheEnd += account.stableKey
+                    else errorCode = "HISTORY_LIMIT"
+                }
                 when {
                     errorCode != null -> results += CredoSyncFileResult(
                         account.maskedLabel,
+                        inserted = inserted, duplicates = duplicates, reconciled = reconciled,
                         errorCode = errorCode,
                         askedFrom = failedWindow?.from?.toString(),
                         askedTo = failedWindow?.to?.toString(),
@@ -794,7 +817,7 @@ class CredoSyncViewModel internal constructor(
             )
             if (syncAfterLogin) {
                 syncAfterLogin = false
-                sync()
+                sync(fullHistory = true)
             }
         }.onFailure { error ->
             error.throwIfCancellation()

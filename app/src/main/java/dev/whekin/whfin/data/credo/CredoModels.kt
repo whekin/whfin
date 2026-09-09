@@ -50,7 +50,11 @@ class CredoApiException(
     cause: Throwable? = null,
 ) : Exception(code, cause)
 
+data class CredoHistoryExtent(val oldestDate: java.time.LocalDate?)
+
 interface CredoGateway {
+    suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount): CredoHistoryExtent? = null
+
     suspend fun initiateLogin(credentials: CredoCredentials): CredoLoginChallenge
     suspend fun sendOtp(operationId: String)
     suspend fun confirmLogin(

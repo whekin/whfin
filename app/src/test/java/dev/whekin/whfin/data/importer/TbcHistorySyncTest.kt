@@ -26,6 +26,7 @@ class TbcHistorySyncTest {
     private fun mobile() = statement.rows.mapIndexed { i, row -> TbcHistoryRow("api-$i", "${900+i}",
         row.copy(bankTransactionId = TbcRowIdentity.mobileId("api-$i"), balanceAfterMinor = null)) }
     private class Gateway(val accounts: List<TbcLedgerAccount>, val rows: Map<String, List<TbcHistoryRow>>) : TbcGateway {
+        val requestedFrom = mutableListOf<LocalDate>()
         override suspend fun login(username: String, credential: String): TbcLoginResult = error("unused")
         override suspend fun confirm(challenge: TbcChallenge, code: String): TbcSession = error("unused")
         override suspend fun resume(session: TbcSession): TbcSession = error("unused")
@@ -33,7 +34,10 @@ class TbcHistorySyncTest {
         override fun snapshot() = TbcSession(emptyMap(), "synthetic")
         override fun clear() = Unit
         override suspend fun ledgerAccounts() = accounts
-        override suspend fun history(account: TbcLedgerAccount, from: LocalDate, through: LocalDate) = rows.getValue(account.key)
+        override suspend fun history(account: TbcLedgerAccount, from: LocalDate, through: LocalDate): List<TbcHistoryRow> {
+            requestedFrom += from
+            return rows.getValue(account.key).filter { it.row.postedDate in from..through }
+        }
     }
     private suspend fun sync(rows: List<TbcHistoryRow> = mobile()) = TbcHistorySync(db).sync(Gateway(listOf(remote), mapOf(remote.key to rows)), today)
     @Before fun setup() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), WhfinDatabase::class.java).allowMainThreadQueries().build() }
@@ -217,6 +221,32 @@ class TbcHistorySyncTest {
         assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
         sync()
         assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+    }
+
+    @Test fun existingOneYearImportIsExtendedWithoutChangingCurrentBalance() = runBlocking {
+        StatementImporter(db).import(file.inputStream())
+        val older = mobile().first().let { it.copy(movementId = "old", row = it.row.copy(
+            postedDate = today.minusYears(3), purchaseDate = null, amountMinor = 10000,
+            description = "Earlier deposit", bankTransactionId = TbcRowIdentity.mobileId("old"))) }
+        val gateway = Gateway(listOf(remote), mapOf(remote.key to (mobile() + older)))
+        assertTrue(TbcHistorySync(db).sync(gateway, today).errors.isEmpty())
+        assertEquals(LocalDate.MIN, gateway.requestedFrom.single())
+        assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        assertTrue(db.transactionDao().allForIntegrity().any { it.externalKey?.endsWith(TbcRowIdentity.mobileId("old")) == true })
+        val account = db.accountDao().allActive().single()
+        assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.TBC_HISTORY })
+        assertEquals(1, TbcHistorySync(db).sync(gateway, today).unchanged)
+        assertEquals(today.minusMonths(1), gateway.requestedFrom.last())
+    }
+    @Test fun newAccountBalanceConfirmationUsesEveryAvailableYear() = runBlocking {
+        val older = mobile().first().let { it.copy(movementId = "old", row = it.row.copy(
+            postedDate = today.minusYears(3), purchaseDate = null, amountMinor = 10000,
+            description = "Earlier deposit", bankTransactionId = TbcRowIdentity.mobileId("old"))) }
+        val initial = sync(mobile() + older).initialHistories.single()
+        assertEquals(today.minusYears(3), initial.from)
+        TbcHistorySync(db).initialize(initial, 30100)
+        assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        assertNull(db.transactionDao().openingAnchor(db.accountDao().allActive().single().id))
     }
 
 }

@@ -1508,4 +1508,5 @@
     <string name="tbc_balance_help">Which balance should I enter?</string>
     <string name="tbc_balance_help_body">Use the booked balance, before deducting pending card payments. Available balance may be lower. Enter the amount for the history just loaded; if transactions changed, sync again first. Your amount is recorded as an estimate, not a bank-verified balance.</string>
     <string name="credo_sync_error_history">The bank history changed during loading or could not be verified. This account was not changed. Sync again; if it persists, use a statement.</string>
+    <string name="credo_sync_history_incomplete">This account’s history is not fully loaded. Transactions already added are kept. The next sync will try to continue.</string>
 </resources>

@@ -67,4 +67,13 @@ class TbcHistoryGatewayTest {
         assertEquals(listOf("10", "11", "20"), result.map { it.id })
         assertEquals(listOf("GEL", "USD", "GEL"), result.map { it.currency })
     }
+    @Test fun firstReadPagesPastTheLastYearUntilTheBankReturnsNoMoreRows() = runBlocking {
+        val old = day.minusYears(4)
+        val script = Script(page(300, "recent"), page(200, "old", date = old), "[]")
+        val rows = MobileTbcGateway(script).history(account, LocalDate.MIN, day)
+        assertEquals(listOf(day, old), rows.map { it.row.postedDate })
+        assertEquals(3, script.bodies.size)
+        assertFalse(script.bodies.first().has("startDate"))
+    }
+
 }

@@ -185,8 +185,7 @@ class MyCredoGateway internal constructor(
         }.distinctBy(CredoRemoteAccount::stableKey)
     }
 
-    override suspend fun history(session: CredoSession, account: CredoRemoteAccount,
-        from: LocalDate, to: LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> {
+    private suspend fun historyItems(session: CredoSession, account: CredoRemoteAccount, from: LocalDate?): List<JSONObject> {
         val accountId = account.accountId ?: throw CredoApiException("HISTORY_UNAVAILABLE")
         val items = linkedMapOf<String, JSONObject>()
         var expectedTotal: Int? = null
@@ -194,8 +193,8 @@ class MyCredoGateway internal constructor(
         try {
             for (page in 1..500) {
                 val filter = JSONObject().put("accountIdList", JSONArray().put(accountId))
-                    .put("dateFrom", from.atStartOfDay(dev.whekin.whfin.data.LedgerCalendar.zone).toInstant().toString())
                     .put("onlyCanBeReversedOrRepeated", false).put("pageNumber", page).put("pageSize", 30)
+                from?.let { filter.put("dateFrom", it.atStartOfDay(dev.whekin.whfin.data.LedgerCalendar.zone).toInstant().toString()) }
                 val result = graphQl(session, HISTORY_QUERY, JSONObject().put("data", filter))
                     .getJSONObject("transactionPagingList")
                 val total = result.getInt("totalItemCount")
@@ -213,7 +212,29 @@ class MyCredoGateway internal constructor(
                 if (rows.length() == 0) throw CredoApiException("HISTORY_CHANGED")
             }
             if (items.size != expectedTotal) throw CredoApiException("HISTORY_CHANGED")
-            val booked = items.values.filterNot { it.getBoolean("isCardBlock") }
+            return items.values.toList()
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: CredoApiException) { throw e }
+        catch (e: Exception) { throw CredoApiException("HISTORY_FORMAT", e) }
+    }
+
+    override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount): CredoHistoryExtent {
+        try {
+            // Explicit early boundary avoids a server-default recent window when dateFrom is absent.
+            val dates = historyItems(session, account, LocalDate.of(1970, 1, 1)).filterNot { it.getBoolean("isCardBlock") }.map {
+                if (it.getString("currency") != account.currency) throw CredoApiException("HISTORY_FORMAT")
+                CredoHistoryParser.postedDate(it)
+            }
+            return CredoHistoryExtent(dates.minOrNull())
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: CredoApiException) { throw e }
+        catch (e: Exception) { throw CredoApiException("HISTORY_FORMAT", e) }
+    }
+
+    override suspend fun history(session: CredoSession, account: CredoRemoteAccount,
+        from: LocalDate, to: LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> {
+        try {
+            val booked = historyItems(session, account, from).filterNot { it.getBoolean("isCardBlock") }
             // Some FX card receipts are presentation pairs, not independent ledger movements.
             // Keep the proven export path until that representation is verified against a statement.
             if (booked.groupBy { it.getString("operationDateTime") }.values.any { group ->

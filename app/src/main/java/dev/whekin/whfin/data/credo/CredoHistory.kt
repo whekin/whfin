@@ -23,6 +23,11 @@ internal object CredoHistoryParser {
         if (credit < 0 || debit < 0 || (credit == 0L) == (debit == 0L)) fail()
         return Math.subtractExact(credit, debit)
     }
+    fun postedDate(json: JSONObject): java.time.LocalDate {
+        val raw = text(json, "operationDateTime") ?: fail()
+        return runCatching { OffsetDateTime.parse(raw).atZoneSameInstant(LedgerCalendar.zone).toLocalDate() }
+            .getOrElse { LocalDateTime.parse(raw.replace(' ', 'T')).toLocalDate() }
+    }
     fun row(list: JSONObject, detail: JSONObject, account: CredoRemoteAccount): StatementRow {
         val id = text(list, "stmtEntryId")?.takeIf { it.length <= 160 } ?: fail()
         if (list.getBoolean("isCardBlock") || detail.getBoolean("isCardBlock")) fail()

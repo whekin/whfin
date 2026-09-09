@@ -24,7 +24,7 @@ object CredoHistoryScan {
     const val CHUNK_MONTHS = 12L
 
     /** Not a stop signal but a guard: a protocol change must not turn this into an endless loop. */
-    const val MAX_CHUNKS = 10
+    const val MAX_CHUNKS = 100
 
     /** The window ending just before the earliest history already held. */
     fun chunkBefore(earliestKnown: LocalDate): CredoHistoryChunk {
@@ -32,23 +32,8 @@ object CredoHistoryScan {
         return CredoHistoryChunk(from = to.minusMonths(CHUNK_MONTHS), to = to)
     }
 
-    /**
-     * Whether the bank has nothing older than what this chunk returned.
-     *
-     * An empty chunk on its own means nothing: an account can sit untouched for a year with money on
-     * it, and stopping there would cut the history short. What does end the walk:
-     *
-     * - the bank narrowed the period we asked for — it has nothing earlier to give;
-     * - the chunk has rows and opens at zero — the ledger starts here;
-     * - the chunk is empty and stands at zero throughout — there was no account yet.
-     *
-     * The last one can in principle stop one chunk early, on an account that was emptied to exactly
-     * zero and then left alone for a full year. A second run starts from the new earliest coverage
-     * and reaches past it, so the history is not lost, only deferred.
-     */
-    fun reachedBottom(requested: CredoHistoryChunk, statement: BankStatement): Boolean {
-        statement.periodFrom?.let { if (it.isAfter(requested.from)) return true }
-        if (statement.rows.isNotEmpty()) return statement.openingBalanceMinor == 0L
-        return statement.openingBalanceMinor == 0L && statement.closingBalanceMinor == 0L
-    }
+    /** Only an explicitly narrowed export period is evidence of the end without an API extent.
+     * Zero balances and empty years can occur in the middle of an account's life. */
+    fun reachedBottom(requested: CredoHistoryChunk, statement: BankStatement): Boolean =
+        statement.periodFrom?.isAfter(requested.from) == true
 }

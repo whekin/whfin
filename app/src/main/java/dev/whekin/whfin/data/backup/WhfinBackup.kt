@@ -292,7 +292,7 @@ internal object WhfinBackupSchema {
                 "openingBalanceMinor", "closingBalanceMinor", "totalRows", "inserted", "duplicates",
                 "reconciled", "reviewCount", "importedAt",
             ),
-            enumColumns = mapOf("origin" to setOf("FILE", "CREDO_SYNC", "TBC_SYNC", "CREDO_API", "USER_OPENING")),
+            enumColumns = mapOf("origin" to setOf("FILE", "CREDO_SYNC", "TBC_SYNC", "TBC_HISTORY", "CREDO_API", "USER_OPENING")),
         ),
         BackupTable(
             "reconciliation_issues",

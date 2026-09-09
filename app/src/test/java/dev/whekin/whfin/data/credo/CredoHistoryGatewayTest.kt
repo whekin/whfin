@@ -64,4 +64,16 @@ class CredoHistoryGatewayTest {
         val error = runCatching { gateway(listOf(page(2, 1, a, row("payment")))).history(session, account, today, today) }.exceptionOrNull()
         assertEquals("HISTORY_REQUIRES_STATEMENT", (error as CredoApiException).code)
     }
+    @Test fun extentRequestsTheWholeHistoricalRangeAndIgnoresOlderPendingRows() = runBlocking {
+        val old = row("old").put("operationDateTime", "2022-05-10 10:00:00")
+        val hold = row("hold", true).put("operationDateTime", "2020-01-01 10:00:00")
+        val calls = mutableListOf<JSONObject>()
+        val extent = gateway(listOf(page(3, 2, row("recent")), page(3, 2, old, hold)), calls)
+            .historyExtent(session, account)!!
+        assertEquals(LocalDate.of(2022, 5, 10), extent.oldestDate)
+        val from = java.time.Instant.parse(calls.first().getJSONObject("variables").getJSONObject("data").getString("dateFrom"))
+        assertEquals(LocalDate.of(1970, 1, 1), from.atZone(dev.whekin.whfin.data.LedgerCalendar.zone).toLocalDate())
+        assertEquals(2, calls.size)
+    }
+
 }
