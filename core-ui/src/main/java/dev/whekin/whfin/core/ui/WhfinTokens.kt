@@ -9,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -58,7 +59,7 @@ data class WhfinSizes(
     /** Width of the rule that marks the dock destination being read. */
     val dockRule: Dp = 22.dp,
     /** Mirrors `MaterialTheme.shapes.medium`; kept as a number so a press can animate it. */
-    val buttonCorner: Dp = 14.dp,
+    val buttonCorner: Dp = 16.dp,
     /** Mirrors `MaterialTheme.shapes.small`. */
     val pillCorner: Dp = 10.dp,
 )
@@ -128,6 +129,14 @@ val LocalWhfinSpacing = staticCompositionLocalOf { WhfinSpacing() }
 val LocalWhfinSizes = staticCompositionLocalOf { WhfinSizes() }
 
 object WhfinThemeTokens {
+    /** Raised groups get lighter in both themes, including user-selected dynamic palettes. */
+    val raisedSurface: Color
+        @Composable get() {
+            val scheme = MaterialTheme.colorScheme
+            return if (scheme.surface.luminance() < .5f) scheme.surfaceContainerLow
+            else scheme.surfaceContainerLowest
+        }
+
     val colors: WhfinExtendedColors
         @androidx.compose.runtime.Composable get() = LocalWhfinColors.current
     val spacing: WhfinSpacing

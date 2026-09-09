@@ -611,11 +611,20 @@ private fun minorInput(value: Long): String {
         (listOfNotNull(chosen) + ranked.filterNot { it.id == chosen?.id }).take(3)
     }
     SectionLabel(stringResource(R.string.tx_detail_category))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        suggestions.forEach { item ->
-            CategoryTile(item, Modifier.weight(1f), selected = item.id == selected) { onCategory(item.id) }
+    // Give large text two columns instead of breaking names such as "Subscriptions" mid-word.
+    val columns = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f) 2 else 4
+    val rows = (0..suggestions.size).toList().chunked(columns)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { indices ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                indices.forEach { index ->
+                    val item = suggestions.getOrNull(index)
+                    if (item == null) MoreTile(Modifier.weight(1f), onMore)
+                    else CategoryTile(item, Modifier.weight(1f), selected = item.id == selected) { onCategory(item.id) }
+                }
+                if (rows.size > 1) repeat(columns - indices.size) { Spacer(Modifier.weight(1f)) }
+            }
         }
-        MoreTile(Modifier.weight(1f), onMore)
     }
     Column(Modifier.fillMaxWidth()) {
         CompactAccountSelector(stringResource(R.string.tx_account), sources, accountId, Modifier.fillMaxWidth(), onAccount, onCreateCashCurrency = onCreateCashCurrency)

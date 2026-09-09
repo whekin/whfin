@@ -35,6 +35,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.annotation.StringRes
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -381,7 +385,17 @@ internal fun SettingsContent(
 @Composable
 private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
     val control = row.control
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     WhfinLedgerRow(
+        modifier = if (control is SettingsControl.Toggle) Modifier.toggleable(
+            value = control.checked,
+            enabled = row.enabled,
+            role = Role.Switch,
+            onValueChange = { value ->
+                haptics.performHapticFeedback(dev.whekin.whfin.core.ui.WhfinHaptics.toggle(value))
+                control.onCheckedChange(value)
+            },
+        ).semantics { contentDescription = control.contentDescription } else Modifier,
         title = row.title,
         // Reached through its contents, the row answers with what was found in there. Its usual
         // status — when a copy last ran, how long the lock waits — is true but is not the answer to
@@ -405,7 +419,7 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
                 {
                     WhfinSwitch(
                         checked = control.checked,
-                        onCheckedChange = control.onCheckedChange,
+                        onCheckedChange = null,
                         contentDescription = control.contentDescription,
                         enabled = row.enabled,
                     )
@@ -427,24 +441,15 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
  */
 @Composable
 private fun ThemeChoice(mode: AppThemeMode, onChange: (AppThemeMode) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        listOf(
-            AppThemeMode.System to R.string.settings_theme_system,
-            AppThemeMode.Light to R.string.settings_theme_light,
-            AppThemeMode.Dark to R.string.settings_theme_dark,
-        ).forEach { (option, label) ->
-            WhfinFilterPill(
-                label = stringResource(label),
-                selected = mode == option,
-                onClick = { onChange(option) },
-                modifier = Modifier.weight(1f),
-                centered = true,
-            )
-        }
-    }
+    dev.whekin.whfin.core.ui.WhfinSegmentedChoice(
+        options = listOf(
+            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.System, stringResource(R.string.settings_theme_system)),
+            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.Light, stringResource(R.string.settings_theme_light)),
+            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.Dark, stringResource(R.string.settings_theme_dark)),
+        ),
+        selected = mode,
+        onSelect = onChange,
+    )
 }
 
 /**

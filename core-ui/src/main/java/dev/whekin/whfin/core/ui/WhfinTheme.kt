@@ -19,87 +19,85 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Paper = Color(0xFFF6F0E4)
-private val Ink = Color(0xFF162019)
-private val Bottle = Color(0xFF244C39)
-private val Sage = Color(0xFFB9C9AE)
-private val Clay = Color(0xFFC86243)
-private val Oxide = Color(0xFF9E3F32)
-private val Warning = Color(0xFF8A6500)
+private val Paper = Color(0xFFEFF5F8)
+private val Ink = Color(0xFF193442)
+private val Bottle = Color(0xFF176C70)
+private val Sage = Color(0xFFB5D7D9)
+private val Clay = Color(0xFFAA4834)
+private val Oxide = Color(0xFFAB343C)
+private val Warning = Color(0xFF806000)
 
 val WhfinLightColorScheme = lightColorScheme(
     primary = Bottle,
-    onPrimary = Color(0xFFFFFBF3),
-    primaryContainer = Color(0xFFDCE8D5),
-    onPrimaryContainer = Color(0xFF10291B),
-    secondary = Color(0xFF617261),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFCDEBEC),
+    onPrimaryContainer = Color(0xFF103D42),
+    secondary = Color(0xFF506D79),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE7EBDD),
-    onSecondaryContainer = Color(0xFF20291E),
+    secondaryContainer = Color(0xFFDFEAF0),
+    onSecondaryContainer = Color(0xFF223E4C),
     tertiary = Clay,
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFF4D9CC),
-    onTertiaryContainer = Color(0xFF4B190D),
+    tertiaryContainer = Color(0xFFFFE0D5),
+    onTertiaryContainer = Color(0xFF54291F),
     error = Oxide,
     onError = Color.White,
-    errorContainer = Color(0xFFF4D9D5),
-    onErrorContainer = Color(0xFF42110C),
+    errorContainer = Color(0xFFFFE0E0),
+    onErrorContainer = Color(0xFF570B1C),
     background = Paper,
     onBackground = Ink,
     surface = Paper,
     onSurface = Ink,
-    surfaceVariant = Color(0xFFEAE3D7),
-    onSurfaceVariant = Color(0xFF5C635B),
-    surfaceContainerLowest = Color(0xFFFFFBF4),
-    surfaceContainerLow = Color(0xFFF2EBDF),
-    surfaceContainer = Color(0xFFEDE6DA),
-    surfaceContainerHigh = Color(0xFFE6DED2),
-    surfaceContainerHighest = Color(0xFFDDD5C9),
-    outline = Color(0xFF7A8379),
-    outlineVariant = Color(0xFFD1C9BC),
+    surfaceVariant = Color(0xFFDDE9EF),
+    onSurfaceVariant = Color(0xFF516874),
+    surfaceContainerLowest = Color(0xFFFAFDFE),
+    surfaceContainerLow = Color(0xFFE7F0F4),
+    surfaceContainer = Color(0xFFE0EBF0),
+    surfaceContainerHigh = Color(0xFFD9E6EC),
+    surfaceContainerHighest = Color(0xFFCFDFE6),
+    outline = Color(0xFF718994),
+    outlineVariant = Color(0xFFC6D8E1),
 )
 
 val WhfinDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFC2D9B8),
-    onPrimary = Color(0xFF112719),
-    primaryContainer = Color(0xFF2B4A37),
-    onPrimaryContainer = Color(0xFFE1F1DC),
-    secondary = Color(0xFFC2CDBD),
-    onSecondary = Color(0xFF273126),
-    secondaryContainer = Color(0xFF343D33),
-    onSecondaryContainer = Color(0xFFE2EBDE),
-    tertiary = Color(0xFFF0A080),
-    onTertiary = Color(0xFF4C1A0C),
-    tertiaryContainer = Color(0xFF653120),
-    onTertiaryContainer = Color(0xFFFFDBCC),
+    primary = Color(0xFF8ED5D5),
+    onPrimary = Color(0xFF003739),
+    primaryContainer = Color(0xFF155054),
+    onPrimaryContainer = Color(0xFFC5F1F0),
+    secondary = Color(0xFFB6CDD8),
+    onSecondary = Color(0xFF233B46),
+    secondaryContainer = Color(0xFF304C59),
+    onSecondaryContainer = Color(0xFFDCECF3),
+    tertiary = Color(0xFFFFB39D),
+    onTertiary = Color(0xFF54271C),
+    tertiaryContainer = Color(0xFF70392A),
+    onTertiaryContainer = Color(0xFFFFDBCF),
     error = Color(0xFFFFB4A9),
     onError = Color(0xFF650008),
     errorContainer = Color(0xFF85221C),
     onErrorContainer = Color(0xFFFFDAD4),
-    // Тёмная тема — «тёмная бумага», а не нейтральный чёрный: канва и поверхности уведены в
-    // тёплый оливково-умбровый, поэтому кремовые чернила и глина остаются в одной семье с
-    // светлой темой вместо того, чтобы читаться как generic dark.
-    background = Color(0xFF14160F),
-    onBackground = Color(0xFFF2ECDF),
-    surface = Color(0xFF14160F),
-    onSurface = Color(0xFFF2ECDF),
-    surfaceVariant = Color(0xFF393A2E),
-    onSurfaceVariant = Color(0xFFC3C3B1),
-    surfaceContainerLowest = Color(0xFF0D0F09),
-    surfaceContainerLow = Color(0xFF1B1D14),
-    surfaceContainer = Color(0xFF202218),
-    surfaceContainerHigh = Color(0xFF2A2D21),
-    surfaceContainerHighest = Color(0xFF35392B),
-    outline = Color(0xFF98998A),
-    outlineVariant = Color(0xFF444636),
+    // Blue-black canvas with teal and peach accents; retain contrast independently of light mode.
+    background = Color(0xFF101F29),
+    onBackground = Color(0xFFE5F0F5),
+    surface = Color(0xFF101F29),
+    onSurface = Color(0xFFE5F0F5),
+    surfaceVariant = Color(0xFF30444F),
+    onSurfaceVariant = Color(0xFFB6C9D3),
+    surfaceContainerLowest = Color(0xFF0A1821),
+    surfaceContainerLow = Color(0xFF152833),
+    surfaceContainer = Color(0xFF1B303B),
+    surfaceContainerHigh = Color(0xFF243B47),
+    surfaceContainerHighest = Color(0xFF2E4753),
+    outline = Color(0xFF8CA6B3),
+    outlineVariant = Color(0xFF3C5663),
 )
 
 private val WhfinShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(18.dp),
-    extraLarge = RoundedCornerShape(24.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
 private val WhfinSerif = FontFamily(
@@ -113,7 +111,7 @@ private fun whfinTypography(editorialFont: FontFamily) = Typography(
     displaySmall = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 37.sp, fontFeatureSettings = "tnum"),
     headlineLarge = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 34.sp, lineHeight = 39.sp, letterSpacing = (-.35).sp),
     headlineMedium = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
-    headlineSmall = TextStyle(fontFamily = editorialFont, fontWeight = FontWeight.Normal, fontSize = 23.sp, lineHeight = 29.sp),
+    headlineSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
     titleLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
     titleMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 21.sp),
     titleSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp),
@@ -143,7 +141,7 @@ fun WhfinTheme(
             sage = scheme.secondary,
             clay = scheme.tertiary,
             oxide = scheme.error,
-            warning = Color(0xFF8A6500),
+            warning = Color(0xFF806000),
             rule = scheme.outlineVariant,
             positive = scheme.primary,
             pending = scheme.tertiary,
@@ -153,7 +151,7 @@ fun WhfinTheme(
             paper = scheme.background,
             ink = scheme.onSurface,
             bottle = scheme.primary,
-            sage = Color(0xFF78906F),
+            sage = Color(0xFF709DA4),
             clay = scheme.tertiary,
             oxide = scheme.error,
             warning = Color(0xFFF0C45C),

@@ -14,21 +14,23 @@ Use the visual name **Quiet Ledger / Тихая тбилисская книга*
 - interaction is quiet until a decision is required;
 - irregular real bank text, Georgian names, IBANs, and several currencies remain credible rather than decorative.
 
-The language may recall a well-kept ledger through alignment, hairlines, warm paper, and tabular figures. Do not imitate paper texture, ruled notebooks, stamps, or skeuomorphic stationery.
+The language may recall a well-kept ledger through alignment, hairlines, cool mist surfaces, and tabular figures. Do not imitate paper texture, ruled notebooks, stamps, or skeuomorphic stationery.
 
 ## Color roles
 
-- **Paper**: warm cream canvas; never pure white in light mode.
-- **Ink**: near-black green for primary text; avoid cold neutral black.
-- **Bottle**: trust, confirmed state, primary action, positive income.
-- **Sage**: selected surfaces and low-priority grouping.
-- **Clay**: expense, attention, pending state, and focused accent.
-- **Oxide**: destructive action and errors; keep distinct from ordinary clay expense.
-- **Rule**: warm low-contrast divider; the main grouping device.
+The September 2026 redesign combines the mist/teal concept with restrained editorial typography.
 
-Dark mode uses a warm olive-umber canvas with mineral, desaturated surfaces: dark paper rather than neutral
-black, so cream ink and clay stay in the same family as the light theme. Preserve semantic contrast instead
-of mechanically inverting light colors.
+- **Paper**: cool blue-white canvas (#EFF5F8); raised groups are nearly white.
+- **Ink**: deep blue-grey (#193442).
+- **Bottle**: teal (#176C70), used for primary actions and positive income.
+- **Sage**: pale teal selection surfaces.
+- **Clay**: coral family; use the darker text token (#AA4834) for readable small text.
+- **Oxide**: distinct red for destructive actions and errors.
+- **Rule**: quiet blue-grey dividers.
+
+Dark mode uses a blue-black canvas (#101F29), layered slate surfaces, pale teal and peach.
+Text/accent pairs are checked at 4.5:1 on the working surfaces. Do not copy the pale coral
+from a concept image into small text. Respect the user's dynamic-colour and device-font preferences.
 
 Category icons are outlined. Filled glyphs turn each row's marker into the loudest element and read as stock
 Material beneath a custom language.
@@ -40,12 +42,12 @@ Material beneath a custom language.
 - Appearance may replace those editorial roles with `FontFamily.Default` for people who prefer their
   device font. Keep this choice persistent and global; do not mix both title families on one screen.
 - Use a neutral sans for controls, rows, forms, and long text.
-- Use tabular figures for every money amount and numeric summary. Money belongs to the editorial register,
-  not to the row's sans: the numeric column is the heart of a ledger and needs its own voice. Set the
-  currency symbol smaller and quieter than the digits so amounts align into a column.
-- Caps with measured tracking marks a landmark — a day header or a screen section. A field or subsection
-  label inside a block stays sentence case; when every block is shouted, the screen telegraphs.
-- A result may be closed by an accounting double rule. Ordinary separators stay single hairlines.
+- Use tabular figures for every money amount and numeric summary. Large focal totals use the editorial
+  family; transaction amounts, supporting metrics and controls use neutral sans. The amount component
+  preserves the caller's type role. Set the currency symbol smaller and quieter than the digits.
+- Section labels and field labels stay in sentence case. Use weight and spacing for hierarchy rather
+  than automatic uppercasing; a date formatter may still choose its own localized date style.
+- Separate a result from its supporting figures with one hairline, consistently across screens.
 - Keep transaction amounts and titles visually stronger than metadata, but smaller than screen totals.
 - Avoid all-caps paragraphs. Short ledger labels may use uppercase with measured tracking.
 - Let font scale grow; do not pin text to fixed-height containers.
@@ -55,7 +57,7 @@ Material beneath a custom language.
 - Align screen content to a 20 dp horizontal rail on compact phones.
 - Use 4/8 dp rhythm with named spacing tokens; prefer 12, 16, 20, 24, and 32 dp gaps.
 - Treat a section as a heading plus rule or whitespace before reaching for a container.
-- Use outlined or tonal containers only for coherent groups: month summary, one IBAN with its ledgers, permission explanation, import result, or decision block.
+- Use lightly raised or tonal surfaces only for coherent groups: month summary, one IBAN with its ledgers, permission explanation, import result, or decision block.
 - Avoid card-in-card. Inside a group, separate rows with rules.
 - Keep the app dock visually grounded but lighter than content: use an inset rule aligned to the 20 dp
   rail and stationary destination glyphs. Show selection with a filled glyph, semibold label, and
@@ -129,7 +131,8 @@ action with a clear text label inside the empty state.
 
 ### Analytics
 
-Lead with the selected period's net result, income, and expenses. Selecting a trend month promotes it to the Analytics period, so the result, the difference, the categories and the drill-down refresh together. Keep the visible twelve-month window stable while selecting a month already inside it, so later months remain available for a direct return in both Analytics and Spending. The selected month/category can open a focused transaction ledger; Back returns to the unchanged Analytics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
+Lead with the selected period's spending, then income and net result as supporting figures. At large
+font scales supporting metrics stack instead of squeezing their money columns. Selecting a trend month promotes it to the Analytics period, so the result, the difference, the categories and the drill-down refresh together. Keep the visible twelve-month window stable while selecting a month already inside it, so later months remain available for a direct return in both Analytics and Spending. The selected month/category can open a focused transaction ledger; Back returns to the unchanged Analytics context. Keep balance adjustments in a separate Unaccounted section and exclude them from cash-flow totals and category trends. Attribute a linked GEL→foreign-currency conversion to the purchase category, but keep unsupported native-currency expenses separate until dated exchange rates exist.
 
 Answer **why the period differs** before showing any picture of it. The block states one difference
 against the recorded average, names the base on the line under it, and then attributes that difference
@@ -194,7 +197,9 @@ Emphasize truth, coverage, gaps, and review status. File names are metadata and 
 
 ### Settings
 
-Use a compact preference list grouped by section labels. Give permission explanations enough room, but keep their action hierarchy distinct from navigation rows.
+Use a compact preference list grouped by section labels. Toggle rows are one accessible switch target:
+tapping the label or the thumb changes the same value once. Use a single segmented choice for short
+exclusive settings; when measured labels cannot fit, reflow to complete radio rows without shrinking text. Give permission explanations enough room, but keep their action hierarchy distinct from navigation rows.
 
 Demo is a temporary workspace, not a preference switch. In the Personal workspace, expose `Explore demo`
 as a secondary row near About with an explanatory entry sheet. While Demo is active, keep a compact

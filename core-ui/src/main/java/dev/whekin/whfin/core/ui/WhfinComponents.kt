@@ -758,11 +758,11 @@ fun WhfinFilterPill(
     val interactionSource = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget),
+        modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).semantics { this.selected = selected },
         interactionSource = interactionSource,
         shape = rememberWhfinPressShape(interactionSource, WhfinThemeTokens.sizes.pillCorner),
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else WhfinThemeTokens.raisedSurface,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         border = BorderStroke(
             1.dp,
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
@@ -872,11 +872,11 @@ fun WhfinSectionLabel(
 ) {
     val label: @Composable (Modifier) -> Unit = { textModifier ->
         Text(
-            text.uppercase(),
+            text,
             textModifier,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            letterSpacing = 1.1.sp,
+            letterSpacing = .2.sp,
         )
     }
     if (icon == null) {
@@ -913,25 +913,15 @@ fun WhfinFieldLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/**
- * Бухгалтерская итоговая черта: две тонкие линии под результатом. Типографский приём книги,
- * а не имитация бумаги — одинарная линейка остаётся обычным разделителем.
- */
+/** One quiet separator between the focal total and its supporting figures. */
 @Composable
 fun WhfinTotalRule(modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
+    HorizontalDivider(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 /**
- * Денежная сумма в редакционном (серифном) регистре с табличными цифрами: числовой столбец
- * получает собственный голос и не сливается с sans-текстом строки. Валютный символ набирается
- * тише и мельче, чтобы цифры выстраивались в колонку.
- *
- * Форматирование остаётся в app-слое: сюда приходит готовая строка и символ, который нужно
- * приглушить. Семантика цвета задаётся вызывающим.
+ * Tabular money in the caller's typography role: serif for focal totals, sans for working rows.
+ * Formatting and financial meaning remain in the app layer.
  */
 @Composable
 fun WhfinAmount(
@@ -940,10 +930,6 @@ fun WhfinAmount(
     symbol: String? = null,
     style: TextStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
     color: Color = Color.Unspecified,
-    /**
-     * Bundled Noto Serif имеет единственное начертание, поэтому по умолчанию вес нормальный:
-     * запрос SemiBold дал бы синтетический faux-bold. Присутствие суммы задаётся кеглем и цветом.
-     */
     fontWeight: FontWeight = FontWeight.Normal,
     maxLines: Int = 1,
     textAlign: TextAlign? = null,
@@ -971,9 +957,9 @@ fun WhfinAmount(
     Text(
         annotated,
         modifier,
-        // Редакционная гарнитура берётся из темы, поэтому `Device font` переключает и суммы.
+        // Respect the role: editorial totals, neutral tabular figures in working rows.
         style = style.copy(
-            fontFamily = MaterialTheme.typography.headlineSmall.fontFamily,
+            fontFamily = style.fontFamily,
             fontFeatureSettings = "tnum",
         ),
         color = resolved,
@@ -1013,8 +999,7 @@ fun WhfinLedgerGroup(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = if (tonal) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = if (tonal) MaterialTheme.colorScheme.surfaceContainerLow else WhfinThemeTokens.raisedSurface,
     ) {
         Column(content = content)
     }
@@ -1042,10 +1027,10 @@ fun WhfinLedgerRow(
     // it draws grows to the height of what it is bracketing instead of staying a tick at the top.
     val paragraph = titleMaxLines > 2 || supportingMaxLines > 2
     Column(modifier.fillMaxWidth().then(
-        if (onClick != null) Modifier.clickable(interactionSource, indication = null, onClick = onClick) else Modifier,
+        if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
     )) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp)
+            Modifier.fillMaxWidth().heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).padding(horizontal = 16.dp, vertical = 13.dp)
                 .then(if (paragraph) Modifier.height(IntrinsicSize.Min) else Modifier),
             verticalAlignment = if (paragraph) Alignment.Top else Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1130,7 +1115,7 @@ fun WhfinField(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .55f),
                 errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = .42f),
-                focusedIndicatorColor = MaterialTheme.colorScheme.tertiary,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent,
                 errorIndicatorColor = MaterialTheme.colorScheme.error,

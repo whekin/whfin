@@ -1,5 +1,7 @@
 package dev.whekin.whfin.core.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +45,7 @@ fun <T> WhfinChoiceList(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WhfinLedgerGroup(modifier.fillMaxWidth()) {
+    WhfinLedgerGroup(modifier.fillMaxWidth().selectableGroup()) {
         options.forEachIndexed { index, option ->
             val isSelected = option.value == selected
             Row(
@@ -54,6 +56,7 @@ fun <T> WhfinChoiceList(
                         role = Role.RadioButton,
                         onClick = { onSelect(option.value) },
                     )
+                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
                     .heightIn(min = 56.dp)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -80,6 +83,68 @@ fun <T> WhfinChoiceList(
                 Modifier.padding(horizontal = 16.dp),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
+        }
+    }
+}
+
+/**
+ * A short, mutually exclusive choice. Reflow to named radio rows when labels cannot fit;
+ * never shrink or ellipsize a setting just to preserve the segmented appearance.
+ */
+@Composable
+fun <T> WhfinSegmentedChoice(
+    options: List<WhfinChoice<T>>,
+    selected: T?,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (options.isEmpty()) return
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val slotWidth = (maxWidth - 8.dp) / options.size
+        val available = with(density) { (slotWidth - 24.dp).toPx() }
+        val fits = options.all {
+            it.supportingText == null && measurer.measure(it.label, style).size.width <= available
+        }
+        if (!fits) {
+            WhfinChoiceList(options, selected, onSelect)
+        } else {
+            Row(
+                Modifier.fillMaxWidth().selectableGroup()
+                    .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+                    .padding(4.dp),
+            ) {
+                options.forEach { option ->
+                    val isSelected = option.value == selected
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.weight(1f)
+                            .then(Modifier.background(
+                                if (isSelected) WhfinThemeTokens.raisedSurface
+                                else androidx.compose.ui.graphics.Color.Transparent,
+                                MaterialTheme.shapes.small,
+                            ))
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(option.value) },
+                            )
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            option.label,
+                            style = style,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.SemiBold
+                            else androidx.compose.ui.text.font.FontWeight.Normal,
+                        )
+                    }
+                }
+            }
         }
     }
 }

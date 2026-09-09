@@ -791,7 +791,7 @@ private fun SecondaryPage(
         if (title != null) {
             Text(
                 title,
-                style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
+                style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
                 modifier = Modifier.weight(1f),
                 maxLines = if (compact) 2 else 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

@@ -20,7 +20,7 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   Feed, Accounts, previews, and selection mode visually consistent without per-screen flags.
 - `WhfinBackButton`: the single borderless circular treatment for hierarchical Back navigation. Use a close icon only for dismissing a modal/form; do not restyle Back per feature.
 - `WhfinSectionHeader`: optional eyebrow, title, supporting text, and trailing action.
-- `WhfinLedgerGroup`: one outlined/tonal grouping surface with internal rules; do not nest it.
+- `WhfinLedgerGroup`: one raised/tonal grouping surface with internal rules; do not nest it.
 - `WhfinLedgerRow`: icon/marker, title, metadata, amount/status, click semantics, and optional divider.
   Alignment follows the row's own shape: one or two lines centre the marker, glyph and trailing
   content; a row whose max lines exceed two is a paragraph, so those align to the title and the
@@ -31,11 +31,13 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   It uses a full-width tonal ledger row plus a bottom rule, not a floating banner or card. The strip
   does not own system insets; the app-level workspace frame places it below the status bar and reuses
   that same frame inside full-screen dialogs so workspace identity and exit do not disappear in forms.
-- `WhfinSwitch`: Material-backed on/off control with a stable 48 dp target and explicit accessibility label. Persisted feature policy stays outside `:core-ui`; an OS permission may block an enabled preference without silently changing the user's choice.
+- `WhfinSwitch`: Material-backed on/off control with a stable 48 dp target and explicit accessibility label. The on state also carries a check mark. A null callback delegates interaction to the containing row, avoiding duplicate toggle targets. Persisted feature policy stays outside `:core-ui`; an OS permission may block an enabled preference without silently changing the user's choice.
 - `WhfinHaptics`: restrained action semantics, not custom vibration waveforms. Use a subtle segment tick for in-app destination changes and platform toggle-on/off effects for switches; do not add feedback to passive scrolling or duplicate the system Back gesture.
 - `WhfinBackGesture` / `Modifier.whfinPredictiveBack`: the shell's answer to a Back swipe. `rememberWhfinBackGesture(enabled, onBack)` registers a `PredictiveBackHandler`; the modifier insets the page to 92%, nudges it along the drag, rounds it to 28 dp and lifts it, reading the progress in the draw phase. Apply it to everything the app is showing — workspace strip and dock included — not to the page alone. `onBack` runs on commit only; an abandoned pull settles by itself.
 - `rememberWhfinPressShape`: the press affordance for a quiet palette. A pressed control tightens its corner to 40% and springs back; a pressed tint would read as noise against this canvas. Corner values live in `WhfinSizes` (`buttonCorner`, `pillCorner`) so they can animate.
-- `WhfinFilterPill`: a choice pill. Pass `centered = true` with a weight when several mutually exclusive answers divide one row; a scrolling rail is for sets that genuinely do not fit.
+- `WhfinFilterPill`: a tonal choice pill with explicit selected semantics. A scrolling rail is for sets that genuinely do not fit.
+- `WhfinSegmentedChoice`: one exclusive setting, with radio semantics. Measure labels before arranging equal segments; fall back to `WhfinChoiceList` if any label does not fit.
+- `WhfinChoiceList`: full-width radio rows; selected option has a radio mark and a tonal surface.
 - `WhfinLoadingIndicator`: the only "working" affordance. Wraps Material's expressive `LoadingIndicator` in `onSurfaceVariant` and is sized by the caller; do not reach for `CircularProgressIndicator` or invent a second waiting shape.
 - `WhfinStatePane`: loading, empty, error, and unavailable presentation with compact guidance and optional retry/action.
 - `WhfinFilterBar`: horizontally resilient filters and search affordance.
@@ -59,7 +61,7 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   message) keep title and actions visible while the body scrolls inside a bounded region.
 - `WhfinActionMenu`: the shared compact overflow surface. It uses the screen canvas, a quiet rule,
   and no Material tonal tint; feature code owns menu items and action semantics.
-- `WhfinAmount`: editorial-serif tabular money typography and semantic color without embedding formatting
+- `WhfinAmount`: role-preserving tabular money typography (editorial totals, sans working rows) and semantic color without embedding formatting
   policy. It receives an already formatted string plus the currency symbol to set quieter, and reads the
   editorial family from the theme so `Device font` applies to figures too. The bundled serif has a single
   weight, so amounts must not request a bold weight.

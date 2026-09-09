@@ -271,10 +271,10 @@
     <string name="settings_keywords_demo">demo sandbox synthetic example</string>
     <string name="settings_appearance">APPEARANCE</string>
     <string name="demo_workspace_title">Demo workspace</string>
-    <string name="demo_workspace_strip_title">Demo workspace</string>
+    <string name="demo_workspace_strip_title">Demo</string>
     <string name="demo_workspace_supporting">Synthetic data</string>
     <string name="demo_workspace_use_personal">Use my data</string>
-    <string name="demo_workspace_section">DEMO WORKSPACE</string>
+    <string name="demo_workspace_section">Demo workspace</string>
     <string name="demo_entry_title">Explore demo</string>
     <string name="demo_entry_settings_summary">See a populated WHFIN without connecting personal accounts</string>
     <string name="demo_entry_body">Explore a populated WHFIN workspace and try everyday actions before setting up your own finances.</string>

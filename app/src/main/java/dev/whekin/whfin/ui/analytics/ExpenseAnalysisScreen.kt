@@ -254,7 +254,7 @@ private fun ExpenseCategories(
 }
 
 @Composable
-private fun SpendingCategoryRow(
+internal fun SpendingCategoryRow(
     value: AnalyticsCategoryValue,
     scale: AnalyticsScale,
     totalMinor: Long,
@@ -307,33 +307,29 @@ private fun SpendingCategoryRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // The share, drawn once at the size of the row rather than once at the size of
-                    // the screen. A ring showed the same proportions without the names beside them
-                    // and pushed every name below the fold to do it; a hairline under the name puts
-                    // the comparison where the thing being compared already is.
-                    Box(
-                        Modifier
-                            .padding(top = 4.dp)
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .background(
-                                MaterialTheme.colorScheme.outlineVariant,
-                                CircleShape,
-                            ),
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(percentage.toFloat().coerceIn(0f, 1f))
-                                .fillMaxHeight()
-                                .background(color.copy(alpha = .72f), CircleShape),
-                        )
-                    }
+
                 }
                 WhfinAmount(
                     formatMinor(value.expenseMinor, "GEL"),
                     symbol = currencySymbol("GEL"),
                     style = MaterialTheme.typography.titleMedium,
                 )
+            }
+            // Same origin and full scale for every row. A money column's digit count must
+            // not change the length representing an identical share.
+            Box(Modifier.fillMaxWidth().padding(start = 66.dp, end = 16.dp, bottom = 10.dp)) {
+                Box(
+                    Modifier.fillMaxWidth().height(3.dp)
+                        .testTag("expense-share-track-${value.categoryId ?: "none"}")
+                        .background(MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(percentage.toFloat().coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .testTag("expense-share-fill-${value.categoryId ?: "none"}")
+                            .background(color.copy(alpha = .72f), CircleShape),
+                    )
+                }
             }
             if (divider) HorizontalDivider(
                 Modifier.padding(horizontal = 16.dp),

@@ -395,7 +395,7 @@ internal fun AnalyticsHeader(
                 Text(
                     title,
                     Modifier.padding(start = if (onBack == null) 8.dp else 0.dp),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -409,23 +409,22 @@ private fun PeriodResult(
     onOpenExpenses: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            WhfinFieldLabel(
-                stringResource(
-                    when (data.period.scale) {
-                        AnalyticsScale.MONTH -> R.string.analytics_month_result
-                        AnalyticsScale.YEAR -> R.string.analytics_year_result
-                    },
-                ),
-            )
-            WhfinAmount(
-                formatMinor(data.deltaMinor, "GEL", withSign = true),
-                symbol = currencySymbol("GEL"),
-                style = MaterialTheme.typography.displayMedium,
-                color = if (data.deltaMinor >= 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
-            )
+        Surface(
+            onClick = onOpenExpenses,
+            modifier = Modifier.fillMaxWidth().testTag("analytics-open-expenses"),
+            shape = androidx.compose.ui.graphics.RectangleShape,
+            color = Color.Transparent,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                WhfinFieldLabel(stringResource(R.string.summary_expenses))
+                WhfinAmount(
+                    formatMinor(data.expenseMinor, "GEL"),
+                    symbol = currencySymbol("GEL"),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
-        // Итог месяца закрывается бухгалтерской двойной чертой, как и блок месяца в ленте.
         WhfinTotalRule()
         val metrics: @Composable (Modifier, Modifier) -> Unit = { incomeModifier, expenseModifier ->
             AnalyticsMetric(
@@ -435,14 +434,17 @@ private fun PeriodResult(
                 incomeModifier,
             )
             AnalyticsMetric(
-                stringResource(R.string.summary_expenses),
-                formatMinor(data.expenseMinor, "GEL"),
-                MaterialTheme.colorScheme.tertiary,
+                stringResource(
+                    if (data.period.scale == AnalyticsScale.MONTH) R.string.analytics_month_result
+                    else R.string.analytics_year_result,
+                ),
+                formatMinor(data.deltaMinor, "GEL", withSign = true),
+                if (data.deltaMinor >= 0L) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.tertiary,
                 expenseModifier,
-                onClick = onOpenExpenses,
             )
         }
-        if (data.period.scale == AnalyticsScale.YEAR) {
+        if (data.period.scale == AnalyticsScale.YEAR || LocalDensity.current.fontScale >= 1.3f) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 metrics(Modifier.fillMaxWidth(), Modifier.fillMaxWidth())
             }
@@ -498,7 +500,7 @@ internal fun PeriodSelector(
                     ) {
                         Text(
                             periodTitle(period),
-                            modifier = Modifier.testTag("analytics-period-title"),
+                            modifier = Modifier.weight(1f, fill = false).testTag("analytics-period-title"),
                             style = MaterialTheme.typography.headlineSmall,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )

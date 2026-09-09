@@ -10,6 +10,6 @@
         <!-- ModalBottomSheet owns the animated scrim. A second window-level dim would remain
              until Activity.finish(), making the launcher wake up one beat after the sheet. -->
         <item name="android:backgroundDimEnabled">false</item>
-        <item name="android:colorAccent">#78906F</item>
+        <item name="android:colorAccent">#176C70</item>
     </style>
 </resources>

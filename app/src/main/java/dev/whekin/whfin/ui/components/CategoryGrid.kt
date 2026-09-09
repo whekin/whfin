@@ -43,7 +43,7 @@ fun CategoryGrid(
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(72.dp),
+        columns = GridCells.Adaptive(72.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)),
         modifier = modifier.then(if (maxHeight == Dp.Unspecified) Modifier else Modifier.heightIn(max = maxHeight)),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

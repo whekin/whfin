@@ -451,3 +451,27 @@ private fun RunwayTimelineScreenshotContent(shortfall: Boolean) {
         )
     }
 }
+
+@PreviewTest
+@Preview(name = "choices_light", widthDp = 400, heightDp = 420)
+@Preview(name = "choices_dark", widthDp = 400, heightDp = 420, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "choices_large_ru", widthDp = 320, heightDp = 600, fontScale = 1.5f, locale = "ru")
+@Composable
+fun redesignedChoicesScreenshot() {
+    WhfinTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                WhfinSegmentedChoice(
+                    listOf(WhfinChoice(0, "Системная"), WhfinChoice(1, "Светлая"), WhfinChoice(2, "Тёмная")),
+                    selected = 1,
+                    onSelect = {},
+                )
+                WhfinLedgerGroup {
+                    WhfinLedgerRow("Включено", trailing = { WhfinSwitch(true, {}, "Включено") }, divider = true)
+                    WhfinLedgerRow("Выключено", trailing = { WhfinSwitch(false, {}, "Выключено") }, divider = true)
+                    WhfinLedgerRow("Недоступно", trailing = { WhfinSwitch(false, {}, "Недоступно", enabled = false) })
+                }
+            }
+        }
+    }
+}

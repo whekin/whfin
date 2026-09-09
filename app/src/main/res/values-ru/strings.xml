@@ -286,9 +286,9 @@
     <string name="settings_appearance">ОФОРМЛЕНИЕ</string>
     <string name="demo_workspace_title">Демо-пространство</string>
     <string name="demo_workspace_strip_title">Демо</string>
-    <string name="demo_workspace_supporting">Синтетические данные</string>
+    <string name="demo_workspace_supporting">Вымышленные данные</string>
     <string name="demo_workspace_use_personal">Мои данные</string>
-    <string name="demo_workspace_section">ДЕМО-ПРОСТРАНСТВО</string>
+    <string name="demo_workspace_section">Демо-пространство</string>
     <string name="demo_entry_title">Посмотреть демо</string>
     <string name="demo_entry_settings_summary">Посмотрите заполненный WHFIN без подключения личных счетов</string>
     <string name="demo_entry_body">Изучите заполненный WHFIN и попробуйте повседневные действия до настройки собственных финансов.</string>
@@ -742,7 +742,7 @@
     <string name="drive_copy_size">%1$s · %2$d КБ</string>
     <string name="drive_passphrase_change">Сменить пароль копии</string>
     <string name="action_cancel">Отмена</string>
-    <string name="settings_about_section">О ПРИЛОЖЕНИИ</string>
+    <string name="settings_about_section">О приложении</string>
     <string name="privacy_title">Политика конфиденциальности</string>
     <string name="privacy_settings_summary">Данные и разрешения</string>
     <string name="privacy_intro_title">Приватность заложена в основу</string>

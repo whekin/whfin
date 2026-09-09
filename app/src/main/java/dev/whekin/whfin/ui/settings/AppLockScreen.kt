@@ -25,7 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import dev.whekin.whfin.core.ui.WhfinSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -137,7 +137,8 @@ fun AppLockScreen(
                     supportingText = stringResource(biometricAvailability.supportingResource()),
                     icon = Icons.Default.Fingerprint,
                     trailing = {
-                        Switch(
+                        WhfinSwitch(
+                            contentDescription = stringResource(R.string.app_lock_biometric_title),
                             checked = biometricEnabled && biometricAvailability == BiometricAvailability.Available,
                             onCheckedChange = null,
                             enabled = biometricAvailability == BiometricAvailability.Available,
