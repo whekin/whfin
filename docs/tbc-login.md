@@ -34,10 +34,15 @@ a raw bank response. The login, OTP and account APIs are only exercised against 
 host tests; the first successful real-bank login was subsequently reported by the owner on the phone,
 including a visible account list (2026-09-09). Session reuse/expiry against the real bank is not yet verified.
 
+Since 0.3.32, TBC follows the common [remembered bank sign-in contract](bank-authentication.md):
+username/password are encrypted when opted in, and an expired session falls back to one password
+login after an explicit user action. Older session-only installations need one credential entry.
+
 ## Session handling
 
-Password and OTP stay in composition/process memory, never SavedStateHandle, saved-instance state,
-preferences, logs or backup. The screen sets FLAG_SECURE through the Activity's privacy owner, so it
+OTP and unconfirmed password drafts stay in composition/process memory, never SavedStateHandle,
+saved-instance state, logs or backup. Confirmed credentials may enter the separate encrypted store
+only with Remember sign-in enabled. The screen sets FLAG_SECURE through the Activity's privacy owner, so it
 also remains protected across background/resume and WHFIN locking.
 
 Saving a session is optional and off by default. It requires a configured WHFIN code. The saved
@@ -50,7 +55,7 @@ are retained when saving. An expired or invalid ciphertext session is discarded;
 both the file and its key. Forgetting locally is not represented as server-side session revocation.
 
 The session lasts as long as the bank accepts its cookies. This checkpoint has no trusted-device
-registration, passcode/easyLogin or silent password replay. Credo remains on its existing connector;
+registration or passcode/easyLogin. Saved-password reuse is confined to an explicit sync/continue action. Credo remains on its existing connector;
 BOG is a later, separate protocol implementation.
 
 ## Verification

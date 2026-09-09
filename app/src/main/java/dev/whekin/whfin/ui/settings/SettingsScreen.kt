@@ -1,5 +1,13 @@
 package dev.whekin.whfin.ui.settings
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +39,6 @@ import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.annotation.StringRes
@@ -40,7 +47,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +61,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
-import dev.whekin.whfin.core.ui.WhfinCollapsingHeader
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -114,10 +119,12 @@ fun SettingsScreen(
     runtimeModeProblem: String? = null,
     onEnterDemo: () -> Unit = {},
     onResetDemoData: () -> Unit = {},
+    searchState: SettingsSearchState = rememberSettingsSearchState(),
 ) {
     val viewModel: SettingsViewModel = viewModel()
     val status by viewModel.status.collectAsState()
     SettingsContent(
+        searchState = searchState,
         status = status,
         appThemeMode = appThemeMode,
         dynamicColorsEnabled = dynamicColorsEnabled,
@@ -206,10 +213,11 @@ internal fun SettingsContent(
     runtimeModeProblem: String? = null,
     onEnterDemo: () -> Unit = {},
     onResetDemoData: () -> Unit = {},
+    searchState: SettingsSearchState = rememberSettingsSearchState(),
 ) {
     var confirmDemoReset by rememberSaveable { mutableStateOf(false) }
     var showDemoEntry by rememberSaveable { mutableStateOf(false) }
-    var query by rememberSaveable { mutableStateOf("") }
+    val query = searchState.query
 
     val smsProblem = smsImportEnabled && (!hasSmsPermission || !hasSmsCardMapping)
     val sections = buildSettingsSections(
@@ -255,47 +263,40 @@ internal fun SettingsContent(
     val visible = remember(sections, query) { filterSettings(sections, query) }
     val searching = query.isNotBlank()
 
-    // The field is worth its height while you are looking for something and worth nothing while you
-    // are reading the list. Under the shell's title bar and the status bar it was the third fixed
-    // strip before any setting, so it leaves on the way down and returns on the first move up — the
-    // same movement the balance headers on Home and Accounts make.
-    val searchBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    // A new result set is a new list, and it must be searchable without having to scroll a list that
-    // may now be one row long.
-    LaunchedEffect(visible.size) { searchBehavior.state.heightOffset = 0f }
-    WhfinCollapsingHeader(
-        modifier = Modifier
-            .fillMaxSize()
-            .navigationBarsPadding()
-            .imePadding(),
-        scrollBehavior = searchBehavior,
-        header = {
-            WhfinField(
-                value = query,
-                onValueChange = { query = it },
-                label = null,
-                leadingIcon = Icons.Default.Search,
-                placeholder = stringResource(R.string.settings_search_hint),
-                // The catalogue passes under this field, so it carries the screen's own ground with
-                // it; transparent, the rows read straight through the search box.
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-                    .testTag("settings-search"),
-            )
-        },
-    ) { headerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .testTag("settings-catalog")
-                .verticalScroll(rememberScrollState())
-                .padding(headerPadding)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+    val catalogScroll = searchState.scroll
+    val searchScope = androidx.compose.runtime.rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val revealMotion = dev.whekin.whfin.core.ui.WhfinMotion.standard<Float>()
+    val searchTopPadding = with(LocalDensity.current) { 12.dp.roundToPx() }
+    SideEffect { searchState.topPadding = searchTopPadding }
+    LaunchedEffect(searchState.request) {
+        if (searchState.request > searchState.handledRequest) {
+            searchState.handledRequest = searchState.request
+            catalogScroll.animateScrollTo(0, animationSpec = revealMotion)
+            searchState.focus.requestFocus()
+            keyboard?.show()
+        }
+    }
+    // Search is the first item in this same scroll container. A direction change must not create
+    // a second moving surface or consume scroll before the catalogue receives it.
+    Column(
+        Modifier.fillMaxSize().navigationBarsPadding().imePadding()
+            .testTag("settings-catalog").verticalScroll(catalogScroll)
+            .padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        WhfinField(
+            value = query,
+            onValueChange = { value ->
+                searchState.query = value
+                searchScope.launch { catalogScroll.scrollTo(0) }
+            },
+            label = null,
+            leadingIcon = Icons.Default.Search,
+            placeholder = stringResource(R.string.settings_search_hint),
+            modifier = Modifier.fillMaxWidth().focusRequester(searchState.focus)
+                .onSizeChanged { searchState.fieldHeight = it.height }.testTag("settings-search"),
+        )
         if (visible.isEmpty()) {
             Text(
                 stringResource(R.string.settings_search_empty),
@@ -360,7 +361,6 @@ internal fun SettingsContent(
                 kind = WhfinNoticeKind.Info,
                 modifier = Modifier.fillMaxWidth(),
             )
-        }
         }
     }
 

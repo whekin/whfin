@@ -197,6 +197,11 @@ Emphasize truth, coverage, gaps, and review status. File names are metadata and 
 
 ### Settings
 
+Search is the first item in the catalogue's single scroll container. Once it leaves view, show a search
+icon at the right of the top bar, reserving its space even when hidden so the title never reflows.
+Tapping the icon returns to and focuses the field. Do not add an independent enterAlways header that
+consumes the catalogue's scroll or reappears on every small change of direction.
+
 Use a compact preference list grouped by section labels. Toggle rows are one accessible switch target:
 tapping the label or the thumb changes the same value once. Use a single segmented choice for short
 exclusive settings; when measured labels cannot fit, reflow to complete radio rows without shrinking text. Give permission explanations enough room, but keep their action hierarchy distinct from navigation rows.

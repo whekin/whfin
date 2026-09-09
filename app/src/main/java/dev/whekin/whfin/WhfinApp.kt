@@ -28,6 +28,7 @@ class WhfinApp : Application() {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val credoOtpInbox = CredoOtpInbox()
+    val tbcOtpInbox = dev.whekin.whfin.data.sms.TbcOtpInbox()
     val physicalCardBalanceMonitor by lazy { PhysicalCardBalanceMonitor(this, userDb, appScope) }
 
     val runtimeModes by lazy { RuntimeModeStore(this) }

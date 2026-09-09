@@ -18,6 +18,8 @@ class CredoSmsReceiver : BroadcastReceiver() {
         // Login OTP is a process-only handoff and does not depend on the transaction monitoring
         // toggle. The Credo setup enables monitoring before requesting this same permission.
         app.credoOtpInbox.accept(body)
+        app.tbcOtpInbox.accept(body, messages.map { it.originatingAddress }.distinct().singleOrNull(),
+            messages.minOfOrNull { it.timestampMillis } ?: System.currentTimeMillis())
         val pending = goAsync()
         app.appScope.launch {
             try {

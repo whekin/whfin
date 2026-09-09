@@ -2,10 +2,7 @@ package dev.whekin.whfin.data.credo
 
 import dev.whekin.whfin.data.db.BankProduct
 
-data class CredoCredentials(
-    val username: String,
-    val credential: String,
-)
+typealias CredoCredentials = dev.whekin.whfin.data.security.BankCredentials
 
 data class CredoLoginChallenge(
     val operationId: String,

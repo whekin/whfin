@@ -331,7 +331,7 @@
     <string name="credo_sync_password_saved">Saved on this device</string>
     <string name="credo_sync_password_saved_body">Leave this empty to use the encrypted password already saved on this device.</string>
     <string name="credo_sync_remember_password">Remember login</string>
-    <string name="credo_sync_remember_password_body">Login and password use AES-256-GCM in Android Keystore; device-only and outside backups. OTP/session are never saved.</string>
+    <string name="credo_sync_remember_password_body">Your username and password are encrypted and kept only on this device. One-time codes are never saved.</string>
     <string name="credo_sync_remember_password_unavailable">App Lock required · one-time sign-in saves nothing.</string>
     <string name="credo_sync_protect_action">Protect</string>
     <string name="credo_sync_connecting">Signing in…</string>
@@ -1462,7 +1462,7 @@
     <string name="crypto_bridge_sheet_title">Transfer</string>
     <string name="tbc_title">TBC connection</string>
     <string name="tbc_settings_summary">Sign in and sync transactions</string>
-    <string name="tbc_login_intro">Sign in directly to TBC to sync transactions. Your password and one-time code are not saved.</string>
+    <string name="tbc_login_intro">Sign in to load accounts and transactions from TBC. One-time codes are never saved.</string>
     <string name="tbc_login">Sign in to TBC</string>
     <string name="tbc_resume">Continue to TBC</string>
     <string name="tbc_forget">Forget saved sign-in</string>
@@ -1509,10 +1509,12 @@
     <string name="tbc_balance_help_body">Use the booked balance, before deducting pending card payments. Available balance may be lower. Enter the amount for the history just loaded; if transactions changed, sync again first. Your amount is recorded as an estimate, not a bank-verified balance.</string>
     <string name="credo_sync_error_history">The bank history changed during loading or could not be verified. This account was not changed. Sync again; if it persists, use a statement.</string>
     <string name="credo_sync_history_incomplete">This account’s history is not fully loaded. Transactions already added are kept. The next sync will try to continue.</string>
-    <string name="tbc_remember_detail">Only on this device. TBC may ask you to sign in again.</string>
+    <string name="tbc_remember_detail">Your username and password are encrypted and kept only on this device.</string>
     <string name="tbc_saved_title">Your sign-in is saved</string>
-    <string name="tbc_saved_body">Continue to update your accounts and transactions. No password is needed while your TBC session is valid.</string>
+    <string name="tbc_saved_body">Your username and password are saved securely. If TBC asks, confirm sign-in with a one-time code.</string>
     <string name="tbc_use_password">Sign in with a password</string>
     <string name="tbc_back_to_saved">Back to saved sign-in</string>
     <string name="tbc_error_storage">You are signed in, but the sign-in could not be saved on this device.</string>
+    <string name="tbc_saved_legacy_body">This device has a saved session from an earlier version. Sign in with your username and password once to remember them too.</string>
+    <string name="tbc_otp_autofill">The code can be filled from SMS. Android may ask to read that one message; you still confirm sign-in.</string>
 </resources>

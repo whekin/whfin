@@ -21,11 +21,11 @@ session payload or financial data was read from that device.
 The user-facing setting is **Remember sign-in / Запомнить вход**. The label and thumb form a single
 switch target with one change and one haptic. Existing saved ciphertext implies legacy opt-in on
 upgrade. Session encryption/format/key alias remain unchanged. The small preference is outside the
-Android backup allowlist; the portable ledger backup cannot include it. Passwords are still not saved.
+Android backup allowlist; the portable ledger backup cannot include it. This 0.3.31 stage saved only sessions. Since 0.3.32, the [common bank sign-in rule](bank-authentication.md) also saves opted-in credentials.
 
 This does not extend the bank's cookie lifetime or register a trusted device. If TBC refuses the saved
 session, the app must ask for a new sign-in. The UI makes that state explicit and does not promise a
-permanent login. No silent credential storage/replay or new authentication endpoint was introduced.
+permanent login. No background authentication or new authentication endpoint was introduced.
 
 ## Artwork
 

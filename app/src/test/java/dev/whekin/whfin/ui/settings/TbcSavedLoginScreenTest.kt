@@ -43,4 +43,18 @@ class TbcSavedLoginScreenTest {
         assertEquals(1, calls)
     }
 
+    @Test fun incomingSmsCodeFillsTheFieldButSubmissionRemainsExplicit() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var submitted: String? = null
+        compose.setContent {
+            var incoming by remember { mutableStateOf<String?>("246810") }
+            WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Code), true,
+                incomingOtp = incoming, onOtpConsumed = { incoming = null }, onCode = { submitted = it }) }
+        }
+        compose.onNode(hasSetTextAction()).assertTextContains("246810")
+        assertNull(submitted)
+        compose.onNodeWithText(context.getString(R.string.tbc_confirm)).performScrollTo().performClick()
+        assertEquals("246810", submitted)
+    }
+
 }

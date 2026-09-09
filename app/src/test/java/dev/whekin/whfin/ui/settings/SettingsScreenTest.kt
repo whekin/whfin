@@ -5,6 +5,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.performTouchInput
@@ -666,10 +667,13 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun theSearchFieldLeavesOnTheWayDownAndComesBackOnTheFirstMoveUp() {
+    fun searchMovesWithTheListAndDoesNotReappearInTheMiddle() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent {
             WhfinTheme {
-                SettingsContent(
+                val search = rememberSettingsSearchState()
+                dev.whekin.whfin.ui.SecondaryPage("Settings", {}, actions = { SettingsSearchAction(search) }) {
+                SettingsContent(searchState = search,
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -685,14 +689,22 @@ class SettingsScreenTest {
                     onOpenAbout = {},
                     appVersion = "Version 0.1.0 (1)",
                 )
+                }
             }
         }
 
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertDoesNotExist()
         compose.onNodeWithTag("settings-search").assertIsDisplayed()
         compose.onNodeWithTag("settings-catalog").performTouchInput { swipeUp() }
         compose.onNodeWithTag("settings-search").assertIsNotDisplayed()
-        compose.onNodeWithTag("settings-catalog").performTouchInput { swipeDown() }
+        compose.onNodeWithTag("settings-catalog").performTouchInput {
+            swipeDown(startY = centerY, endY = centerY + 60f, durationMillis = 300)
+        }
+        compose.onNodeWithTag("settings-search").assertIsNotDisplayed()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertIsDisplayed().performClick()
         compose.onNodeWithTag("settings-search").assertIsDisplayed()
+        compose.onNode(hasSetTextAction()).assertIsFocused()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertDoesNotExist()
     }
 
     @Test

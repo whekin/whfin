@@ -345,7 +345,7 @@
     <string name="credo_sync_password_saved">Сохранён на устройстве</string>
     <string name="credo_sync_password_saved_body">Оставьте поле пустым, чтобы использовать уже сохранённый зашифрованный пароль.</string>
     <string name="credo_sync_remember_password">Запомнить вход</string>
-    <string name="credo_sync_remember_password_body">Логин/пароль: AES-256-GCM в Android Keystore, только на устройстве и вне резервных копий. OTP/сессия не сохраняются.</string>
+    <string name="credo_sync_remember_password_body">Логин и пароль хранятся зашифрованно только на этом устройстве. Одноразовые коды не сохраняются.</string>
     <string name="credo_sync_remember_password_unavailable">Нужна блокировка WHFIN · разовый вход ничего не сохраняет.</string>
     <string name="credo_sync_protect_action">Защитить</string>
     <string name="credo_sync_connecting">Входим…</string>
@@ -1524,7 +1524,7 @@
     <string name="crypto_bridge_sheet_title">Перевод</string>
     <string name="tbc_title">Подключение TBC</string>
     <string name="tbc_settings_summary">Войти и загрузить операции</string>
-    <string name="tbc_login_intro">Войдите напрямую в TBC для загрузки операций. Пароль и одноразовый код не сохраняются.</string>
+    <string name="tbc_login_intro">Войдите, чтобы загрузить счета и операции TBC. Одноразовые коды не сохраняются.</string>
     <string name="tbc_login">Войти в TBC</string>
     <string name="tbc_resume">Продолжить с TBC</string>
     <string name="tbc_forget">Забыть сохранённый вход</string>
@@ -1571,10 +1571,12 @@
     <string name="tbc_balance_help_body">Укажите проведённый остаток, без вычета покупок в обработке. Доступный остаток может быть меньше. Сумма должна соответствовать только что загруженной истории; если появились операции, сначала обновите её. Ваш остаток сохранится как оценка, а не как проверенный банком баланс.</string>
     <string name="credo_sync_error_history">История банка изменилась во время загрузки или не прошла проверку. Этот счёт не изменён. Обновите ещё раз; если ошибка повторится, используйте выписку.</string>
     <string name="credo_sync_history_incomplete">История этого счёта загружена не полностью. Уже добавленные операции сохранены. Следующая синхронизация попробует продолжить загрузку.</string>
-    <string name="tbc_remember_detail">Только на этом устройстве. TBC может попросить войти снова.</string>
+    <string name="tbc_remember_detail">Логин и пароль хранятся зашифрованно только на этом устройстве.</string>
     <string name="tbc_saved_title">Вход сохранён</string>
-    <string name="tbc_saved_body">Продолжите, чтобы обновить счета и операции. Пока вход действует, пароль не понадобится.</string>
+    <string name="tbc_saved_body">Логин и пароль сохранены зашифрованно. Если TBC попросит, подтвердите вход одноразовым кодом.</string>
     <string name="tbc_use_password">Войти по логину и паролю</string>
     <string name="tbc_back_to_saved">К сохранённому входу</string>
     <string name="tbc_error_storage">Вход выполнен, но сохранить его на этом устройстве не удалось.</string>
+    <string name="tbc_saved_legacy_body">Здесь сохранена сессия из прежней версии. Один раз войдите по логину и паролю, чтобы запомнить и их.</string>
+    <string name="tbc_otp_autofill">Код может заполниться из SMS. Android может попросить доступ к этому сообщению; вход вы подтверждаете сами.</string>
 </resources>

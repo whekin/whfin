@@ -8,5 +8,7 @@
         <activity android:name=".ui.analytics.AnalyticsQaActivity" android:exported="false" />
         <activity android:name=".ui.settings.TbcLoginQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.feed.BankConnectionQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.settings.TbcOtpQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.settings.SettingsQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

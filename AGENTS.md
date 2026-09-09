@@ -20,7 +20,44 @@ The default five-role triage vocabulary is used. See `docs/agents/triage-labels.
 This is a single-context repository with root domain documentation and system-wide ADRs. See
 `docs/agents/domain.md`.
 
+## Bank sign-in — общее правило
+
+Для каждого нового банка «Запомнить вход» означает зашифрованное сохранение **логина и пароля**,
+а не только короткой сессии. Использовать общий `BankCredentialStore` / `EncryptedBankCredentialStore`,
+отдельный bank key, opt-in и блокировку WHFIN. При истечении сессии после явного действия владельца
+повторять вход сохранёнными данными и запрашивать только нужное подтверждение банка. Не делать
+фоновых OTP-запросов, не сохранять OTP и не включать секреты в backup/логи/SavedStateHandle.
+Старый ciphertext Credo должен оставаться читаемым. Контракт: [docs/bank-authentication.md](docs/bank-authentication.md).
+
 ## Статус (обновлять после каждого этапа!)
+
+- [x] Универсальный сохранённый вход, OTP TBC и поиск в topbar — 0.3.32 (44), 2026-09-10.
+  «Запомнить вход» теперь хранит логин/пароль через общий BankCredentialStore. AES-256-GCM,
+  отдельные bank key/AAD, без plaintext username, backup, логов и SavedStateHandle; toString
+  credentials скрывает значения. Credo — совместимый фасад с прежними alias/IV/ciphertext/AAD, старый
+  ciphertext проверен независимо на Android Keystore. TBC сначала восстанавливает cookie,
+  при SESSION делает один вход сохранёнными credentials; при NETWORK не запускает новый login,
+  отвергнутый сохранённый пароль требует замены. OTP не сохраняется. Legacy TBC нуждается в одном
+  входе с паролем: старые версии его не записывали. Общее правило закреплено выше и в CONTEXT/SPEC.
+  TBC OTP подключён к production route: receiver заранее, process-only inbox, свежий READ_SMS
+  fallback при выданном доступе и общий Android SMS User Consent. Старые/повторные/чужие/платёжные
+  сообщения отфильтрованы; подтверждение явное. Шаблоны с телефона просмотрены после
+  маскирования чисел/ссылок. Оба варианта `<#> TBC SMS code:` с English/
+  transliteration mobilebank-предупреждением поддержаны; цифры app hash не считаются вторым OTP.
+  Реальный код/хеш не перенесены в fixtures. scripts/test-tbc-otp-emulator.py запускает реальный
+  TBC route с синтетическим банком и SMS через модем эмулятора; общий connected suite его пропускает.
+  Настройки: поле поиска — первый элемент единственного scroller; после ухода поля справа в topbar
+  появляется иконка. Место под неё зарезервировано, высота панели стабильна. Тап возвращает поле,
+  фокус и IME; query/scroll сохраняются. Отдельный enterAlways-header убран. Анимации — WhfinMotion.
+  Проверки: полный прогон 997 unit/Compose, 0 failures/errors, 4 skipped; поздние focused проверки
+  и оба реальных шаблона с синтетическим кодом прошли. Android Keystore isolation/legacy (4 теста),
+  saved-login UI (2), Settings gestures RU/EN light/dark system font 1.0/1.5 (2) и реальное SMS e2e
+  (1) прошли. Кадры: /tmp/whfin-settings-search-final, /tmp/whfin-tbc-otp-delivery.png.
+  QA исправлен: измеряет layout topbar, не accessibility ink bounds букв, и ждёт собственный экран.
+  Release R8/lintVital, diff/privacy checks прошли. Установлено на телефон через install -r,
+  подтверждены versionName 0.3.32 / versionCode 44. Живой вход/доставка свежего OTP на Samsung после
+  обновления ещё не выполнялись. Контракт: docs/bank-authentication.md.
+
 
 - [x] Сохранённый вход TBC и оформление подключений — 0.3.31 (43), 2026-09-09.
   Воспроизведены тестами: поля пароля показывались даже при наличии сохранённой сессии;

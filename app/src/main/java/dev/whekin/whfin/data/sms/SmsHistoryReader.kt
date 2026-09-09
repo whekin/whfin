@@ -67,6 +67,23 @@ class SmsHistoryReader(private val resolver: ContentResolver) {
         null
     }
 
+    suspend fun tbcLoginCodeSince(since: Long): HistoricalSms? = withContext(Dispatchers.IO) {
+        resolver.query(Telephony.Sms.Inbox.CONTENT_URI,
+            arrayOf(Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.ADDRESS),
+            "${Telephony.Sms.DATE} >= ?", arrayOf(since.toString()), "${Telephony.Sms.DATE} DESC")?.use { cursor ->
+            val bodyColumn = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
+            val dateColumn = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val senderColumn = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            var examined = 0
+            while (cursor.moveToNext() && examined++ < 30) {
+                if (BankSmsBank.fromSender(cursor.getString(senderColumn)) != BankSmsBank.TBC) continue
+                val body = cursor.getString(bodyColumn).orEmpty()
+                if (TbcLoginOtp.extract(body) != null) return@withContext HistoricalSms(body, cursor.getLong(dateColumn), BankSmsBank.TBC)
+            }
+        }
+        null
+    }
+
     suspend fun findByExternalKey(externalKey: String, receivedAt: Long): HistoricalSms? =
         withContext(Dispatchers.IO) {
             val oneDay = 24 * 60 * 60 * 1_000L

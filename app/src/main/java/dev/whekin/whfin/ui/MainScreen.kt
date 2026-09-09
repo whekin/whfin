@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -369,6 +370,7 @@ fun MainScreen(
     }
     var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var credoReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    val settingsSearchState = dev.whekin.whfin.ui.settings.rememberSettingsSearchState()
     var tbcRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var credoRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
@@ -558,8 +560,10 @@ fun MainScreen(
                     ShellScene.Settings -> SecondaryPage(
                         title = stringResource(R.string.settings_title),
                         onBack = { goBack(withHaptic = true) },
+                        actions = { dev.whekin.whfin.ui.settings.SettingsSearchAction(settingsSearchState) },
                     ) {
                         SettingsScreen(
+                            searchState = settingsSearchState,
                             appThemeMode = appThemeMode,
                             dynamicColorsEnabled = dynamicColorsEnabled,
                             useSystemFont = useSystemFont,
@@ -787,16 +791,17 @@ fun MainScreen(
 internal fun SecondaryPage(
     title: String,
     onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        LedgerTopBar(title = title, compact = true, onBack = onBack, onSettings = null)
+        LedgerTopBar(title = title, compact = true, onBack = onBack, onSettings = null, actions = actions)
         Box(Modifier.fillMaxWidth().weight(1f)) { content() }
     }
 }
 
-@Composable private fun LedgerTopBar(title: String?, compact: Boolean, onBack: (() -> Unit)?, onSettings: (() -> Unit)?) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun LedgerTopBar(title: String?, compact: Boolean, onBack: (() -> Unit)?, onSettings: (() -> Unit)?, actions: @Composable RowScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().testTag("secondary-topbar").statusBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             WhfinBackButton(stringResource(R.string.action_back), onBack)
             Spacer(Modifier.width(12.dp))
@@ -813,6 +818,7 @@ internal fun SecondaryPage(
             Spacer(Modifier.weight(1f))
         }
         if (onSettings != null) LedgerIconButton(Icons.Default.Settings, stringResource(R.string.settings_title), onSettings)
+        actions()
     }
 }
 

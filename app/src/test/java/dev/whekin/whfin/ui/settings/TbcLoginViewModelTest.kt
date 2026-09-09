@@ -33,12 +33,15 @@ class TbcLoginViewModelTest {
         var badCode = false
         var expired = false
         var accountFailure = false
+        var resumeNetworkError = false
+        var passwordRejected = false
         var wait: CompletableDeferred<Unit>? = null
         private val session = TbcSession(mapOf("session" to "example-cookie"), "example-device")
         override fun snapshot() = session
         override fun clear() = Unit
         override suspend fun login(username: String, credential: String): TbcLoginResult {
             loginCalls++; wait?.await()
+            if (passwordRejected) throw TbcException("LOGIN")
             return TbcLoginResult.Challenge(TbcChallenge("example-challenge", "NONE", "SMS_OTP"))
         }
         override suspend fun confirm(challenge: TbcChallenge, code: String): TbcSession {
@@ -47,6 +50,7 @@ class TbcLoginViewModelTest {
             return session
         }
         override suspend fun resume(session: TbcSession): TbcSession {
+            if (resumeNetworkError) throw TbcException("NETWORK")
             if (expired) throw TbcException("SESSION")
             return session
         }
@@ -55,13 +59,22 @@ class TbcLoginViewModelTest {
             return listOf(TbcAccount(1, "GE00TB0000000000000001", "GEL", "Everyday"))
         }
     }
+    private class Credentials : dev.whekin.whfin.data.security.BankCredentialStore {
+        var value: dev.whekin.whfin.data.security.BankCredentials? = null
+        var loads = 0
+        override fun hasCredentials() = value != null
+        override fun load(): dev.whekin.whfin.data.security.BankCredentials? { loads++; return value }
+        override fun save(credentials: dev.whekin.whfin.data.security.BankCredentials) { value = credentials }
+        override fun clear() { value = null }
+    }
+    private lateinit var credentials: Credentials
     private lateinit var store: Store
     private lateinit var gateway: Gateway
     private lateinit var vm: TbcLoginViewModel
     @Before fun setup() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        store = Store(); gateway = Gateway()
-        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store)
+        store = Store(); credentials = Credentials(); gateway = Gateway()
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials)
     }
     @After fun cleanup() { vm.leave(); Dispatchers.resetMain() }
     private fun settled() = runBlocking { withTimeout(5000) { vm.state.first { it.stage != TbcLoginStage.Working } } }
@@ -115,7 +128,7 @@ class TbcLoginViewModelTest {
     }
     @Test fun successfulLoginRunsSyncAndTheButtonRunsItAgain() {
         var calls = 0
-        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store,
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials,
             synchronize = { _, progress ->
                 calls++; progress(1, 1)
                 dev.whekin.whfin.data.importer.TbcSyncResult(matched = 4)
@@ -130,7 +143,7 @@ class TbcLoginViewModelTest {
     }
     @Test fun missingOpeningIsAVisibleResultNotAFalseSuccessfulImport() {
         val remote = TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")
-        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store,
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials,
             synchronize = { _, _ -> dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(remote)) })
         vm.login("example-user", "example-credential"); settled(); vm.confirm("0000")
         assertEquals(listOf(remote), settled().syncResult?.needsStatement)
@@ -160,16 +173,67 @@ class TbcLoginViewModelTest {
     @Test fun rememberChoiceSurvivesExpiryAndViewModelRecreation() {
         vm.storageAllowed(true); vm.setRemember(true)
         vm.login("example-user", "example-credential"); settled(); vm.confirm("0000"); settled()
+        credentials.clear() // The session-only format from an older installation had no password.
         vm.leave(); gateway.expired = true; vm.restore(); settled()
         assertNull(store.value)
         vm.leave()
-        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store)
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials)
         assertTrue(vm.state.value.remember)
         assertFalse(vm.state.value.hasSaved)
         assertEquals("SESSION", vm.state.value.error)
         vm.forget()
-        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store)
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials)
         assertFalse(vm.state.value.remember)
+    }
+
+    @Test fun expiredSessionUsesSavedPasswordOnceAndAsksOnlyForOtp() {
+        vm.storageAllowed(true); vm.setRemember(true)
+        vm.login("example-user", "example-credential"); settled(); vm.confirm("0000"); settled()
+        assertNotNull(credentials.value)
+        vm.leave(); gateway.expired = true
+        vm.restore()
+        assertEquals(TbcLoginStage.Code, settled().stage)
+        assertEquals(2, gateway.loginCalls)
+        assertEquals(1, credentials.loads)
+        vm.confirm("0000")
+        assertEquals(TbcLoginStage.Connected, settled().stage)
+        assertTrue(vm.state.value.hasSavedCredentials)
+    }
+    @Test fun savedCredentialsWorkAfterAProcessWithoutASessionCookie() {
+        credentials.value = dev.whekin.whfin.data.security.BankCredentials("example-user", "example-credential")
+        vm = TbcLoginViewModel(ApplicationProvider.getApplicationContext<Application>(), { gateway }, store, credentialStore = credentials)
+        vm.storageAllowed(true)
+        assertTrue(vm.state.value.hasSaved)
+        assertEquals(0, credentials.loads)
+        vm.restore()
+        assertEquals(TbcLoginStage.Code, settled().stage)
+        assertEquals(1, gateway.loginCalls)
+    }
+
+    @Test fun networkFailureDoesNotTriggerAnotherLoginOrLoseSavedCredentials() {
+        credentials.value = dev.whekin.whfin.data.security.BankCredentials("example-user", "example-credential")
+        store.value = gateway.snapshot().encode()
+        vm.storageAllowed(true); gateway.resumeNetworkError = true; vm.restore()
+        assertEquals("NETWORK", settled().error)
+        assertEquals(0, gateway.loginCalls)
+        assertNotNull(credentials.value)
+    }
+    @Test fun rejectedSavedPasswordStopsAfterOneAttemptAndOffersManualReplacement() {
+        credentials.value = dev.whekin.whfin.data.security.BankCredentials("example-user", "example-credential")
+        vm.storageAllowed(true); gateway.passwordRejected = true; vm.restore()
+        assertEquals("LOGIN", settled().error)
+        assertEquals(1, gateway.loginCalls)
+        assertFalse(vm.state.value.hasSavedCredentials)
+        assertNull(credentials.value)
+    }
+    @Test fun disablingStorageAndForgettingClearBothCookiesAndCredentials() {
+        credentials.value = dev.whekin.whfin.data.security.BankCredentials("example-user", "example-credential")
+        store.value = gateway.snapshot().encode()
+        vm.storageAllowed(false)
+        assertNull(credentials.value); assertNull(store.value)
+        credentials.value = dev.whekin.whfin.data.security.BankCredentials("example-user", "example-credential")
+        store.value = gateway.snapshot().encode(); vm.forget()
+        assertNull(credentials.value); assertNull(store.value)
     }
 
 }

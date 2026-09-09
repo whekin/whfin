@@ -82,6 +82,12 @@ one bank, such as a connection, SMS monitoring, or a statement file. Completed c
 unsupported banks and unavailable channels are absent.
 _Avoid_: Import-method picker, source setup, coming-soon bank
 
+**Remembered bank sign-in**:
+The owner's opt-in to keep a bank username and password encrypted on this device under WHFIN's code.
+A session is only a short-lived fast path; expiry permits one new login using those credentials after
+an explicit sync/continue action, with the bank's required confirmation. Codes are never persisted.
+_Avoid_: Saved session when referring to remembered credentials, permanent session.
+
 ### Accounts
 
 **Fund role**:
