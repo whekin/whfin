@@ -973,7 +973,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         val at = occurredAt ?: return false
         val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
         return db.statementImportDao().forAccount(accountId).filter {
-            it.origin != dev.whekin.whfin.data.db.StatementImportOrigin.TBC_SYNC
+            it.origin !in setOf(dev.whekin.whfin.data.db.StatementImportOrigin.TBC_SYNC, dev.whekin.whfin.data.db.StatementImportOrigin.CREDO_API, dev.whekin.whfin.data.db.StatementImportOrigin.USER_OPENING)
         }.any { import ->
             val from = import.periodFrom?.let(LocalDate::ofEpochDay) ?: return@any false
             val to = import.periodTo?.let(LocalDate::ofEpochDay) ?: return@any false

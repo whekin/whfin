@@ -6,13 +6,13 @@ import org.junit.Test
 
 class CredoSyncReminderTest {
     @Test
-    fun recentSyncStaysQuietUntilThirtyDays() {
+    fun recentSyncStaysQuietUntilSevenDays() {
         val now = 50L * DAY
 
-        assertNull(credoSyncReminder(now - 29L * DAY, 100, hasCredoAccounts = true, nowMillis = now))
+        assertNull(credoSyncReminder(now - 6L * DAY, 100, hasCredoAccounts = true, nowMillis = now))
         assertEquals(
-            CredoSyncReminder(daysSinceSync = 30, awaitingStatementCount = 100),
-            credoSyncReminder(now - 30L * DAY, 100, hasCredoAccounts = true, nowMillis = now),
+            CredoSyncReminder(daysSinceSync = 7, awaitingStatementCount = 100),
+            credoSyncReminder(now - 7L * DAY, 100, hasCredoAccounts = true, nowMillis = now),
         )
     }
 

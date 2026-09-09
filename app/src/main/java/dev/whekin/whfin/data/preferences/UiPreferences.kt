@@ -175,6 +175,14 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[LastCredoSyncAtKey] }
 
+    val lastTbcSyncAt: Flow<Long?> = dataStore.data
+        .catch { error -> if (error is IOException) emit(emptyPreferences()) else throw error }
+        .map { it[LastTbcSyncAtKey] }
+
+    suspend fun setLastTbcSyncAt(timestampMillis: Long) {
+        dataStore.edit { it[LastTbcSyncAtKey] = timestampMillis }
+    }
+
     suspend fun dismissSmsPermissionPrompt() {
         dataStore.edit { preferences -> preferences[SmsPermissionPromptDismissed] = true }
     }
@@ -245,6 +253,7 @@ internal class UiPreferences(
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
         val QuickExpenseKeypadEnabledKey = booleanPreferencesKey("quick_expense_keypad_enabled")
         val WidgetOpenAppButtonEnabledKey = booleanPreferencesKey("widget_open_app_button_enabled")
+        val LastTbcSyncAtKey = longPreferencesKey("last_tbc_sync_at")
         val LastCredoSyncAtKey = longPreferencesKey("last_credo_sync_at")
         val DisplayCurrencyKey = stringPreferencesKey("display_currency")
         val EthereumRpcUrlKey = stringPreferencesKey("crypto_ethereum_rpc_url")

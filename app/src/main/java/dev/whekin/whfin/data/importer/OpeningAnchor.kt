@@ -19,17 +19,30 @@ import java.time.ZoneId
  */
 internal class OpeningAnchor(private val db: WhfinDatabase, private val zone: ZoneId) {
 
-    suspend fun update(account: AccountEntity, statement: BankStatement) {
-        val fromThisFile = statement.periodFrom?.let { from ->
-            statement.openingBalanceMinor?.let { opening -> Snapshot(from, opening) }
+    suspend fun update(account: AccountEntity, statement: BankStatement,
+        origin: dev.whekin.whfin.data.db.StatementImportOrigin = dev.whekin.whfin.data.db.StatementImportOrigin.FILE) {
+        val userOrigin = dev.whekin.whfin.data.db.StatementImportOrigin.USER_OPENING
+        val history = db.statementImportDao().forAccount(account.id)
+            .filter { it.periodFrom != null && it.openingBalanceMinor != null }
+            .sortedWith(compareByDescending<dev.whekin.whfin.data.db.StatementImportEntity> { it.importedAt }.thenByDescending { it.id })
+        val incoming = statement.periodFrom?.let { date -> statement.openingBalanceMinor?.let { Snapshot(date, it) } }
+        val bankSnapshots = listOfNotNull(incoming?.takeIf { origin != userOrigin }) + history.filter { it.origin != userOrigin }.map {
+            Snapshot(LocalDate.ofEpochDay(requireNotNull(it.periodFrom)), requireNotNull(it.openingBalanceMinor))
         }
-        val fromHistory = db.statementImportDao().earliestWithOpeningBalance(account.id)?.let { item ->
-            Snapshot(
-                date = LocalDate.ofEpochDay(requireNotNull(item.periodFrom)),
-                amountMinor = requireNotNull(item.openingBalanceMinor),
-            )
+        val userSnapshots = listOfNotNull(incoming?.takeIf { origin == userOrigin }) + history.filter { it.origin == userOrigin }.map {
+            Snapshot(LocalDate.ofEpochDay(requireNotNull(it.periodFrom)), requireNotNull(it.openingBalanceMinor))
         }
-        val earliest = listOfNotNull(fromThisFile, fromHistory).minByOrNull(Snapshot::date) ?: return
+        var earliest = bankSnapshots.minByOrNull(Snapshot::date) ?: userSnapshots.minByOrNull(Snapshot::date) ?: return
+        // A later bank statement replaces the owner's provisional amount without discarding older
+        // API rows. Walk the bank opening back across those booked rows to the original start.
+        val userStart = userSnapshots.minOfOrNull(Snapshot::date)
+        if (bankSnapshots.isNotEmpty() && userStart != null && userStart < earliest.date) {
+            val before = db.transactionDao().allStatementRows(account.id).filter { tx ->
+                val day = java.time.Instant.ofEpochMilli(tx.postedAt ?: tx.occurredAt).atZone(zone).toLocalDate()
+                !tx.isVoided && day >= userStart && day < earliest.date
+            }.fold(0L) { sum, tx -> Math.addExact(sum, tx.amountMinor) }
+            earliest = Snapshot(userStart, Math.subtractExact(earliest.amountMinor, before))
+        }
 
         val existing = db.transactionDao().openingAnchor(account.id)
         // An account whose history reaches its own opening starts from nothing, and nothing needs no

@@ -4,13 +4,15 @@ Added in 0.3.28 (40). Native TBC sign-in/session restoration now starts a foregr
 the connected screen also has a Sync transactions action. It does not schedule background logins or
 reuse a password. The same optional encrypted cookie session and WHFIN action gate remain in place.
 
+Version 0.3.29 also accepts an owner-entered booked balance instead of the first XLSX. See
+[bank API sync](bank-api-sync.md) for the full updated contract.
+
 ## Initial balance
 
-Each currency ledger needs one XLSX import before API rows are written. The opening balance comes
-from that bank statement, not a current dashboard/available-balance snapshot. A missing opening is a
-visible initial-statement requirement, with a button to the existing statement-import screen.
-An empty remote ledger with a declared zero balance and no history needs no initial import.
-The owner supplied a TBC XLSX but confirmed it had not yet been imported into the phone app.
+Each currency ledger needs either a bank statement opening or an explicit owner-entered booked
+balance before API rows are written. The latter is stored as USER_OPENING and is superseded by later
+bank evidence. No dashboard/available balance is silently treated as an opening. The owner confirms
+each ledger, including empty ledgers, or uses the optional statement-import action.
 
 After the initial import, history is downloaded through the authenticated mobile API. The window is
 at most the past year and never starts before the known opening period. Existing older history is
@@ -78,6 +80,6 @@ matches, file-ID changes, opening balances and transfers/fees. Emulator checks c
 backup/restore of linked IDs and TBC_SYNC, plus the initial-file and sync-result screens.
 
 The owner has verified real sign-in and an account list. Actual mobile history retrieval and its
-correspondence to the owner's file still need the first on-device sync after the initial XLSX import.
+correspondence to the owner's file still need the first on-device sync after initialization with a statement or owner-entered balance.
 The implementation uses primary-source protocol evidence documented in
 [tbc-history-research.md](tbc-history-research.md) and never embeds private samples or credentials.

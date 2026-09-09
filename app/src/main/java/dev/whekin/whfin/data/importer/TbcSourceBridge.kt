@@ -9,9 +9,8 @@ import java.time.Instant
 import java.util.Locale
 
 /** Links independently named mobile/file evidence only when correspondence is unique both ways. */
-internal object TbcSourceBridge {
+internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.statement.ApiRowIdentity, private val bank: String) {
     fun plan(statement: BankStatement, existing: List<TransactionEntity>): Map<String, PlannedRow> {
-        if (statement.bank.provider != "TBC") return emptyMap()
         val identity = StatementIdentity.of(statement)
         val incoming = statement.rows.associateBy(identity::rowKey)
         if (incoming.size != statement.rows.size) conflict()
@@ -19,16 +18,16 @@ internal object TbcSourceBridge {
         val unmatched = linkedMapOf<String, StatementRow>()
         val claimed = mutableSetOf<Long>()
         for ((key, row) in incoming) {
-            val id = row.bankTransactionId ?: continue
-            val mobile = TbcRowIdentity.isMobileId(id)
+            val id = row.bankTransactionId
+            val mobile = ids.isMobileId(id)
             val matches = existing.filter { tx ->
-                if (mobile) TbcRowIdentity.hasMobile(tx.externalKey, id) else TbcRowIdentity.hasFile(tx.externalKey, key)
+                if (mobile) ids.hasMobile(tx.externalKey, requireNotNull(id)) else ids.hasFile(tx.externalKey, key)
             }
             if (matches.size > 1) conflict()
             val found = matches.singleOrNull()
             if (found != null) {
                 claimed += found.id
-                if (mobile && !TbcRowIdentity.isMobileOnly(found.externalKey)) {
+                if (mobile && !ids.isMobileOnly(found.externalKey)) {
                     // The file is richer evidence. Mobile data must not erase its running balance,
                     // counterparties, or explicit correction/void decisions.
                     if (!found.isVoided && !sameMoneyAndDay(row, found)) conflict()
@@ -39,11 +38,11 @@ internal object TbcSourceBridge {
             unmatched[key] = row
         }
         val choices = unmatched.mapValues { (_, row) ->
-            val mobile = TbcRowIdentity.isMobileId(row.bankTransactionId)
+            val mobile = ids.isMobileId(row.bankTransactionId)
             val pool = existing.filter { tx ->
                 tx.id !in claimed && tx.externalKey != null &&
-                    (if (mobile) !TbcRowIdentity.isMobileOnly(tx.externalKey) && TbcRowIdentity.mobileFromKey(tx.externalKey) == null
-                     else TbcRowIdentity.isMobileOnly(tx.externalKey)) &&
+                    (if (mobile) !ids.isMobileOnly(tx.externalKey) && ids.mobileFromKey(tx.externalKey) == null
+                     else ids.isMobileOnly(tx.externalKey)) &&
                     sameMoneyAndDay(row, tx)
             }
             val exact = pool.filter { descriptionMatches(row, it) }
@@ -55,25 +54,25 @@ internal object TbcSourceBridge {
             val found = matches.singleOrNull() ?: continue
             if (choices.values.count { found in it } != 1) conflict()
             claimed += found.id
-            val mobile = TbcRowIdentity.isMobileId(row.bankTransactionId)
-            val joined = if (mobile) TbcRowIdentity.join(requireNotNull(found.externalKey), requireNotNull(row.bankTransactionId))
-                else TbcRowIdentity.join(key, requireNotNull(TbcRowIdentity.mobileFromKey(requireNotNull(found.externalKey))))
+            val mobile = ids.isMobileId(row.bankTransactionId)
+            val joined = if (mobile) ids.join(requireNotNull(found.externalKey), requireNotNull(row.bankTransactionId))
+                else ids.join(key, requireNotNull(ids.mobileFromKey(requireNotNull(found.externalKey))))
             known[key] = if (mobile || found.isVoided) PlannedRow.LinkIdentity(row, joined, found.id)
                 else PlannedRow.Reconcile(row, joined, found.id)
         }
         // An unmatched row that could be a renamed opposite-source row is not safe to insert.
         for ((key, row) in unmatched) {
             if (key in known) continue
-            val mobile = TbcRowIdentity.isMobileId(row.bankTransactionId)
+            val mobile = ids.isMobileId(row.bankTransactionId)
             if (existing.any { it.id !in claimed && it.externalKey != null &&
-                    (if (mobile) !TbcRowIdentity.isMobileOnly(it.externalKey) else TbcRowIdentity.mobileFromKey(it.externalKey) != null) && potentialDuplicate(row, it) }) conflict()
+                    (if (mobile) !ids.isMobileOnly(it.externalKey) else ids.mobileFromKey(it.externalKey) != null) && potentialDuplicate(row, it) }) conflict()
         }
         return known
     }
 
     fun existingKey(row: StatementRow, canonical: String, keys: Set<String>): String {
-        val id = row.bankTransactionId ?: return canonical
-        val found = keys.filter { if (TbcRowIdentity.isMobileId(id)) TbcRowIdentity.hasMobile(it, id) else TbcRowIdentity.hasFile(it, canonical) }
+        val id = row.bankTransactionId
+        val found = keys.filter { if (ids.isMobileId(id)) ids.hasMobile(it, requireNotNull(id)) else ids.hasFile(it, canonical) }
         if (found.size > 1) conflict()
         return found.singleOrNull() ?: canonical
     }
@@ -104,5 +103,8 @@ internal object TbcSourceBridge {
             (a.length >= 12 && b.startsWith("$a,")) || (b.length >= 12 && a.startsWith("$b,")))
     }
     private fun normalized(value: String) = value.trim().lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").replace(Regex("\\s*([,;:])\\s*"), "$1")
-    private fun conflict(): Nothing = throw InvalidStatementException("TBC history and XLSX cannot be matched uniquely. No changes were made to this account.")
+    private fun conflict(): Nothing = throw InvalidStatementException("$bank history and XLSX cannot be matched uniquely. No changes were made to this account.")
 }
+
+internal object TbcSourceBridge : ApiSourceBridge(TbcRowIdentity, "TBC")
+internal object CredoSourceBridge : ApiSourceBridge(dev.whekin.whfin.data.credo.CredoRowIdentity, "Credo")

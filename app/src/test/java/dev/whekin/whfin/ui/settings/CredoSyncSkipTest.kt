@@ -117,6 +117,16 @@ class CredoSyncSkipTest {
 
     private fun db() = ApplicationProvider.getApplicationContext<WhfinApp>().db
 
+    @Test fun connectionCanImmediatelyLoadHistoryWithoutASecondTap() {
+        val gateway = FixedGateway()
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val vm = CredoSyncViewModel(app, gateway, CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        vm.connect("user", "password", remember = false, syncWhenConnected = true)
+        await { vm.state.value.stage == CredoSyncStage.Connected && vm.state.value.results.isNotEmpty() }
+        assertEquals(1, gateway.downloads)
+        assertEquals(1, vm.state.value.results.single().inserted)
+    }
+
     @Test
     fun anAccountWithNothingNewIsCountedOnceAndFilesNoRecord() {
         val gateway = FixedGateway()

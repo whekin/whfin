@@ -3,6 +3,10 @@
 Status: experimental personal dogfood, foreground-only. This is not an official bank API
 integration and must not be presented as reliable unattended synchronization.
 
+Current routine behavior in 0.3.29 is documented in [bank API sync](bank-api-sync.md): JSON after
+automatic initial XLSX, a weekly freshness hint and Home action. The export/history and authentication
+contracts below remain applicable; older monthly/exclusively-XLSX descriptions are superseded.
+
 ## Product flow
 
 `Settings → Credo sync` signs in to MyCredo, confirms the explicit 4-digit OTP when required, discovers
@@ -20,11 +24,11 @@ account inventory already available on Accounts.
 
 A fully successful foreground run records its completion time even when every ledger was already up
 to date. On feature upgrade, the latest persisted `CREDO_SYNC` statement import is the initial freshness
-baseline. After 30 days, Home shows one compact `Reconcile Credo` row with the age of that run and the
+baseline. After 7 days, Home shows one compact `Reconcile Credo` row with the age of that run and the
 number of active SMS operations still awaiting statement evidence. It is a freshness reminder, not a
 review queue: tapping it starts the explicit saved-sign-in/OTP/routine-sync flow. Back returns to the
 screen that opened Credo. Fetching older history remains a
-separate one-off action and does not redefine the routine monthly flow.
+separate one-off action and does not redefine the routine foreground flow.
 
 ## Security boundary
 

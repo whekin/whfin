@@ -24,7 +24,12 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
     ): ImportPlan {
         val identity = StatementIdentity.of(statement)
         val existingKeys = db.transactionDao().externalKeysForAccount(account.id).toHashSet()
-        val bridge = if (statement.bank.provider == "TBC") TbcSourceBridge.plan(statement, db.transactionDao().allStatementRows(account.id)) else emptyMap()
+        val sourceBridge = when (statement.bank.provider) {
+            "TBC" -> TbcSourceBridge
+            "Credo" -> CredoSourceBridge
+            else -> null
+        }
+        val bridge = sourceBridge?.plan(statement, db.transactionDao().allStatementRows(account.id)).orEmpty()
         // One draft may confirm only one statement line: without this the same SMS would be claimed
         // by every similar row in the file and the rest would be inserted as duplicates of it.
         val claimed = mutableSetOf<Long>()
@@ -33,7 +38,7 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
         val entries = statement.rows.map { row ->
             val canonical = identity.rowKey(row)
             bridge[canonical]?.let { return@map it }
-            val key = if (statement.bank.provider == "TBC") TbcSourceBridge.existingKey(row, canonical, existingKeys) else canonical
+            val key = sourceBridge?.existingKey(row, canonical, existingKeys) ?: canonical
             val day = row.purchaseDate ?: row.postedDate
             val crossesMidnight = row.operation.isOwnMovement
             val candidates = candidatesByWindow.getOrPut(day to crossesMidnight) {

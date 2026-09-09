@@ -98,6 +98,21 @@ class TbcLoginViewModel internal constructor(
         syncCurrent()
     }
 
+    fun confirmBalance(key: String, amountMinor: Long) {
+        val previous = mutable.value.syncResult ?: return
+        val initial = previous.initialHistories.singleOrNull { it.remote.key == key } ?: return
+        run(TbcLoginStage.Connected) {
+            val app = getApplication<Application>() as dev.whekin.whfin.WhfinApp
+            val plan = withContext(Dispatchers.IO) { dev.whekin.whfin.data.importer.TbcHistorySync(app.db).initialize(initial, amountMinor) }
+            val result = previous.copy(inserted = previous.inserted + plan.inserted, matched = previous.matched + plan.reconciled,
+                needsStatement = previous.needsStatement.filterNot { it.key == key },
+                initialHistories = previous.initialHistories.filterNot { it.remote.key == key })
+            mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncResult = result)
+            if (result.needsStatement.isEmpty() && result.errors.isEmpty())
+                dev.whekin.whfin.data.preferences.UiPreferences(app).setLastTbcSyncAt(System.currentTimeMillis())
+        }
+    }
+
     fun syncTransactions() {
         if (session == null) return
         run(TbcLoginStage.Connected) { syncCurrent() }
@@ -107,6 +122,9 @@ class TbcLoginViewModel internal constructor(
         val client = requireNotNull(gateway)
         val result = synchronize?.invoke(client) { current, total ->
             mutable.value = mutable.value.copy(syncProgress = current to total)
+        }
+        if (result != null && result.errors.isEmpty() && result.needsStatement.isEmpty()) {
+            dev.whekin.whfin.data.preferences.UiPreferences(getApplication<Application>()).setLastTbcSyncAt(System.currentTimeMillis())
         }
         session = client.snapshot()
         if (mutable.value.remember && canRemember) withContext(Dispatchers.IO) { store.save(requireNotNull(session).encode()) }

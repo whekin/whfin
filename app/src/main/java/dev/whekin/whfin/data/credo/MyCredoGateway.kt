@@ -185,6 +185,55 @@ class MyCredoGateway internal constructor(
         }.distinctBy(CredoRemoteAccount::stableKey)
     }
 
+    override suspend fun history(session: CredoSession, account: CredoRemoteAccount,
+        from: LocalDate, to: LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> {
+        val accountId = account.accountId ?: throw CredoApiException("HISTORY_UNAVAILABLE")
+        val items = linkedMapOf<String, JSONObject>()
+        var expectedTotal: Int? = null
+        var expectedPages: Int? = null
+        try {
+            for (page in 1..500) {
+                val filter = JSONObject().put("accountIdList", JSONArray().put(accountId))
+                    .put("dateFrom", from.atStartOfDay(dev.whekin.whfin.data.LedgerCalendar.zone).toInstant().toString())
+                    .put("onlyCanBeReversedOrRepeated", false).put("pageNumber", page).put("pageSize", 30)
+                val result = graphQl(session, HISTORY_QUERY, JSONObject().put("data", filter))
+                    .getJSONObject("transactionPagingList")
+                val total = result.getInt("totalItemCount")
+                val pages = result.getInt("pageCount")
+                if (total < 0 || pages !in 0..500 || (total > 0 && pages == 0) ||
+                    (expectedTotal != null && (expectedTotal != total || expectedPages != pages))) throw CredoApiException("HISTORY_CHANGED")
+                expectedTotal = total; expectedPages = pages
+                val rows = result.getJSONArray("itemList")
+                for (i in 0 until rows.length()) {
+                    val item = rows.getJSONObject(i)
+                    val id = CredoHistoryParser.text(item, "stmtEntryId") ?: throw CredoApiException("HISTORY_FORMAT")
+                    if (items.put(id, item) != null) throw CredoApiException("HISTORY_CHANGED")
+                }
+                if (page >= pages) break
+                if (rows.length() == 0) throw CredoApiException("HISTORY_CHANGED")
+            }
+            if (items.size != expectedTotal) throw CredoApiException("HISTORY_CHANGED")
+            val booked = items.values.filterNot { it.getBoolean("isCardBlock") }
+            // Some FX card receipts are presentation pairs, not independent ledger movements.
+            // Keep the proven export path until that representation is verified against a statement.
+            if (booked.groupBy { it.getString("operationDateTime") }.values.any { group ->
+                group.size > 1 && group.any { it.optString("transactionTypeName") == "Currency_exchange" ||
+                    it.optString("transactionType") == "CurrencyExchange" ||
+                    it.optString("operationType") in setOf("Currency conversion", "Currency exchange", "უნაღდო კონვერტაცია") }
+            }) throw CredoApiException("HISTORY_REQUIRES_STATEMENT")
+            return booked.map { item ->
+                val id = item.getString("stmtEntryId")
+                val details = graphQl(session, DETAIL_QUERY, JSONObject().put("stmtEntryId", id))
+                    .getJSONObject("customer").getJSONArray("transactions")
+                if (details.length() != 1) throw CredoApiException("HISTORY_FORMAT")
+                CredoHistoryParser.row(item, details.getJSONObject(0), account)
+            }.filter { !it.postedDate.isBefore(from) && !it.postedDate.isAfter(to) }
+                .sortedBy { it.postedDate }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: CredoApiException) { throw e }
+        catch (e: Exception) { throw CredoApiException("HISTORY_FORMAT", e) }
+    }
+
     override suspend fun downloadStatement(
         session: CredoSession,
         account: CredoRemoteAccount,
@@ -285,6 +334,24 @@ class MyCredoGateway internal constructor(
                 category
                 type
               }
+            }
+        """.trimIndent()
+
+        val HISTORY_QUERY = """
+            query transactionPagingList(${'$'}data: TransactionFilterGType!) {
+              transactionPagingList(data: ${'$'}data) { pageCount totalItemCount itemList {
+                credit currency transactionType transactionId debit description isCardBlock
+                operationDateTime stmtEntryId operationType transactionTypeName
+              } }
+            }
+        """.trimIndent()
+        val DETAIL_QUERY = """
+            query transaction(${'$'}stmtEntryId: String) {
+              customer { transactions(stmtEntryId: ${'$'}stmtEntryId) {
+                transactionId credit debit currency accountNumber isCardBlock operationDateTime
+                description operationType contragentAccount contragentFullName
+                details { debitAccount creditAccount debitFullName creditFullName }
+              } }
             }
         """.trimIndent()
 

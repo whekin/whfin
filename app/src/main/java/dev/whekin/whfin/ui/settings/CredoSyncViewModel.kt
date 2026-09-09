@@ -174,8 +174,9 @@ class CredoSyncViewModel internal constructor(
         }
     }
 
-    fun connect(username: String, credential: String, remember: Boolean) {
+    fun connect(username: String, credential: String, remember: Boolean, syncWhenConnected: Boolean = false) {
         if (_state.value.stage == CredoSyncStage.Connecting) return
+        syncAfterLogin = syncWhenConnected
         viewModelScope.launch {
             val credentials = resolveCredentials(username, credential) ?: run {
                 fail("CREDENTIALS_REQUIRED")
@@ -298,6 +299,21 @@ class CredoSyncViewModel internal constructor(
                 )
                 var downloadedBytes: ByteArray? = null
                 val fileResult = try {
+                    val apiPlan = try {
+                        dev.whekin.whfin.data.importer.CredoHistorySync(db).sync(
+                            gateway, activeSession, account,
+                            LocalDate.parse(fromIso.asDate()), LocalDate.parse(toIso.asDate()))
+                    } catch (e: CredoApiException) {
+                        if (e.code.isCredoAuthError()) throw CredoSessionExpiredException(e)
+                        // Older/fake gateways and products without a history ID retain bank export.
+                        if (e.code == "HISTORY_UNAVAILABLE" || e.code == "HISTORY_REQUIRES_STATEMENT") null else throw e
+                    }
+                    if (apiPlan != null) {
+                        if (apiPlan.isNoOp) unchanged++ else results += CredoSyncFileResult(
+                            account.maskedLabel, inserted = apiPlan.inserted, duplicates = apiPlan.duplicates,
+                            reconciled = apiPlan.reconciled, unmappedOperationNames = apiPlan.statement.unmappedOperationNames)
+                        continue
+                    }
                     val bytes = downloadWithRetry(
                         session = activeSession,
                         account = account,

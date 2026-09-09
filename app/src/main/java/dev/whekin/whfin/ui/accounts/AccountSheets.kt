@@ -100,6 +100,7 @@ fun AddAccountSheet(
     /** Setup can present the cash editor as its own step without offering unrelated account types. */
     cashOnly: Boolean = false,
     titleOverride: String? = null,
+    onConnectBank: ((String) -> Unit)? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }
@@ -110,8 +111,12 @@ fun AddAccountSheet(
     var customCashName by remember { mutableStateOf(false) }
     var opening by remember { mutableStateOf("") }
     var bankProvider by remember { mutableStateOf<String?>(null) }
+    var manualBank by remember { mutableStateOf<String?>(null) }
     var bankProduct by remember { mutableStateOf<BankProduct?>(null) }
 
+    val offerConnection = type == AccountType.BANK && !customBank && bankProvider != null &&
+        manualBank != bankProvider && onConnectBank != null
+    val choosingBank = type == AccountType.BANK && !customBank && bankProvider == null && onConnectBank != null
     val addressCheck = if (type == AccountType.CRYPTO && address.isNotBlank()) {
         CryptoAddressValidator.check(network, address)
     } else {
@@ -123,15 +128,17 @@ fun AddAccountSheet(
         title = titleOverride ?: stringResource(R.string.accounts_add),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
-            if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
+            if (offerConnection) R.string.bank_connect_action else if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
         ),
-        primaryEnabled = if (type == AccountType.CRYPTO) {
+        primaryEnabled = if (offerConnection) true else if (choosingBank) false else if (type == AccountType.CRYPTO) {
             addressCheck is CryptoAddressValidator.Result.Valid
         } else {
             (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank()
         },
         onPrimary = {
-            if (type == AccountType.CRYPTO) {
+            if (offerConnection) {
+                onConnectBank?.invoke(requireNotNull(bankProvider))
+            } else if (type == AccountType.CRYPTO) {
                 onConfirmWallet(name.trim().takeIf(String::isNotEmpty), network, address.trim())
             } else {
                 onConfirmWithProduct(
@@ -156,20 +163,13 @@ fun AddAccountSheet(
             },
         )
         if (type == AccountType.BANK) {
-            WhfinNotice(
-                title = stringResource(R.string.account_create_from_statement_title),
-                body = stringResource(R.string.account_create_from_statement_summary),
-                actionLabel = stringResource(R.string.statements_upload),
-                onAction = onImportStatement,
-                modifier = Modifier.fillMaxWidth(),
-            )
             Text(stringResource(R.string.account_bank_provider), style = MaterialTheme.typography.labelLarge)
             WhfinChoiceRail {
                 items(listOf("Credo", "TBC"), key = { it }) { bank ->
                     WhfinFilterPill(
                         label = bank,
                         selected = !customBank && bankProvider == bank,
-                        onClick = { customBank = false; bankProvider = bank; if (name.isBlank()) name = bank },
+                        onClick = { customBank = false; bankProvider = bank; manualBank = null; name = bank },
                     )
                 }
                 item {
@@ -180,11 +180,19 @@ fun AddAccountSheet(
                     )
                 }
             }
+            if (offerConnection) {
+                Text(stringResource(R.string.bank_connect_offer, bankProvider.orEmpty()), style = MaterialTheme.typography.bodyMedium)
+                WhfinButton(stringResource(R.string.bank_create_manually), { manualBank = bankProvider },
+                    style = WhfinActionStyle.Quiet, modifier = Modifier.fillMaxWidth())
+            }
+            if (!offerConnection && !choosingBank) {
+            WhfinButton(stringResource(R.string.statements_upload), onImportStatement, style = WhfinActionStyle.Quiet)
             Text(stringResource(R.string.account_bank_product), style = MaterialTheme.typography.labelLarge)
             BankProductSelector(
                 selected = bankProduct,
                 onSelect = { bankProduct = it },
             )
+            }
         }
         if (type == AccountType.CRYPTO) {
             Text(stringResource(R.string.account_network), style = MaterialTheme.typography.labelLarge)
@@ -220,7 +228,7 @@ fun AddAccountSheet(
                 supportingText = stringResource(R.string.crypto_wallet_name_hint),
                 modifier = Modifier.fillMaxWidth(),
             )
-        } else {
+        } else if (!offerConnection && !choosingBank) {
             if (type == AccountType.CASH) {
                 CashNameSelector(
                     name = name,

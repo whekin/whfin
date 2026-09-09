@@ -61,6 +61,11 @@ interface CredoGateway {
 
     suspend fun accounts(session: CredoSession): List<CredoRemoteAccount>
 
+    /** Complete booked rows in this date window; no available-balance inference. */
+    suspend fun history(session: CredoSession, account: CredoRemoteAccount,
+        from: java.time.LocalDate, to: java.time.LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> =
+        throw CredoApiException("HISTORY_UNAVAILABLE")
+
     suspend fun downloadStatement(
         session: CredoSession,
         account: CredoRemoteAccount,

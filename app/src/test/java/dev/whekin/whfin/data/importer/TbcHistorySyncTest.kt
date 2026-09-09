@@ -168,4 +168,55 @@ class TbcHistorySyncTest {
         assertEquals(1, sync(changed).errors.size)
         assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
     }
+    @Test fun ownerCanInitializeWithoutAFileAndLaterFileReplacesEstimate() = runBlocking {
+        val initial = sync().initialHistories.single()
+        TbcHistorySync(db).initialize(initial, 30100)
+        assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        val account = db.accountDao().allActive().single()
+        val seed = db.statementImportDao().forAccount(account.id).single { it.origin == StatementImportOrigin.USER_OPENING }
+        assertEquals(10000L, seed.openingBalanceMinor)
+        assertEquals(0, db.statementImportDao().deleteIfNoEffect(seed.id))
+        assertEquals(1, sync().unchanged)
+        StatementImporter(db).import(file.inputStream())
+        assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        assertEquals(4, db.transactionDao().allForIntegrity().size)
+        assertEquals(1, sync().unchanged)
+    }
+    @Test fun manualConfirmationCannotRunTwiceOrUseAnExpiredRead() = runBlocking {
+        val initial = sync().initialHistories.single()
+        val expired = runCatching { TbcHistorySync(db).initialize(initial.copy(readAt = 1), 0) }.exceptionOrNull()
+        assertTrue(expired is TbcException)
+        assertTrue(db.accountDao().allActive().isEmpty())
+        TbcHistorySync(db).initialize(initial, 0)
+        assertTrue(runCatching { TbcHistorySync(db).initialize(initial, 0) }.exceptionOrNull() is TbcException)
+        assertEquals(0L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+    }
+
+    @Test fun bankOpeningAfterProvisionalStartWalksBackAcrossKeptHistory() = runBlocking {
+        val initial = sync().initialHistories.single()
+        TbcHistorySync(db).initialize(initial, 30100)
+        val account = db.accountDao().allActive().single()
+        val later = BankStatement(BankProfile("TBC", "TBC"), remote.iban, "GEL", today.plusDays(1), today.plusDays(1), 20100, 20100, emptyList())
+        val plan = ImportPlanner(db, LedgerCalendar.zone).plan(later, account, false, false)
+        ImportApplier(db, LedgerCalendar.zone).apply(plan, account, "synthetic.xlsx", StatementImportOrigin.FILE)
+        assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        assertEquals(4, db.transactionDao().allForIntegrity().size)
+        assertEquals(1, sync().unchanged)
+    }
+
+    @Test fun newerBankOpeningForSamePeriodSurvivesNextApiRun() = runBlocking {
+        val initial = sync().initialHistories.single()
+        TbcHistorySync(db).initialize(initial, 30100)
+        val account = db.accountDao().allActive().single()
+        for (amount in listOf(0L, 10000L)) {
+            val bank = BankStatement(BankProfile("TBC", "TBC"), remote.iban, "GEL", initial.from, initial.from,
+                amount, amount, emptyList())
+            val plan = ImportPlanner(db, LedgerCalendar.zone).plan(bank, account, false, false)
+            ImportApplier(db, LedgerCalendar.zone).apply(plan, account, "synthetic.xlsx", StatementImportOrigin.FILE)
+        }
+        assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+        sync()
+        assertEquals(30100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
+    }
+
 }

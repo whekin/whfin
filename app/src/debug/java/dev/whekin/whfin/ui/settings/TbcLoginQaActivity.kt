@@ -34,13 +34,16 @@ class TbcLoginQaActivity : ComponentActivity() {
             accounts = accounts, error = intent.getStringExtra("error"),
             syncResult = if (intent.getStringExtra("stage") == "Connected") {
                 if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
-                    dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")))
+                    dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")),
+                    initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
+                        dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday"),
+                        java.time.LocalDate.of(2025, 9, 9), java.time.LocalDate.of(2026, 9, 9), emptyList())))
                 else dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3, matched = 4, unchanged = 1)
             } else null,
         )
         setContent {
             var state by remember { mutableStateOf(initial) }
-            CompositionLocalProvider(LocalContext provides localized, LocalConfiguration provides config,
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalResources provides localized.resources, LocalContext provides localized, LocalConfiguration provides config,
                 LocalDensity provides Density(LocalDensity.current.density, font)) {
                 WhfinTheme(darkTheme = dark) {
                     androidx.compose.material3.Surface {
@@ -48,7 +51,8 @@ class TbcLoginQaActivity : ComponentActivity() {
                         TbcLoginScreen(state, canStoreSession = true,
                             onLogin = { _, _ -> state = state.copy(stage = TbcLoginStage.Code) },
                             onCode = { state = state.copy(stage = TbcLoginStage.Connected) },
-                            onRemember = { state = state.copy(remember = it) })
+                            onRemember = { state = state.copy(remember = it) },
+                            onConfirmBalance = { _, _ -> state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) })
                     }
                     }
                 }

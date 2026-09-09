@@ -17,6 +17,7 @@ class TbcLoginVisualTest {
     @Test fun codeRussian() = render("code-ru", "ru", stage = "Code")
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
     @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
+    @Test fun manualBalanceEnglish() = render("manual-balance-en", stage = "Connected", initial = true)
     @Test fun errorRussian() = render("error-ru", "ru", error = "LOGIN")
     @Test fun keyboardAndSyntheticLoginJourney() = render("ime-journey", journey = true)
     private fun render(name: String, language: String = "en", dark: Boolean = false, font: Float = 1f,
@@ -30,7 +31,7 @@ class TbcLoginVisualTest {
             putExtra("stage", stage); putExtra("error", error); putExtra("initial", initial)
         }
         val previousIme = device.executeShellCommand("settings get secure show_ime_with_hard_keyboard").trim()
-        if (journey) device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
+        if (journey || initial) device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
         try {
         ActivityScenario.launch<TbcLoginQaActivity>(intent).use {
             assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Подключение TBC" else "TBC connection")), 10000))
@@ -59,9 +60,25 @@ class TbcLoginVisualTest {
             }
             android.os.SystemClock.sleep(400)
             assertTrue(device.takeScreenshot(File(out, "$name.png")))
+            if (initial && language == "en") {
+                val field = device.findObject(By.clazz("android.widget.EditText"))
+                assertNotNull(field)
+                field.click(); field.text = "201.00"
+                val ime = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
+                assertTrue(device.wait(Until.hasObject(By.pkg(ime)), 10000))
+                device.waitForIdle(1000)
+                assertTrue(device.takeScreenshot(File(out, "$name-keyboard.png")))
+                device.pressBack()
+                if (!device.hasObject(By.text("Confirm balance and load transactions"))) {
+                    androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
+                        .scrollTextIntoView("Confirm balance and load transactions")
+                }
+                device.findObject(By.text("Confirm balance and load transactions")).click()
+                assertTrue(device.wait(Until.gone(By.clazz("android.widget.EditText")), 5000))
+            }
         }
         } finally {
-            if (journey) {
+            if (journey || initial) {
                 if (previousIme == "null") device.executeShellCommand("settings delete secure show_ime_with_hard_keyboard")
                 else device.executeShellCommand("settings put secure show_ime_with_hard_keyboard $previousIme")
             }

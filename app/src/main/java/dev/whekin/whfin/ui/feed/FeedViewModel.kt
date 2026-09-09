@@ -105,7 +105,7 @@ private data class CashInputs(
     val merchants: List<MerchantEntity>,
     val allocations: List<TransactionAllocationEntity>,
 )
-private const val CREDO_SYNC_REMINDER_DAYS = 30
+private const val CREDO_SYNC_REMINDER_DAYS = 7
 
 data class FeedItem(
     val tx: TransactionEntity,
@@ -557,6 +557,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val preferences = UiPreferences(getApplication<Application>())
+
+    internal val bankSyncTimes = combine(preferences.lastCredoSyncAt, preferences.lastTbcSyncAt,
+        db.statementImportDao().observeLatestCredoImportAt()) { credo, tbc, legacy ->
+        listOf("Credo" to listOfNotNull(credo, legacy).maxOrNull(), "TBC" to tbc)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     internal val credoSyncReminder: StateFlow<CredoSyncReminder?> = combine(
         preferences.lastCredoSyncAt,

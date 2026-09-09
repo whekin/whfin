@@ -138,6 +138,7 @@ fun AccountsScreen(
     onOpenOverview: () -> Unit = {},
     onOpenSavings: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onConnectBank: (String) -> Unit = {},
     onOpenAccountTransactions: (Long) -> Unit = {},
     viewModel: AccountsViewModel = viewModel(),
     statementsViewModel: BankStatementsViewModel = viewModel(),
@@ -437,6 +438,7 @@ fun AccountsScreen(
 
     if (showAdd) {
         AddAccountSheet(
+            onConnectBank = { bank -> showAdd = false; onConnectBank(bank) },
             onDismiss = { showAdd = false },
             onImportStatement = {
                 showAdd = false

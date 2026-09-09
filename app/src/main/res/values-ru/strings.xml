@@ -72,7 +72,7 @@
     <string name="tab_accounts">Счета</string>
     <string name="tab_transactions">Операции</string>
     <string name="tab_analytics">Аналитика</string>
-    <string name="feed_empty">Пока нет транзакций.\nИмпортируй выписку банка, чтобы начать.</string>
+    <string name="feed_empty">Пока нет транзакций.\nПодключи банк или добавь первую операцию.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
     <string name="home_setup_invitation_title">Подключи банк</string>
     <string name="home_setup_invitation_body">Банковского счёта пока нет. Настройка подключит Credo, прочитает историю и разметит то, что сможет сама.</string>
@@ -131,7 +131,7 @@
     <string name="home_insights_title">Прогноз</string>
     <string name="home_insight_pace">Этим темпом</string>
     <string name="home_insight_typical_month">Среднее по записям %1$s</string>
-    <string name="home_credo_sync_title">Сверить Credo</string>
+    <string name="home_credo_sync_title">Синхронизировать Credo</string>
     <string name="home_credo_sync_never">Ещё не сверялось</string>
     <plurals name="home_credo_sync_days">
         <item quantity="one">%d день назад</item>
@@ -332,7 +332,7 @@
     <string name="settings_automation">АВТОМАТИЗАЦИЯ</string>
     <string name="credo_sync_title">Синхронизация Credo</string>
     <string name="credo_sync_done">Готово</string>
-    <string name="credo_sync_settings_summary">Выписки приходят сами</string>
+    <string name="credo_sync_settings_summary">Счета и операции из банка</string>
     <string name="credo_sync_experimental_title">Прямое защищённое подключение</string>
     <string name="credo_sync_experimental_body">WHFIN подключается к Credo напрямую с этого телефона — сервера-посредника нет. Коннектор читает список счетов и выписки, но не умеет совершать платежи; сам банковский логин не ограничен режимом «только чтение». Неофициальное подключение может сломаться после изменений Credo.</string>
     <string name="credo_sync_error_title">Не удалось продолжить</string>
@@ -360,14 +360,14 @@
     <string name="credo_sync_confirm">Подтвердить</string>
     <string name="credo_sync_confirming">Подтверждаем…</string>
     <string name="credo_sync_resend_otp">Отправить новый код</string>
-    <string name="credo_sync_accounts_section">ДОСТУПНЫЕ ВЫПИСКИ</string>
+    <string name="credo_sync_accounts_section">БАНКОВСКИЕ СЧЕТА</string>
     <string name="credo_sync_accounts_found">Найдено счетов: %1$d</string>
-    <string name="credo_sync_statement_period">Последние 12 месяцев · через существующую сверку выписок</string>
+    <string name="credo_sync_statement_period">Свежая история · повторы сверяются автоматически</string>
     <string name="credo_sync_progress_title">Счёт %1$d из %2$d</string>
     <string name="credo_sync_syncing">Синхронизируем…</string>
     <string name="credo_sync_now">Синхронизировать свежие операции</string>
-    <string name="credo_sync_retry_failed">Повторить неудачные выписки</string>
-    <string name="credo_sync_statement_network_error">Не удалось скачать выписку. Остальные счета в порядке.</string>
+    <string name="credo_sync_retry_failed">Повторить для неудачных счетов</string>
+    <string name="credo_sync_statement_network_error">Не удалось загрузить этот счёт. Остальные счета в порядке.</string>
     <string name="credo_sync_history_action">Загрузить более раннюю историю</string>
     <string name="credo_sync_first_import">Загрузить всю историю</string>
     <string name="credo_sync_history_complete_body">Каждый счёт пройден до начала того, что хранит Credo. Синхронизация забирает только новое.</string>
@@ -390,7 +390,7 @@
         <item quantity="many">%1$d счетов уже актуальны.</item>
         <item quantity="other">%1$d счёта уже актуальны.</item>
     </plurals>
-    <string name="credo_sync_result_success">Добавлено %1$d · уже было %2$d · сверено черновиков %3$d</string>
+    <string name="credo_sync_result_success">Добавлено %1$d · уже было %2$d · сопоставлено %3$d</string>
     <string name="credo_sync_original_save">Сохранить исходный XLSX</string>
     <string name="credo_sync_original_available">Исходный XLSX можно сохранить для диагностики.</string>
     <string name="credo_sync_original_saved_title">Исходная выписка сохранена</string>
@@ -405,13 +405,13 @@
     <string name="credo_sync_error_expired">Сессия входа истекла. Подключитесь снова, чтобы начать новую.</string>
     <string name="credo_sync_error_network">Не удалось связаться с MyCredo. Ничего не импортировано; проверьте интернет и повторите.</string>
     <string name="credo_sync_error_protection">Защита сайта MyCredo заблокировала прямое подключение. Не повторяйте попытки подряд; используйте импорт XLSX, пока WHFIN обновляет коннектор.</string>
-    <string name="credo_sync_error_no_accounts">MyCredo не вернул доступных выписок для этого профиля.</string>
+    <string name="credo_sync_error_no_accounts">MyCredo не вернул счетов для этого профиля.</string>
     <string name="credo_sync_error_empty">Credo не отдал ничего за этот период — по счёту не было движений.</string>
     <string name="credo_sync_error_window">Запрошено %1$s — %2$s</string>
     <string name="credo_sync_error_download">Credo прислал выписку, которую не удалось раскодировать: сломалась сама загрузка, а не чтение файла.</string>
     <string name="credo_sync_error_statement">Credo вернул нечитаемую выписку. Остальные счета всё равно можно импортировать.</string>
     <string name="credo_sync_error_ambiguous">Два счёта этой валюты ждут IBAN, поэтому выписку нельзя отнести к одному из них. Сначала задайте им IBAN в разделе «Выписки банка».</string>
-    <string name="credo_sync_error_generic">MyCredo вернул неожиданный ответ (код: %1$s). WHFIN не повторял опасные запросы автоматически.</string>
+    <string name="credo_sync_error_generic">Не удалось прочитать ответ банка (код: %1$s).</string>
     <string name="settings_sms_title">Мониторинг SMS Credo / TBC</string>
     <string name="settings_sms_body">Сообщения Credo / TBC сами становятся операциями.</string>
     <string name="settings_sms_permission_body">Android ещё не разрешил доступ к SMS.</string>
@@ -1550,9 +1550,24 @@
     <string name="tbc_sync_action">Синхронизировать операции</string>
     <string name="tbc_sync_progress">Получаем операции · счёт %1$d из %2$d</string>
     <string name="tbc_sync_result">Новых: %1$d · сопоставлено: %2$d · счетов без изменений: %3$d</string>
-    <string name="tbc_initial_statement">Один раз загрузите XLSX-выписку для начального остатка этих счетов. После этого новые операции будут поступать через подключение TBC.</string>
+    <string name="tbc_initial_statement">Подтвердите проведённый остаток каждого счёта, чтобы начать без файла. Позже его можно сверить выпиской.</string>
     <string name="tbc_history_conflict">Не удалось однозначно сопоставить историю и выписку. Данные этого счёта не изменены.</string>
     <string name="tbc_history_format">Не удалось прочитать полную историю счёта. Операции этого счёта не загружены.</string>
     <string name="tbc_history_changed">История изменилась во время загрузки. Повторите синхронизацию.</string>
     <string name="statements_origin_tbc">Синхронизация TBC</string>
+    <string name="bank_sync_title">Синхронизировать банки</string>
+    <string name="bank_sync_hint">Выберите банк для загрузки операций. Обновлять можно в любое время; удобно делать это раз в неделю. Банк может запросить код подтверждения.</string>
+    <string name="bank_sync_first">Подключить или загрузить операции</string>
+    <string name="bank_sync_today">Обновлено сегодня · обновить ещё раз</string>
+    <string name="bank_sync_age">Обновлено %1$d дн. назад</string>
+    <string name="bank_sync_week_due">Прошло %1$d дн. · пора обновить</string>
+    <string name="bank_connect_action">Подключить банк</string>
+    <string name="bank_connect_offer">Подключите %1$s, чтобы загрузить счета и операции. Банк может попросить подтвердить вход.</string>
+    <string name="bank_create_manually">Без подключения — создать вручную</string>
+    <string name="tbc_booked_balance">Проведённый остаток · %1$s</string>
+    <string name="tbc_confirm_balance">Подтвердить остаток и загрузить операции</string>
+    <string name="statements_origin_user_opening">Остаток введён вами</string>
+    <string name="tbc_balance_help">Какой остаток указывать?</string>
+    <string name="tbc_balance_help_body">Укажите проведённый остаток, без вычета покупок в обработке. Доступный остаток может быть меньше. Сумма должна соответствовать только что загруженной истории; если появились операции, сначала обновите её. Ваш остаток сохранится как оценка, а не как проверенный банком баланс.</string>
+    <string name="credo_sync_error_history">История банка изменилась во время загрузки или не прошла проверку. Этот счёт не изменён. Обновите ещё раз; если ошибка повторится, используйте выписку.</string>
 </resources>

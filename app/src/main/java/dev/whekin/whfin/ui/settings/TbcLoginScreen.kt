@@ -25,7 +25,7 @@ import dev.whekin.whfin.data.tbc.TbcAccount
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
-fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}) {
+fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}, routineSyncRequestKey: Int = 0, onRoutineSyncConsumed: () -> Unit = {}) {
     if (demoMode) {
         Text(stringResource(R.string.demo_mode_live_import_unavailable), Modifier.padding(20.dp))
         return
@@ -38,11 +38,17 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
     val vm: TbcLoginViewModel = viewModel()
     val state by vm.state.collectAsState()
     val sensitive = LocalSensitiveActions.current
-    LaunchedEffect(canStoreSession) { vm.storageAllowed(canStoreSession) }
+    LaunchedEffect(canStoreSession, routineSyncRequestKey) {
+        vm.storageAllowed(canStoreSession)
+        if (routineSyncRequestKey > 0) {
+            onRoutineSyncConsumed()
+            if (state.hasSaved && canStoreSession) sensitive.require(SensitiveAction.BankCredential) { vm.restore() }
+        }
+    }
     DisposableEffect(vm) { onDispose { vm.leave() } }
     TbcLoginScreen(state, canStoreSession, vm::login, vm::confirm, vm::setRemember,
         onRestore = { sensitive.require(SensitiveAction.BankCredential) { vm.restore() } },
-        onRefresh = vm::syncTransactions, onForget = vm::forget, onCancel = vm::leave, onOpenStatements = onOpenStatements)
+        onRefresh = vm::syncTransactions, onForget = vm::forget, onCancel = vm::leave, onOpenStatements = onOpenStatements, onConfirmBalance = vm::confirmBalance)
 }
 
 @Composable
@@ -57,6 +63,7 @@ internal fun TbcLoginScreen(
     onForget: () -> Unit = {},
     onCancel: () -> Unit = {},
     onOpenStatements: () -> Unit = {},
+    onConfirmBalance: (String, Long) -> Unit = { _, _ -> },
 ) {
     // Deliberately not rememberSaveable: neither secret belongs in instance state.
     var username by remember { mutableStateOf("") }
@@ -65,7 +72,7 @@ internal fun TbcLoginScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.tbc_login_intro), style = MaterialTheme.typography.bodyMedium,
+        if (state.stage != TbcLoginStage.Connected) Text(stringResource(R.string.tbc_login_intro), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.error != null) {
             Text(stringResource(tbcErrorText(state.error)), color = MaterialTheme.colorScheme.error)
@@ -112,8 +119,24 @@ internal fun TbcLoginScreen(
                     Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
                     if (result.needsStatement.isNotEmpty()) {
                         Text(stringResource(R.string.tbc_initial_statement))
-                        result.needsStatement.forEach { Text(it.label) }
-                        WhfinButton(stringResource(R.string.statements_upload), onOpenStatements, Modifier.fillMaxWidth())
+                        var explainBalance by remember { mutableStateOf(false) }
+                        WhfinButton(stringResource(R.string.tbc_balance_help), { explainBalance = !explainBalance },
+                            style = WhfinActionStyle.Quiet)
+                        if (explainBalance) Text(stringResource(R.string.tbc_balance_help_body), style = MaterialTheme.typography.bodySmall)
+                        result.needsStatement.forEach { remote ->
+                            val initial = result.initialHistories.singleOrNull { it.remote.key == remote.key }
+                            if (initial != null) {
+                                var balance by remember(initial.remote.key, initial.readAt) { mutableStateOf("") }
+                                val parsed = dev.whekin.whfin.ui.parseToMinor(balance)
+                                WhfinField(balance, { balance = it },
+                                    stringResource(R.string.tbc_booked_balance, remote.label),
+                                    keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
+                                WhfinButton(stringResource(R.string.tbc_confirm_balance), {
+                                    parsed?.let { onConfirmBalance(remote.key, it) }; keyboard?.hide()
+                                }, Modifier.fillMaxWidth(), enabled = parsed != null)
+                            } else Text(remote.label)
+                        }
+                        WhfinButton(stringResource(R.string.statements_upload), onOpenStatements, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
                     }
                     result.errors.forEach { error ->
                         Text(error.substringBefore(":") + ": " + stringResource(tbcErrorText(error.substringAfterLast(":").trim())),

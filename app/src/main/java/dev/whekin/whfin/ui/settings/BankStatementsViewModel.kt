@@ -233,4 +233,4 @@ class BankStatementsViewModel internal constructor(
 }
 
 val StatementImportEntity.canRemoveFromHistory: Boolean
-    get() = inserted == 0 && reconciled == 0 && reviewCount == 0
+    get() = origin != dev.whekin.whfin.data.db.StatementImportOrigin.USER_OPENING && inserted == 0 && reconciled == 0 && reviewCount == 0

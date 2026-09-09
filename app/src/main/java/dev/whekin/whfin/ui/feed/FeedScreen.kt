@@ -253,6 +253,7 @@ fun FeedScreen(
     onReviewAll: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
     onOpenCredoSync: () -> Unit = {},
+    onOpenTbcSync: () -> Unit = {},
     onOpenAccounts: () -> Unit = {},
     /** Home carries the app's stable way into Settings; it is not a property of Accounts. */
     onOpenSettings: (() -> Unit)? = null,
@@ -282,6 +283,12 @@ fun FeedScreen(
     val integrityIssues by viewModel.integrityIssues.collectAsState()
     val integrityNoticeVisible by viewModel.integrityNoticeVisible.collectAsState()
     val integrityCodes by viewModel.integrityCodes.collectAsState()
+    var showBankSync by remember { mutableStateOf(false) }
+    val bankSyncTimes by viewModel.bankSyncTimes.collectAsState()
+    if (showBankSync) BankSyncSheet(bankSyncTimes, { showBankSync = false }) { bank ->
+        showBankSync = false
+        if (bank == "Credo") onOpenCredoSync() else onOpenTbcSync()
+    }
     val credoReminder by viewModel.credoSyncReminder.collectAsState()
     val physicalCardBalances by viewModel.physicalCardBalances.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -514,6 +521,11 @@ fun FeedScreen(
                         // Analytics and the full record are destinations now, so the two icons that
                         // used to be their only doors are gone from here. What the header keeps is
                         // the one thing that had no stable place at all.
+                        if (showCredoSyncReminder) WhfinIconButton(
+                            icon = Icons.Default.Sync,
+                            contentDescription = stringResource(R.string.bank_sync_title),
+                            onClick = { showBankSync = true }, outlined = false,
+                        )
                         onOpenSettings?.let { openSettings ->
                             WhfinIconButton(
                                 icon = Icons.Default.Settings,

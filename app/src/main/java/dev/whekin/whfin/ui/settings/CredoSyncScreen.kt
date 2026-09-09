@@ -306,7 +306,7 @@ fun CredoSyncRoute(
             val connect = {
                 otpInbox.beginChallenge()
                 otpChallengeKey += 1
-                viewModel.connect(username, credential, rememberPassword && canStoreCredentials)
+                viewModel.connect(username, credential, rememberPassword && canStoreCredentials, syncWhenConnected = true)
             }
             // A typed password is the user proving themselves already; only the stored one is gated.
             if (credential.isBlank() && state.hasSavedPassword) {
@@ -932,6 +932,7 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "NETWORK_ERROR" -> stringResource(R.string.credo_sync_error_network)
     "HTTP_403", "HTTP_429" -> stringResource(R.string.credo_sync_error_protection)
     "NO_ACCOUNTS" -> stringResource(R.string.credo_sync_error_no_accounts)
+    "HISTORY_FORMAT", "HISTORY_CHANGED" -> stringResource(R.string.credo_sync_error_history)
     "EMPTY_STATEMENT" -> stringResource(R.string.credo_sync_error_empty)
     "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_download)
     "STATEMENT_UNREADABLE", "STATEMENT_REJECTED" -> stringResource(R.string.credo_sync_error_statement)

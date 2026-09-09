@@ -218,4 +218,30 @@ class AddAccountSheetTest {
         /** Synthetic base58check address: the encoding of an all-zero Tron payload. */
         const val TRON_ADDRESS = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"
     }
+    @Test fun supportedBankOffersConnectionBeforeAnyManualFields() {
+        var connected: String? = null
+        var saved = false
+        compose.setContent { WhfinTheme {
+            AddAccountSheet(onDismiss = {}, onImportStatement = {}, initialType = AccountType.BANK,
+                onConnectBank = { connected = it }, onConfirm = { _, _, _, _, _ -> saved = true })
+        } }
+        compose.onNodeWithText("Credo").performClick()
+        compose.onNodeWithText(context.getString(R.string.account_opening_amount)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.bank_connect_action)).performClick()
+        assertEquals("Credo", connected)
+        assertEquals(false, saved)
+    }
+    @Test fun manualBankFieldsRequireExplicitRefusalAndResetForAnotherBank() {
+        compose.setContent { WhfinTheme {
+            AddAccountSheet(onDismiss = {}, onImportStatement = {}, initialType = AccountType.BANK,
+                onConnectBank = {}, onConfirm = { _, _, _, _, _ -> })
+        } }
+        compose.onNodeWithText("Credo").performClick()
+        compose.onNodeWithText(context.getString(R.string.bank_create_manually)).performClick()
+        compose.onNodeWithText(context.getString(R.string.account_opening_amount)).assertExists()
+        compose.onNodeWithText("TBC").performClick()
+        compose.onNodeWithText(context.getString(R.string.account_opening_amount)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.bank_connect_action)).assertIsEnabled()
+    }
+
 }

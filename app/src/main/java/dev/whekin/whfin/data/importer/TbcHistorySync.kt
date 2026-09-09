@@ -10,12 +10,15 @@ import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 
 data class TbcSyncResult(val inserted: Int = 0, val matched: Int = 0, val unchanged: Int = 0,
-    val needsStatement: List<TbcLedgerAccount> = emptyList(), val errors: List<String> = emptyList())
+    val needsStatement: List<TbcLedgerAccount> = emptyList(), val initialHistories: List<TbcInitialHistory> = emptyList(), val errors: List<String> = emptyList())
+data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
+    val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis())
 class TbcHistorySync(private val db: WhfinDatabase) {
     suspend fun sync(gateway: TbcGateway, today: LocalDate = LocalDate.now(LedgerCalendar.zone),
         progress: (Int, Int) -> Unit = { _, _ -> }): TbcSyncResult {
         val accounts = gateway.ledgerAccounts()
         var inserted = 0; var matched = 0; var unchanged = 0
+        val initial = mutableListOf<TbcInitialHistory>()
         val missing = mutableListOf<TbcLedgerAccount>()
         val errors = mutableListOf<String>()
         data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>)
@@ -30,7 +33,7 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             try {
                 val rows = gateway.history(remote, from, today)
                 if (account == null || opening?.periodFrom == null) {
-                    if (rows.isEmpty() && remote.balanceMinor == 0L) missing.remove(remote)
+                    initial += TbcInitialHistory(remote, from, today, rows)
                 } else ready += Ready(remote, account, from, rows)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
@@ -71,6 +74,29 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 errors += item.remote.label + ": " + (if (e is InvalidStatementException) "HISTORY_CONFLICT" else "HISTORY_FORMAT")
             }
         }
-        return TbcSyncResult(inserted, matched, unchanged, missing, errors)
+        return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors)
     }
+    /** Uses the exact displayed read, never a fresh download after the owner enters its balance. */
+    suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): ImportPlan {
+        if (System.currentTimeMillis() - initial.readAt > 15 * 60_000L) throw TbcException("HISTORY_CHANGED")
+        val remote = initial.remote
+        val net = initial.rows.fold(0L) { sum, row -> Math.addExact(sum, row.row.amountMinor) }
+        val opening = Math.subtractExact(bookedBalanceMinor, net)
+        val statement = BankStatement(BankProfile("TBC", "TBC"), remote.iban, remote.currency,
+            initial.from, initial.to, null, null, initial.rows.map { it.row }.sortedBy { it.postedDate })
+        StatementValidator.validate(statement)
+        return db.withTransaction {
+            val resolved = BankLedgerResolver(db).resolve(statement)
+            if (db.statementImportDao().earliestWithOpeningBalance(resolved.account.id) != null) throw TbcException("HISTORY_CHANGED")
+            val plan = ImportPlanner(db, LedgerCalendar.zone).plan(statement, resolved.account, resolved.created, resolved.adopted, collectReview = false)
+            val seed = statement.copy(rows = emptyList(), openingBalanceMinor = opening, closingBalanceMinor = opening)
+            StatementValidator.validate(seed)
+            ImportApplier(db, LedgerCalendar.zone).apply(ImportPlan(seed, resolved.account.id, resolved.created, resolved.adopted, emptyList(), emptyList()),
+                resolved.account, null, StatementImportOrigin.USER_OPENING)
+            ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_SYNC)
+            SmsTransactionImporter(db).attachUnroutedToStatements()
+            plan
+        }
+    }
+
 }

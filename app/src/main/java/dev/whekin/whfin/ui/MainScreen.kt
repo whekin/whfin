@@ -369,6 +369,7 @@ fun MainScreen(
     }
     var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var credoReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var tbcRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var credoRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var analyticsTransactions by rememberSaveable(stateSaver = AnalyticsTransactionsRequestSaver) {
         mutableStateOf<AnalyticsTransactionsRequest?>(null)
@@ -511,6 +512,7 @@ fun MainScreen(
                                         },
                                         onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
                                         onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
+                                        onOpenTbcSync = { tbcRoutineSyncRequestKey++; open(SecondaryDestination.TbcLogin) },
                                         onOpenAccounts = { root = RootDestination.Accounts },
                                         onOpenSettings = { open(SecondaryDestination.Settings) },
                                         hasLowBalanceNotificationPermission = demoMode || hasLowBalanceNotificationPermission,
@@ -531,6 +533,10 @@ fun MainScreen(
                                         viewModel = feedViewModel,
                                     )
                                     ShellScene.Accounts -> AccountsScreen(
+                                        onConnectBank = { bank ->
+                                            if (bank == "Credo") openCredo(caller = null, syncLatest = true)
+                                            else open(SecondaryDestination.TbcLogin)
+                                        },
                                         addRequestKey = accountAddRequestKey,
                                         onAddRequestConsumed = { accountAddRequestKey = 0 },
                                         onOpenStatements = { open(SecondaryDestination.Statements) },
@@ -619,7 +625,7 @@ fun MainScreen(
                     ShellScene.TbcLogin -> SecondaryPage(
                         title = stringResource(R.string.tbc_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { dev.whekin.whfin.ui.settings.TbcLoginRoute(appLockHasPin, demoMode, onOpenStatements = { open(SecondaryDestination.Statements) }) }
+                    ) { dev.whekin.whfin.ui.settings.TbcLoginRoute(appLockHasPin, demoMode, routineSyncRequestKey = tbcRoutineSyncRequestKey, onRoutineSyncConsumed = { tbcRoutineSyncRequestKey = 0 }, onOpenStatements = { open(SecondaryDestination.Statements) }) }
                     ShellScene.Statements -> SecondaryPage(
                         title = stringResource(R.string.statements_title),
                         onBack = { goBack(withHaptic = true) },

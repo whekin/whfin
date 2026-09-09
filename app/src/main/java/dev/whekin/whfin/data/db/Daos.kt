@@ -1091,7 +1091,7 @@ interface StatementImportDao {
     fun observeAll(): Flow<List<StatementImportEntity>>
 
     /** Upgrade-safe freshness baseline for runs completed before the dedicated preference existed. */
-    @Query("SELECT MAX(importedAt) FROM statement_imports WHERE origin = 'CREDO_SYNC'")
+    @Query("SELECT MAX(importedAt) FROM statement_imports WHERE origin IN ('CREDO_SYNC', 'CREDO_API')")
     fun observeLatestCredoImportAt(): Flow<Long?>
 
     @Query("SELECT * FROM statement_imports WHERE accountId = :accountId ORDER BY importedAt DESC")
@@ -1116,7 +1116,7 @@ interface StatementImportDao {
 
     /** Only no-op imports are safe to forget: no ledger rows or reconciliations depend on them. */
     @Query(
-        "DELETE FROM statement_imports WHERE id = :id AND inserted = 0 AND reconciled = 0 AND reviewCount = 0",
+        "DELETE FROM statement_imports WHERE id = :id AND inserted = 0 AND reconciled = 0 AND reviewCount = 0 AND origin != 'USER_OPENING'",
     )
     suspend fun deleteIfNoEffect(id: Long): Int
 }

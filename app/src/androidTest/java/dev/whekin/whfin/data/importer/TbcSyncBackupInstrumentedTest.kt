@@ -35,9 +35,11 @@ class TbcSyncBackupInstrumentedTest {
             override suspend fun history(account: TbcLedgerAccount, from: LocalDate, through: LocalDate) = api
         }
         try {
-            StatementImporter(db).import(bytes.inputStream())
             val sync = TbcHistorySync(db)
-            assertEquals(4, sync.sync(gateway, LocalDate.of(2026, 9, 9)).matched)
+            val initial = sync.sync(gateway, LocalDate.of(2026, 9, 9)).initialHistories.single()
+            sync.initialize(initial, 30100)
+            StatementImporter(db).import(bytes.inputStream())
+            assertEquals(1, sync.sync(gateway, LocalDate.of(2026, 9, 9)).unchanged)
             val keys = db.transactionDao().allForIntegrity().map { it.externalKey }.toSet()
             val output = ByteArrayOutputStream()
             val manager = WhfinBackupManager(db)
@@ -48,6 +50,8 @@ class TbcSyncBackupInstrumentedTest {
             assertTrue(StatementImporter(db).preview(bytes.inputStream()).changesNothing)
             val account = db.accountDao().byIbanAndCurrency(remote.iban, "GEL")!!
             assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.TBC_SYNC })
+            assertTrue(db.statementImportDao().forAccount(account.id).any { it.origin == StatementImportOrigin.USER_OPENING })
+            assertEquals(20100L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
         } finally { db.close() }
     }
 }

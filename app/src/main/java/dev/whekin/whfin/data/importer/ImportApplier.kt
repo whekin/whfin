@@ -47,7 +47,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
             }
         }
 
-        OpeningAnchor(db, zone).update(account, statement)
+        OpeningAnchor(db, zone).update(account, statement, origin)
         TransferPairing(db, zone).pairWithinPeriod(account, statement.periodFrom, statement.periodTo)
         CrossBankTransfers(db).pair()
 
