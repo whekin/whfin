@@ -28,6 +28,10 @@ internal object StatementReconciler {
                     candidate.amountMinor == row.amountMinor
             }.singleOrNull()
         }
+        if (row.bankTransactionId != null && row.operation == dev.whekin.whfin.data.statement.StatementOperation.TRANSFER_IN) {
+            return candidates.filter { it.source == dev.whekin.whfin.data.db.TxSource.SMS &&
+                !it.isTransfer && it.amountMinor == row.amountMinor }.singleOrNull()
+        }
         val wanted = row.merchantRaw ?: return null
         if (MerchantNormalizer.normalize(wanted).isEmpty()) return null
         val sameMerchant = candidates.filter { candidate ->

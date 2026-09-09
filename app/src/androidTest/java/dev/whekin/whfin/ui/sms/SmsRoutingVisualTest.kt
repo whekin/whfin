@@ -24,6 +24,36 @@ class SmsRoutingVisualTest {
     @Test fun interestQuestionEnglish() = render("sms-routing-interest-en")
     @Test fun interestQuestionRussianLarge() = render("sms-routing-interest-ru-large", large = true)
 
+    @Test fun tbcOnlyOffersTbcAccountsEnglish() = renderTbc(false)
+    @Test fun tbcOnlyOffersTbcAccountsRussianDarkLarge() = renderTbc(true)
+
+    private fun renderTbc(large: Boolean) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        check(Build.HARDWARE in setOf("ranchu", "goldfish"))
+        val previousLocale = Locale.getDefault()
+        SmsRoutingQaActivity.language = if (large) "ru" else "en"
+        SmsRoutingQaActivity.fontScale = if (large) 1.5f else 1f
+        SmsRoutingQaActivity.tbc = true
+        SmsRoutingQaActivity.dark = large
+        try {
+            ActivityScenario.launch<SmsRoutingQaActivity>(Intent(context, SmsRoutingQaActivity::class.java)).use {
+                assertNotNull(device.wait(Until.findObject(By.textContains("Everyday")), 10000))
+                assertFalse(device.hasObject(By.textContains("Credo")))
+                assertTrue(device.hasObject(By.textContains("TBC")))
+                device.waitForIdle(1500)
+                android.os.SystemClock.sleep(400)
+                val out = File(context.getExternalFilesDir(null), "sms-routing-qa").apply { mkdirs() }
+                assertTrue(device.takeScreenshot(File(out, if (large) "tbc-ru-dark-large.png" else "tbc-en.png")))
+            }
+        } finally {
+            SmsRoutingQaActivity.tbc = false; SmsRoutingQaActivity.dark = false
+            SmsRoutingQaActivity.fontScale = 1f
+            Locale.setDefault(previousLocale)
+        }
+    }
+
     private fun render(name: String, large: Boolean = false) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext

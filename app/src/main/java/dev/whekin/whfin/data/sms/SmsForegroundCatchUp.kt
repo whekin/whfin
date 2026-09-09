@@ -40,11 +40,10 @@ class SmsForegroundCatchUp(
             val current = now()
             val lastCompleted = preferences.getLong(LAST_COMPLETED_AT, 0)
             val since = smsCatchUpSince(current, lastCompleted) ?: return
-            val importer = SmsTransactionImporter(database)
             SmsHistoryReader(context.contentResolver)
-                .credoCandidates(since, limit = MAX_MESSAGES)
+                .bankCandidates(since, limit = MAX_MESSAGES)
                 .sortedBy(HistoricalSms::receivedAt)
-                .forEach { importer.import(it.body, it.receivedAt) }
+                .forEach { SmsTransactionImporter(database, it.bank).import(it.body, it.receivedAt) }
             preferences.edit().putLong(LAST_COMPLETED_AT, current).apply()
         } finally {
             running.set(false)

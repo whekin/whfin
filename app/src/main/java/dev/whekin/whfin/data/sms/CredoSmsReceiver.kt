@@ -22,10 +22,13 @@ class CredoSmsReceiver : BroadcastReceiver() {
         app.appScope.launch {
             try {
                 if (!UiPreferences(app).smsImportEnabled.first()) return@launch
-                if (!CredoSmsParser.isCredoCandidate(body)) return@launch
+                val bank = messages.map { BankSmsBank.fromSender(it.originatingAddress) }.distinct().singleOrNull()
+                    ?: return@launch
+                val classification = bank.classify(body)
+                if (classification is BankSmsMessage.Classification.Ignored) return@launch
                 val receivedAt = messages.minOfOrNull { it.timestampMillis }
                     ?: System.currentTimeMillis()
-                SmsTransactionImporter(app.userDb).import(body, receivedAt)
+                SmsTransactionImporter(app.userDb, bank).import(body, receivedAt)
             } finally {
                 pending.finish()
             }

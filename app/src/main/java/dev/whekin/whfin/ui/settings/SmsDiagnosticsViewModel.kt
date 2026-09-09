@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 data class SmsAccountOption(
     val account: AccountEntity,
     val groupName: String?,
+    val bankProvider: String? = null,
 ) {
     val label: String
         get() = listOfNotNull(groupName, account.name.takeUnless { it == groupName })
@@ -130,7 +131,7 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         val groupNames = groups.associate { it.id to it.name }
         val options = accounts
             .filter { it.type == AccountType.BANK || it.type == AccountType.SAVINGS }
-            .map { SmsAccountOption(it, it.groupId?.let(groupNames::get)) }
+            .map { SmsAccountOption(it, it.groupId?.let(groupNames::get), groups.firstOrNull { group -> group.id == it.groupId }?.provider) }
         val instrumentsById = instruments.associateBy { it.id }
         val families = options.filter { it.account.groupId != null }.groupBy { option ->
             val account = option.account
@@ -177,8 +178,8 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             _scanState.value = SmsScanState.Scanning
             runCatching {
                 val since = Instant.now().minus(Duration.ofDays(90)).toEpochMilli()
-                val messages = historyReader.credoCandidates(since)
-                val results = messages.map { importer.preview(it.body, it.receivedAt) }
+                val messages = historyReader.bankCandidates(since)
+                val results = messages.map { SmsTransactionImporter(db, it.bank).preview(it.body, it.receivedAt) }
                 pendingHistory = messages
                 SmsScanSummary(
                     total = messages.size,
@@ -217,7 +218,7 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             _scanState.value = SmsScanState.Importing
             runCatching {
                 val results = messages.sortedBy(HistoricalSms::receivedAt).map {
-                    importer.import(it.body, it.receivedAt)
+                    SmsTransactionImporter(db, it.bank).import(it.body, it.receivedAt)
                 }
                 // A card learned from the last message of a batch also places the first: the whole
                 // batch is re-read against the statements once it has landed.
@@ -297,7 +298,9 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         if (cleanName.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             db.withTransaction {
-                val accountId = db.insertBankLedger(CREDO_PROVIDER, cleanName, currency)
+                val diagnostic = db.smsDiagnosticDao().byId(diagnosticId) ?: return@withTransaction
+                val provider = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey).provider
+                val accountId = db.insertBankLedger(provider, cleanName, currency)
                 if (accountId > 0) importer.resolveDiagnostic(diagnosticId, accountId, cardType)
             }
         }

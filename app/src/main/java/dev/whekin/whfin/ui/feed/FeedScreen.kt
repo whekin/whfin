@@ -3062,6 +3062,7 @@ internal fun UnroutedOperationRow(
             SmsDiagnosticKind.IGNORED, SmsDiagnosticKind.UNRECOGNIZED -> R.string.feed_unrouted_operation
         },
     )
+    val bankName = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey).provider
     val cardHint = diagnostic.cardLast4?.let {
         stringResource(R.string.sms_card_suffix, it)
     }
@@ -3115,7 +3116,7 @@ internal fun UnroutedOperationRow(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = .82f),
                     )
                     Text(
-                        listOfNotNull(stringResource(R.string.feed_bank_sms_source), cardHint)
+                        listOfNotNull(bankName, stringResource(R.string.feed_bank_sms_source), cardHint)
                             .joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary,

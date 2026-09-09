@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class SmsCancellationMatcherTest {
-    private val payment = CredoSmsParser.CardPayment(
+    private val payment = BankSmsMessage.CardPayment(
         amountMinor = 1_234,
         currency = "GEL",
         cardLast4 = "0001",

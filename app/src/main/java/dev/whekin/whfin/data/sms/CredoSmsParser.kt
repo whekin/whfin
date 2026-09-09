@@ -1,5 +1,17 @@
 package dev.whekin.whfin.data.sms
 
+import dev.whekin.whfin.data.sms.BankSmsMessage.IgnoreReason
+import dev.whekin.whfin.data.sms.BankSmsMessage.Classification
+import dev.whekin.whfin.data.sms.BankSmsMessage.Sms
+import dev.whekin.whfin.data.sms.BankSmsMessage.CardPayment
+import dev.whekin.whfin.data.sms.BankSmsMessage.OutgoingTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.IncomingTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.DepositTopUp
+import dev.whekin.whfin.data.sms.BankSmsMessage.OwnTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.BillPayment
+import dev.whekin.whfin.data.sms.BankSmsMessage.CashDeposit
+import dev.whekin.whfin.data.sms.BankSmsMessage.InterestAccrual
+import dev.whekin.whfin.data.sms.BankSmsMessage.CurrencyExchange
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -16,151 +28,12 @@ import java.util.Locale
  */
 object CredoSmsParser {
     /** Increment when accepted Credo message structures materially change. */
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
 
-    enum class IgnoreReason { OTP, REJECTED, UNRELATED }
+    private val paymentDate = DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm:ss", Locale.US).withResolverStyle(java.time.format.ResolverStyle.STRICT)
+    private val transferDate = DateTimeFormatter.ofPattern("M/d/uuuu h:mm:ss a", Locale.US).withResolverStyle(java.time.format.ResolverStyle.STRICT)
 
-    sealed interface Classification {
-        data class Parsed(val sms: Sms) : Classification
-
-        /**
-         * The bank reversed a card payment that a previous message already reported.
-         * It is not an operation of its own: it retracts the draft the payment created.
-         */
-        data class Canceled(val payment: CardPayment) : Classification
-        data class Ignored(val reason: IgnoreReason, val credoCandidate: Boolean) : Classification
-        data object Unrecognized : Classification
-    }
-
-    sealed interface Sms {
-        val amountMinor: Long
-        val currency: String
-        val balanceMinor: Long?
-        val balanceCurrency: String?
-
-        /**
-         * Null when the message carries no usable date of its own.
-         *
-         * Credo ships a broken template for utility payments — the date field arrives as an
-         * unresolved placeholder — and states only an ambiguous day for interest. Inventing a date
-         * would silently move money between months, so the caller substitutes the delivery time.
-         */
-        val timestamp: LocalDateTime?
-    }
-
-    data class CardPayment(
-        override val amountMinor: Long,
-        override val currency: String,
-        val cardLast4: String,
-        /** Сырая строка мерчанта до '>' (нормализация — отдельный шаг). */
-        val merchantRaw: String,
-        /** Хвост после '>': город/локация + код страны. */
-        val locationRaw: String?,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    data class OutgoingTransfer(
-        override val amountMinor: Long,
-        override val currency: String,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    data class IncomingTransfer(
-        override val amountMinor: Long,
-        override val currency: String,
-        val senderName: String?,
-        /**
-         * Set when the money came back to a card rather than to an account.
-         *
-         * A refund names the card and no account at all, so without this the message has nothing to
-         * route by: it landed in the ledger only after the user picked an account by hand, or not at
-         * all. The card already knows which ledger it belongs to.
-         */
-        val cardLast4: String? = null,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    /** Пополнение депозита; Credo не присылает IBAN, но присылает новый доступный остаток. */
-    data class DepositTopUp(
-        override val amountMinor: Long,
-        override val currency: String,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    /** Перевод между своими счетами: есть From/To IBAN. */
-    data class OwnTransfer(
-        override val amountMinor: Long,
-        override val currency: String,
-        val fromIban: String,
-        val toIban: String,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    /** Utility or service bill paid from the account; no card is named. */
-    data class BillPayment(
-        override val amountMinor: Long,
-        override val currency: String,
-        /** Service provider as printed, before normalization. */
-        val serviceRaw: String?,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    /** Cash paid into the account at a machine or a desk. */
-    data class CashDeposit(
-        override val amountMinor: Long,
-        override val currency: String,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    /** Interest the bank paid on a deposit. */
-    data class InterestAccrual(
-        override val amountMinor: Long,
-        override val currency: String,
-        /**
-         * The deposit the bank names, as printed.
-         *
-         * The only identity this message carries, and the one that does not depend on the ledger
-         * being complete: the stated balance has to be reached by adding up everything recorded since
-         * the bank last declared one, so a deposit money is constantly moved out of is exactly where
-         * that arithmetic misses. The number is printed every time and means the same thing every
-         * time.
-         */
-        val depositNumber: String?,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    data class CurrencyExchange(
-        /** Продано (списано). */
-        override val amountMinor: Long,
-        override val currency: String,
-        /** Получено. */
-        val receivedAmountMinor: Long,
-        val receivedCurrency: String,
-        override val balanceMinor: Long?,
-        override val balanceCurrency: String?,
-        override val timestamp: LocalDateTime?,
-    ) : Sms
-
-    private val paymentDate = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss", Locale.US)
-    private val transferDate = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a", Locale.US)
-
-    private val amountRegex = Regex("""([\d,]+\.\d{1,2})\s*([A-Z]{3})""")
+    private val amountRegex = Regex("""(?<![\d.,])(-?[\d,]+(?:\.\d{1,2})?)\s*([A-Z]{3})(?![A-Z])""")
     private val cardRegex = Regex("""(?i)card N \*+\s*(\d{4})""")
     private val depositNumberRegex = Regex("""(?i)\bon your\s+([A-Za-z0-9./-]{4,32})\s+deposit\b""")
     private val paymentDateRegex = Regex("""(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})""")
@@ -169,19 +42,18 @@ object CredoSmsParser {
     private val ibanRegex = Regex("""(GE\d{2}[A-Z]{2}\d{16})""")
 
     fun classify(body: String): Classification {
-        val text = body
-            .substringBefore("want to split the bill?")
-            .trim()
-        if (text.isEmpty()) return Classification.Ignored(IgnoreReason.UNRELATED, credoCandidate = false)
+        val text = normalizeTemplate(body.substringBefore("want to split the bill?").trim())
+        if (text.isEmpty()) return Classification.Ignored(IgnoreReason.UNRELATED, bankCandidate = false)
 
         return when {
             text.startsWith("Rejected payment") ->
-                Classification.Ignored(IgnoreReason.REJECTED, credoCandidate = true)
+                Classification.Ignored(IgnoreReason.REJECTED, bankCandidate = true)
             text.startsWith("Canceled operation") ->
-                parseCardPayment(text.substringAfter("\n"))
+                parseCardPayment(text.substringAfter("Canceled operation").trim())
                     ?.let(Classification::Canceled)
-                    ?: Classification.Ignored(IgnoreReason.REJECTED, credoCandidate = true)
-            isOneTimeCode(text) -> Classification.Ignored(IgnoreReason.OTP, credoCandidate = true)
+                    ?: Classification.Unrecognized
+            isOneTimeCode(text) -> Classification.Ignored(IgnoreReason.OTP, bankCandidate = true)
+            text.startsWith("Deposit:") -> parsedOrUnrecognized { parseIncomingTransfer(text.replaceFirst("Deposit:", "Incoming transfer")) }
             text.startsWith("Payment:") -> parsedOrUnrecognized { parseCardPayment(text) }
             text.startsWith("Transfer between accounts") -> parsedOrUnrecognized { parseOwnTransfer(text) }
             text.startsWith("Currency exchange") -> parsedOrUnrecognized { parseCurrencyExchange(text) }
@@ -194,58 +66,76 @@ object CredoSmsParser {
             // A bank also sends offers and notices. Merely naming the bank never made a message an
             // operation, and treating those as parser failures buried the real ones in noise.
             looksFinancial(text) -> Classification.Unrecognized
-            else -> Classification.Ignored(IgnoreReason.UNRELATED, credoCandidate = false)
+            else -> Classification.Ignored(IgnoreReason.UNRELATED, bankCandidate = false)
         }
+    }
+
+    private fun normalizeTemplate(raw: String): String {
+        var text = raw.removePrefix("Credo Bank:").trim()
+        text = text.replace(Regex("^Gadaxda:?\\s+"), "Payment: ")
+            .replace(Regex("(?i)Baratis N"), "Card N")
+            .replace(Regex("(?i)\\bNashti:"), "Balance:")
+        return text
+    }
+
+    /** AM/PM is explicit month-first evidence; unlabelled 24-hour legacy dates are day-first. */
+    private fun anyTimestamp(text: String): LocalDateTime? {
+        looseTransferTimestamp(text)?.let { return it }
+        val value = Regex("""\d{2}/\d{2}/\d{4} \d{2}:\d{2}(?::\d{2})?""").find(text)?.value ?: return null
+        return runCatching { LocalDateTime.parse(value, DateTimeFormatter.ofPattern(
+            if (value.length == 16) "dd/MM/uuuu HH:mm" else "dd/MM/uuuu HH:mm:ss",
+        ).withResolverStyle(java.time.format.ResolverStyle.STRICT)) }.getOrNull()
     }
 
     /** Credo uses more than one code template, and none of them is an operation. */
     private fun isOneTimeCode(text: String): Boolean =
         (text.startsWith("CODE:") && text.contains("confirms card", ignoreCase = true)) ||
             text.startsWith("# SMS Code:") ||
+            text.startsWith("Ertjeradi kodi", ignoreCase = true) ||
             Regex("""\bOTP:\s*\d""").containsMatchIn(text)
 
     /** Money moved only if the message states an amount next to a ledger label. */
     private fun looksFinancial(text: String): Boolean =
         amountRegex.containsMatchIn(text) &&
-            Regex("""(?i)\b(amount|balance)\b|Card N \*""").containsMatchIn(text)
+            Regex("""(?i)\b(amount|balance|tanxa|nashti|baratis|angarishi|charicxva|cashback)\b|Card N \*""").containsMatchIn(text)
 
     /** Backwards-compatible parser for callers that only need recognized transactions. */
     fun parse(body: String): Sms? = (classify(body) as? Classification.Parsed)?.sms
 
     fun isCredoCandidate(body: String): Boolean = when (val result = classify(body)) {
         is Classification.Parsed, is Classification.Canceled, Classification.Unrecognized -> true
-        is Classification.Ignored -> result.credoCandidate
+        is Classification.Ignored -> result.bankCandidate
     }
 
     private inline fun parsedOrUnrecognized(block: () -> Sms?): Classification =
-        block()?.let(Classification::Parsed) ?: Classification.Unrecognized
+        runCatching { block() }.getOrNull()?.takeIf { it.amountMinor > 0 }?.let(Classification::Parsed) ?: Classification.Unrecognized
 
-    private fun money(match: MatchResult): Pair<Long, String> {
-        // "12.3" is twelve lari thirty, not one hundred twenty-three: pad before dropping the dot.
-        val (units, fraction) = match.groupValues[1].replace(",", "").split(".")
-        val minor = units.toLong() * 100 + fraction.padEnd(2, '0').toLong()
-        return minor to match.groupValues[2]
-    }
+    private fun money(match: MatchResult): Pair<Long, String> =
+        java.math.BigDecimal(match.groupValues[1].replace(",", "")).movePointRight(2).longValueExact() to match.groupValues[2]
 
     private fun firstAmountAfter(text: String, label: String): Pair<Long, String>? {
-        val idx = text.indexOf(label)
+        val idx = text.indexOf(label, ignoreCase = true)
         if (idx < 0) return null
-        return amountRegex.find(text, idx)?.let(::money)
+        val value = text.substring(idx + label.length).trimStart().removePrefix(":").trimStart()
+        return runCatching { amountRegex.find(value)?.takeIf { it.range.first == 0 }?.let(::money) }.getOrNull()
     }
 
     private fun parseCardPayment(text: String): CardPayment? {
-        val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
         val (amount, currency) = firstAmountAfter(text, "Payment:") ?: return null
         val card = cardRegex.find(text)?.groupValues?.get(1) ?: return null
         val timestamp = paymentDateRegex.find(text)
             ?.let { runCatching { LocalDateTime.parse(it.groupValues[1], paymentDate) }.getOrNull() }
             ?: return null
 
-        // Строка мерчанта — следующая после "Card N ..."
-        val cardLineIdx = lines.indexOfFirst { cardRegex.containsMatchIn(it) }
-        val merchantLine = lines.getOrNull(cardLineIdx + 1) ?: return null
-        val merchantRaw = merchantLine.substringBefore('>').trim()
-        val locationRaw = merchantLine.substringAfter('>', "").trim().takeIf { it.isNotEmpty() }
+        val cardMatch = cardRegex.find(text) ?: return null
+        val tail = text.substring(cardMatch.range.last + 1)
+        val end = listOfNotNull(
+            paymentDateRegex.find(tail)?.range?.first,
+            Regex("(?i)Balance:|Details:|Check your balance").find(tail)?.range?.first,
+        ).minOrNull() ?: return null
+        val merchantLine = tail.substring(0, end).trim()
+        val merchantRaw = merchantLine.substringBefore('>').trim().takeIf(String::isNotBlank) ?: return null
+        val locationRaw = merchantLine.substringAfter('>', "").trim().takeIf(String::isNotEmpty)
 
         val balance = firstAmountAfter(text, "Balance:")
         return CardPayment(
@@ -272,32 +162,33 @@ object CredoSmsParser {
             ?.let { runCatching { LocalDateTime.parse(it.groupValues[1], transferDate) }.getOrNull() }
 
     private fun parseOutgoingTransfer(text: String): OutgoingTransfer? {
-        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
-        val balance = firstAmountAfter(text, "Balance:")
+        val (amount, currency) = firstAmountAfter(text, "Amount")
+            ?: firstAmountAfter(text, "Outgoing transfer") ?: return null
+        val balance = firstAmountAfter(text, "Balance")
         return OutgoingTransfer(
             amountMinor = amount,
             currency = currency,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = transferTimestamp(text) ?: return null,
+            timestamp = anyTimestamp(text) ?: return null,
         )
     }
 
     private fun parseIncomingTransfer(text: String): IncomingTransfer? {
         // Two templates share the opening: a transfer states `Amount:` and a date, a card refund
         // states the money on the first line, names the card, and carries no date at all.
-        val (amount, currency) = firstAmountAfter(text, "Amount:")
+        val (amount, currency) = firstAmountAfter(text, "Amount")
             ?: firstAmountAfter(text, "Incoming transfer")
             ?: return null
         val card = cardRegex.find(text)?.groupValues?.get(1)
-        val sender = Regex("""From sender:\s*([^;\n]+)""").find(text)
+        val sender = Regex("""(?:From sender|Sender):\s*([^;\n]+)""").find(text)
             ?.groupValues?.get(1)?.trim()
             ?: card?.let { refundSource(text) }
         val balance = firstAmountAfter(text, "Balance:")
-        val timestamp = transferTimestamp(text)
+        val timestamp = anyTimestamp(text)
         // A stated date that will not parse is a message we do not understand; an absent one is
         // simply absent, and the delivery time is then the honest booking moment.
-        if (timestamp == null && text.contains("Date:")) return null
+        if (timestamp == null && (text.contains("Date:") || Regex("""\d{1,2}/\d{1,2}/\d{4}""").containsMatchIn(text))) return null
         return IncomingTransfer(
             amountMinor = amount,
             currency = currency,
@@ -319,19 +210,19 @@ object CredoSmsParser {
     }
 
     private fun parseDepositTopUp(text: String): DepositTopUp? {
-        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
+        val (amount, currency) = firstAmountAfter(text, "Amount") ?: return null
         val balance = firstAmountAfter(text, "Available Balance on Deposit")
         return DepositTopUp(
             amountMinor = amount,
             currency = currency,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = transferTimestamp(text) ?: return null,
+            timestamp = anyTimestamp(text) ?: return null,
         )
     }
 
     private fun parseOwnTransfer(text: String): OwnTransfer? {
-        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
+        val (amount, currency) = firstAmountAfter(text, "Amount") ?: return null
         val fromIban = Regex("""From:\s*(\S+)""").find(text)?.groupValues?.get(1) ?: return null
         val toIban = Regex("""To:\s*(\S+)""").find(text)?.groupValues?.get(1) ?: return null
         if (!ibanRegex.matches(fromIban) || !ibanRegex.matches(toIban)) return null
@@ -343,7 +234,7 @@ object CredoSmsParser {
             toIban = toIban,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = transferTimestamp(text) ?: return null,
+            timestamp = anyTimestamp(text) ?: return null,
         )
     }
 
@@ -370,7 +261,7 @@ object CredoSmsParser {
             currency = currency,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = looseTransferTimestamp(text),
+            timestamp = anyTimestamp(text),
         )
     }
 
@@ -393,7 +284,7 @@ object CredoSmsParser {
     }
 
     private fun parseCurrencyExchange(text: String): CurrencyExchange? {
-        val (amount, currency) = firstAmountAfter(text, "Amount:") ?: return null
+        val (amount, currency) = firstAmountAfter(text, "Amount") ?: return null
         val (received, receivedCurrency) =
             firstAmountAfter(text, "Received amount:") ?: return null
         val balance = firstAmountAfter(text, "Balance:")
@@ -404,7 +295,7 @@ object CredoSmsParser {
             receivedCurrency = receivedCurrency,
             balanceMinor = balance?.first,
             balanceCurrency = balance?.second,
-            timestamp = transferTimestamp(text) ?: return null,
+            timestamp = anyTimestamp(text) ?: return null,
         )
     }
 }

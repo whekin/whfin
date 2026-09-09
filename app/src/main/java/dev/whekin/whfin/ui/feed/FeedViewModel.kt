@@ -411,7 +411,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     ) { accounts, groups ->
         val groupNames = groups.associate { it.id to it.name }
         accounts.filter { it.type == AccountType.BANK || it.type == AccountType.SAVINGS }
-            .map { account -> SmsRoutingAccount(account, account.groupId?.let(groupNames::get)) }
+            .map { account -> SmsRoutingAccount(account, account.groupId?.let(groupNames::get), groups.firstOrNull { it.id == account.groupId }?.provider) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val cardHints = combine(
@@ -732,7 +732,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (cleanName.isEmpty()) return
         viewModelScope.launch {
             db.withTransaction {
-                val accountId = insertCredoAccount(cleanName, currency)
+                val diagnostic = db.smsDiagnosticDao().byId(diagnosticId) ?: return@withTransaction
+                val provider = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey).provider
+                val accountId = db.insertBankLedger(provider, cleanName, currency)
                 if (accountId > 0) {
                     smsImporter.resolveDiagnostic(diagnosticId, accountId, cardType)
                 }

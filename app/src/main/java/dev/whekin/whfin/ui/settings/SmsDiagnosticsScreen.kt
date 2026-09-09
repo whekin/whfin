@@ -1148,9 +1148,12 @@ private fun AccountMappingSheet(
     onCreateAccountAndSave: (String, String, PaymentInstrumentType) -> Unit,
 ) {
     val currency = diagnostic.balanceCurrency ?: diagnostic.currency ?: "—"
-    val matching = remember(accounts, currency) { accounts.filter { it.account.currency == currency } }
-    val matchingFamilies = remember(cardFamilies, currency) {
-        cardFamilies.filter { family -> family.accounts.any { it.currency == currency } }
+    val bank = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey)
+    val matching = remember(accounts, currency, bank) {
+        accounts.filter { it.account.currency == currency && bank.accepts(it.account, it.bankProvider ?: it.groupName) }
+    }
+    val matchingFamilies = remember(cardFamilies, currency, matching) {
+        cardFamilies.filter { family -> family.accounts.any { account -> matching.any { it.account.id == account.id } } }
     }
     val cardDiagnostic = diagnostic.cardLast4 != null
     val nothingToLinkTo = if (cardDiagnostic) matchingFamilies.isEmpty() else matching.isEmpty()
@@ -1163,9 +1166,9 @@ private fun AccountMappingSheet(
     var cardType by remember(diagnostic.id) { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
     // Тот же выход, что в Feed-resolver: счёт нужной валюты создаётся прямо в листе.
     var creating by rememberSaveable(diagnostic.id) { mutableStateOf(false) }
-    var accountName by rememberSaveable(diagnostic.id) { mutableStateOf(CREDO_PROVIDER) }
+    var accountName by rememberSaveable(diagnostic.id) { mutableStateOf(bank.provider) }
     WhfinFormSheet(
-        title = stringResource(R.string.sms_choose_account_title),
+        title = bank.provider + " · " + stringResource(R.string.sms_choose_account_title),
         onDismiss = onDismiss,
         primaryLabel = stringResource(
             if (creating) R.string.sms_create_and_link_action else R.string.sms_link_action,

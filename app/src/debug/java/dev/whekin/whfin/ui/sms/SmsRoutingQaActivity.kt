@@ -45,11 +45,11 @@ class SmsRoutingQaActivity : ComponentActivity() {
         Locale.setDefault(Locale.forLanguageTag(language))
         enableEdgeToEdge()
         setContent {
-            WhfinTheme {
+            WhfinTheme(darkTheme = dark) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     SmsRoutingSheet(
-                        diagnostic = INTEREST,
-                        accounts = DEPOSITS,
+                        diagnostic = if (tbc) TBC_PAYMENT else INTEREST,
+                        accounts = if (tbc) TBC_ACCOUNTS + DEPOSITS else DEPOSITS,
                         onDismiss = {},
                         onResolve = { _, _ -> },
                         onResolveGroup = { _, _ -> },
@@ -68,6 +68,16 @@ class SmsRoutingQaActivity : ComponentActivity() {
          */
         var language: String = "en"
         var fontScale: Float = 1f
+        var tbc = false
+        var dark = false
+
+        val TBC_PAYMENT = SmsDiagnosticEntity(id = 2, externalKey = "sms|tbc|qa",
+            kind = SmsDiagnosticKind.CARD_PAYMENT, outcome = SmsDiagnosticOutcome.NEEDS_CARD_MAPPING,
+            reason = SmsDiagnosticReason.NO_CARD_MAPPING, receivedAt = 0, occurredAt = 0,
+            amountMinor = 450, currency = "GEL", cardLast4 = "0001", counterparty = "Example Shop", updatedAt = 0)
+        val TBC_ACCOUNTS = listOf(SmsRoutingAccount(
+            AccountEntity(id = 5, name = "Everyday", type = AccountType.BANK, groupId = 2, currency = "GEL",
+                iban = "GE00TB0000000000000001"), "TBC", "TBC"))
 
         val INTEREST = SmsDiagnosticEntity(
             id = 1,

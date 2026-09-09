@@ -51,8 +51,8 @@ internal fun isDepositLedger(account: AccountEntity): Boolean =
         account.bankProduct == BankProduct.DEMAND_DEPOSIT ||
         account.bankProduct == BankProduct.TERM_DEPOSIT
 
-/** Converts a Credo SMS classification into a visible diagnostic and, when possible, an active transaction. */
-class SmsTransactionImporter(private val db: WhfinDatabase) {
+/** Converts a bank-scoped SMS classification into a visible diagnostic and, when possible, an active transaction. */
+class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: BankSmsBank = BankSmsBank.CREDO) {
     private val zone = LedgerCalendar.zone
     private val statementEvidence = SmsStatementEvidence(db, zone)
 
@@ -61,21 +61,21 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
 
     suspend fun preview(body: String, receivedAt: Long = System.currentTimeMillis()): SmsImportResult =
         db.withTransaction {
-            evaluate(CredoSmsParser.classify(body), smsExternalKey(body), receivedAt, persist = false)
+            evaluate(bank.classify(body), bank.key(body), receivedAt, persist = false)
         }
 
     suspend fun import(body: String, receivedAt: Long = System.currentTimeMillis()): SmsImportResult = try {
         db.withTransaction {
-            evaluate(CredoSmsParser.classify(body), smsExternalKey(body), receivedAt, persist = true)
+            evaluate(bank.classify(body), bank.key(body), receivedAt, persist = true)
         }
     } catch (error: Exception) {
         if (error is CancellationException) throw error
-        val key = smsExternalKey(body)
-        val classification = CredoSmsParser.classify(body)
+        val key = bank.key(body)
+        val classification = bank.classify(body)
         val diagnosticId = runCatching {
             db.withTransaction {
                 val diagnostic = when (classification) {
-                    is CredoSmsParser.Classification.Parsed -> diagnosticFor(
+                    is BankSmsMessage.Classification.Parsed -> diagnosticFor(
                         sms = classification.sms,
                         externalKey = key,
                         outcome = SmsDiagnosticOutcome.ERROR,
@@ -119,6 +119,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }
         val account = db.accountDao().byId(accountId)
             ?: return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
+        if (BankSmsBank.fromKey(diagnostic.externalKey) != bank) {
+            return@withTransaction SmsTransactionImporter(db, BankSmsBank.fromKey(diagnostic.externalKey))
+                .resolveDiagnostic(diagnosticId, accountId, cardType)
+        }
+        if (!bank.accepts(db, account)) return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
         val expectedCurrency = diagnostic.balanceCurrency ?: diagnostic.currency
         if (expectedCurrency == null || account.currency != expectedCurrency) {
             return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
@@ -161,7 +166,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         val family = cardFamilyFor(account)
         db.paymentInstrumentDao().linkForAccounts(family, cardLast4, cardType)
         var selectedResult: SmsImportResult? = null
-        db.smsDiagnosticDao().unresolvedCardPayments(cardLast4).forEach { queued ->
+        db.smsDiagnosticDao().unresolvedCardPayments(cardLast4).filter { BankSmsBank.fromKey(it.externalKey) == bank }.forEach { queued ->
             val queuedCurrency = queued.balanceCurrency ?: queued.currency
             val target = family.singleOrNull { it.currency == queuedCurrency } ?: return@forEach
             val result = resolveIntoAccount(
@@ -245,15 +250,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 SmsDiagnosticOutcome.ERROR,
                 reason = SmsDiagnosticReason.NO_ACCOUNT,
             )
+        if (BankSmsBank.fromKey(diagnostic.externalKey) != bank) {
+            return@withTransaction SmsTransactionImporter(db, BankSmsBank.fromKey(diagnostic.externalKey))
+                .resolveGroupedDiagnostic(diagnosticId, fromAccountId, toAccountId)
+        }
         val sms = diagnostic.toParsedSms()
-        if (sms !is CredoSmsParser.OwnTransfer && sms !is CredoSmsParser.CurrencyExchange) {
+        if (sms !is BankSmsMessage.OwnTransfer && sms !is BankSmsMessage.CurrencyExchange) {
             return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.PARSE_FAILURE)
         }
         val from = db.accountDao().byId(fromAccountId)
             ?: return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
         val to = db.accountDao().byId(toAccountId)
             ?: return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
-        if (!validGroupedAccounts(sms, from, to)) {
+        if (!bank.accepts(db, from) || !bank.accepts(db, to) || !validGroupedAccounts(sms, from, to)) {
             return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.NO_ACCOUNT)
         }
 
@@ -298,7 +307,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      * Credo's utility template ships an unresolved date placeholder and its interest notice prints
      * an ambiguous day; guessing either would move money into the wrong month.
      */
-    private fun occurredMillis(sms: CredoSmsParser.Sms, receivedAt: Long): Long =
+    private fun occurredMillis(sms: BankSmsMessage.Sms, receivedAt: Long): Long =
         sms.timestamp?.atZone(zone)?.toInstant()?.toEpochMilli() ?: receivedAt
 
     /**
@@ -308,31 +317,31 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      * and nowhere else: the row that gets written and the balance arithmetic that finds its account
      * must not be able to disagree about which way the money moved.
      */
-    private fun ledgerDeltaMinor(sms: CredoSmsParser.Sms): Long = when (sms) {
-        is CredoSmsParser.IncomingTransfer,
-        is CredoSmsParser.DepositTopUp,
+    private fun ledgerDeltaMinor(sms: BankSmsMessage.Sms): Long = when (sms) {
+        is BankSmsMessage.IncomingTransfer,
+        is BankSmsMessage.DepositTopUp,
         // Cash paid in at a desk and interest paid by the bank are money arriving, not leaving.
-        is CredoSmsParser.CashDeposit,
-        is CredoSmsParser.InterestAccrual,
+        is BankSmsMessage.CashDeposit,
+        is BankSmsMessage.InterestAccrual,
         -> sms.amountMinor
         else -> -sms.amountMinor
     }
 
     private suspend fun evaluate(
-        classification: CredoSmsParser.Classification,
+        classification: BankSmsMessage.Classification,
         key: String,
         receivedAt: Long,
         persist: Boolean,
     ): SmsImportResult = when (classification) {
-        is CredoSmsParser.Classification.Canceled ->
+        is BankSmsMessage.Classification.Canceled ->
             evaluateCanceled(classification.payment, key, receivedAt, persist)
-        is CredoSmsParser.Classification.Ignored -> {
+        is BankSmsMessage.Classification.Ignored -> {
             val reason = when (classification.reason) {
-                CredoSmsParser.IgnoreReason.OTP -> SmsDiagnosticReason.OTP
-                CredoSmsParser.IgnoreReason.REJECTED -> SmsDiagnosticReason.REJECTED
-                CredoSmsParser.IgnoreReason.UNRELATED -> SmsDiagnosticReason.UNRELATED
+                BankSmsMessage.IgnoreReason.OTP -> SmsDiagnosticReason.OTP
+                BankSmsMessage.IgnoreReason.REJECTED -> SmsDiagnosticReason.REJECTED
+                BankSmsMessage.IgnoreReason.UNRELATED -> SmsDiagnosticReason.UNRELATED
             }
-            if (!classification.credoCandidate) {
+            if (!classification.bankCandidate) {
                 SmsImportResult(SmsDiagnosticOutcome.IGNORED, reason = reason)
             } else {
                 val diagnostic = basicDiagnostic(
@@ -346,7 +355,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 SmsImportResult(SmsDiagnosticOutcome.IGNORED, id, reason = reason)
             }
         }
-        CredoSmsParser.Classification.Unrecognized -> {
+        BankSmsMessage.Classification.Unrecognized -> {
             val diagnostic = basicDiagnostic(
                 externalKey = key,
                 kind = SmsDiagnosticKind.UNRECOGNIZED,
@@ -357,7 +366,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             val id = if (persist) persistDiagnostic(diagnostic) else null
             SmsImportResult(SmsDiagnosticOutcome.UNRECOGNIZED, id, reason = diagnostic.reason)
         }
-        is CredoSmsParser.Classification.Parsed -> evaluateParsed(
+        is BankSmsMessage.Classification.Parsed -> evaluateParsed(
             classification.sms,
             key,
             receivedAt,
@@ -372,7 +381,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      * back even though the bank explicitly retracted the operation.
      */
     private suspend fun evaluateCanceled(
-        payment: CredoSmsParser.CardPayment,
+        payment: BankSmsMessage.CardPayment,
         key: String,
         receivedAt: Long,
         persist: Boolean,
@@ -387,7 +396,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             fromMillis = occurredAt - CANCELLATION_WINDOW_MILLIS,
             toMillis = occurredAt + CANCELLATION_WINDOW_MILLIS,
         )
-        val original = SmsCancellationMatcher.match(payment, occurredAt, candidates)
+        val original = SmsCancellationMatcher.match(payment, occurredAt, candidates.filter { BankSmsBank.fromKey(it.externalKey) == bank })
         if (original == null) {
             val diagnostic = diagnosticFor(
                 sms = payment,
@@ -444,7 +453,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private suspend fun evaluateParsed(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         key: String,
         receivedAt: Long,
         persist: Boolean,
@@ -473,7 +482,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE, id, existing.id)
         }
 
-        if (sms is CredoSmsParser.OwnTransfer || sms is CredoSmsParser.CurrencyExchange) {
+        if (sms is BankSmsMessage.OwnTransfer || sms is BankSmsMessage.CurrencyExchange) {
             return evaluateGroupedParsed(sms, key, receivedAt, persist)
         }
 
@@ -537,7 +546,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private suspend fun evaluateGroupedParsed(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         key: String,
         receivedAt: Long,
         persist: Boolean,
@@ -545,9 +554,9 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         val resolution = resolveGroupedAccounts(sms)
         if (resolution == null) {
             val sourceCurrency = sms.currency
-            val destinationCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency
+            val destinationCurrency = (sms as? BankSmsMessage.CurrencyExchange)?.receivedCurrency
                 ?: sms.currency
-            val eligible: (AccountEntity) -> Boolean = if (sms is CredoSmsParser.CurrencyExchange) {
+            val eligible: (AccountEntity) -> Boolean = if (sms is BankSmsMessage.CurrencyExchange) {
                 ::isCurrencyExchangeLedger
             } else {
                 { it.type in setOf(AccountType.BANK, AccountType.SAVINGS) }
@@ -616,15 +625,15 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private suspend fun resolveAccount(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         atMillis: Long,
     ): AccountResolution {
         val currency = sms.balanceCurrency ?: sms.currency
         // A refund names its card and no account; the card is what says where the money went back to.
-        val cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
-            ?: (sms as? CredoSmsParser.IncomingTransfer)?.cardLast4
+        val cardLast4 = (sms as? BankSmsMessage.CardPayment)?.cardLast4
+            ?: (sms as? BankSmsMessage.IncomingTransfer)?.cardLast4
         if (cardLast4 != null) {
-            val mapped = db.accountDao().byCardAndCurrency(cardLast4, currency)
+            val mapped = db.accountDao().byCardAndCurrency(cardLast4, currency).filter { bank.accepts(db, it) }
             return when (mapped.size) {
                 1 -> AccountResolution.Found(mapped.single())
                 0 -> AccountResolution.NeedsChoice(
@@ -637,10 +646,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                 )
             }
         }
-        val candidates = db.accountDao().bankAccountsByCurrency(currency)
+        val candidates = db.accountDao().bankAccountsByCurrency(currency).filter { bank.accepts(db, it) }
         // Interest names its deposit. An identity the bank prints beats arithmetic over the ledger,
         // which only holds while every row since the last declared balance is present.
-        (sms as? CredoSmsParser.InterestAccrual)?.depositNumber?.let { number ->
+        (sms as? BankSmsMessage.InterestAccrual)?.depositNumber?.let { number ->
             candidates.singleOrNull { it.depositNumber == number }
                 ?.let { return AccountResolution.Found(it) }
         }
@@ -649,13 +658,13 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             // Interest is paid on a deposit, and which accounts are deposits is already stated — by
             // the bank product, never by the fund role: a demand deposit paying on each day's balance
             // is money its owner spends from, so it is rightly marked available and is still a deposit.
-            is CredoSmsParser.DepositTopUp, is CredoSmsParser.InterestAccrual ->
+            is BankSmsMessage.DepositTopUp, is BankSmsMessage.InterestAccrual ->
                 candidates.filter { candidate ->
                     isDepositLedger(candidate) &&
                         candidate.id != pairedAccount?.id &&
                         (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
                 }
-            is CredoSmsParser.OutgoingTransfer -> candidates.filter { candidate ->
+            is BankSmsMessage.OutgoingTransfer -> candidates.filter { candidate ->
                 candidate.id != pairedAccount?.id &&
                     (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
             }
@@ -663,14 +672,14 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }
         if (narrowed.size == 1) return AccountResolution.Found(narrowed.single())
         val pool = when (sms) {
-            is CredoSmsParser.OutgoingTransfer,
-            is CredoSmsParser.DepositTopUp,
-            is CredoSmsParser.InterestAccrual,
+            is BankSmsMessage.OutgoingTransfer,
+            is BankSmsMessage.DepositTopUp,
+            is BankSmsMessage.InterestAccrual,
             -> narrowed
             else -> candidates
         }
         accountAtDeclaredBalance(sms, pool, atMillis)?.let { return AccountResolution.Found(it) }
-        if (sms is CredoSmsParser.DepositTopUp || sms is CredoSmsParser.InterestAccrual) {
+        if (sms is BankSmsMessage.DepositTopUp || sms is BankSmsMessage.InterestAccrual) {
             // The question is about deposits, so its emptiness is about deposits too: offering every
             // account of the currency asked the person to re-answer what they had already marked.
             return AccountResolution.NeedsChoice(
@@ -698,7 +707,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      * and keep asking forever.
      */
     private suspend fun accountAtDeclaredBalance(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         candidates: List<AccountEntity>,
         atMillis: Long,
     ): AccountEntity? {
@@ -725,21 +734,21 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         return candidates.firstOrNull { it.id == id }
     }
 
-    private suspend fun resolveGroupedAccounts(sms: CredoSmsParser.Sms): GroupedAccountResolution? {
+    private suspend fun resolveGroupedAccounts(sms: BankSmsMessage.Sms): GroupedAccountResolution? {
         return when (sms) {
-            is CredoSmsParser.OwnTransfer -> {
+            is BankSmsMessage.OwnTransfer -> {
                 val from = db.accountDao().byIbanAndCurrency(sms.fromIban, sms.currency)
                 val to = db.accountDao().byIbanAndCurrency(sms.toIban, sms.currency)
-                if (from != null && to != null && validGroupedAccounts(sms, from, to)) {
+                if (from != null && to != null && bank.accepts(db, from) && bank.accepts(db, to) && validGroupedAccounts(sms, from, to)) {
                     GroupedAccountResolution(from, to)
                 } else {
                     null
                 }
             }
-            is CredoSmsParser.CurrencyExchange -> {
-                val sources = db.accountDao().bankAccountsByCurrency(sms.currency)
+            is BankSmsMessage.CurrencyExchange -> {
+                val sources = db.accountDao().bankAccountsByCurrency(sms.currency).filter { bank.accepts(db, it) }
                     .filter(::isCurrencyExchangeLedger)
-                val destinations = db.accountDao().bankAccountsByCurrency(sms.receivedCurrency)
+                val destinations = db.accountDao().bankAccountsByCurrency(sms.receivedCurrency).filter { bank.accepts(db, it) }
                     .filter(::isCurrencyExchangeLedger)
                 sources.flatMap { from ->
                     destinations.mapNotNull { to ->
@@ -753,13 +762,13 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private fun validGroupedAccounts(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         from: AccountEntity,
         to: AccountEntity,
     ): Boolean {
-        val destinationCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency
+        val destinationCurrency = (sms as? BankSmsMessage.CurrencyExchange)?.receivedCurrency
             ?: sms.currency
-        val eligibleTypes = if (sms is CredoSmsParser.CurrencyExchange) {
+        val eligibleTypes = if (sms is BankSmsMessage.CurrencyExchange) {
             isCurrencyExchangeLedger(from) && isCurrencyExchangeLedger(to)
         } else {
             from.type in setOf(AccountType.BANK, AccountType.SAVINGS) &&
@@ -774,7 +783,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private suspend fun insertGroupedTransactions(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         from: AccountEntity,
         to: AccountEntity,
         key: String,
@@ -782,7 +791,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         status: TxStatus = TxStatus.CONFIRMED,
     ): Long {
         require(validGroupedAccounts(sms, from, to))
-        val groupType = if (sms is CredoSmsParser.CurrencyExchange) {
+        val groupType = if (sms is BankSmsMessage.CurrencyExchange) {
             TransferGroupType.CONVERSION
         } else {
             TransferGroupType.TRANSFER
@@ -791,19 +800,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             TransferGroupEntity(
                 type = groupType,
                 note = if (groupType == TransferGroupType.CONVERSION) {
-                    "Credo SMS exchange"
+                    "${bank.provider} SMS exchange"
                 } else {
-                    "Credo SMS transfer"
+                    "${bank.provider} SMS transfer"
                 },
                 createdAt = System.currentTimeMillis(),
             ),
         )
         val occurredAt = occurredMillis(sms, receivedAt)
         val destinationAmount = when (sms) {
-            is CredoSmsParser.CurrencyExchange -> sms.receivedAmountMinor
+            is BankSmsMessage.CurrencyExchange -> sms.receivedAmountMinor
             else -> sms.amountMinor
         }
-        val ownTransfer = sms as? CredoSmsParser.OwnTransfer
+        val ownTransfer = sms as? BankSmsMessage.OwnTransfer
         val ids = db.transactionDao().insertAll(
             listOf(
                 TransactionEntity(
@@ -817,7 +826,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                     transferGroupId = groupId,
                     isTransfer = true,
                     balanceAfterMinor = sms.balanceMinor
-                        .takeIf { sms !is CredoSmsParser.CurrencyExchange },
+                        .takeIf { sms !is BankSmsMessage.CurrencyExchange },
                     externalKey = key,
                     createdAt = System.currentTimeMillis(),
                 ),
@@ -832,7 +841,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
                     transferGroupId = groupId,
                     isTransfer = true,
                     balanceAfterMinor = sms.balanceMinor
-                        .takeIf { sms is CredoSmsParser.CurrencyExchange },
+                        .takeIf { sms is BankSmsMessage.CurrencyExchange },
                     externalKey = "$key|to",
                     createdAt = System.currentTimeMillis(),
                 ),
@@ -850,34 +859,34 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      * Null when the category does not exist yet: it is offered from the evidence of rows like this
      * one rather than seeded, so that a category the owner deleted cannot come back on its own.
      */
-    private suspend fun operationCategory(sms: CredoSmsParser.Sms): Long? =
+    private suspend fun operationCategory(sms: BankSmsMessage.Sms): Long? =
         OperationCategories.operationOf(diagnosticKind(sms))
             ?.let { OperationCategories.categoryFor(it, db.categoryDao().all()) }
             ?.id
 
     /** What kind of message this is, in the vocabulary the diagnostic keeps after the text is gone. */
-    private fun diagnosticKind(sms: CredoSmsParser.Sms): SmsDiagnosticKind = when (sms) {
-        is CredoSmsParser.CardPayment -> SmsDiagnosticKind.CARD_PAYMENT
-        is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.OUTGOING_TRANSFER
-        is CredoSmsParser.IncomingTransfer -> SmsDiagnosticKind.INCOMING_TRANSFER
-        is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.DEPOSIT_TOP_UP
-        is CredoSmsParser.OwnTransfer -> SmsDiagnosticKind.OWN_TRANSFER
-        is CredoSmsParser.CurrencyExchange -> SmsDiagnosticKind.CURRENCY_EXCHANGE
-        is CredoSmsParser.BillPayment -> SmsDiagnosticKind.BILL_PAYMENT
-        is CredoSmsParser.CashDeposit -> SmsDiagnosticKind.CASH_DEPOSIT
-        is CredoSmsParser.InterestAccrual -> SmsDiagnosticKind.INTEREST
+    private fun diagnosticKind(sms: BankSmsMessage.Sms): SmsDiagnosticKind = when (sms) {
+        is BankSmsMessage.CardPayment -> SmsDiagnosticKind.CARD_PAYMENT
+        is BankSmsMessage.OutgoingTransfer -> SmsDiagnosticKind.OUTGOING_TRANSFER
+        is BankSmsMessage.IncomingTransfer -> SmsDiagnosticKind.INCOMING_TRANSFER
+        is BankSmsMessage.DepositTopUp -> SmsDiagnosticKind.DEPOSIT_TOP_UP
+        is BankSmsMessage.OwnTransfer -> SmsDiagnosticKind.OWN_TRANSFER
+        is BankSmsMessage.CurrencyExchange -> SmsDiagnosticKind.CURRENCY_EXCHANGE
+        is BankSmsMessage.BillPayment -> SmsDiagnosticKind.BILL_PAYMENT
+        is BankSmsMessage.CashDeposit -> SmsDiagnosticKind.CASH_DEPOSIT
+        is BankSmsMessage.InterestAccrual -> SmsDiagnosticKind.INTEREST
     }
 
     private suspend fun insertTransaction(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         account: AccountEntity,
         key: String,
         receivedAt: Long,
         status: TxStatus = TxStatus.CONFIRMED,
     ): Long {
         val rawCounterparty = when (sms) {
-            is CredoSmsParser.CardPayment -> sms.merchantRaw
-            is CredoSmsParser.IncomingTransfer -> sms.senderName
+            is BankSmsMessage.CardPayment -> sms.merchantRaw
+            is BankSmsMessage.IncomingTransfer -> sms.senderName
             else -> null
         }
         val merchant = rawCounterparty?.let { resolveMerchant(it) }
@@ -944,7 +953,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         val last4 = diagnostic.cardLast4?.takeIf { it.matches(Regex("\\d{4}")) } ?: return
         if (account.groupId == null) return
         // An existing mapping is the user's own; a match is evidence, not grounds to overrule it.
-        if (db.accountDao().byCardAndCurrency(last4, account.currency).isNotEmpty()) return
+        if (db.accountDao().byCardAndCurrency(last4, account.currency).any { bank.accepts(db, it) }) return
         db.paymentInstrumentDao().linkForAccounts(
             cardFamilyFor(account),
             last4,
@@ -1002,17 +1011,17 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     suspend fun learnCardsFrom(bodies: List<String>): Int = db.withTransaction {
         var learned = 0
         bodies.forEach { body ->
-            val payment = CredoSmsParser.parse(body) as? CredoSmsParser.CardPayment ?: return@forEach
+            val payment = (bank.classify(body) as? BankSmsMessage.Classification.Parsed)?.sms as? BankSmsMessage.CardPayment ?: return@forEach
             if (db.accountDao().byCardAndCurrency(
                     payment.cardLast4,
                     payment.balanceCurrency ?: payment.currency,
-                ).isNotEmpty()
+                ).any { bank.accepts(db, it) }
             ) {
                 return@forEach
             }
             val probe = diagnosticFor(
                 sms = payment,
-                externalKey = smsExternalKey(body),
+                externalKey = bank.key(body),
                 outcome = SmsDiagnosticOutcome.ATTACHED,
                 reason = null,
                 receivedAt = System.currentTimeMillis(),
@@ -1033,9 +1042,14 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
      *
      * @return how many questions stopped being questions.
      */
-    suspend fun attachUnroutedToStatements(): Int = db.withTransaction {
+    suspend fun attachUnroutedToStatements(): Int = BankSmsBank.entries.sumOf {
+        SmsTransactionImporter(db, it).attachBankUnroutedToStatements()
+    }
+
+    private suspend fun attachBankUnroutedToStatements(): Int = db.withTransaction {
         var resolved = 0
         db.smsDiagnosticDao().unrouted().forEach { diagnostic ->
+            if (BankSmsBank.fromKey(diagnostic.externalKey) != bank) return@forEach
             val attached = attachToStatement(diagnostic, persist = true)
             if (attached != null) {
                 resolved += 1
@@ -1066,7 +1080,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
     }
 
     private fun diagnosticFor(
-        sms: CredoSmsParser.Sms,
+        sms: BankSmsMessage.Sms,
         externalKey: String,
         outcome: SmsDiagnosticOutcome,
         reason: SmsDiagnosticReason?,
@@ -1082,20 +1096,20 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         occurredAt = occurredMillis(sms, receivedAt),
         amountMinor = sms.amountMinor,
         currency = sms.currency,
-        secondaryAmountMinor = (sms as? CredoSmsParser.CurrencyExchange)?.receivedAmountMinor,
-        secondaryCurrency = (sms as? CredoSmsParser.CurrencyExchange)?.receivedCurrency,
+        secondaryAmountMinor = (sms as? BankSmsMessage.CurrencyExchange)?.receivedAmountMinor,
+        secondaryCurrency = (sms as? BankSmsMessage.CurrencyExchange)?.receivedCurrency,
         balanceMinor = sms.balanceMinor,
         balanceCurrency = sms.balanceCurrency,
-        cardLast4 = (sms as? CredoSmsParser.CardPayment)?.cardLast4
-            ?: (sms as? CredoSmsParser.IncomingTransfer)?.cardLast4,
-        depositNumber = (sms as? CredoSmsParser.InterestAccrual)?.depositNumber,
+        cardLast4 = (sms as? BankSmsMessage.CardPayment)?.cardLast4
+            ?: (sms as? BankSmsMessage.IncomingTransfer)?.cardLast4,
+        depositNumber = (sms as? BankSmsMessage.InterestAccrual)?.depositNumber,
         counterparty = when (sms) {
-            is CredoSmsParser.CardPayment -> sms.merchantRaw
-            is CredoSmsParser.IncomingTransfer -> sms.senderName
+            is BankSmsMessage.CardPayment -> sms.merchantRaw
+            is BankSmsMessage.IncomingTransfer -> sms.senderName
             else -> null
         },
-        fromIban = (sms as? CredoSmsParser.OwnTransfer)?.fromIban,
-        toIban = (sms as? CredoSmsParser.OwnTransfer)?.toIban,
+        fromIban = (sms as? BankSmsMessage.OwnTransfer)?.fromIban,
+        toIban = (sms as? BankSmsMessage.OwnTransfer)?.toIban,
         transactionId = transactionId,
         accountId = accountId,
         updatedAt = System.currentTimeMillis(),
@@ -1139,39 +1153,39 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         return SmsImportResult(SmsDiagnosticOutcome.ERROR, item.id, reason = reason)
     }
 
-    private fun SmsDiagnosticEntity.toParsedSms(): CredoSmsParser.Sms? {
+    private fun SmsDiagnosticEntity.toParsedSms(): BankSmsMessage.Sms? {
         val amount = amountMinor ?: return null
         val valueCurrency = currency ?: return null
         val instant = occurredAt?.let(Instant::ofEpochMilli) ?: return null
         val timestamp = LocalDateTime.ofInstant(instant, zone)
         return when (kind) {
-            SmsDiagnosticKind.CARD_PAYMENT -> CredoSmsParser.CardPayment(
+            SmsDiagnosticKind.CARD_PAYMENT -> BankSmsMessage.CardPayment(
                 amount, valueCurrency, cardLast4 ?: return null, counterparty ?: return null, null,
                 balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.OUTGOING_TRANSFER -> CredoSmsParser.OutgoingTransfer(
+            SmsDiagnosticKind.OUTGOING_TRANSFER -> BankSmsMessage.OutgoingTransfer(
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.INCOMING_TRANSFER -> CredoSmsParser.IncomingTransfer(
+            SmsDiagnosticKind.INCOMING_TRANSFER -> BankSmsMessage.IncomingTransfer(
                 amount, valueCurrency, counterparty, cardLast4, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.BILL_PAYMENT -> CredoSmsParser.BillPayment(
+            SmsDiagnosticKind.BILL_PAYMENT -> BankSmsMessage.BillPayment(
                 amount, valueCurrency, counterparty, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.CASH_DEPOSIT -> CredoSmsParser.CashDeposit(
+            SmsDiagnosticKind.CASH_DEPOSIT -> BankSmsMessage.CashDeposit(
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.INTEREST -> CredoSmsParser.InterestAccrual(
+            SmsDiagnosticKind.INTEREST -> BankSmsMessage.InterestAccrual(
                 amount, valueCurrency, depositNumber, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.DEPOSIT_TOP_UP -> CredoSmsParser.DepositTopUp(
+            SmsDiagnosticKind.DEPOSIT_TOP_UP -> BankSmsMessage.DepositTopUp(
                 amount, valueCurrency, balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.OWN_TRANSFER -> CredoSmsParser.OwnTransfer(
+            SmsDiagnosticKind.OWN_TRANSFER -> BankSmsMessage.OwnTransfer(
                 amount, valueCurrency, fromIban ?: return null, toIban ?: return null,
                 balanceMinor, balanceCurrency, timestamp,
             )
-            SmsDiagnosticKind.CURRENCY_EXCHANGE -> CredoSmsParser.CurrencyExchange(
+            SmsDiagnosticKind.CURRENCY_EXCHANGE -> BankSmsMessage.CurrencyExchange(
                 amount, valueCurrency, secondaryAmountMinor ?: return null, secondaryCurrency ?: return null,
                 balanceMinor, balanceCurrency, timestamp,
             )
@@ -1190,10 +1204,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
         }.ifEmpty { listOf(account) }
     }
 
-    private suspend fun pairedAccountHint(sms: CredoSmsParser.Sms): AccountEntity? {
+    private suspend fun pairedAccountHint(sms: BankSmsMessage.Sms): AccountEntity? {
         val oppositeKind = when (sms) {
-            is CredoSmsParser.OutgoingTransfer -> SmsDiagnosticKind.DEPOSIT_TOP_UP
-            is CredoSmsParser.DepositTopUp -> SmsDiagnosticKind.OUTGOING_TRANSFER
+            is BankSmsMessage.OutgoingTransfer -> SmsDiagnosticKind.DEPOSIT_TOP_UP
+            is BankSmsMessage.DepositTopUp -> SmsDiagnosticKind.OUTGOING_TRANSFER
             else -> return null
         }
         val occurredAt = occurredMillis(sms, System.currentTimeMillis())
@@ -1204,7 +1218,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase) {
             occurredAt = occurredAt,
             fromMillis = occurredAt - DEPOSIT_PAIR_WINDOW_MILLIS,
             toMillis = occurredAt + DEPOSIT_PAIR_WINDOW_MILLIS,
-        ).mapNotNull { it.accountId }
+        ).filter { BankSmsBank.fromKey(it.externalKey) == bank }.mapNotNull { it.accountId }
             .distinct()
             .mapNotNull { db.accountDao().byId(it) }
         return accounts.singleOrNull()

@@ -50,6 +50,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 data class SmsRoutingAccount(
     val account: AccountEntity,
     val groupName: String?,
+    val bankProvider: String? = null,
 ) {
     val label: String
         get() = listOfNotNull(groupName, account.name.takeUnless { it == groupName })
@@ -78,13 +79,14 @@ internal fun groupedRoutingPairs(
     } else {
         { it.type in setOf(AccountType.BANK, AccountType.SAVINGS) }
     }
+    val bank = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey)
     val sources = accounts.filter { option ->
-        option.account.currency == sourceCurrency &&
+        bank.accepts(option.account, option.bankProvider ?: option.groupName) && option.account.currency == sourceCurrency &&
             eligible(option.account) &&
             (diagnostic.fromIban == null || option.account.iban == diagnostic.fromIban)
     }
     val destinations = accounts.filter { option ->
-        option.account.currency == destinationCurrency &&
+        bank.accepts(option.account, option.bankProvider ?: option.groupName) && option.account.currency == destinationCurrency &&
             eligible(option.account) &&
             (diagnostic.toIban == null || option.account.iban == diagnostic.toIban)
     }
@@ -115,9 +117,11 @@ fun SmsRoutingSheet(
     // long enough to hide the two rows that could be right.
     val depositsOnly = diagnostic.kind == SmsDiagnosticKind.INTEREST ||
         diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP
-    val matching = remember(accounts, currency, depositsOnly) {
+    val bank = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey)
+    val matching = remember(accounts, currency, depositsOnly, bank) {
         accounts.filter { option ->
-            option.account.currency == currency && (!depositsOnly || isDepositLedger(option.account))
+            bank.accepts(option.account, option.bankProvider ?: option.groupName) &&
+                option.account.currency == currency && (!depositsOnly || isDepositLedger(option.account))
         }
     }
     val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
@@ -144,7 +148,7 @@ fun SmsRoutingSheet(
     }
 
     WhfinFormSheet(
-        title = stringResource(
+        title = bank.provider + " · " + stringResource(
             when {
                 creatingCurrency != null -> R.string.sms_routing_new_account_title
                 grouped -> R.string.sms_routing_accounts_title

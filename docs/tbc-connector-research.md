@@ -158,3 +158,11 @@ actual owner-authorized mobile responses before replacing the richer file
 import. Whether mobile cookies work with web exports, or whether an equivalent
 mobile XLSX route exists, remains unknown.
 Source: [history and deposit models](https://github.com/zenmoney/ZenPlugins/blob/c7af1ee865ae40482694f572e8205babcb8aaf15/src/plugins/tbc-ge/models.ts).
+
+
+## Owner validation, 2026-09-09
+
+After installing WHFIN 0.3.26, the owner reported “TBC sign-in confirmed” and
+confirmed that the account list appeared. This validates the native mobile login
+and dashboard path for that account/device. Mobile history retrieval, persisted
+session reuse, and mobile-cookie access to web XLSX remain unverified.

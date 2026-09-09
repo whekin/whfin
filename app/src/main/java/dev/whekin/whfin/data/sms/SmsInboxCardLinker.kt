@@ -39,9 +39,11 @@ object SmsInboxCardLinker {
             return Result()
         }
         val messages = SmsHistoryReader(context.contentResolver)
-            .credoCandidates(now - LOOKBACK_MILLIS)
+            .bankCandidates(now - LOOKBACK_MILLIS)
         val importer = SmsTransactionImporter(db)
-        val linked = importer.learnCardsFrom(messages.map(HistoricalSms::body))
+        val linked = messages.groupBy { it.bank }.entries.sumOf { (bank, rows) ->
+            SmsTransactionImporter(db, bank).learnCardsFrom(rows.map(HistoricalSms::body))
+        }
         // A card learned a moment ago can place messages that were already waiting on one.
         val answered = importer.attachUnroutedToStatements()
         return Result(cardsLinked = linked, messagesAnswered = answered)

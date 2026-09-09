@@ -29,7 +29,8 @@ retried automatically. Only one request sequence runs at a time, and leaving the
 After certification, an account-list failure retains a verified session and exposes a retry of that
 read. Session expiry clears local saved state and returns to the password form. No exception contains
 a raw bank response. The login, OTP and account APIs are only exercised against scripted responses in
-host tests; the first successful real-bank login remains an owner-driven test on the phone.
+host tests; the first successful real-bank login was subsequently reported by the owner on the phone,
+including a visible account list (2026-09-09). Session reuse/expiry against the real bank is not yet verified.
 
 ## Session handling
 

@@ -1,11 +1,11 @@
 package dev.whekin.whfin.data.sms
 
-import dev.whekin.whfin.data.sms.CredoSmsParser.CardPayment
-import dev.whekin.whfin.data.sms.CredoSmsParser.CurrencyExchange
-import dev.whekin.whfin.data.sms.CredoSmsParser.DepositTopUp
-import dev.whekin.whfin.data.sms.CredoSmsParser.IncomingTransfer
-import dev.whekin.whfin.data.sms.CredoSmsParser.OutgoingTransfer
-import dev.whekin.whfin.data.sms.CredoSmsParser.OwnTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.CardPayment
+import dev.whekin.whfin.data.sms.BankSmsMessage.CurrencyExchange
+import dev.whekin.whfin.data.sms.BankSmsMessage.DepositTopUp
+import dev.whekin.whfin.data.sms.BankSmsMessage.IncomingTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.OutgoingTransfer
+import dev.whekin.whfin.data.sms.BankSmsMessage.OwnTransfer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
@@ -195,14 +195,14 @@ class CredoSmsParserTest {
     fun `unrelated sms is ignored`() {
         assertNull(CredoSmsParser.parse("Your delivery code is 1234"))
         val result = CredoSmsParser.classify("Your delivery code is 1234")
-        assertTrue(result is CredoSmsParser.Classification.Ignored)
-        assertFalse((result as CredoSmsParser.Classification.Ignored).credoCandidate)
+        assertTrue(result is BankSmsMessage.Classification.Ignored)
+        assertFalse((result as BankSmsMessage.Classification.Ignored).bankCandidate)
     }
 
     @Test
     fun `malformed transaction message is visible as unrecognized`() {
         val result = CredoSmsParser.classify("Payment: new Credo format")
-        assertEquals(CredoSmsParser.Classification.Unrecognized, result)
+        assertEquals(BankSmsMessage.Classification.Unrecognized, result)
         assertTrue(CredoSmsParser.isCredoCandidate("Payment: new Credo format"))
     }
 
@@ -210,9 +210,9 @@ class CredoSmsParserTest {
     fun `OTP remains a Credo candidate but has an explicit ignored reason`() {
         val result = CredoSmsParser.classify(
             "CODE: 123456 confirms card ***0002 payment of 19.99 EUR at EXAMPLE SHOP",
-        ) as CredoSmsParser.Classification.Ignored
-        assertEquals(CredoSmsParser.IgnoreReason.OTP, result.reason)
-        assertTrue(result.credoCandidate)
+        ) as BankSmsMessage.Classification.Ignored
+        assertEquals(BankSmsMessage.IgnoreReason.OTP, result.reason)
+        assertTrue(result.bankCandidate)
     }
 
     @Test
@@ -276,7 +276,7 @@ class CredoSmsParserTest {
             Check details in MyCredo: https://mycredo.page.link/Pdk
         """.trimIndent()
 
-        val result = CredoSmsParser.parse(sms) as CredoSmsParser.BillPayment
+        val result = CredoSmsParser.parse(sms) as BankSmsMessage.BillPayment
         assertEquals(4560L, result.amountMinor)
         assertEquals("GEL", result.currency)
         assertEquals("Example Utility", result.serviceRaw)
@@ -293,7 +293,7 @@ class CredoSmsParserTest {
             Thank you for banking with us!
         """.trimIndent()
 
-        val result = CredoSmsParser.parse(sms) as CredoSmsParser.CashDeposit
+        val result = CredoSmsParser.parse(sms) as BankSmsMessage.CashDeposit
         assertEquals(25000L, result.amountMinor)
         assertEquals("GEL", result.currency)
         assertEquals(81240L, result.balanceMinor)
@@ -307,7 +307,7 @@ class CredoSmsParserTest {
             Amount 250.00 GEL; Available Balance 812.4 GEL. 
         """.trimIndent()
 
-        val result = CredoSmsParser.parse(sms) as CredoSmsParser.CashDeposit
+        val result = CredoSmsParser.parse(sms) as BankSmsMessage.CashDeposit
         assertEquals(81240L, result.balanceMinor)
     }
 
@@ -318,7 +318,7 @@ class CredoSmsParserTest {
             amount 5.31 GEL; Available Balance: 640.28 GEL.
         """.trimIndent()
 
-        val result = CredoSmsParser.parse(sms) as CredoSmsParser.InterestAccrual
+        val result = CredoSmsParser.parse(sms) as BankSmsMessage.InterestAccrual
         assertEquals(531L, result.amountMinor)
         assertEquals(64028L, result.balanceMinor)
         // The deposit the bank named: the one identity here that does not depend on the ledger being
@@ -335,7 +335,7 @@ class CredoSmsParserTest {
             amount 5.31 GEL; Available Balance: 640.28 GEL.
         """.trimIndent()
 
-        val result = CredoSmsParser.parse(sms) as CredoSmsParser.InterestAccrual
+        val result = CredoSmsParser.parse(sms) as BankSmsMessage.InterestAccrual
         assertEquals(531L, result.amountMinor)
         // A template that moved the number is still a real payment; it simply has to be asked about.
         assertNull(result.depositNumber)
@@ -351,7 +351,7 @@ class CredoSmsParserTest {
             03/04/2026 20:48:05
         """.trimIndent()
 
-        val result = CredoSmsParser.classify(sms) as CredoSmsParser.Classification.Canceled
+        val result = CredoSmsParser.classify(sms) as BankSmsMessage.Classification.Canceled
         assertEquals(1234L, result.payment.amountMinor)
         assertEquals("0001", result.payment.cardLast4)
         assertEquals("EXAMPLE MARKET", result.payment.merchantRaw)
@@ -369,9 +369,9 @@ class CredoSmsParserTest {
             val result = CredoSmsParser.classify(text)
             assertTrue(
                 "an offer must not look like a broken operation: $text",
-                result is CredoSmsParser.Classification.Ignored,
+                result is BankSmsMessage.Classification.Ignored,
             )
-            assertFalse((result as CredoSmsParser.Classification.Ignored).credoCandidate)
+            assertFalse((result as BankSmsMessage.Classification.Ignored).bankCandidate)
         }
     }
 
@@ -383,10 +383,10 @@ class CredoSmsParserTest {
             "Transaction completed, OTP: 0000 Name: Example",
         ).forEach { text ->
             val result = CredoSmsParser.classify(text)
-            assertTrue("must be ignored: $text", result is CredoSmsParser.Classification.Ignored)
+            assertTrue("must be ignored: $text", result is BankSmsMessage.Classification.Ignored)
             assertEquals(
-                CredoSmsParser.IgnoreReason.OTP,
-                (result as CredoSmsParser.Classification.Ignored).reason,
+                BankSmsMessage.IgnoreReason.OTP,
+                (result as BankSmsMessage.Classification.Ignored).reason,
             )
         }
     }
@@ -398,6 +398,6 @@ class CredoSmsParserTest {
             Amount: 10.00 GEL; Balance: 20.00 GEL
         """.trimIndent()
 
-        assertEquals(CredoSmsParser.Classification.Unrecognized, CredoSmsParser.classify(sms))
+        assertEquals(BankSmsMessage.Classification.Unrecognized, CredoSmsParser.classify(sms))
     }
 }

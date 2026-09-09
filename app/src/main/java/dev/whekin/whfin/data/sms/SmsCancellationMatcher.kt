@@ -7,7 +7,7 @@ import kotlin.math.abs
 /** Selects a cancellation target only when the original payment is unambiguous. */
 internal object SmsCancellationMatcher {
     fun match(
-        payment: CredoSmsParser.CardPayment,
+        payment: BankSmsMessage.CardPayment,
         occurredAt: Long,
         candidates: List<SmsDiagnosticEntity>,
     ): SmsDiagnosticEntity? {
