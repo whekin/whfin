@@ -208,7 +208,11 @@ Emphasize truth, coverage, gaps, and review status. File names are metadata and 
 
 ### Settings
 
-Search is the first item in the catalogue's single scroll container. Once it leaves view, show a search
+The root is five compact rows: Connections, Bookkeeping, Application, Data and security, About.
+Connections uses one row per configured bank. A common provider page combines history sync, channels,
+accounts, sign-in and secondary diagnostics. Keep raw push logs out of routine configuration.
+Search reaches leaf settings globally and Back restores the originating query. Nested settings pages
+always show the top-bar search action. Search is the first item in the catalogue's single scroll container. Once it leaves view, show a search
 icon at the right of the top bar, reserving its space even when hidden so the title never reflows.
 Tapping the icon returns to and focuses the field. Do not add an independent enterAlways header that
 consumes the catalogue's scroll or reappears on every small change of direction.

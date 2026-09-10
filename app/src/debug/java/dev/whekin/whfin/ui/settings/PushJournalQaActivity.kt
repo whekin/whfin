@@ -20,7 +20,7 @@ class PushJournalQaActivity : ComponentActivity() {
             else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
         setContent { WhfinTheme(darkTheme = intent.getBooleanExtra("dark", false)) { Surface {
-            SecondaryPage(stringResource(R.string.push_title), { finish() }) { PushJournalRoute(false, {}) }
+            SecondaryPage(stringResource(R.string.push_title), { finish() }) { PushJournalRoute(false, {}, diagnosticsOnly = intent.getBooleanExtra("diagnostics", false)) }
         } } }
     }
 }

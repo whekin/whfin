@@ -2,7 +2,7 @@
 
 ## Entry point and consent
 
-Settings → TBC push. Reading and logging are off by default. Enabling opens Android notification
+Settings → Connections → TBC → Push notifications. The journal lives under TBC → Diagnostics. Reading and logging are off by default. Enabling opens Android notification
 access when needed. The listener is protected by `BIND_NOTIFICATION_LISTENER_SERVICE`; the user must
 grant access in Android. That access is broad, but the callback rejects other packages before reading
 their notification fields. The exact consumer package allowlist is `com.icomvision.bsc.tbc`, matching

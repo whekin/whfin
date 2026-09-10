@@ -115,6 +115,7 @@ fun SmsDiagnosticsRoute(
      * so the flow moves on by itself instead of leaving a Back press as the only way out.
      */
     onCardLinked: () -> Unit = {},
+    bankFilter: dev.whekin.whfin.data.sms.BankSmsBank? = null,
     viewModel: SmsDiagnosticsViewModel = viewModel(),
 ) {
     val loadState by viewModel.loadState.collectAsState()
@@ -122,6 +123,10 @@ fun SmsDiagnosticsRoute(
     val messageState by viewModel.messageState.collectAsState()
     val shareMessageState by viewModel.shareMessageState.collectAsState()
     val context = LocalContext.current
+    val monitoring = if (bankFilter == null) smsImportEnabled else {
+        val active by remember(context, bankFilter) { dev.whekin.whfin.data.preferences.UiPreferences(context).bankSmsEnabled(bankFilter) }.collectAsState(initial = false)
+        active
+    }
     val shareChooserTitle = stringResource(R.string.sms_share_chooser_title)
     var scanAfterPermission by rememberSaveable { mutableStateOf(false) }
     var messageAfterPermissionId by rememberSaveable { mutableLongStateOf(0L) }
@@ -130,7 +135,7 @@ fun SmsDiagnosticsRoute(
     LaunchedEffect(hasHistoryPermission, scanAfterPermission) {
         if (hasHistoryPermission && scanAfterPermission) {
             scanAfterPermission = false
-            viewModel.scanHistory()
+            viewModel.scanHistory(bankFilter)
         }
     }
     LaunchedEffect(hasHistoryPermission, messageAfterPermissionId, loadState) {
@@ -152,11 +157,11 @@ fun SmsDiagnosticsRoute(
 
     SmsDiagnosticsScreen(
         appVersion = appVersion,
-        loadState = loadState,
+        loadState = if (bankFilter == null || loadState !is SmsDiagnosticsLoadState.Content) loadState else SmsDiagnosticsLoadState.Content((loadState as SmsDiagnosticsLoadState.Content).data.forBank(bankFilter)),
         scanState = scanState,
         messageState = messageState,
         shareMessageState = shareMessageState,
-        smsImportEnabled = smsImportEnabled,
+        smsImportEnabled = monitoring,
         hasReceivePermission = hasReceivePermission,
         canRequestReceivePermission = canRequestReceivePermission,
         hasHistoryPermission = hasHistoryPermission,
@@ -166,7 +171,7 @@ fun SmsDiagnosticsRoute(
         onOpenSystemSettings = onOpenSystemSettings,
         onOpenFeed = onOpenFeed,
         onScanHistory = {
-            if (hasHistoryPermission) viewModel.scanHistory() else {
+            if (hasHistoryPermission) viewModel.scanHistory(bankFilter) else {
                 scanAfterPermission = true
                 if (canRequestHistoryPermission) onRequestHistoryPermission() else onOpenSystemSettings()
             }
@@ -1466,3 +1471,10 @@ private fun SmsDiagnosticsEmptyPreview() {
         }
     }
 }
+
+internal fun SmsDiagnosticsData.forBank(bank: dev.whekin.whfin.data.sms.BankSmsBank): SmsDiagnosticsData = copy(
+    diagnostics = diagnostics.filter { dev.whekin.whfin.data.sms.BankSmsBank.fromKey(it.externalKey) == bank },
+    accounts = accounts.filter { bank.accepts(it.account, it.bankProvider ?: it.groupName) },
+    cardFamilies = cardFamilies.filter { family -> family.accounts.any { bank.accepts(it, family.groupName) } },
+    cardMappings = cardMappings.filter { mapping -> mapping.family.accounts.any { bank.accepts(it, mapping.family.groupName) } },
+)

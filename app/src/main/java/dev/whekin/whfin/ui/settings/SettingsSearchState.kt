@@ -16,27 +16,42 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinIconButton
 
 @Stable
-class SettingsSearchState internal constructor(val scroll: ScrollState, private val text: MutableState<String>) {
+class SettingsSearchState internal constructor(val scroll: ScrollState, private val text: MutableState<String>, private val location: MutableState<String> = mutableStateOf(""), private val returnQuery: MutableState<String> = mutableStateOf("")) {
     var query: String by text
+    var page: String by location
+    fun reset() { page = ""; query = ""; returnQuery.value = "" }
+    fun open(page: String) {
+        if (query.isNotBlank()) returnQuery.value = query
+        query = ""; this.page = page
+    }
+    fun back(): Boolean {
+        if (returnQuery.value.isNotBlank()) { page = ""; query = returnQuery.value; returnQuery.value = ""; return true }
+        if (query.isNotBlank()) { query = ""; return true }
+        if (page.isBlank()) return false
+        page = if (page.startsWith("bank:") || page == "add-bank") "connections" else ""
+        return true
+    }
     internal val focus = FocusRequester()
     internal var fieldHeight by mutableIntStateOf(0)
     internal var topPadding by mutableIntStateOf(0)
     internal var request by mutableIntStateOf(0)
     internal var handledRequest = 0
     val collapsed: Boolean get() = fieldHeight > 0 && scroll.value >= fieldHeight + topPadding
-    fun reveal() { request++ }
+    fun reveal() { page = ""; returnQuery.value = ""; request++ }
 }
 
 @Composable
 fun rememberSettingsSearchState(): SettingsSearchState {
     val scroll = rememberScrollState()
     val text = rememberSaveable { mutableStateOf("") }
-    return remember(scroll, text) { SettingsSearchState(scroll, text) }
+    val location = rememberSaveable { mutableStateOf("") }
+    val returnQuery = rememberSaveable { mutableStateOf("") }
+    return remember(scroll, text, location, returnQuery) { SettingsSearchState(scroll, text, location, returnQuery) }
 }
 
 @Composable
 internal fun SettingsSearchAction(state: SettingsSearchState) {
-    val collapsed by remember(state) { derivedStateOf { state.collapsed } }
+    val collapsed by remember(state) { derivedStateOf { state.collapsed || state.page.isNotBlank() } }
     // Reserved space keeps the title's width/height unchanged when the icon appears.
     Box(Modifier.size(48.dp)) {
         androidx.compose.animation.AnimatedVisibility(collapsed,
@@ -45,4 +60,17 @@ internal fun SettingsSearchAction(state: SettingsSearchState) {
             WhfinIconButton(Icons.Default.Search, stringResource(R.string.settings_search_hint), state::reveal, outlined = false)
         }
     }
+}
+
+@Composable
+internal fun settingsPageTitle(state: SettingsSearchState): String = when (state.page) {
+    "connections" -> stringResource(R.string.settings_connections)
+    "catalog" -> stringResource(R.string.settings_accounting)
+    "app" -> stringResource(R.string.settings_application)
+    "data" -> stringResource(R.string.settings_data_security)
+    "about" -> stringResource(R.string.about_title)
+    "add-bank" -> stringResource(R.string.settings_add_bank)
+    "bank:TBC" -> "TBC"
+    "bank:CREDO" -> "Credo"
+    else -> stringResource(R.string.settings_title)
 }

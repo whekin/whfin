@@ -89,6 +89,23 @@ internal class UiPreferences(
         }
         .map { preferences -> preferences[SmsImportEnabled] ?: false }
 
+    fun bankSmsEnabled(bank: dev.whekin.whfin.data.sms.BankSmsBank): Flow<Boolean> = dataStore.data.catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { prefs ->
+        (prefs[SmsImportEnabled] ?: false) && (prefs[bankSmsKey(bank)] ?: legacySmsBank(bank))
+    }
+
+    suspend fun setBankSmsEnabled(bank: dev.whekin.whfin.data.sms.BankSmsBank, enabled: Boolean) {
+        dataStore.edit { prefs ->
+            val active = prefs[SmsImportEnabled] ?: false
+            dev.whekin.whfin.data.sms.BankSmsBank.entries.forEach { candidate ->
+                prefs[bankSmsKey(candidate)] = active && (prefs[bankSmsKey(candidate)] ?: legacySmsBank(candidate))
+            }
+            prefs[bankSmsKey(bank)] = enabled
+            prefs[SmsImportEnabled] = dev.whekin.whfin.data.sms.BankSmsBank.entries.any { prefs[bankSmsKey(it)] == true }
+        }
+    }
+    private fun legacySmsBank(bank: dev.whekin.whfin.data.sms.BankSmsBank) = bank in setOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO, dev.whekin.whfin.data.sms.BankSmsBank.TBC)
+    private fun bankSmsKey(bank: dev.whekin.whfin.data.sms.BankSmsBank) = booleanPreferencesKey("bank_sms_" + bank.name.lowercase(java.util.Locale.ROOT))
+
     /** Defaults off so an upgrade never locks a user out without an explicit choice. */
     val appLockTimeout: Flow<AppLockTimeout> = dataStore.data
         .catch { error ->
@@ -194,6 +211,7 @@ internal class UiPreferences(
     suspend fun setSmsImportEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[SmsImportEnabled] = enabled
+            dev.whekin.whfin.data.sms.BankSmsBank.entries.forEach { preferences[bankSmsKey(it)] = enabled }
             if (!enabled) preferences[SmsPermissionPromptDismissed] = true
         }
     }

@@ -21,6 +21,8 @@ import java.util.Locale
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class SettingsQaActivity : ComponentActivity() {
+    var openedAccount: Long? = null
+    var syncedBank: dev.whekin.whfin.data.sms.BankSmsBank? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dark = intent.getBooleanExtra("dark", false)
@@ -34,11 +36,22 @@ class SettingsQaActivity : ComponentActivity() {
             CompositionLocalProvider(LocalContext provides localized, LocalResources provides localized.resources,
                 LocalConfiguration provides config) {
                 val search = rememberSettingsSearchState()
+                androidx.activity.compose.BackHandler(search.page.isNotBlank() || search.query.isNotBlank()) { search.back() }
                 WhfinTheme(darkTheme = dark) {
                     androidx.compose.material3.Surface {
                     Box(Modifier.fillMaxSize().semantics { contentDescription = "settings-qa-ready"; testTagsAsResourceId = true }) {
-                    SecondaryPage(if (language == "ru") "Настройки" else "Settings", {}, actions = { SettingsSearchAction(search) }) {
-                        SettingsContent(searchState = search, smsImportEnabled = false, hasSmsPermission = true,
+                    SecondaryPage(settingsPageTitle(search), { search.back() }, actions = { SettingsSearchAction(search) }) {
+                        SettingsContent(searchState = search,
+                            connections = ConnectionSettingsState(accounts = dev.whekin.whfin.data.sms.BankSmsBank.entries.associateWith { bank ->
+                                    if (bank == dev.whekin.whfin.data.sms.BankSmsBank.TBC) listOf("GEL", "USD", "EUR", "GBP").mapIndexed { index, currency ->
+                                        dev.whekin.whfin.data.db.AccountEntity(id = index + 1L, name = "Everyday", type = dev.whekin.whfin.data.db.AccountType.BANK,
+                                            currency = currency, iban = "GE00TB0000000000000001")
+                                    } else emptyList()
+                                },
+                                lastSync = dev.whekin.whfin.data.sms.BankSmsBank.entries.associateWith { System.currentTimeMillis() },
+                                remembered = dev.whekin.whfin.data.sms.BankSmsBank.entries.toSet(), pushEnabled = true, pushPermission = true, pushConnected = true), smsImportEnabled = false, hasSmsPermission = true,
+                            connectionActions = ConnectionSettingsActions(sync = { syncedBank = it }, login = {}, sms = { _, _ -> }, push = {},
+                                smsPermission = {}, pushPermission = {}, messages = {}, statements = {}, journal = {}, account = { openedAccount = it }),
                             canRequestSmsPermission = true, onSmsImportEnabledChange = {}, onRequestSmsPermission = {},
                             onOpenSystemSettings = {}, onOpenStatements = {}, onOpenSmsDiagnostics = {}, appLockTimeout = AppLockTimeout.Disabled,
                             onOpenAppLock = {}, onOpenBackup = {}, onOpenPrivacy = {}, onOpenAbout = {}, appVersion = "Synthetic")

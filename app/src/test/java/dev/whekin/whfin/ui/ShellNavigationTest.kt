@@ -133,18 +133,6 @@ class ShellNavigationTest {
     }
 
     @Test
-    fun `opening Credo setup enables SMS monitoring before navigation`() {
-        val events = mutableListOf<String>()
-
-        openCredoSetup(
-            enableSmsMonitoring = { events += "sms" },
-            openCredo = { events += "credo" },
-        )
-
-        assertEquals(listOf("sms", "credo"), events)
-    }
-
-    @Test
     fun `Credo Back returns to the screen that opened it`() {
         assertEquals(null, credoBackDestination(null))
         assertEquals(

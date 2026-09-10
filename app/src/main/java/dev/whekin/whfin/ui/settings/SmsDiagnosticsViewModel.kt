@@ -172,13 +172,13 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     val shareMessageState: StateFlow<SmsShareMessageState> = _shareMessageState
     private val shareMessageRequestId = AtomicLong()
 
-    fun scanHistory() {
+    fun scanHistory(bank: dev.whekin.whfin.data.sms.BankSmsBank? = null) {
         if (_scanState.value == SmsScanState.Scanning || _scanState.value == SmsScanState.Importing) return
         viewModelScope.launch(Dispatchers.IO) {
             _scanState.value = SmsScanState.Scanning
             runCatching {
                 val since = Instant.now().minus(Duration.ofDays(90)).toEpochMilli()
-                val messages = historyReader.bankCandidates(since)
+                val messages = historyReader.bankCandidates(since).filter { bank == null || it.bank == bank }
                 val results = messages.map { SmsTransactionImporter(db, it.bank).preview(it.body, it.receivedAt) }
                 pendingHistory = messages
                 SmsScanSummary(

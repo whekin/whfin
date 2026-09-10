@@ -48,6 +48,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "catalog" },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -81,6 +82,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                     smsImportEnabled = true,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,
@@ -110,6 +112,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -137,6 +140,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "data" },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -168,6 +172,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "data" },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -202,11 +207,12 @@ class SettingsScreenTest {
             }
         }
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val description = context.getString(R.string.settings_sms_toggle)
+        val description = context.getString(R.string.settings_bank_sms)
         compose.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 WhfinTheme {
                     SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                         smsImportEnabled = enabled,
                         hasSmsPermission = true,
                         canRequestSmsPermission = true,
@@ -234,10 +240,11 @@ class SettingsScreenTest {
     @Test
     fun smsImportSwitch_isOffWhenDisabled() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val description = context.getString(R.string.settings_sms_toggle)
+        val description = context.getString(R.string.settings_bank_sms)
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -267,6 +274,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "app" },
                     quickExpenseKeypadEnabled = enabled,
                     onQuickExpenseKeypadEnabledChange = { enabled = it },
                     smsImportEnabled = false,
@@ -302,6 +310,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "app" },
                     widgetOpenAppButtonEnabled = enabled,
                     onWidgetOpenAppButtonEnabledChange = { enabled = it },
                     smsImportEnabled = false,
@@ -335,10 +344,11 @@ class SettingsScreenTest {
         var diagnosticsOpened = false
         var permissionRequested = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val description = context.getString(R.string.settings_sms_toggle)
+        val description = context.getString(R.string.settings_bank_sms)
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                     smsImportEnabled = false,
                     hasSmsCardMapping = false,
                     hasSmsPermission = false,
@@ -376,6 +386,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "app" },
                     appThemeMode = selectedTheme,
                     dynamicColorsEnabled = dynamicColors,
                     useSystemFont = useSystemFont,
@@ -412,6 +423,7 @@ class SettingsScreenTest {
 
     @Test
     fun productionInfoRows_showVersionAndOpenDestinations() {
+        lateinit var navigation: SettingsSearchState
         var privacyOpened = false
         var backupOpened = false
         var appLockOpened = false
@@ -420,6 +432,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { if (page.isBlank()) page = "data"; navigation = this },
                     smsImportEnabled = false,
                     hasSmsPermission = false,
                     canRequestSmsPermission = true,
@@ -440,6 +453,7 @@ class SettingsScreenTest {
 
         compose.onNodeWithText(context.getString(R.string.app_lock_title)).performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.backup_title)).performScrollTo().performClick()
+        compose.runOnIdle { navigation.open("about") }
         compose.onNodeWithText(context.getString(R.string.privacy_title)).performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.about_title)).performScrollTo().performClick()
         compose.onNodeWithText("Version 0.1.0 (1)").performScrollTo().assertIsDisplayed()
@@ -487,6 +501,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "about" },
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -523,6 +538,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "about" },
                     smsImportEnabled = true,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -544,7 +560,7 @@ class SettingsScreenTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.demo_entry_title)).assertDoesNotExist()
-        compose.onNodeWithContentDescription(context.getString(R.string.settings_sms_toggle)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_bank_sms)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.demo_mode_reset))
             .performScrollTo()
             .performClick()
@@ -640,6 +656,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
                     status = SettingsStatus(integrityIssues = 2),
                     smsImportEnabled = false,
                     hasSmsPermission = true,
@@ -659,11 +676,9 @@ class SettingsScreenTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.settings_credo_never)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.settings_sms_state_off)).assertIsDisplayed()
-        compose.onNodeWithText(
-            context.resources.getQuantityString(R.plurals.settings_data_health_issues, 2, 2),
-        ).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_bank_not_connected)).assertIsDisplayed()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_bank_sms)).assertIsOff()
+        compose.onNodeWithText(context.getString(R.string.settings_bank_diagnostics)).performScrollTo().assertIsDisplayed()
     }
 
     @Test

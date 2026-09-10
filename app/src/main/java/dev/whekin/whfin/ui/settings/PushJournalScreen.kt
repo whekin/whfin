@@ -33,7 +33,7 @@ import kotlinx.coroutines.sync.withLock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PushJournalRoute(demoMode: Boolean, onOpenMessages: () -> Unit) {
+fun PushJournalRoute(demoMode: Boolean, onOpenMessages: () -> Unit, diagnosticsOnly: Boolean = false) {
     if (demoMode) { Text(stringResource(R.string.demo_mode_live_import_unavailable)); return }
     val context = LocalContext.current
     val app = context.applicationContext as WhfinApp
@@ -113,7 +113,7 @@ fun PushJournalRoute(demoMode: Boolean, onOpenMessages: () -> Unit) {
             else if (value) android.service.notification.NotificationListenerService.requestRebind(component)
         },
         onPermissionRequest = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
-        onOpenMessages = onOpenMessages, onEntry = { selected = it }, onClear = { confirmClear = true })
+        onOpenMessages = onOpenMessages, onEntry = { selected = it }, onClear = { confirmClear = true }, diagnosticsOnly = diagnosticsOnly)
     if (confirmClear) dev.whekin.whfin.core.ui.WhfinConfirmDialog(
         title = stringResource(R.string.push_clear), body = stringResource(R.string.push_clear_body),
         dismissLabel = stringResource(R.string.action_cancel), confirmLabel = stringResource(R.string.push_clear), onConfirm = {
@@ -129,11 +129,15 @@ fun PushJournalRoute(demoMode: Boolean, onOpenMessages: () -> Unit) {
 internal fun PushJournalContent(enabled: Boolean, access: Boolean, connected: Boolean,
     entries: List<PushJournal.Entry>?, problem: Boolean,
     onEnabledChange: (Boolean) -> Unit, onPermissionRequest: () -> Unit,
-    onOpenMessages: () -> Unit, onEntry: (PushJournal.Entry) -> Unit, onClear: () -> Unit) {
+    onOpenMessages: () -> Unit, onEntry: (PushJournal.Entry) -> Unit, onClear: () -> Unit, diagnosticsOnly: Boolean = false) {
     val haptics = LocalHapticFeedback.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text(stringResource(R.string.push_explanation))
+            if (diagnosticsOnly) Text(stringResource(R.string.settings_journal_hint))
+            else {
+            var explanation by remember { mutableStateOf(false) }
+            WhfinButton(stringResource(R.string.settings_how_it_works), { explanation = !explanation }, style = WhfinActionStyle.Quiet)
+            if (explanation) Text(stringResource(R.string.push_explanation))
             WhfinLedgerRow(stringResource(R.string.push_enable),
                 modifier = Modifier.toggleable(enabled, role = Role.Switch) { value ->
                     haptics.performHapticFeedback(WhfinHaptics.toggle(value))
@@ -149,6 +153,7 @@ internal fun PushJournalContent(enabled: Boolean, access: Boolean, connected: Bo
             }))
             WhfinButton(stringResource(R.string.push_permission), onPermissionRequest, Modifier.fillMaxWidth(), style = WhfinActionStyle.Secondary)
             WhfinButton(stringResource(R.string.push_mappings), onOpenMessages, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+            }
             if (problem) Text(stringResource(R.string.push_error), color = MaterialTheme.colorScheme.error)
         }
         if (entries == null) item { WhfinLoadingIndicator() }

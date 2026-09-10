@@ -14,7 +14,8 @@ import java.io.File
 class PushJournalVisualTest {
     @Test fun logAndOriginalExample() = render(false)
     @Test fun largeDarkLogAndOriginalExample() = render(true)
-    private fun render(large: Boolean) {
+    @Test fun bankDiagnosticsOnly() = render(false, true)
+    private fun render(large: Boolean, diagnostics: Boolean = false) {
         check(Build.HARDWARE in setOf("ranchu", "goldfish"))
         val i = InstrumentationRegistry.getInstrumentation()
         val context = i.targetContext
@@ -24,11 +25,12 @@ class PushJournalVisualTest {
         val journal = PushJournal(context)
         journal.clear()
         journal.record(BankPush(TbcPush.PACKAGE, "synthetic-example", System.currentTimeMillis(), "TBC", "Synthetic future payment format"), "UNRECOGNIZED")
-        try { ActivityScenario.launch<PushJournalQaActivity>(Intent(context, PushJournalQaActivity::class.java).putExtra("dark", large)).use {
+        try { ActivityScenario.launch<PushJournalQaActivity>(Intent(context, PushJournalQaActivity::class.java).putExtra("dark", large).putExtra("diagnostics", diagnostics)).use {
             val outcome = context.getString(R.string.push_unknown)
             assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.push_title))), 10000))
             if (!device.hasObject(By.text(outcome))) UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView(outcome)
             assertNotNull(device.findObject(By.text(outcome)))
+            if (diagnostics) assertFalse(device.hasObject(By.text(context.getString(R.string.push_enable))))
             device.waitForIdle(1000)
             assertFalse("A normal resume must not show an error", device.hasObject(By.text(context.getString(R.string.push_error))))
             device.takeScreenshot(File(context.getExternalFilesDir(null), "push-journal-$large.png"))

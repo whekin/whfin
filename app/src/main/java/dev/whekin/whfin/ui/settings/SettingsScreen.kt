@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Lock
@@ -110,6 +111,10 @@ fun SettingsScreen(
     onOpenCredoSync: () -> Unit = {},
     onOpenTbc: () -> Unit = {},
     onOpenPush: () -> Unit = {},
+    onSyncTbc: () -> Unit = onOpenTbc,
+    onSyncCredo: () -> Unit = onOpenCredoSync,
+    onOpenBankMessages: (dev.whekin.whfin.data.sms.BankSmsBank?) -> Unit = { onOpenSmsDiagnostics() },
+    onOpenBankAccount: (Long) -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onOpenCategoryIntelligence: () -> Unit = {},
     onOpenIncomeSources: () -> Unit = {},
@@ -124,7 +129,59 @@ fun SettingsScreen(
 ) {
     val viewModel: SettingsViewModel = viewModel()
     val status by viewModel.status.collectAsState()
+    val context = LocalContext.current
+    val preferences = remember { dev.whekin.whfin.data.preferences.UiPreferences(context) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val credoSms by remember(preferences) { preferences.bankSmsEnabled(dev.whekin.whfin.data.sms.BankSmsBank.CREDO) }.collectAsState(initial = smsImportEnabled)
+    val tbcSms by remember(preferences) { preferences.bankSmsEnabled(dev.whekin.whfin.data.sms.BankSmsBank.TBC) }.collectAsState(initial = smsImportEnabled)
+    var deviceRevision by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event -> if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) deviceRevision++ }
+        lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
+    }
+    val pushSettings = remember { dev.whekin.whfin.data.push.PushSettings(context) }
+    var pushEnabled by remember(deviceRevision) { androidx.compose.runtime.mutableStateOf(!demoMode && pushSettings.enabled) }
+    val component = remember { android.content.ComponentName(context, dev.whekin.whfin.data.push.TbcPushListener::class.java) }
+    val pushPermission = remember(deviceRevision) { context.getSystemService(android.app.NotificationManager::class.java).isNotificationListenerAccessGranted(component) }
+    val pushConnected by dev.whekin.whfin.data.push.PushRuntime.connected.collectAsState()
+    val pushRevision by dev.whekin.whfin.data.push.PushRuntime.revision.collectAsState()
+    val receiverError by dev.whekin.whfin.data.push.PushRuntime.error.collectAsState()
+    var journalEntries by remember { androidx.compose.runtime.mutableStateOf<List<dev.whekin.whfin.data.push.PushJournal.Entry>?>(null) }
+    var journalError by remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(searchState.page, pushRevision, deviceRevision) {
+        if (!demoMode && searchState.page == "bank:TBC") {
+            try { journalEntries = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.whekin.whfin.data.push.PushJournal(context).entries() }; journalError = false }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { journalError = true }
+        }
+    }
+    val remembered = if (demoMode) emptySet() else dev.whekin.whfin.data.sms.BankSmsBank.entries.filter { bank ->
+        dev.whekin.whfin.data.security.EncryptedBankCredentialStore(context, bank.name.lowercase(java.util.Locale.ROOT)).hasCredentials() ||
+            (bank == dev.whekin.whfin.data.sms.BankSmsBank.TBC && dev.whekin.whfin.data.security.EncryptedBankSessionStore(context, "tbc").hasSaved())
+    }.toSet()
+    val notificationsPermission = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+    val bankActions = ConnectionSettingsActions(
+        sync = { when (it) { dev.whekin.whfin.data.sms.BankSmsBank.TBC -> onSyncTbc(); dev.whekin.whfin.data.sms.BankSmsBank.CREDO -> onSyncCredo() } },
+        login = { when (it) { dev.whekin.whfin.data.sms.BankSmsBank.TBC -> onOpenTbc(); dev.whekin.whfin.data.sms.BankSmsBank.CREDO -> onOpenCredoSync() } },
+        sms = { bank, value -> scope.launch {
+            preferences.setBankSmsEnabled(bank, value)
+            if (value && !hasSmsPermission) { if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings() }
+        } },
+        push = { value -> pushSettings.enabled = value; pushEnabled = value
+            if (value && !pushPermission) notificationsPermission()
+            else if (value) android.service.notification.NotificationListenerService.requestRebind(component) },
+        smsPermission = { if (hasSmsPermission || !canRequestSmsPermission) onOpenSystemSettings() else onRequestSmsPermission() },
+        pushPermission = notificationsPermission, messages = onOpenBankMessages,
+        statements = onOpenStatements, journal = onOpenPush, account = onOpenBankAccount,
+    )
     SettingsContent(
+        connections = ConnectionSettingsState(status.bankAccounts,
+            mapOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO to status.lastCredoSyncAt, dev.whekin.whfin.data.sms.BankSmsBank.TBC to status.lastTbcSyncAt),
+            remembered, mapOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO to credoSms, dev.whekin.whfin.data.sms.BankSmsBank.TBC to tbcSms),
+            hasSmsPermission, pushEnabled, pushPermission, pushConnected, journalEntries != null,
+            journalEntries?.maxOfOrNull { it.capturedAt }, journalEntries.orEmpty().count { it.outcome in setOf("UNRECOGNIZED", "TRUNCATED", "ERROR", "RECEIVED") }, journalError || receiverError),
+        connectionActions = bankActions,
         searchState = searchState,
         status = status,
         appThemeMode = appThemeMode,
@@ -216,15 +273,19 @@ internal fun SettingsContent(
     runtimeModeProblem: String? = null,
     onEnterDemo: () -> Unit = {},
     onResetDemoData: () -> Unit = {},
+    connections: ConnectionSettingsState? = null,
+    connectionActions: ConnectionSettingsActions? = null,
     searchState: SettingsSearchState = rememberSettingsSearchState(),
 ) {
     var confirmDemoReset by rememberSaveable { mutableStateOf(false) }
     var showDemoEntry by rememberSaveable { mutableStateOf(false) }
     val query = searchState.query
+    val navigationHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     val smsProblem = smsImportEnabled && (!hasSmsPermission || !hasSmsCardMapping)
-    val sections = buildSettingsSections(
+    val baseSections = buildSettingsSections(
         status = status,
+        pushEnabled = connections?.pushEnabled ?: false,
         appLockTimeout = appLockTimeout,
         appLockHasPin = appLockHasPin,
         appVersion = appVersion,
@@ -236,9 +297,9 @@ internal fun SettingsContent(
         quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
         widgetOpenAppButtonEnabled = widgetOpenAppButtonEnabled,
         demoMode = demoMode,
-        onOpenCredoSync = onOpenCredoSync,
-        onOpenTbc = onOpenTbc,
-        onOpenPush = onOpenPush,
+        onOpenCredoSync = { searchState.open("bank:CREDO") },
+        onOpenTbc = { searchState.open("bank:TBC") },
+        onOpenPush = { searchState.open("bank:TBC") },
         onOpenStatements = onOpenStatements,
         onOpenSmsDiagnostics = onOpenSmsDiagnostics,
         onSmsImportEnabledChange = { enabled ->
@@ -264,10 +325,29 @@ internal fun SettingsContent(
         onOpenDemoEntry = { showDemoEntry = true },
         onResetDemo = { confirmDemoReset = true },
     )
-    val visible = remember(sections, query) { filterSettings(sections, query) }
+    val sections = baseSections.map { section -> if (section.id != SECTION_BANK) section else section.copy(rows = section.rows + listOf(
+        SettingsRow("tbc-login", "TBC · " + stringResource(R.string.settings_bank_sign_in), keywords = "TBC login пароль вход OTP", onClick = onOpenTbc, enabled = !demoMode),
+        SettingsRow("credo-login", "Credo · " + stringResource(R.string.settings_bank_sign_in), keywords = "Credo login пароль вход OTP", onClick = onOpenCredoSync, enabled = !demoMode),
+        SettingsRow("tbc-journal", "TBC · " + stringResource(R.string.settings_bank_diagnostics), keywords = "TBC push журнал диагностика notification log", onClick = onOpenPush, enabled = !demoMode),
+    )) }
+    val visible = if (query.isNotBlank()) filterSettings(sections, query)
+        else sections.filter { it.id == searchState.page || (searchState.page == "about" && it.id == "demo") }
     val searching = query.isNotBlank()
 
+    if (!searching && (searchState.page == "connections" || searchState.page == "add-bank" || searchState.page.startsWith("bank:"))) {
+        ConnectionsSettings(connections ?: ConnectionSettingsState(accounts = status.bankAccounts ?: emptyMap(),
+            lastSync = mapOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO to status.lastCredoSyncAt, dev.whekin.whfin.data.sms.BankSmsBank.TBC to status.lastTbcSyncAt),
+            sms = dev.whekin.whfin.data.sms.BankSmsBank.entries.associateWith { smsImportEnabled }, smsPermission = hasSmsPermission),
+            searchState, connectionActions ?: ConnectionSettingsActions(
+                sync = { when (it) { dev.whekin.whfin.data.sms.BankSmsBank.TBC -> onOpenTbc(); dev.whekin.whfin.data.sms.BankSmsBank.CREDO -> onOpenCredoSync() } },
+                login = { when (it) { dev.whekin.whfin.data.sms.BankSmsBank.TBC -> onOpenTbc(); dev.whekin.whfin.data.sms.BankSmsBank.CREDO -> onOpenCredoSync() } },
+                sms = { _, value -> onSmsImportEnabledChange(value); if (value && !hasSmsPermission) { if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings() } }, push = {}, smsPermission = onRequestSmsPermission,
+                pushPermission = onOpenSystemSettings, messages = { onOpenSmsDiagnostics() }, statements = onOpenStatements,
+                journal = onOpenPush, account = {}), demoMode)
+        return
+    }
     val catalogScroll = searchState.scroll
+    LaunchedEffect(searchState.page) { catalogScroll.scrollTo(0) }
     val searchScope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val revealMotion = dev.whekin.whfin.core.ui.WhfinMotion.standard<Float>()
@@ -289,7 +369,7 @@ internal fun SettingsContent(
             .padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        WhfinField(
+        if (searchState.page.isBlank() || searching) WhfinField(
             value = query,
             onValueChange = { value ->
                 searchState.query = value
@@ -301,7 +381,22 @@ internal fun SettingsContent(
             modifier = Modifier.fillMaxWidth().focusRequester(searchState.focus)
                 .onSizeChanged { searchState.fieldHeight = it.height }.testTag("settings-search"),
         )
-        if (visible.isEmpty()) {
+        if (!searching && searchState.page.isBlank()) {
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                listOf(
+                    Triple("connections", R.string.settings_connections, R.string.settings_connections_summary),
+                    Triple("catalog", R.string.settings_accounting, R.string.settings_accounting_summary),
+                    Triple("app", R.string.settings_application, R.string.settings_application_summary),
+                    Triple("data", R.string.settings_data_security, R.string.settings_data_security_summary),
+                    Triple("about", R.string.about_title, R.string.settings_about_summary),
+                ).forEach { (page, title, summary) ->
+                    dev.whekin.whfin.core.ui.WhfinLedgerRow(stringResource(title), supportingText = stringResource(summary),
+                        onClick = { navigationHaptics.performHapticFeedback(dev.whekin.whfin.core.ui.WhfinHaptics.navigation); searchState.open(page) }, divider = page != "about",
+                        trailing = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.ChevronRight, null) })
+                }
+            }
+        }
+        if (visible.isEmpty() && searching) {
             Text(
                 stringResource(R.string.settings_search_empty),
                 style = MaterialTheme.typography.bodyMedium,
@@ -310,11 +405,11 @@ internal fun SettingsContent(
         }
 
         visible.forEach { section ->
-            WhfinSectionLabel(section.label)
+            if (searching || section.id == "demo") WhfinSectionLabel(section.label)
             // The theme choice is the control itself, so it stands outside the group of rows it
             // belongs to rather than pretending to be a door.
             val themeRow = section.rows.firstOrNull { it.id == ROW_THEME }
-            if (themeRow != null) ThemeChoice(appThemeMode, onAppThemeModeChange)
+            if (themeRow != null) { dev.whekin.whfin.core.ui.WhfinFieldLabel(themeRow.title); ThemeChoice(appThemeMode, onAppThemeModeChange) }
             val rows = section.rows.filterNot { it.id == ROW_THEME }
             if (rows.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 rows.forEachIndexed { index, row ->
@@ -356,7 +451,7 @@ internal fun SettingsContent(
             )
         }
 
-        if (developerMode && !searching) {
+        if (developerMode && !searching && searchState.page == "about") {
             WhfinSectionLabel(stringResource(R.string.developer_mode_section))
             WhfinNotice(
                 title = stringResource(R.string.developer_mode_enabled_title),
@@ -393,9 +488,10 @@ internal fun SettingsContent(
 @Composable
 private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
     val control = row.control
+    val keyboard = LocalSoftwareKeyboardController.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     WhfinLedgerRow(
-        modifier = if (control is SettingsControl.Toggle) Modifier.toggleable(
+        modifier = (if (control is SettingsControl.Toggle) Modifier.toggleable(
             value = control.checked,
             enabled = row.enabled,
             role = Role.Switch,
@@ -403,7 +499,7 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
                 haptics.performHapticFeedback(dev.whekin.whfin.core.ui.WhfinHaptics.toggle(value))
                 control.onCheckedChange(value)
             },
-        ).semantics { contentDescription = control.contentDescription } else Modifier,
+        ).semantics { contentDescription = control.contentDescription } else Modifier).testTag("settings-row-${row.id}"),
         title = row.title,
         // Reached through its contents, the row answers with what was found in there. Its usual
         // status — when a copy last ran, how long the lock waits — is true but is not the answer to
@@ -438,7 +534,7 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
             }
             else -> null
         },
-        onClick = row.onClick?.takeIf { row.enabled && control !is SettingsControl.Toggle },
+        onClick = row.onClick?.takeIf { row.enabled && control !is SettingsControl.Toggle }?.let { action -> { keyboard?.hide(); action() } },
         divider = divider,
     )
 }
@@ -471,6 +567,7 @@ private fun ThemeChoice(mode: AppThemeMode, onChange: (AppThemeMode) -> Unit) {
 @Composable
 private fun buildSettingsSections(
     status: SettingsStatus,
+    pushEnabled: Boolean,
     appLockTimeout: AppLockTimeout,
     appLockHasPin: Boolean,
     appVersion: String,
@@ -512,7 +609,7 @@ private fun buildSettingsSections(
         rows = listOfNotNull(
             SettingsRow(
                 id = "credo",
-                title = stringResource(R.string.credo_sync_title),
+                title = "Credo",
                 summary = when {
                     demoMode -> demoUnavailable
                     status.lastCredoSyncAt != null ->
@@ -527,7 +624,7 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "tbc",
-                title = stringResource(R.string.tbc_title),
+                title = "TBC",
                 summary = if (demoMode) demoUnavailable else stringResource(R.string.tbc_settings_summary),
                 keywords = "TBC", inside = listOf(stringResource(R.string.tbc_settings_summary)),
                 icon = Icons.Default.CloudSync, enabled = !demoMode, onClick = onOpenTbc,
@@ -543,6 +640,10 @@ private fun buildSettingsSections(
                 icon = Icons.Default.Description,
                 onClick = onOpenStatements,
             ),
+            SettingsRow(id = "credo-sms", title = "Credo · SMS", keywords = "Credo SMS сообщения", icon = Icons.Default.Sms,
+                enabled = !demoMode, onClick = onOpenCredoSync),
+            SettingsRow(id = "tbc-sms", title = "TBC · SMS", keywords = "TBC SMS сообщения", icon = Icons.Default.Sms,
+                enabled = !demoMode, onClick = onOpenTbc),
             SettingsRow(
                 id = ROW_SMS,
                 title = stringResource(R.string.sms_diagnostics_title),
@@ -561,22 +662,10 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "tbc-push", title = stringResource(R.string.push_title),
-                summary = stringResource(if (dev.whekin.whfin.data.push.PushSettings(androidx.compose.ui.platform.LocalContext.current).enabled) R.string.push_on else R.string.push_off), keywords = "TBC push notifications уведомления журнал",
+                summary = stringResource(if (pushEnabled) R.string.push_on else R.string.push_off), keywords = "TBC push notifications уведомления журнал",
                 icon = Icons.Default.Sms, enabled = !demoMode, onClick = onOpenPush,
             ),
-            // The demo workspace has no live messages to read, so the switch that would read them
-            // is absent rather than present and dead.
-            if (demoMode) null else SettingsRow(
-                id = "sms-toggle",
-                title = stringResource(R.string.settings_sms_toggle),
-                summary = stringResource(R.string.settings_sms_toggle_body),
-                keywords = stringResource(R.string.settings_keywords_sms),
-                control = SettingsControl.Toggle(
-                    checked = smsImportEnabled,
-                    contentDescription = stringResource(R.string.settings_sms_toggle),
-                    onCheckedChange = onSmsImportEnabledChange,
-                ),
-            ),
+
         ),
     )
     val catalog = SettingsSection(
@@ -681,15 +770,6 @@ private fun buildSettingsSections(
                 icon = Icons.Default.Restore,
                 onClick = onOpenCorrections,
             ),
-            SettingsRow(
-                id = "privacy",
-                title = stringResource(R.string.privacy_title),
-                summary = stringResource(R.string.privacy_settings_summary),
-                keywords = stringResource(R.string.settings_keywords_privacy),
-                inside = settingsInside(R.string.settings_inside_privacy),
-                icon = Icons.Default.PrivacyTip,
-                onClick = onOpenPrivacy,
-            ),
         ),
     )
     val appearance = SettingsSection(
@@ -760,6 +840,15 @@ private fun buildSettingsSections(
                 inside = settingsInside(R.string.settings_inside_about),
                 icon = Icons.Default.Info,
                 onClick = onOpenAbout,
+            ),
+            SettingsRow(
+                id = "privacy",
+                title = stringResource(R.string.privacy_title),
+                summary = stringResource(R.string.privacy_settings_summary),
+                keywords = stringResource(R.string.settings_keywords_privacy),
+                inside = settingsInside(R.string.settings_inside_privacy),
+                icon = Icons.Default.PrivacyTip,
+                onClick = onOpenPrivacy,
             ),
             if (demoMode) null else SettingsRow(
                 id = "demo-entry",

@@ -115,7 +115,8 @@ call). The skeleton breathes as one and carries a single content description for
 ## Settings
 
 Settings is a described catalogue, not hand-written rows: `SettingsSection`/`SettingsRow` with
-`filterSettings` for search. Three rules hold.
+`filterSettings` for global search. Five root groups and shared bank pages project that catalogue;
+inner navigation belongs to `SettingsSearchController`. Three rules hold.
 
 - **Order by why the screen is opened.** Money arriving on its own comes first, then what the ledger is
   made of, then the data itself, then how the app looks. Appearance is decided once and must not own
@@ -125,7 +126,8 @@ Settings is a described catalogue, not hand-written rows: `SettingsSection`/`Set
   names the door behind it makes the reader open every door.
 - **Findable by the person's own word.** Each row carries `keywords` with the synonyms people actually
   type ("пин", "копия", "тема"); search matches title, state, synonyms and the section label, folds
-  `ё` to `е`, and narrows with each further word. The field stays pinned above the scrolling catalogue.
+  `ё` to `е`, and narrows with each further word. The field scrolls with the catalogue; its top-bar
+  action reveals and focuses it. Nested pages expose that action continuously.
 
 A problem that needs an action stays a `WhfinNotice` next to its row rather than becoming a state
 string: permission missing, messages unrouted. A destructive row keeps its own section heading and

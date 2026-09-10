@@ -26,6 +26,8 @@ internal data class SettingsStatus(
     val driveBackupEnabled: Boolean = false,
     val lastDriveBackupAt: Long? = null,
     val integrityIssues: Int = 0,
+    val lastTbcSyncAt: Long? = null,
+    val bankAccounts: Map<dev.whekin.whfin.data.sms.BankSmsBank, List<dev.whekin.whfin.data.db.AccountEntity>>? = null,
 )
 
 internal class SettingsViewModel(app: Application) : AndroidViewModel(app) {
@@ -40,7 +42,7 @@ internal class SettingsViewModel(app: Application) : AndroidViewModel(app) {
      */
     private val drive = DriveBackupStore(app)
 
-    val status: StateFlow<SettingsStatus> = combine(
+    private val base = combine(
         preferences.lastCredoSyncAt,
         db.statementImportDao().observeLatestCredoImportAt(),
         db.statementImportDao().observeAll(),
@@ -55,5 +57,10 @@ internal class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             lastDriveBackupAt = drive.lastSuccessAt.takeIf { it > 0L },
             integrityIssues = issues,
         )
+    }
+    val status = combine(base, preferences.lastTbcSyncAt, db.accountDao().observeActive(), db.financialGroupDao().observeActive()) { value, tbc, accounts, groups ->
+        value.copy(lastTbcSyncAt = tbc, bankAccounts = dev.whekin.whfin.data.sms.BankSmsBank.entries.associateWith { bank ->
+            accounts.filter { account -> bank.accepts(account, groups.firstOrNull { it.id == account.groupId }?.let { it.provider ?: it.name }) }
+        })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsStatus())
 }

@@ -43,7 +43,7 @@ class SmsForegroundCatchUp(
             SmsHistoryReader(context.contentResolver)
                 .bankCandidates(since, limit = MAX_MESSAGES)
                 .sortedBy(HistoricalSms::receivedAt)
-                .forEach { SmsTransactionImporter(database, it.bank).import(it.body, it.receivedAt) }
+                .forEach { if (UiPreferences(context).bankSmsEnabled(it.bank).first()) SmsTransactionImporter(database, it.bank).import(it.body, it.receivedAt) }
             preferences.edit().putLong(LAST_COMPLETED_AT, current).apply()
         } finally {
             running.set(false)

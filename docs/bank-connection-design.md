@@ -1,5 +1,7 @@
 # Bank connections and saved TBC sign-in
 
+Current settings hierarchy and shared provider pages: [Settings navigation](settings-navigation.md).
+
 Updated in 0.3.31. The owner reported seeing the password form again after choosing to save the TBC
 session, and asked for clearer connection UI and real bank artwork. The exact reason on the owner's
 phone was not observed: WHFIN was not foreground during the read-only check. No password, OTP,

@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui
 
+import kotlinx.coroutines.launch
+
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -279,13 +281,6 @@ internal fun popSecondaryDestination(
     remaining = if (backStack.isEmpty()) emptyList() else backStack.dropLast(1),
 )
 
-internal fun openCredoSetup(
-    enableSmsMonitoring: () -> Unit,
-    openCredo: () -> Unit,
-) {
-    enableSmsMonitoring()
-    openCredo()
-}
 
 @Composable
 fun MainScreen(
@@ -372,6 +367,7 @@ fun MainScreen(
     }
     var appLockReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
     var credoReturnTo by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
+    var diagnosticsBank by rememberSaveable { mutableStateOf<dev.whekin.whfin.data.sms.BankSmsBank?>(null) }
     val settingsSearchState = dev.whekin.whfin.ui.settings.rememberSettingsSearchState()
     var tbcRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
     var credoRoutineSyncRequestKey by rememberSaveable { mutableIntStateOf(0) }
@@ -391,6 +387,7 @@ fun MainScreen(
     val scene = target.scene
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val bankPreferencesScope = androidx.compose.runtime.rememberCoroutineScope()
     val packageInfo = remember(context.packageName) {
         context.packageManager.getPackageInfo(context.packageName, 0)
     }
@@ -401,6 +398,7 @@ fun MainScreen(
 
     fun open(destination: SecondaryDestination) {
         if (secondaryDestination == destination && analyticsTransactions == null) return
+        if (destination == SecondaryDestination.Settings) settingsSearchState.reset()
         haptics.performHapticFeedback(WhfinHaptics.navigation)
         secondaryBackStack = pushSecondaryDestination(
             current = secondaryDestination,
@@ -410,6 +408,11 @@ fun MainScreen(
         analyticsTransactions = null
         accountTransactionsId = null
         secondaryDestination = destination
+    }
+
+    fun openSmsDiagnostics(bank: dev.whekin.whfin.data.sms.BankSmsBank? = null) {
+        diagnosticsBank = bank
+        open(SecondaryDestination.SmsDiagnostics)
     }
 
     fun openAccountTransactions(accountId: Long) {
@@ -439,10 +442,8 @@ fun MainScreen(
     fun openCredo(caller: SecondaryDestination?, syncLatest: Boolean) {
         credoReturnTo = caller
         if (syncLatest) credoRoutineSyncRequestKey += 1
-        openCredoSetup(
-            enableSmsMonitoring = ::enableSmsMonitoring,
-            openCredo = { open(SecondaryDestination.CredoSync) },
-        )
+        // Sync and sign-in must not silently re-enable a bank's disabled SMS channel.
+        open(SecondaryDestination.CredoSync)
     }
 
     fun goBack(withHaptic: Boolean) {
@@ -451,11 +452,13 @@ fun MainScreen(
             // A queue is a step inside its screen, so Back leaves it before leaving the screen.
             categoryQueue != null -> categoryQueue = null
             analyticsTransactions != null -> analyticsTransactions = null
+            secondaryDestination == SecondaryDestination.Settings && settingsSearchState.back() -> Unit
             secondaryDestination != null -> {
                 val leaving = secondaryDestination
                 val back = popSecondaryDestination(secondaryBackStack)
                 secondaryDestination = back.destination
                 secondaryBackStack = back.remaining
+                if (leaving == SecondaryDestination.SmsDiagnostics) diagnosticsBank = null
                 if (leaving == SecondaryDestination.AccountTransactions) accountTransactionsId = null
                 if (leaving == SecondaryDestination.AppLock) appLockReturnTo = null
                 if (leaving == SecondaryDestination.CategoryIntelligence) categoryQueue = null
@@ -560,7 +563,7 @@ fun MainScreen(
                                 }
                         }
                     ShellScene.Settings -> SecondaryPage(
-                        title = stringResource(R.string.settings_title),
+                        title = dev.whekin.whfin.ui.settings.settingsPageTitle(settingsSearchState),
                         onBack = { goBack(withHaptic = true) },
                         actions = { dev.whekin.whfin.ui.settings.SettingsSearchAction(settingsSearchState) },
                     ) {
@@ -584,9 +587,13 @@ fun MainScreen(
                             onRequestSmsPermission = onRequestSmsPermission,
                             onOpenSystemSettings = onOpenSystemSettings,
                             onOpenStatements = { open(SecondaryDestination.Statements) },
-                            onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
+                            onOpenSmsDiagnostics = { openSmsDiagnostics() },
+                            onOpenBankMessages = { bank -> openSmsDiagnostics(bank) },
                             onOpenTbc = { open(SecondaryDestination.TbcLogin) },
                             onOpenPush = { open(SecondaryDestination.PushJournal) },
+                            onSyncTbc = { tbcRoutineSyncRequestKey++; open(SecondaryDestination.TbcLogin) },
+                            onSyncCredo = { openCredo(caller = SecondaryDestination.Settings, syncLatest = true) },
+                            onOpenBankAccount = ::openAccountTransactions,
                             onOpenCredoSync = {
                                 openCredo(
                                     caller = SecondaryDestination.Settings,
@@ -629,8 +636,8 @@ fun MainScreen(
                             onDone = { goBack(withHaptic = true) },
                         )
                     }
-                    ShellScene.PushJournal -> SecondaryPage(stringResource(R.string.push_title), { goBack(withHaptic = true) }) {
-                        dev.whekin.whfin.ui.settings.PushJournalRoute(demoMode) { open(SecondaryDestination.SmsDiagnostics) }
+                    ShellScene.PushJournal -> SecondaryPage("TBC · " + stringResource(R.string.settings_bank_diagnostics), { goBack(withHaptic = true) }) {
+                        dev.whekin.whfin.ui.settings.PushJournalRoute(demoMode, onOpenMessages = { openSmsDiagnostics(dev.whekin.whfin.data.sms.BankSmsBank.TBC) }, diagnosticsOnly = true)
                     }
                     ShellScene.TbcLogin -> SecondaryPage(
                         title = stringResource(R.string.tbc_title),
@@ -641,17 +648,25 @@ fun MainScreen(
                         onBack = { goBack(withHaptic = true) },
                     ) { BankStatementsScreen() }
                     ShellScene.SmsDiagnostics -> SecondaryPage(
-                        title = stringResource(R.string.sms_diagnostics_title),
+                        title = diagnosticsBank?.let { stringResource(R.string.settings_scoped_messages, it.provider) } ?: stringResource(R.string.sms_diagnostics_title),
                         onBack = { goBack(withHaptic = true) },
                     ) {
                         SmsDiagnosticsRoute(
+                            bankFilter = diagnosticsBank,
                             appVersion = portableAppVersion,
                             smsImportEnabled = smsImportEnabled,
                             hasReceivePermission = hasSmsPermission,
                             canRequestReceivePermission = canRequestSmsPermission,
                             hasHistoryPermission = hasSmsHistoryPermission,
                             canRequestHistoryPermission = canRequestSmsHistoryPermission,
-                            onEnableMonitoring = ::enableSmsMonitoring,
+                            onEnableMonitoring = {
+                                val bank = diagnosticsBank
+                                if (bank == null) enableSmsMonitoring()
+                                else {
+                                    bankPreferencesScope.launch { dev.whekin.whfin.data.preferences.UiPreferences(context).setBankSmsEnabled(bank, true) }
+                                    if (!hasSmsPermission) { if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings() }
+                                }
+                            },
                             onRequestReceivePermission = onRequestSmsPermission,
                             onOpenFeed = {
                                 haptics.performHapticFeedback(WhfinHaptics.navigation)

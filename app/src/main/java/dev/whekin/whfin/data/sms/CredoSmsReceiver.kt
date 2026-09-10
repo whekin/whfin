@@ -26,6 +26,7 @@ class CredoSmsReceiver : BroadcastReceiver() {
                 if (!UiPreferences(app).smsImportEnabled.first()) return@launch
                 val bank = messages.map { BankSmsBank.fromSender(it.originatingAddress) }.distinct().singleOrNull()
                     ?: return@launch
+                if (!UiPreferences(app).bankSmsEnabled(bank).first()) return@launch
                 val classification = bank.classify(body)
                 if (classification is BankSmsMessage.Classification.Ignored) return@launch
                 val receivedAt = messages.minOfOrNull { it.timestampMillis }
