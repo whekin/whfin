@@ -100,6 +100,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         )
     }
 
+    internal suspend fun importPush(classification: BankSmsMessage.Classification, key: String, receivedAt: Long): SmsImportResult {
+        require(bank == BankSmsBank.TBC && key.startsWith("sms|tbc|push|"))
+        return db.withTransaction { evaluate(classification, key, receivedAt, persist = true) }
+    }
+
     suspend fun resolveDiagnostic(
         diagnosticId: Long,
         accountId: Long,
@@ -188,6 +193,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         account: AccountEntity,
         status: TxStatus,
     ): SmsImportResult {
+        if (bank == BankSmsBank.TBC && diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT) {
+            diagnostic.transactionId?.let { id ->
+                if (db.transactionDao().byId(id) != null) return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE, diagnostic.id, id)
+            }
+        }
         db.transactionDao().byExternalKey(diagnostic.externalKey)?.let { existing ->
             val saved = diagnostic.copy(
                 outcome = SmsDiagnosticOutcome.DUPLICATE,
@@ -223,6 +233,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
 
         val sms = diagnostic.toParsedSms()
             ?: return updateFailure(diagnostic, SmsDiagnosticReason.PARSE_FAILURE)
+        crossChannelCard(sms, diagnostic.externalKey, diagnostic.receivedAt, true)?.let { return it }
         val transactionId =
             insertTransaction(sms, account, diagnostic.externalKey, diagnostic.receivedAt, status)
         val outcome = if (transactionId > 0) SmsDiagnosticOutcome.IMPORTED else SmsDiagnosticOutcome.DUPLICATE
@@ -452,6 +463,34 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         )
     }
 
+    private suspend fun crossChannelCard(sms: BankSmsMessage.Sms, key: String, receivedAt: Long, persist: Boolean): SmsImportResult? {
+        if (bank == BankSmsBank.TBC && sms is BankSmsMessage.CardPayment) {
+            val time = occurredMillis(sms, receivedAt)
+            val start = time / 60_000L * 60_000L
+            val push = key.startsWith("sms|tbc|push|")
+            val all = db.smsDiagnosticDao().matchingImported(SmsDiagnosticKind.CARD_PAYMENT, sms.amountMinor,
+                sms.currency, time, start, start + 59_999).filter {
+                BankSmsBank.fromKey(it.externalKey) == bank && it.cardLast4 == sms.cardLast4 &&
+                    dev.whekin.whfin.data.importer.MerchantNormalizer.equivalent(it.counterparty, sms.merchantRaw)
+            }
+            val opposite = all.filter { it.externalKey.startsWith("sms|tbc|push|") != push }.distinctBy { it.transactionId }
+            val eligible = opposite.filter { candidate -> all.none {
+                it.transactionId == candidate.transactionId && it.externalKey.startsWith("sms|tbc|push|") == push
+            } }
+            if (eligible.size == 1) {
+                val existing = eligible.single()
+                val diagnostic = diagnosticFor(sms, key, SmsDiagnosticOutcome.ATTACHED, null, receivedAt,
+                    existing.accountId, existing.transactionId)
+                return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, if (persist) persistDiagnostic(diagnostic) else null, existing.transactionId)
+            }
+            if (eligible.size > 1) {
+                val diagnostic = diagnosticFor(sms, key, SmsDiagnosticOutcome.UNRECOGNIZED, SmsDiagnosticReason.PARSE_FAILURE, receivedAt)
+                return SmsImportResult(SmsDiagnosticOutcome.UNRECOGNIZED, if (persist) persistDiagnostic(diagnostic) else null)
+            }
+        }
+        return null
+    }
+
     private suspend fun evaluateParsed(
         sms: BankSmsMessage.Sms,
         key: String,
@@ -467,6 +506,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 transactionId = canceled.transactionId,
             )
         }
+        if (bank == BankSmsBank.TBC && sms is BankSmsMessage.CardPayment) db.smsDiagnosticDao().byExternalKey(key)?.transactionId?.let { id ->
+            db.transactionDao().byId(id)?.let { return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE,
+                db.smsDiagnosticDao().byExternalKey(key)?.id, id) }
+        }
+        crossChannelCard(sms, key, receivedAt, persist)?.let { return it }
         db.transactionDao().byExternalKey(key)?.let { existing ->
             val diagnostic = diagnosticFor(
                 sms = sms,

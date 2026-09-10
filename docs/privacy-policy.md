@@ -28,6 +28,20 @@ unrelated messages are ignored. WHFIN stores only structured outcomes and masked
 diagnostics; raw SMS bodies and OTP codes are not stored, exported or uploaded. WHFIN does not send SMS
 content to a server.
 
+## Optional TBC notification access (from 0.3.37)
+
+With explicit opt-in and Android notification-access approval, WHFIN processes notifications from the
+TBC Bank app locally. Other apps are rejected before their notification text is read. Recognized card
+payments use the existing bank-message reconciliation; unknown formats are not assumed to be money
+movements. Known authentication codes and password messages are excluded before journal storage.
+
+The optional capture flow keeps available original TBC notification text and processing metadata in an
+AES-256-GCM encrypted, app-private journal outside Android and portable backups. It keeps up to 300
+entries for 30 days, pruning on receipt/opening, with an additional size limit. The user can stop
+capture or clear the journal without deleting financial records. Individual examples can be explicitly
+exported as plain JSON through Android's file picker. Such exports contain bank notification text;
+WHFIN does not upload them or share them with an assistant automatically.
+
 ## Statement files
 
 WHFIN reads a bank statement only after the user selects it through Android's system file picker.

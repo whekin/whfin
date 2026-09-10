@@ -109,6 +109,7 @@ fun SettingsScreen(
     appVersion: String,
     onOpenCredoSync: () -> Unit = {},
     onOpenTbc: () -> Unit = {},
+    onOpenPush: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onOpenCategoryIntelligence: () -> Unit = {},
     onOpenIncomeSources: () -> Unit = {},
@@ -156,6 +157,7 @@ fun SettingsScreen(
         appVersion = appVersion,
         onOpenCredoSync = onOpenCredoSync,
         onOpenTbc = onOpenTbc,
+        onOpenPush = onOpenPush,
         onOpenCategories = onOpenCategories,
         onOpenCategoryIntelligence = onOpenCategoryIntelligence,
         onOpenIncomeSources = onOpenIncomeSources,
@@ -203,6 +205,7 @@ internal fun SettingsContent(
     appVersion: String,
     onOpenCredoSync: () -> Unit = {},
     onOpenTbc: () -> Unit = {},
+    onOpenPush: () -> Unit = {},
     onOpenCategories: () -> Unit = {},
     onOpenCategoryIntelligence: () -> Unit = {},
     onOpenIncomeSources: () -> Unit = {},
@@ -235,6 +238,7 @@ internal fun SettingsContent(
         demoMode = demoMode,
         onOpenCredoSync = onOpenCredoSync,
         onOpenTbc = onOpenTbc,
+        onOpenPush = onOpenPush,
         onOpenStatements = onOpenStatements,
         onOpenSmsDiagnostics = onOpenSmsDiagnostics,
         onSmsImportEnabledChange = { enabled ->
@@ -480,6 +484,7 @@ private fun buildSettingsSections(
     demoMode: Boolean,
     onOpenCredoSync: () -> Unit,
     onOpenTbc: () -> Unit,
+    onOpenPush: () -> Unit,
     onOpenStatements: () -> Unit,
     onOpenSmsDiagnostics: () -> Unit,
     onSmsImportEnabledChange: (Boolean) -> Unit,
@@ -553,6 +558,11 @@ private fun buildSettingsSections(
                 icon = Icons.Default.Sms,
                 enabled = !demoMode,
                 onClick = onOpenSmsDiagnostics,
+            ),
+            SettingsRow(
+                id = "tbc-push", title = stringResource(R.string.push_title),
+                summary = stringResource(if (dev.whekin.whfin.data.push.PushSettings(androidx.compose.ui.platform.LocalContext.current).enabled) R.string.push_on else R.string.push_off), keywords = "TBC push notifications уведомления журнал",
+                icon = Icons.Default.Sms, enabled = !demoMode, onClick = onOpenPush,
             ),
             // The demo workspace has no live messages to read, so the switch that would read them
             // is absent rather than present and dead.

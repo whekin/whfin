@@ -31,6 +31,38 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Push TBC и журнал исходных уведомлений — 0.3.37 (49), 2026-09-10.
+  Настройки → Push TBC: отдельный opt-in и системный notification access. Listener допускает
+  только com.icomvision.bsc.tbc до чтения текста; BIND_NOTIFICATION_LISTENER_SERVICE защищает
+  service. Текст/title/bigText/subText/textLines и метаданные сохраняются через AES-256-GCM/
+  Android Keystore + AtomicFile в noBackupFilesDir: 30 дней, до 300 записей, ограничение 8 MiB.
+  Коды/пароли исключаются до сохранения, DTO.toString скрывает содержимое; нет raw Logcat,
+  автоматической отправки и включения журнала/opt-in в backup. Доступный текст ограничен 8192
+  символами/30 строками, обрезанные и group-summary не становятся расходами.
+  Два известных amount-first/card/date формата идут в общий TBC parser и bank-message routing.
+  Входящие/возвратные/отклонённые и неизвестные форматы остаются примерами без движения денег.
+  Напечатанный available balance не становится booked anchor. SMS/push связываются один-к-одному
+  по банку, карте, сумме, валюте, минуте и мерчанту, включая позднюю привязку карты; неоднозначность
+  ждёт проверки. Обновление notification не создаёт новую покупку. Legacy SMS source сохраняется
+  для совместимости, канал push отличим по sms|tbc|push|. Работа всегда с userDb, Demo отключён.
+  Журнал показывает исходный JSON, экспорт отдельного примера через SAF и повторную обработку.
+  Экспорт держит в saved UI state только id; сырой пример читается из encrypted store перед записью.
+  Очистка с подтверждением не удаляет операции. Контракт/источники: docs/tbc-push.md; privacy обновлена.
+  Полный app unit/Compose прогон прошёл; финальные профильные Settings/parser/bridge проверки,
+  release R8/lintVital и public-tree прошли. Android Keystore/reconstruction/retention/extraction:
+  3 проверки; настоящая доставка через Android NLS проверена временным синтетическим отправителем
+  с тестовым TBC package id. Опубликованный scripts/test-tbc-push-emulator.py требует emulator serial
+  и hardware, отказывается заменять установленный TBC, удаляет fixture после теста. Прогон прошёл;
+  первый повтор имел 10-секундный timeout при холодном запуске, увеличено только ожидание теста.
+  UI RU/light, RU/dark/system font 1.5, EN/light просмотрен: /tmp/whfin-push-ui-green.log,
+  /tmp/whfin-push-ui-en.log, /tmp/whfin-push-en.png. Найден ложный error при resume: отмена старого
+  чтения считалась ошибкой. Native regression упал до правки и прошёл после propagation cancellation;
+  ошибки чтения отделены от ошибок экспорта. Добавлены stateless content и previews.
+  Установлено на подключённый телефон через install -r, данные сохранены; version 0.3.37/49
+  подтверждена package manager. Android-доступ/opt-in на телефоне владельцем ещё не подтверждён,
+  настоящий TBC push на его устройстве пока не проверен. Все финансовые fixtures — синтетические.
+
+
 - [x] «Для кого» в быстром расходе виджета — 0.3.36 (48), 2026-09-10.
   Компактная строка под категориями открывает общий ExpenseBeneficiaryEditor. После выбора
   возвращаются калькулятор, категория, зафиксированный порядок подсказок и прокрутка. Вся сумма

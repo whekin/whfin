@@ -125,7 +125,7 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
  */
 internal enum class RootDestination { Home, Transactions, Accounts, Analytics }
 
-internal enum class SecondaryDestination { Settings, CredoSync, TbcLogin, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
+internal enum class SecondaryDestination { Settings, CredoSync, TbcLogin, PushJournal, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
 
 internal enum class ShellScene(val depth: Int) {
     Home(0),
@@ -135,6 +135,7 @@ internal enum class ShellScene(val depth: Int) {
     Settings(1),
     CredoSync(2),
     TbcLogin(2),
+    PushJournal(2),
     Statements(2),
     SmsDiagnostics(2),
     AccountOverview(1),
@@ -193,6 +194,7 @@ internal fun shellTargetFor(
             SecondaryDestination.Settings -> ShellScene.Settings
             SecondaryDestination.CredoSync -> ShellScene.CredoSync
             SecondaryDestination.TbcLogin -> ShellScene.TbcLogin
+            SecondaryDestination.PushJournal -> ShellScene.PushJournal
             SecondaryDestination.Statements -> ShellScene.Statements
             SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
             SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
@@ -584,6 +586,7 @@ fun MainScreen(
                             onOpenStatements = { open(SecondaryDestination.Statements) },
                             onOpenSmsDiagnostics = { open(SecondaryDestination.SmsDiagnostics) },
                             onOpenTbc = { open(SecondaryDestination.TbcLogin) },
+                            onOpenPush = { open(SecondaryDestination.PushJournal) },
                             onOpenCredoSync = {
                                 openCredo(
                                     caller = SecondaryDestination.Settings,
@@ -625,6 +628,9 @@ fun MainScreen(
                             showCredentialManagement = credoReturnTo == SecondaryDestination.Settings,
                             onDone = { goBack(withHaptic = true) },
                         )
+                    }
+                    ShellScene.PushJournal -> SecondaryPage(stringResource(R.string.push_title), { goBack(withHaptic = true) }) {
+                        dev.whekin.whfin.ui.settings.PushJournalRoute(demoMode) { open(SecondaryDestination.SmsDiagnostics) }
                     }
                     ShellScene.TbcLogin -> SecondaryPage(
                         title = stringResource(R.string.tbc_title),
