@@ -40,6 +40,7 @@ interface TbcGateway {
     suspend fun resume(session: TbcSession): TbcSession
     suspend fun ledgerAccounts(): List<TbcLedgerAccount> = throw TbcException("HISTORY_FORMAT")
     suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = throw TbcException("HISTORY_FORMAT")
+    fun historyReadStats(): TbcHistoryReadStats? = null
     suspend fun accounts(): List<TbcAccount>
     fun clear()
     fun snapshot(): TbcSession
@@ -92,10 +93,12 @@ internal class HttpsTbcTransport : TbcTransport {
 
 /** Independent Android implementation of the observed retail mobile protocol; no payment API. */
 class MobileTbcGateway internal constructor(private val transport: TbcTransport) : TbcGateway {
+    private var readStats: TbcHistoryReadStats? = null
+    override fun historyReadStats(): TbcHistoryReadStats? = readStats
     constructor() : this(HttpsTbcTransport())
     private var deviceId = UUID.randomUUID().toString().replace("-", "")
     private val cookies = linkedMapOf<String, String>()
-    override fun clear() { cookies.clear() }
+    override fun clear() { cookies.clear(); readStats = null }
     override fun snapshot() = TbcSession(cookies.toMap(), deviceId)
 
     override suspend fun login(username: String, credential: String): TbcLoginResult = withContext(Dispatchers.IO) {
@@ -189,6 +192,7 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
     }
 
     override suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = withContext(Dispatchers.IO) {
+        readStats = TbcHistoryReadStats()
         try {
             val rows = linkedMapOf<String, TbcHistoryRow>()
             var cursor: Long? = null
@@ -202,7 +206,13 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
                     .put("pageSize", 100).put("pageType", "History").put("isChildCardRequest", false).put("showBlockedTransactions", false)
                 cursor?.let { body.put("lastSortColKey", it) }
                 blockedCursor?.let { body.put("lastBlockedMovementDate", it) }
-                val page = TbcHistoryParser.page(JSONArray(requestText(API, "/pfm/api/v1/transactions/history", body)), account)
+                val response = JSONArray(requestText(API, "/pfm/api/v1/transactions/history", body))
+                val previousStats = requireNotNull(readStats)
+                readStats = previousStats.copy(pages = previousStats.pages + 1,
+                    firstPageEmpty = previousStats.pages == 0 && response.length() == 0)
+                val page = TbcHistoryParser.page(response, account)
+                readStats = requireNotNull(readStats).copy(parsed = previousStats.parsed + page.rows.size,
+                    blocked = previousStats.blocked + page.blockedCount)
                 if (page.empty) return@withContext rows.values.filter { it.row.postedDate in from..through }
                 page.rows.forEach { row ->
                     if (previousDay != null && row.row.postedDate > previousDay) throw TbcException("HISTORY_PAGE")

@@ -39,6 +39,17 @@ class TbcHistoryGatewayTest {
         assertEquals("10", script.bodies.first().getJSONArray("coreAccountIds").getJSONObject(0).getString("id"))
         assertTrue(rows.all { it.row.amountMinor == -200L && it.row.balanceAfterMinor == null })
     }
+    @Test fun readCountersDistinguishEmptyResponseFromRowsOutsideRequestedPeriod() = runBlocking {
+        val emptyGateway = MobileTbcGateway(Script("[]"))
+        assertTrue(emptyGateway.history(account, LocalDate.MIN, day).isEmpty())
+        assertEquals(TbcHistoryReadStats(pages = 1, firstPageEmpty = true), emptyGateway.historyReadStats())
+        val olderGateway = MobileTbcGateway(Script(page(100, "old", date = day.minusMonths(2))))
+        assertTrue(olderGateway.history(account, day.minusMonths(1), day).isEmpty())
+        assertEquals(TbcHistoryReadStats(pages = 1, parsed = 1), olderGateway.historyReadStats())
+        olderGateway.clear()
+        assertNull(olderGateway.historyReadStats())
+    }
+
     @Test fun repeatedCursorFailsInsteadOfPretendingHistoryIsComplete() = runBlocking {
         val script = Script(page(100, "d_first"), page(100, "d_first"))
         try { MobileTbcGateway(script).history(account, day.minusDays(1), day); fail() }

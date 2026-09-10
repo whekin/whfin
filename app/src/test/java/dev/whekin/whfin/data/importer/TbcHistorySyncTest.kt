@@ -51,6 +51,19 @@ class TbcHistorySyncTest {
             inserted = 0, duplicates = 0, reconciled = 0, importedAt = 1))
         return id
     }
+    @Test fun reportDistinguishesEmptyBankHistoryFromAlreadyImportedRows() = runBlocking {
+        seedOpening()
+        val empty = sync(emptyList())
+        assertEquals(1, empty.reports.size)
+        assertEquals(0, empty.reports.single().received)
+        assertEquals(0, empty.reports.single().alreadyKnown)
+        sync()
+        val duplicate = sync()
+        assertEquals(1, duplicate.unchanged)
+        assertEquals(4, duplicate.reports.single().received)
+        assertEquals(4, duplicate.reports.single().alreadyKnown)
+    }
+
     @Test fun fileThenApiLinksDifferentIdsWithoutErasingFileBalancesOrCategories() = runBlocking {
         StatementImporter(db).import(file.inputStream())
         val before = db.transactionDao().allForIntegrity()

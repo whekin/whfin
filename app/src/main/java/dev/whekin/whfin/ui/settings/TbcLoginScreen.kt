@@ -210,6 +210,24 @@ internal fun TbcLoginScreen(
                     if (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || result.needsStatement.isEmpty()) {
                         Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
                     }
+                    if (result.reports.isNotEmpty()) {
+                        var showReadDetails by remember(result) { mutableStateOf(false) }
+                        WhfinButton(stringResource(R.string.tbc_read_details), { showReadDetails = !showReadDetails },
+                            style = WhfinActionStyle.Quiet)
+                        if (showReadDetails) result.reports.forEach { report ->
+                            WhfinLedgerRow(title = report.label,
+                                supportingText = buildString {
+                                    append(stringResource(R.string.tbc_read_counts, report.received, report.alreadyKnown))
+                                    append("\n")
+                                    append(stringResource(if (report.fullHistory) R.string.tbc_read_all else R.string.tbc_read_recent))
+                                    report.stats?.let { stats ->
+                                        append("\n")
+                                        append(stringResource(R.string.tbc_read_pages, stats.pages, stats.parsed, stats.blocked))
+                                        if (stats.firstPageEmpty) { append("\n"); append(stringResource(R.string.tbc_read_empty)) }
+                                    }
+                                }, supportingMaxLines = 8)
+                        }
+                    }
                     if (result.needsStatement.isNotEmpty()) {
                         Text(stringResource(R.string.tbc_initial_statement))
                         var explainBalance by remember { mutableStateOf(false) }

@@ -10,7 +10,11 @@ import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 
 data class TbcSyncResult(val inserted: Int = 0, val matched: Int = 0, val unchanged: Int = 0,
-    val needsStatement: List<TbcLedgerAccount> = emptyList(), val initialHistories: List<TbcInitialHistory> = emptyList(), val errors: List<String> = emptyList())
+    val needsStatement: List<TbcLedgerAccount> = emptyList(), val initialHistories: List<TbcInitialHistory> = emptyList(), val errors: List<String> = emptyList(), val reports: List<TbcSyncReport> = emptyList())
+/** Counts and masked account labels only; no raw bank payload or authentication data. */
+data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown: Int = 0,
+    val inserted: Int = 0, val matched: Int = 0, val waitingForBalance: Boolean = false,
+    val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null)
 data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
     val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis())
 class TbcHistorySync(private val db: WhfinDatabase) {
@@ -21,6 +25,7 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val initial = mutableListOf<TbcInitialHistory>()
         val missing = mutableListOf<TbcLedgerAccount>()
         val errors = mutableListOf<String>()
+        val reports = linkedMapOf<String, TbcSyncReport>()
         data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean)
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
@@ -37,6 +42,8 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             if (needsOpening) missing += remote
             try {
                 val rows = gateway.history(remote, requestedFrom, today)
+                reports[remote.key] = TbcSyncReport(remote.label, rows.size, waitingForBalance = needsOpening,
+                    fullHistory = fullHistory, stats = gateway.historyReadStats())
                 val from = if (fullHistory) minOf(rows.minOfOrNull { it.row.postedDate } ?: today,
                     opening?.periodFrom?.let(LocalDate::ofEpochDay) ?: today) else requestedFrom
                 if (account == null || opening?.periodFrom == null) {
@@ -47,6 +54,8 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 val code = (e as? TbcException)?.code
                 if (code in setOf("SESSION", "PROTECTION", "RATE_LIMIT")) throw e
                 errors += remote.label + ": " + (code ?: "HISTORY_FORMAT")
+                reports[remote.key] = TbcSyncReport(remote.label, 0, error = code ?: "HISTORY_FORMAT",
+                    fullHistory = fullHistory, stats = gateway.historyReadStats())
             }
         }
         val own = ready.flatMap { item -> item.rows.filter { it.row.operation.isOwnMovement }.map { item.remote to it } }
@@ -76,13 +85,17 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                     SmsTransactionImporter(db).attachUnroutedToStatements()
                     plan
                 }
+                reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(alreadyKnown = committed.duplicates,
+                    inserted = committed.inserted, matched = committed.reconciled)
                 if (committed.isNoOp) unchanged++ else { inserted += committed.inserted; matched += committed.reconciled }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                errors += item.remote.label + ": " + (if (e is InvalidStatementException) "HISTORY_CONFLICT" else "HISTORY_FORMAT")
+                val code = if (e is InvalidStatementException) "HISTORY_CONFLICT" else "HISTORY_FORMAT"
+                errors += item.remote.label + ": " + code
+                reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(error = code)
             }
         }
-        return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors)
+        return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors, reports.values.toList())
     }
     /** Uses the exact displayed read, never a fresh download after the owner enters its balance. */
     suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): ImportPlan {

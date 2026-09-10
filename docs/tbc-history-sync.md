@@ -112,3 +112,21 @@ The action is available only for an owner-entered opening with no authoritative 
 A changed ledger or a statement arriving while the form is open invalidates the preview; the form
 asks to reopen instead of silently applying a difference to a new balance. Ordinary balance
 adjustments remain a separate action for a new unexplained difference.
+
+## Diagnosing a zero-result sync (0.3.40)
+
+The owner reported a confirmed sign-in with zero new/matched rows and two unchanged accounts.
+This summary alone cannot distinguish empty bank history from rows already present in WHFIN.
+The cause of the missing expected transactions has not yet been established.
+
+Read details now exposes per-ledger read counts, duplicates, full/recent window selection, pages,
+parsed rows, skipped holds and an explicitly empty first response. Reports live only in the current
+ViewModel/gateway session. The UI uses masked labels; no raw response, credentials or identifiers
+are added to Logcat, disk or backup. API request selection and money import behavior are unchanged.
+
+Regression: `:app:testDebugUnitTest --tests '*TbcHistorySyncTest.reportDistinguishesEmptyBankHistoryFromAlreadyImportedRows'`
+failed before reports were populated (expected one report, received zero). All 50 history/login
+checks passed after implementation, including an empty first response versus older rows filtered
+out by the requested date window. Release assembly/R8/lintVital and two native rendering cases
+passed. The diagnostic release was installed with data preserved; the next evidence is an owner-run
+sync with Read details expanded. No live bank request was initiated by the agent for this stage.

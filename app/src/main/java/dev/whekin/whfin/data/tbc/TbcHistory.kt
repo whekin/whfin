@@ -17,8 +17,10 @@ data class TbcLedgerAccount(val id: String, val iban: String, val currency: Stri
     val key: String get() = "$iban|$currency"
     val label: String get() = "$currency · •${iban.takeLast(4)}"
 }
+data class TbcHistoryReadStats(val pages: Int = 0, val parsed: Int = 0, val blocked: Int = 0,
+    val firstPageEmpty: Boolean = false)
 data class TbcHistoryRow(val movementId: String, val transactionId: String, val row: StatementRow)
-data class TbcHistoryPage(val rows: List<TbcHistoryRow>, val nextCursor: Long?, val empty: Boolean, val blockedCursor: Long? = null)
+data class TbcHistoryPage(val rows: List<TbcHistoryRow>, val nextCursor: Long?, val empty: Boolean, val blockedCursor: Long? = null, val blockedCount: Int = 0)
 
 internal object TbcHistoryParser {
     private val epochDay = DateTimeFormatter.ofPattern("MMM d uuuu h:mma", Locale.ENGLISH).withResolverStyle(ResolverStyle.STRICT)
@@ -27,6 +29,7 @@ internal object TbcHistoryParser {
         val rows = mutableListOf<TbcHistoryRow>()
         var cursor: Long? = null
         var blockedCursor: Long? = null
+        var blockedCount = 0
         for (i in 0 until json.length()) {
             val group = json.getJSONObject(i)
             val timestamp = group.getLong("date")
@@ -38,6 +41,7 @@ internal object TbcHistoryParser {
                 val id = tx.getLong("transactionId")
                 if (id > 0) cursor = id
                 if (tx.optString("entryType") == "BlockedTransaction") {
+                    blockedCount++
                     blockedCursor = tx.optLong("blockedMovementDate").takeIf { it > 0 } ?: throw TbcException("HISTORY_PAGE")
                     continue
                 }
@@ -78,7 +82,7 @@ internal object TbcHistoryParser {
                     bankTransactionId = TbcRowIdentity.mobileId(movement)))
             }
         }
-        return TbcHistoryPage(rows, cursor, json.length() == 0, blockedCursor)
+        return TbcHistoryPage(rows, cursor, json.length() == 0, blockedCursor, blockedCount)
     }
 }
 

@@ -39,7 +39,12 @@ class TbcLoginQaActivity : ComponentActivity() {
                     initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
                         dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday"),
                         java.time.LocalDate.of(2025, 9, 9), java.time.LocalDate.of(2026, 9, 9), emptyList())))
-                else dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3, matched = 4, unchanged = 1)
+                else dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 0, matched = 0, unchanged = 2,
+                    reports = listOf(
+                        dev.whekin.whfin.data.importer.TbcSyncReport("GEL · •0001", 0, fullHistory = true,
+                            stats = dev.whekin.whfin.data.tbc.TbcHistoryReadStats(pages = 1, firstPageEmpty = true)),
+                        dev.whekin.whfin.data.importer.TbcSyncReport("USD · •0001", 5, alreadyKnown = 5,
+                            stats = dev.whekin.whfin.data.tbc.TbcHistoryReadStats(pages = 2, parsed = 5))))
             } else null,
         )
         setContent {

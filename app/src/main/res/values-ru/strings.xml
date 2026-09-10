@@ -1666,4 +1666,10 @@
     <string name="balance_adjustment_saved">Баланс обновлён</string>
     <string name="balance_adjustment_undo">Отменить</string>
     <string name="balance_adjustment_retry">Не удалось сохранить баланс или операции изменились. Закройте форму и попробуйте снова.</string>
+    <string name="tbc_read_details">Подробности загрузки</string>
+    <string name="tbc_read_counts">Прочитано: %1$d · Уже в базе: %2$d</string>
+    <string name="tbc_read_all">Вся доступная история</string>
+    <string name="tbc_read_recent">Свежая история с перекрытием</string>
+    <string name="tbc_read_pages">Страниц: %1$d · Строк банка: %2$d · Пропущено блокировок: %3$d</string>
+    <string name="tbc_read_empty">TBC вернул пустую первую страницу.</string>
 </resources>

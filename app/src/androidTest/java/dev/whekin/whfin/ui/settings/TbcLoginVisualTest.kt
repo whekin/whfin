@@ -14,6 +14,7 @@ import java.io.File
 class TbcLoginVisualTest {
     @Test fun englishLight() = render("en-light")
     @Test fun russianDarkLarge() = render("ru-dark-large", "ru", true, 1.5f)
+    @Test fun historyReadDetailsRussianLarge() = render("read-details-ru", "ru", true, 1.5f, stage = "Connected")
     @Test fun codeRussian() = render("code-ru", "ru", stage = "Code")
     @Test fun codeEnglishDarkLarge() = render("code-en-dark-large", dark = true, font = 1.5f, stage = "Code")
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
@@ -41,6 +42,12 @@ class TbcLoginVisualTest {
             assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Подключение TBC" else "TBC connection")), 10000))
             device.waitForIdle(1500)
             val out = File(context.getExternalFilesDir(null), "tbc-login-qa").apply { mkdirs() }
+            if (stage == "Connected" && !initial) {
+                val details = if (language == "ru") "Подробности загрузки" else "Read details"
+                assertNotNull(device.wait(Until.findObject(By.text(details)), 5000))
+                device.findObject(By.text(details)).click()
+                assertNotNull(device.wait(Until.findObject(By.textContains(if (language == "ru") "пустую первую страницу" else "empty first page")), 5000))
+            }
             if (saved) assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             if (journey) {
                 val fields = device.findObjects(By.clazz("android.widget.EditText"))
