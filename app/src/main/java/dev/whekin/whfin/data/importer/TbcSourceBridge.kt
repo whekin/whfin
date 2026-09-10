@@ -37,6 +37,29 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
             }
             unmatched[key] = row
         }
+        // Credo XLSX can reorder postings within a day. Its fallback key contains the running
+        // balance, so a revised balance is not by itself evidence of another purchase. Claim only
+        // a unique exact file description/date/money counterpart, in both directions. Keep the
+        // original key (including any API alias) so older overlapping files remain idempotent.
+        if (bank == "Credo") {
+            val fileChoices = unmatched.filterValues { it.bankTransactionId == null }
+                .mapValues { (_, row) -> existing.filter { tx ->
+                    tx.id !in claimed && tx.externalKey != null && !ids.isMobileOnly(tx.externalKey) &&
+                        sameFileRow(row, tx)
+                } }
+            for ((key, matches) in fileChoices) {
+                val row = unmatched.getValue(key)
+                if (matches.isEmpty()) continue
+                val found = matches.singleOrNull() ?: conflict()
+                if (fileChoices.values.count { found in it } != 1) conflict()
+                claimed += found.id
+                val retainedKey = requireNotNull(found.externalKey)
+                known[key] = if (found.isVoided || found.balanceAfterMinor == row.balanceAfterMinor)
+                    PlannedRow.Duplicate(row, retainedKey)
+                else PlannedRow.Reconcile(row, retainedKey, found.id)
+            }
+            known.keys.forEach(unmatched::remove)
+        }
         val choices = unmatched.mapValues { (_, row) ->
             val mobile = ids.isMobileId(row.bankTransactionId)
             val pool = existing.filter { tx ->
@@ -76,6 +99,15 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
         if (found.size > 1) conflict()
         return found.singleOrNull() ?: canonical
     }
+
+    private fun sameFileRow(row: StatementRow, tx: TransactionEntity): Boolean =
+        row.amountMinor == tx.amountMinor &&
+            row.postedDate == day(tx.postedAt ?: tx.occurredAt) &&
+            (row.purchaseDate ?: row.postedDate) == day(tx.occurredAt) &&
+            row.description.isNotBlank() &&
+            row.description == (tx.note ?: tx.rawCounterparty) &&
+            row.beneficiaryAccount == tx.counterpartyIban &&
+            (row.merchantRaw ?: row.beneficiaryName) == tx.rawCounterparty
 
     private fun potentialDuplicate(row: StatementRow, tx: TransactionEntity): Boolean {
         if (sameMoneyAndDay(row, tx)) return true

@@ -61,6 +61,62 @@ class CredoHistorySyncTest {
         assertTrue(CredoRowIdentity.hasMobile(after.externalKey, CredoRowIdentity.mobileId("a")))
         assertEquals(9500L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
     }
+    @Test fun repeatedFileWithRevisedRunningBalanceKeepsOnePurchase() = runBlocking {
+        file()
+        val account = db.accountDao().allActive().single()
+        val before = db.transactionDao().allStatementRows(account.id).single()
+        val revised = row().copy(balanceAfterMinor = 9400)
+        val plan = file(listOf(revised))
+        assertEquals(0, plan.inserted)
+        val after = db.transactionDao().allStatementRows(account.id).single()
+        assertEquals(before.id, after.id)
+        assertEquals(9400L, after.balanceAfterMinor)
+        assertTrue(file(listOf(revised)).isNoOp)
+        assertEquals(1, db.transactionDao().allStatementRows(account.id).size)
+    }
+    @Test fun reorderedFilePreservesBothPurchasesAndOwnerCategory() = runBlocking {
+        val a = row()
+        val b = row(amount = -200).copy(description = "SECOND STORE", merchantRaw = "SECOND STORE", balanceAfterMinor = 9300)
+        file(listOf(a, b))
+        val account = db.accountDao().allActive().single()
+        val original = db.transactionDao().allStatementRows(account.id)
+        val category = db.categoryDao().insert(CategoryEntity(name = "Owner choice", kind = CategoryKind.EXPENSE, icon = "Home", color = 0))
+        val first = original.first { it.amountMinor == -500L }
+        db.transactionDao().update(first.copy(categoryId = category))
+        val revised = listOf(b.copy(balanceAfterMinor = 9800), a.copy(balanceAfterMinor = 9300))
+        assertEquals(0, file(revised).inserted)
+        assertEquals(original.map { it.id }.toSet(), db.transactionDao().allStatementRows(account.id).map { it.id }.toSet())
+        assertEquals(category, db.transactionDao().byId(first.id)!!.categoryId)
+        assertTrue(file(revised).isNoOp)
+        assertTrue(file(listOf(a, b)).isNoOp)
+    }
+    @Test fun genuineIdenticalPurchaseWithExistingKeyIsStillInserted() = runBlocking {
+        file()
+        val second = row().copy(balanceAfterMinor = 9000)
+        assertEquals(1, file(listOf(row(), second)).inserted)
+        assertEquals(2, db.transactionDao().allStatementRows(db.accountDao().allActive().single().id).size)
+        assertTrue(file(listOf(row(), second)).isNoOp)
+    }
+    @Test fun ambiguousRevisedTwinsStopBeforeWriting() = runBlocking {
+        file()
+        val before = db.transactionDao().allForIntegrity()
+        val rows = listOf(row().copy(balanceAfterMinor = 9400), row().copy(balanceAfterMinor = 8900))
+        assertTrue(runCatching { file(rows) }.exceptionOrNull() is InvalidStatementException)
+        assertEquals(before, db.transactionDao().allForIntegrity())
+    }
+    @Test fun revisedFileKeepsApiAliasAndWithdrawnDecision() = runBlocking {
+        file()
+        sync(listOf(row("a")))
+        val account = db.accountDao().allActive().single()
+        val before = db.transactionDao().allStatementRows(account.id).single()
+        file(listOf(row().copy(balanceAfterMinor = 9400)))
+        val changed = db.transactionDao().byId(before.id)!!
+        assertEquals(before.externalKey, changed.externalKey)
+        assertTrue(sync(listOf(row("a")))!!.isNoOp)
+        db.transactionDao().update(changed.copy(isVoided = true))
+        assertTrue(file(listOf(row().copy(balanceAfterMinor = 9300))).isNoOp)
+        assertTrue(db.transactionDao().byId(before.id)!!.isVoided)
+    }
     @Test fun apiOnlyMovementIsUpgradedByLaterFileWithoutDuplicating() = runBlocking {
         file(emptyList())
         assertEquals(1, sync(listOf(row("a")))!!.inserted)

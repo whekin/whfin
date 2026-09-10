@@ -142,7 +142,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 counterpartyIban = row.beneficiaryAccount,
                 // The statement is authoritative about the money, not about what the user decided
                 // this row means: a category already on the draft outlives an import that has none.
-                categoryId = draft.categoryId.takeIf { row.bankTransactionId != null && draft.source in setOf(TxSource.STATEMENT, TxSource.BANK_HOLD) }
+                categoryId = draft.categoryId.takeIf { draft.source == TxSource.STATEMENT || (row.bankTransactionId != null && draft.source == TxSource.BANK_HOLD) }
                     ?: (if (row.operation == StatementOperation.FEE) operationCategory(row) else null)
                     ?: merchant?.categoryId
                     ?: counterpartyCategory(row)
