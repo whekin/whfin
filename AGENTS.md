@@ -47,7 +47,8 @@ This is a single-context repository with root domain documentation and system-wi
   прошли после исправления неоднозначного селектора результата поиска в QA. Оба сценария
   поиска/IME и diagnostics-only также прошли. Синтетические callbacks, живых API вызовов нет.
   Кадры просмотрены: /tmp/whfin-settings-hierarchy-final; контракт docs/settings-navigation.md.
-  Release APK готов. Телефон не подключён к ADB, 0.3.38 на него пока не установлена.
+  Установлено на телефон через install -r с сохранением данных; package manager подтвердил
+  versionName 0.3.38 / versionCode 50.
 
 
 - [x] Push TBC и журнал исходных уведомлений — 0.3.37 (49), 2026-09-10.
