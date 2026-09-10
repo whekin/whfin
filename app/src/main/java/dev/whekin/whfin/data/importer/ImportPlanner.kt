@@ -35,8 +35,27 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
         val claimed = mutableSetOf<Long>()
         val candidatesByWindow = mutableMapOf<Pair<LocalDate, Boolean>, List<dev.whekin.whfin.data.db.TransactionEntity>>()
 
+        val withdrawnHolds = if (statement.bank.provider == "TBC") db.bankHoldDao().forAccount(account.id)
+            .mapNotNull { db.transactionDao().byId(it.transactionId) }.distinctBy { it.id }
+            .filter { it.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD && it.isVoided && it.mergedIntoTransactionId == null }
+            else emptyList()
         val entries = statement.rows.map { row ->
             val canonical = identity.rowKey(row)
+            val purchaseDay = row.purchaseDate ?: row.postedDate
+            val withdrawn = withdrawnHolds.filter { held -> held.id !in claimed &&
+                java.time.Instant.ofEpochMilli(held.occurredAt).atZone(zone).toLocalDate() == purchaseDay &&
+                MerchantNormalizer.equivalent(held.rawCounterparty, row.merchantRaw) &&
+                dev.whekin.whfin.data.tbc.TbcHistoryParser.purchaseTime(row.description)?.let {
+                    it / 60000 == held.occurredAt / 60000
+                } != false }
+            if (withdrawn.isNotEmpty()) {
+                val held = withdrawn.singleOrNull()?.takeIf { it.amountMinor == row.amountMinor }
+                    ?: throw InvalidStatementException("An owner-withdrawn hold has an ambiguous settlement.")
+                claimed += held.id
+                if (held.externalKey == canonical) return@map PlannedRow.Duplicate(row, canonical)
+                if (canonical in existingKeys) throw InvalidStatementException("A withdrawn hold conflicts with an existing settlement.")
+                return@map PlannedRow.LinkIdentity(row, canonical, held.id)
+            }
             bridge[canonical]?.let { return@map it }
             val key = sourceBridge?.existingKey(row, canonical, existingKeys) ?: canonical
             val day = row.purchaseDate ?: row.postedDate
@@ -52,9 +71,26 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
                     fromDay.atStartOfDay(zone).toInstant().toEpochMilli(),
                     throughDay.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
                 )
-            }.filterNot { it.id in claimed }
+            }.filterNot { it.id in claimed }.filter { candidate ->
+                candidate.source != dev.whekin.whfin.data.db.TxSource.BANK_HOLD ||
+                    dev.whekin.whfin.data.tbc.TbcHistoryParser.purchaseTime(row.description)?.let {
+                        it / 60000 == candidate.occurredAt / 60000
+                    } != false
+            }
 
             val draft = StatementReconciler.match(row, candidates)
+            if (draft?.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD &&
+                dev.whekin.whfin.data.tbc.TbcHistoryParser.purchaseTime(row.description) == null &&
+                statement.rows.count { other -> (other.purchaseDate ?: other.postedDate) == day &&
+                    other.amountMinor == row.amountMinor && MerchantNormalizer.equivalent(other.merchantRaw, row.merchantRaw) } > 1)
+                throw InvalidStatementException("Ambiguous settlement without purchase time.")
+            val possibleHolds = candidates.filter { it.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD &&
+                MerchantNormalizer.equivalent(it.rawCounterparty, row.merchantRaw) }
+            if (possibleHolds.isNotEmpty() && draft == null)
+                throw InvalidStatementException("Ambiguous pending bank purchase.")
+            if (draft?.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD && draft.amountMinor != row.amountMinor &&
+                (db.transactionAllocationDao().forTransaction(draft.id).isNotEmpty() || db.debtDao().eventsForTransaction(draft.id).isNotEmpty()))
+                throw InvalidStatementException("A changed pending purchase is linked to a split or debt.")
             if (key in existingKeys) {
                 val existing = db.transactionDao().byExternalKey(key)
                 if (row.bankTransactionId != null && existing != null && !existing.isVoided &&

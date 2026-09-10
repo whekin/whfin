@@ -14,9 +14,10 @@ data class TbcSyncResult(val inserted: Int = 0, val matched: Int = 0, val unchan
 /** Counts and masked account labels only; no raw bank payload or authentication data. */
 data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown: Int = 0,
     val inserted: Int = 0, val matched: Int = 0, val waitingForBalance: Boolean = false,
-    val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null)
+    val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null, val pending: Int = 0)
 data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
-    val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis())
+    val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis(), val holds: List<TbcHold> = emptyList())
+data class TbcInitializationResult(val inserted: Int, val reconciled: Int)
 class TbcHistorySync(private val db: WhfinDatabase) {
     suspend fun sync(gateway: TbcGateway, today: LocalDate = LocalDate.now(LedgerCalendar.zone),
         progress: (Int, Int) -> Unit = { _, _ -> }): TbcSyncResult {
@@ -26,7 +27,7 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val missing = mutableListOf<TbcLedgerAccount>()
         val errors = mutableListOf<String>()
         val reports = linkedMapOf<String, TbcSyncReport>()
-        data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean)
+        data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean, val holds: List<TbcHold>)
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
             progress(index + 1, accounts.size)
@@ -42,13 +43,14 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             if (needsOpening) missing += remote
             try {
                 val rows = gateway.history(remote, requestedFrom, today)
+                val holds = gateway.pendingHolds()
                 reports[remote.key] = TbcSyncReport(remote.label, rows.size, waitingForBalance = needsOpening,
-                    fullHistory = fullHistory, stats = gateway.historyReadStats())
+                    fullHistory = fullHistory, stats = gateway.historyReadStats(), pending = holds.size)
                 val from = if (fullHistory) minOf(rows.minOfOrNull { it.row.postedDate } ?: today,
                     opening?.periodFrom?.let(LocalDate::ofEpochDay) ?: today) else requestedFrom
                 if (account == null || opening?.periodFrom == null) {
-                    initial += TbcInitialHistory(remote, from, today, rows)
-                } else ready += Ready(remote, account, from, rows, fullHistory)
+                    initial += TbcInitialHistory(remote, from, today, rows, holds = holds)
+                } else ready += Ready(remote, account, from, rows, fullHistory, holds)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 val code = (e as? TbcException)?.code
@@ -82,15 +84,19 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                         ImportApplier(db, LedgerCalendar.zone).apply(plan, item.account, null,
                             if (item.fullHistory) StatementImportOrigin.TBC_HISTORY else StatementImportOrigin.TBC_SYNC)
                     }
+                    val held = TbcHoldImporter(db).apply(item.account, item.holds)
+                    SmsTransactionImporter(db, dev.whekin.whfin.data.sms.BankSmsBank.TBC).attachUnroutedToHolds()
                     SmsTransactionImporter(db).attachUnroutedToStatements()
-                    plan
+                    plan to held
                 }
-                reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(alreadyKnown = committed.duplicates,
-                    inserted = committed.inserted, matched = committed.reconciled)
-                if (committed.isNoOp) unchanged++ else { inserted += committed.inserted; matched += committed.reconciled }
+                val (booked, held) = committed
+                inserted += held.inserted; matched += held.attached
+                reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(alreadyKnown = booked.duplicates,
+                    inserted = booked.inserted, matched = booked.reconciled)
+                if (booked.isNoOp && held.inserted == 0 && held.attached == 0) unchanged++ else { inserted += booked.inserted; matched += booked.reconciled }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                val code = if (e is InvalidStatementException) "HISTORY_CONFLICT" else "HISTORY_FORMAT"
+                val code = (e as? TbcException)?.code ?: if (e is InvalidStatementException) "HISTORY_CONFLICT" else "HISTORY_FORMAT"
                 errors += item.remote.label + ": " + code
                 reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(error = code)
             }
@@ -98,7 +104,7 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors, reports.values.toList())
     }
     /** Uses the exact displayed read, never a fresh download after the owner enters its balance. */
-    suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): ImportPlan {
+    suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): TbcInitializationResult {
         if (System.currentTimeMillis() - initial.readAt > 15 * 60_000L) throw TbcException("HISTORY_CHANGED")
         val remote = initial.remote
         val net = initial.rows.fold(0L) { sum, row -> Math.addExact(sum, row.row.amountMinor) }
@@ -115,8 +121,10 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             ImportApplier(db, LedgerCalendar.zone).apply(ImportPlan(seed, resolved.account.id, resolved.created, resolved.adopted, emptyList(), emptyList()),
                 resolved.account, null, StatementImportOrigin.USER_OPENING)
             ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_HISTORY)
+            val held = TbcHoldImporter(db).apply(resolved.account, initial.holds)
+            SmsTransactionImporter(db, dev.whekin.whfin.data.sms.BankSmsBank.TBC).attachUnroutedToHolds()
             SmsTransactionImporter(db).attachUnroutedToStatements()
-            plan
+            TbcInitializationResult(plan.inserted + held.inserted, plan.reconciled + held.attached)
         }
     }
 

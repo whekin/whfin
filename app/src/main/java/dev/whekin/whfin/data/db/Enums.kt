@@ -39,7 +39,7 @@ enum class CategoryKind { EXPENSE, INCOME }
  */
 enum class TxStatus { PENDING, CONFIRMED, MANUAL }
 
-enum class TxSource { SMS, STATEMENT, MANUAL, ADJUSTMENT, CRYPTO }
+enum class TxSource { BANK_HOLD, SMS, STATEMENT, MANUAL, ADJUSTMENT, CRYPTO }
 
 enum class PersonRole { PARTNER, FAMILY, FRIEND, COLLEAGUE, OTHER }
 

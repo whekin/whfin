@@ -18,7 +18,7 @@
 | SMS банков (Credo / TBC) | оперативная проводка с provenance `SMS`; участия не требует, кроме действительно неоднозначного routing | активная операция, позже тихо сверяется выпиской |
 | Excel-выписка (MYCREDO / TBC xlsx) | источник правды, сверка | `confirmed` |
 | MyCredo private connector (experimental) | foreground JSON history, automatic initial XLSX and reconciliation | `confirmed` |
-| TBC mobile connector | foreground API history после XLSX или введённого владельцем остатка, связанные ID обоих источников | `confirmed` |
+| TBC mobile connector | foreground API history и карточные блокировки после XLSX или введённого владельцем остатка | проведённые `confirmed`, блокировки `pending` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
 | Крипто watch-адреса | EVM/Tron balances; подтверждённая история Tron USDT/USDC | balance snapshot + операции CRYPTO |
 
@@ -85,7 +85,7 @@ TBC: покупки с маской карты, возвраты, пополне
   востребования может быть доступным, а обычный счёт или наличные — резервом.
 - **Transaction**: accountId, amountMinor (signed), currency, origAmountMinor?/origCurrency? (FX),
   occurredAt (дата покупки), postedAt? (дата списания), merchantId?, counterpartyName/Iban?,
-  categoryId?, note, status (`PENDING | CONFIRMED | MANUAL`), source (`SMS | STATEMENT | MANUAL | ADJUSTMENT | CRYPTO`),
+  categoryId?, note, status (`PENDING | CONFIRMED | MANUAL`), source (`SMS | BANK_HOLD | STATEMENT | MANUAL | ADJUSTMENT | CRYPTO`),
   transferPeerId? (парная транзакция перевода), balanceAfterMinor?, externalKey (дедуп)
 - **Category**: дерево 2 уровня, name, icon, color, kind (`EXPENSE | INCOME`), isSystem; системная **Unaccounted**
 - **Merchant**: normalizedKey, displayName, categoryId (память навсегда); **MerchantAlias**: pattern → merchant
@@ -323,3 +323,13 @@ SMS включаются отдельно для каждого банка; си
 
 Категория — заметный редактируемый блок до статуса. Выбор имеет поиск; назначение и отмена выбора
 возвращают карточку операции. Мерчант и запоминание его категории сохраняют прежние правила.
+
+### Предварительные покупки TBC — 0.3.42
+
+Foreground Sync записывает блокировки карточных покупок как BANK_HOLD/PENDING с подписью
+«Ожидает списания». Они учитываются в расходах и остатке, не требуют ручного подтверждения.
+Push, блокировка и окончательное списание связываются с одной операцией, с сохранением категории
+и ID. Неоднозначное совпадение или изменение суммы с долями/долгом требует разбора.
+Исчезновение блокировки не считается автоматической отменой. Durable aliases входят в backup;
+Room 6→7 добавляет отдельную таблицу связей без изменения существующих операций.
+Подробный контракт и границы: docs/tbc-pending.md.

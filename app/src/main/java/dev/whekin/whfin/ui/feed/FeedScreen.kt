@@ -427,7 +427,7 @@ fun FeedScreen(
     val grouped = sortedEntries.groupBy(FeedTimelineEntry::day)
     val selectedItems = items.filter { it.tx.id in selectedIds }
     val selectionMode = selectedIds.isNotEmpty()
-    val allSelectedPending = selectedItems.isNotEmpty() && selectedItems.all { it.tx.status == TxStatus.PENDING }
+    val allSelectedPending = selectedItems.isNotEmpty() && selectedItems.all { it.tx.status == TxStatus.PENDING && it.tx.source != TxSource.BANK_HOLD }
     val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(items) {
@@ -921,7 +921,7 @@ fun FeedScreen(
                 details = null
                 deleteFor = item
             }} else null,
-            onCorrect = if (item.tx.source in setOf(dev.whekin.whfin.data.db.TxSource.STATEMENT, dev.whekin.whfin.data.db.TxSource.SMS)) {{
+            onCorrect = if (item.tx.source in setOf(dev.whekin.whfin.data.db.TxSource.STATEMENT, dev.whekin.whfin.data.db.TxSource.SMS, dev.whekin.whfin.data.db.TxSource.BANK_HOLD)) {{
                 details = null
                 correctFor = item
             }} else null,
@@ -1158,7 +1158,7 @@ private fun TransactionDetailsContent(
         tx.origAmountMinor != null || item.fundedByConversionMinor != null
     // Подтверждение pending-черновика — самое частое решение в этой раскладке, поэтому он
     // стоит первым и единственным залитым действием, а не спрятан за отдельным status-листом.
-    val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING }
+    val confirmPending = onConfirm?.takeIf { tx.status == TxStatus.PENDING && tx.source != TxSource.BANK_HOLD }
     // Correcting an imported row lives in the overflow beside Delete, where the rare answers are,
     // and stays out of the rail: it carries the longest label in the sheet and was already listed
     // in both places, so on a real phone it pushed the everyday answers past the right edge.
@@ -1281,12 +1281,12 @@ private fun TransactionDetailsContent(
                 val pending = tx.status == TxStatus.PENDING
                 DetailEditableRow(
                     label = stringResource(R.string.tx_detail_status),
-                    value = if (tx.source == TxSource.SMS && !pending) {
+                    value = if (tx.source == TxSource.BANK_HOLD) stringResource(R.string.bank_hold_status) else if (tx.source == TxSource.SMS && !pending) {
                         stringResource(R.string.status_sms)
                     } else {
                         tx.status.label()
                     },
-                    onClick = onChangeStatus.takeIf { pending || tx.source != TxSource.SMS },
+                    onClick = onChangeStatus.takeIf { tx.source != TxSource.BANK_HOLD && (pending || tx.source != TxSource.SMS) },
                 )
                 if (item.isDebt) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1906,7 +1906,7 @@ internal fun matchesFeedFilter(item: FeedItem, filter: FeedFilter): Boolean = wh
     FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
     FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
     FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
-    FeedFilter.NEEDS_REVIEW -> item.tx.status == TxStatus.PENDING
+    FeedFilter.NEEDS_REVIEW -> item.tx.status == TxStatus.PENDING && item.tx.source != TxSource.BANK_HOLD
 }
 private enum class FeedSort { NEWEST, OLDEST, AMOUNT }
 
@@ -3333,7 +3333,7 @@ internal fun FeedRow(
                 if (tx.status == TxStatus.PENDING) {
                     // Confirming a draft is the most repeated gesture there is, so the marker that
                     // says it is a draft is also the control that clears it — one tap, in the feed.
-                    val confirm = onConfirmPending
+                    val confirm = onConfirmPending.takeUnless { tx.source == TxSource.BANK_HOLD }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -3347,7 +3347,7 @@ internal fun FeedRow(
                             .offset(x = (-6).dp),
                     ) {
                         Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
-                        Text(stringResource(R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                        Text(stringResource(if (tx.source == TxSource.BANK_HOLD) R.string.bank_hold_status else R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
                         if (confirm != null) Icon(
                             Icons.Default.Check,
                             contentDescription = null,

@@ -115,7 +115,7 @@ class DataIntegrityChecker(
                 }
                 if (
                     transaction.isVoided &&
-                    transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS) &&
+                    transaction.source in setOf(TxSource.STATEMENT, TxSource.SMS, TxSource.BANK_HOLD) &&
                     // A merged copy states its own reason, and it is not a correction: the row was
                     // never a separate operation, so there is nothing for an audit record to undo.
                     transaction.mergedIntoTransactionId == null &&

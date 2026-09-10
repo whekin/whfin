@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 6
+const val WHFIN_DATABASE_VERSION = 7
 
 @Database(
     entities = [
@@ -38,6 +38,7 @@ const val WHFIN_DATABASE_VERSION = 6
         StatementImportEntity::class,
         ReconciliationIssueEntity::class,
         SmsDiagnosticEntity::class,
+        BankHoldEntity::class,
         CryptoBalanceEntity::class,
         ExchangeRateEntity::class,
         ExchangeRateHistoryEntity::class,
@@ -63,6 +64,7 @@ abstract class WhfinDatabase : RoomDatabase() {
     abstract fun paymentInstrumentDao(): PaymentInstrumentDao
     abstract fun cryptoDao(): CryptoDao
     abstract fun statementSourceDao(): StatementSourceDao
+    abstract fun bankHoldDao(): BankHoldDao
     abstract fun smsDiagnosticDao(): SmsDiagnosticDao
     abstract fun exchangeRateDao(): ExchangeRateDao
     abstract fun counterpartyRuleDao(): CounterpartyRuleDao
@@ -84,7 +86,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
     }
 }
 
@@ -159,5 +161,13 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
 val MIGRATION_5_6: Migration = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("UPDATE `transfer_groups` SET `type` = 'OWN_LINK' WHERE `type` = 'CRYPTO_BRIDGE'")
+    }
+}
+
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `bank_holds` (`key` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `transactionId` INTEGER NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `occurredAt` INTEGER NOT NULL, `merchant` TEXT NOT NULL, `cardLast4` TEXT, `lastSeenAt` INTEGER NOT NULL, PRIMARY KEY(`key`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(`transactionId`) REFERENCES `transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_bank_holds_accountId` ON `bank_holds` (`accountId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_bank_holds_transactionId` ON `bank_holds` (`transactionId`)")
     }
 }

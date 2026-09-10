@@ -260,9 +260,11 @@ internal object WhfinBackupSchema {
             ),
             enumColumns = mapOf(
                 "status" to setOf("PENDING", "CONFIRMED", "MANUAL"),
-                "source" to setOf("SMS", "STATEMENT", "MANUAL", "ADJUSTMENT", "CRYPTO"),
+                "source" to setOf("BANK_HOLD", "SMS", "STATEMENT", "MANUAL", "ADJUSTMENT", "CRYPTO"),
             ),
         ),
+        BackupTable("bank_holds", listOf("key", "accountId", "transactionId", "amountMinor", "currency", "occurredAt", "merchant", "cardLast4", "lastSeenAt"),
+            orderBy = listOf("key"), sinceVersion = 7),
         BackupTable(
             "transaction_allocations",
             listOf("id", "transactionId", "amountMinor", "categoryId", "personId", "purpose", "note"),

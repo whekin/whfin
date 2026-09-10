@@ -203,7 +203,7 @@ internal fun AccountTransactionsScreen(
                 details = null
                 deleteTransactionFor = item
             }} else null,
-            onCorrect = if (item.tx.source in setOf(TxSource.STATEMENT, TxSource.SMS)) {{
+            onCorrect = if (item.tx.source in setOf(TxSource.STATEMENT, TxSource.SMS, TxSource.BANK_HOLD)) {{
                 details = null
                 correctTransactionFor = item
             }} else null,

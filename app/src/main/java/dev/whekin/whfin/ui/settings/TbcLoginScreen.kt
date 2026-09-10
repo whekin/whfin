@@ -218,6 +218,7 @@ internal fun TbcLoginScreen(
                             WhfinLedgerRow(title = report.label,
                                 supportingText = buildString {
                                     append(stringResource(R.string.tbc_read_counts, report.received, report.alreadyKnown))
+                                    append("\n"); append(stringResource(R.string.tbc_pending_count, report.pending))
                                     append("\n")
                                     append(stringResource(if (report.fullHistory) R.string.tbc_read_all else R.string.tbc_read_recent))
                                     report.stats?.let { stats ->
@@ -324,7 +325,7 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "PROTECTION", "RATE_LIMIT" -> R.string.tbc_error_protection
     "NETWORK" -> R.string.tbc_error_network
     "HISTORY_CONFLICT" -> R.string.tbc_history_conflict
-    "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT" -> R.string.tbc_history_format
+    "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT", "HISTORY_HOLD" -> R.string.tbc_history_format
     "HISTORY_CHANGED" -> R.string.tbc_history_changed
     "OTP_METHOD", "BANK_ACTION" -> R.string.tbc_error_bank_action
     else -> R.string.tbc_error_response

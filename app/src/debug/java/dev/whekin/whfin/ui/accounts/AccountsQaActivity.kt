@@ -73,12 +73,13 @@ class AccountsQaActivity : ComponentActivity() {
                             val category = CategoryEntity(id = 1, name = if (language == "ru") "Кафе" else "Coffee", kind = CategoryKind.EXPENSE,
                                 icon = "LocalCafe", color = 0xFF78906F.toInt())
                             val transaction = TransactionEntity(id = 1, accountId = 1, amountMinor = -1200, currency = "GEL",
-                                occurredAt = 1L, status = TxStatus.MANUAL, source = TxSource.MANUAL,
+                                occurredAt = 1L, status = if (intent.getBooleanExtra("hold", false)) TxStatus.PENDING else TxStatus.MANUAL,
+                                source = if (intent.getBooleanExtra("hold", false)) TxSource.BANK_HOLD else TxSource.MANUAL,
                                 rawCounterparty = "Example Cafe", categoryId = selected?.id)
                             val feed = FeedItem(transaction, null, selected, QA_ACCOUNTS.first().account, null, day = java.time.LocalDate.of(2026, 9, 10))
                             if (choosing) CategoryPickerSheet(feed, listOf(category), { choosing = false },
                                 { selected = it; categorySelected = true; choosing = false }, { _, _, _, _ -> })
-                            else TransactionDetailsSheet(feed, {}, { choosing = true }, {}, onEdit = {}, onDebt = null, onClearDebt = null)
+                            else TransactionDetailsSheet(feed, {}, { choosing = true }, null, onEdit = null, onDebt = null, onClearDebt = null, onConfirm = {})
                         } else if (intent.getBooleanExtra("activity", false)) {
                             var edit by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                             var adjust by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }

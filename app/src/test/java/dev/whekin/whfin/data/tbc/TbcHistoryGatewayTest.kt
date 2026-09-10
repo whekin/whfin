@@ -50,6 +50,25 @@ class TbcHistoryGatewayTest {
         assertNull(olderGateway.historyReadStats())
     }
 
+    @Test fun blockedRowsAreScopedByTheirOwnCurrencyAndIban() = runBlocking {
+        val blocked = JSONObject().put("transactionId", 0).put("entryType", "BlockedTransaction")
+            .put("blockedMovementDate", 1789045632000L).put("blockedMovementCardId", 70)
+            .put("blockedMovementIban", account.iban).put("title", "EXAMPLE CAFE>Tbilisi GE")
+            .put("subTitle", "Blocked amount").put("amount", -12.0).put("currency", "GEL").put("transactionStatus", "Green")
+        val json = JSONArray().put(JSONObject().put("date", 1788998400000L).put("transactions", JSONArray().put(blocked)))
+        val gel = account.copy(cardSuffixes = mapOf("70" to "0001"))
+        val gateway = MobileTbcGateway(Script(json.toString(), "[]"))
+        assertTrue(gateway.history(gel, LocalDate.MIN, day.plusDays(2)).isEmpty())
+        assertEquals(1, gateway.pendingHolds().size)
+        assertEquals(-1200L, gateway.pendingHolds().single().amountMinor)
+        assertEquals("0001", gateway.pendingHolds().single().cardLast4)
+        val usd = TbcHistoryParser.page(json, gel.copy(currency = "USD"))
+        assertEquals(0, usd.holds.size)
+        assertEquals(1, usd.blockedCount)
+        val changed = TbcHistoryParser.page(JSONArray(json.toString().replace("-12", "-13")), gel)
+        assertEquals(gateway.pendingHolds().single().key, changed.holds.single().key)
+    }
+
     @Test fun repeatedCursorFailsInsteadOfPretendingHistoryIsComplete() = runBlocking {
         val script = Script(page(100, "d_first"), page(100, "d_first"))
         try { MobileTbcGateway(script).history(account, day.minusDays(1), day); fail() }

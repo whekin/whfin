@@ -742,3 +742,20 @@ data class ExchangeRateEntity(
     val validOn: String? = null,
     val source: String? = null,
 )
+
+/** Durable bank hold identity; survives settlement and backup without retaining a raw response. */
+@Entity(tableName = "bank_holds", foreignKeys = [
+    ForeignKey(entity = AccountEntity::class, parentColumns = ["id"], childColumns = ["accountId"], onDelete = ForeignKey.CASCADE),
+    ForeignKey(entity = TransactionEntity::class, parentColumns = ["id"], childColumns = ["transactionId"], onDelete = ForeignKey.CASCADE),
+], indices = [Index("accountId"), Index("transactionId")])
+data class BankHoldEntity(
+    @PrimaryKey val key: String,
+    val accountId: Long,
+    val transactionId: Long,
+    val amountMinor: Long,
+    val currency: String,
+    val occurredAt: Long,
+    val merchant: String,
+    val cardLast4: String?,
+    val lastSeenAt: Long,
+)

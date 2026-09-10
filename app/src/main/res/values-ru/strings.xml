@@ -1670,6 +1670,8 @@
     <string name="tbc_read_counts">Прочитано: %1$d · Уже в базе: %2$d</string>
     <string name="tbc_read_all">Вся доступная история</string>
     <string name="tbc_read_recent">Свежая история с перекрытием</string>
-    <string name="tbc_read_pages">Страниц: %1$d · Строк банка: %2$d · Пропущено блокировок: %3$d</string>
+    <string name="tbc_read_pages">Страниц: %1$d · Строк банка: %2$d · Блокировок в ответе: %3$d</string>
     <string name="tbc_read_empty">TBC вернул пустую первую страницу.</string>
+    <string name="bank_hold_status">Ожидает списания</string>
+    <string name="tbc_pending_count">Блокировок для счёта: %1$d</string>
 </resources>

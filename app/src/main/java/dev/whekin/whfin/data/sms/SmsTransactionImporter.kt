@@ -215,6 +215,9 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             )
         }
 
+        diagnostic.toParsedSms()?.let { sms ->
+            attachBankHold(sms, diagnostic.externalKey, diagnostic.receivedAt, true)?.let { return it }
+        }
         statementEvidence.find(diagnostic, listOf(account))?.let { match ->
             val saved = diagnostic.copy(
                 outcome = SmsDiagnosticOutcome.ATTACHED,
@@ -463,6 +466,40 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         )
     }
 
+    private suspend fun attachBankHold(sms: BankSmsMessage.Sms, key: String, receivedAt: Long, persist: Boolean): SmsImportResult? {
+        if (bank != BankSmsBank.TBC || sms !is BankSmsMessage.CardPayment) return null
+        val time = occurredMillis(sms, receivedAt)
+        val start = time / 60000 * 60000
+        val mapped = db.accountDao().byCardAndCurrency(sms.cardLast4, sms.currency).map { it.id }
+        val candidates = db.bankHoldDao().inWindow(sms.currency, start, start + 59999).filter { hold ->
+            hold.amountMinor == -sms.amountMinor &&
+                dev.whekin.whfin.data.importer.MerchantNormalizer.equivalent(hold.merchant, sms.merchantRaw) &&
+                (hold.cardLast4 == sms.cardLast4 || hold.cardLast4 == null && hold.accountId in mapped) &&
+                (mapped.isEmpty() || hold.accountId in mapped) &&
+                db.smsDiagnosticDao().forTransaction(hold.transactionId).none {
+                    it.externalKey != key && it.externalKey.startsWith("sms|tbc|push|") == key.startsWith("sms|tbc|push|")
+                }
+        }.distinctBy { it.transactionId }
+        if (candidates.isEmpty()) return null
+        if (candidates.size > 1) {
+            val diagnostic = diagnosticFor(sms, key, SmsDiagnosticOutcome.UNRECOGNIZED, SmsDiagnosticReason.PARSE_FAILURE, receivedAt)
+            return SmsImportResult(SmsDiagnosticOutcome.UNRECOGNIZED, if (persist) persistDiagnostic(diagnostic) else null)
+        }
+        val hold = candidates.single()
+        val row = db.transactionDao().byId(hold.transactionId) ?: return null
+        // Attaching evidence cannot resurrect an owner-voided hold or a settled purchase.
+        val diagnostic = diagnosticFor(sms, key, SmsDiagnosticOutcome.ATTACHED, null, receivedAt, row.accountId, row.id)
+        return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, if (persist) persistDiagnostic(diagnostic) else null, row.id)
+    }
+
+    internal suspend fun attachUnroutedToHolds() {
+        for (diagnostic in db.smsDiagnosticDao().unrouted()) {
+            if (BankSmsBank.fromKey(diagnostic.externalKey) != bank) continue
+            val sms = diagnostic.toParsedSms() ?: continue
+            attachBankHold(sms, diagnostic.externalKey, diagnostic.receivedAt, true)
+        }
+    }
+
     private suspend fun crossChannelCard(sms: BankSmsMessage.Sms, key: String, receivedAt: Long, persist: Boolean): SmsImportResult? {
         if (bank == BankSmsBank.TBC && sms is BankSmsMessage.CardPayment) {
             val time = occurredMillis(sms, receivedAt)
@@ -510,6 +547,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             db.transactionDao().byId(id)?.let { return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE,
                 db.smsDiagnosticDao().byExternalKey(key)?.id, id) }
         }
+        attachBankHold(sms, key, receivedAt, persist)?.let { return it }
         crossChannelCard(sms, key, receivedAt, persist)?.let { return it }
         db.transactionDao().byExternalKey(key)?.let { existing ->
             val diagnostic = diagnosticFor(

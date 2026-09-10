@@ -41,6 +41,7 @@ interface TbcGateway {
     suspend fun ledgerAccounts(): List<TbcLedgerAccount> = throw TbcException("HISTORY_FORMAT")
     suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = throw TbcException("HISTORY_FORMAT")
     fun historyReadStats(): TbcHistoryReadStats? = null
+    fun pendingHolds(): List<TbcHold> = emptyList()
     suspend fun accounts(): List<TbcAccount>
     fun clear()
     fun snapshot(): TbcSession
@@ -93,12 +94,14 @@ internal class HttpsTbcTransport : TbcTransport {
 
 /** Independent Android implementation of the observed retail mobile protocol; no payment API. */
 class MobileTbcGateway internal constructor(private val transport: TbcTransport) : TbcGateway {
+    private var holds = linkedMapOf<String, TbcHold>()
+    override fun pendingHolds(): List<TbcHold> = holds.values.toList()
     private var readStats: TbcHistoryReadStats? = null
     override fun historyReadStats(): TbcHistoryReadStats? = readStats
     constructor() : this(HttpsTbcTransport())
     private var deviceId = UUID.randomUUID().toString().replace("-", "")
     private val cookies = linkedMapOf<String, String>()
-    override fun clear() { cookies.clear(); readStats = null }
+    override fun clear() { cookies.clear(); readStats = null; holds.clear() }
     override fun snapshot() = TbcSession(cookies.toMap(), deviceId)
 
     override suspend fun login(username: String, credential: String): TbcLoginResult = withContext(Dispatchers.IO) {
@@ -164,13 +167,20 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
                 val product = products.getJSONObject(i)
                 if (product.optBoolean("isChildCard") || product.optBoolean("isCreditCard")) continue
                 val iban = required(product, "iban")
+                val cards = product.optJSONArray("cards")
+                val suffixes = (0 until (cards?.length() ?: 0)).mapNotNull { index ->
+                    val card = requireNotNull(cards).getJSONObject(index)
+                    val id = card.optString("id").takeIf { it.isNotBlank() && it != "null" }
+                    val suffix = card.optString("numberSuffix").takeLast(4).takeIf { it.matches(Regex("[0-9]{4}")) }
+                    if (id != null && suffix != null) id to suffix else null
+                }.toMap()
                 val ledgers = product.getJSONArray("accounts")
                 for (j in 0 until ledgers.length()) {
                     val ledger = ledgers.getJSONObject(j)
                     val item = TbcLedgerAccount(ledger.getLong("id").toString(), iban, required(ledger, "currency"),
                         product.optString("friendlyName").takeUnless { it == "null" }.orEmpty(),
                         ledger.optLong("coreAccountId").takeIf { it > 0 }?.toString(),
-                        ledger.opt("balance")?.takeUnless { it == JSONObject.NULL }?.let { java.math.BigDecimal(it.toString()).movePointRight(2).longValueExact() })
+                        ledger.opt("balance")?.takeUnless { it == JSONObject.NULL }?.let { java.math.BigDecimal(it.toString()).movePointRight(2).longValueExact() }, suffixes)
                     if (!iban.matches(Regex("GE[0-9]{2}TB[0-9]{16}")) || !item.currency.matches(Regex("[A-Z]{3}"))) throw TbcException("HISTORY_ACCOUNT")
                     if (result.put(item.key, item) != null) throw TbcException("HISTORY_ACCOUNT")
                 }
@@ -193,6 +203,7 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
 
     override suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = withContext(Dispatchers.IO) {
         readStats = TbcHistoryReadStats()
+        holds.clear()
         try {
             val rows = linkedMapOf<String, TbcHistoryRow>()
             var cursor: Long? = null
@@ -213,6 +224,12 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
                 val page = TbcHistoryParser.page(response, account)
                 readStats = requireNotNull(readStats).copy(parsed = previousStats.parsed + page.rows.size,
                     blocked = previousStats.blocked + page.blockedCount)
+                page.holds.forEach { hold ->
+                    if (java.time.Instant.ofEpochMilli(hold.occurredAt).atZone(dev.whekin.whfin.data.LedgerCalendar.zone).toLocalDate() > through)
+                        throw TbcException("HISTORY_CHANGED")
+                    val previous = holds.putIfAbsent(hold.key, hold)
+                    if (previous != null && previous != hold) throw TbcException("HISTORY_CHANGED")
+                }
                 if (page.empty) return@withContext rows.values.filter { it.row.postedDate in from..through }
                 page.rows.forEach { row ->
                     if (previousDay != null && row.row.postedDate > previousDay) throw TbcException("HISTORY_PAGE")

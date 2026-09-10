@@ -1,3 +1,5 @@
+Current pending-charge support (0.3.42): [TBC pending purchases](tbc-pending.md).
+
 # TBC foreground transaction synchronization
 
 Added in 0.3.28 (40). Native TBC sign-in/session restoration now starts a foreground history sync;

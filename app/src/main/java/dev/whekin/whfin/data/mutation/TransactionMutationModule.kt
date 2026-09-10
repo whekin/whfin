@@ -425,6 +425,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                 mergedIntoTransactionId = survivor.id,
             ),
         )
+        db.bankHoldDao().relink(duplicate.id, survivor.id)
         MutationReport(changed = 1, skipped = 0)
     }
 
@@ -434,7 +435,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
      */
     suspend fun voidTransaction(transactionId: Long, reason: String? = null): MutationReport = db.withTransaction {
         val rows = correctionRows(transactionId)
-        if (rows.any { it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
+        if (rows.any { it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS, TxSource.BANK_HOLD) }) {
             reject("Only active statement or SMS transactions can be corrected.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
         for (row in rows) {
@@ -479,7 +480,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
      */
     suspend fun restoreTransaction(transactionId: Long): MutationReport = db.withTransaction {
         val rows = correctionRows(transactionId)
-        if (rows.any { !it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS) }) {
+        if (rows.any { !it.isVoided || it.source !in setOf(TxSource.STATEMENT, TxSource.SMS, TxSource.BANK_HOLD) }) {
             reject("Only voided statement or SMS transactions can be restored.", MutationRejection.IMPORTED_IS_PROTECTED)
         }
         val corrections = rows.map { row ->

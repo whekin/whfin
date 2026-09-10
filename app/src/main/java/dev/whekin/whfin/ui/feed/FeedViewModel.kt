@@ -823,7 +823,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun correctImported(item: FeedItem) {
-        if (item.tx.source !in setOf(TxSource.STATEMENT, TxSource.SMS)) return
+        if (item.tx.source !in setOf(TxSource.STATEMENT, TxSource.SMS, TxSource.BANK_HOLD)) return
         mutate {
             transactionMutations.voidTransaction(item.tx.id)
         }

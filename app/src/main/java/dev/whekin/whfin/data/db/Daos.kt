@@ -374,6 +374,7 @@ interface MerchantDao {
 
 @Dao
 interface TransactionDao {
+    @Query("SELECT * FROM transactions WHERE accountId = :id") suspend fun allForAccountIncludingVoided(id: Long): List<TransactionEntity>
     @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isVoided = 0 ORDER BY id")
     suspend fun activeForAccount(accountId: Long): List<TransactionEntity>
 
@@ -446,7 +447,7 @@ interface TransactionDao {
     fun observeAwaitingStatementSmsCount(): Flow<Int>
 
     @Query(
-        "SELECT * FROM transactions WHERE isVoided = 1 AND source IN ('STATEMENT', 'SMS') " +
+        "SELECT * FROM transactions WHERE isVoided = 1 AND source IN ('STATEMENT', 'SMS', 'BANK_HOLD') " +
             "ORDER BY occurredAt DESC, id DESC",
     )
     fun observeVoidedImported(): Flow<List<TransactionEntity>>
@@ -479,7 +480,7 @@ interface TransactionDao {
     /** SMS rows remain reconcilable because source records evidence independently of active status. */
     @Query(
         "SELECT * FROM transactions WHERE accountId = :accountId " +
-            "AND ((source = 'SMS' AND status IN ('PENDING', 'CONFIRMED')) " +
+            "AND ((source IN ('SMS', 'BANK_HOLD') AND status IN ('PENDING', 'CONFIRMED')) " +
             "OR (status = 'MANUAL' AND source = 'MANUAL')) " +
             "AND isVoided = 0 AND occurredAt BETWEEN :fromMillis AND :toMillis"
     )
@@ -499,7 +500,7 @@ interface TransactionDao {
     @Query(
             "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.transferGroupId IS NULL " +
-            "AND t.source IN ('STATEMENT', 'SMS') " +
+            "AND t.source IN ('STATEMENT', 'SMS', 'BANK_HOLD') " +
             "AND t.isVoided = 0 AND t.occurredAt BETWEEN :fromMillis AND :toMillis ORDER BY t.occurredAt"
     )
     suspend fun ungroupedTransfers(groupId: Long, fromMillis: Long, toMillis: Long): List<TransactionEntity>
@@ -507,7 +508,7 @@ interface TransactionDao {
     @Query(
         "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "LEFT JOIN transfer_groups g ON g.id = t.transferGroupId " +
-            "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.source IN ('STATEMENT', 'SMS') " +
+            "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.source IN ('STATEMENT', 'SMS', 'BANK_HOLD') " +
             "AND (t.transferGroupId IS NULL OR NOT EXISTS (" +
             "SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
             "AND sms.source = 'SMS' AND sms.isVoided = 0)) " +
@@ -530,7 +531,7 @@ interface TransactionDao {
             "JOIN transfer_groups g ON g.id = t.transferGroupId " +
             "WHERE a.groupId = :groupId AND t.transferGroupId IS NOT NULL AND t.isVoided = 0 " +
             "AND g.type != 'OWN_LINK' AND (g.note IS NULL OR g.note != 'Bank statement transfer') " +
-            "AND (t.source IN ('STATEMENT', 'SMS') " +
+            "AND (t.source IN ('STATEMENT', 'SMS', 'BANK_HOLD') " +
             "OR (t.source = 'ADJUSTMENT' AND t.externalKey LIKE 'opening|%')) " +
             "AND NOT EXISTS (SELECT 1 FROM transactions sms WHERE sms.transferGroupId = t.transferGroupId " +
             "AND sms.source = 'SMS' AND sms.isVoided = 0) " +
@@ -1148,6 +1149,7 @@ interface ReconciliationIssueDao {
 
 @Dao
 interface SmsDiagnosticDao {
+    @Query("SELECT * FROM sms_diagnostics WHERE transactionId = :id") suspend fun forTransaction(id: Long): List<SmsDiagnosticEntity>
     @Query("SELECT * FROM sms_diagnostics ORDER BY receivedAt DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<SmsDiagnosticEntity>>
 
@@ -1275,3 +1277,14 @@ data class ReconciliationIssueWithTransaction(
     @Relation(parentColumn = "transactionId", entityColumn = "id")
     val transaction: TransactionEntity,
 )
+
+@Dao
+interface BankHoldDao {
+    @Query("SELECT * FROM bank_holds WHERE currency = :currency AND occurredAt BETWEEN :from AND :through")
+    suspend fun inWindow(currency: String, from: Long, through: Long): List<BankHoldEntity>
+    @Query("SELECT * FROM bank_holds WHERE `key` = :key") suspend fun byKey(key: String): BankHoldEntity?
+    @Query("SELECT * FROM bank_holds WHERE accountId = :accountId") suspend fun forAccount(accountId: Long): List<BankHoldEntity>
+    @Query("SELECT * FROM bank_holds WHERE transactionId = :id") suspend fun forTransaction(id: Long): List<BankHoldEntity>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(row: BankHoldEntity)
+    @Query("UPDATE bank_holds SET transactionId = :survivor WHERE transactionId = :duplicate") suspend fun relink(duplicate: Long, survivor: Long)
+}

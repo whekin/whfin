@@ -13,20 +13,30 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Currency ledger IDs used by the mobile history endpoint, distinct from dashboard/card IDs. */
-data class TbcLedgerAccount(val id: String, val iban: String, val currency: String, val name: String, val coreId: String? = null, val balanceMinor: Long? = null) {
+data class TbcLedgerAccount(val id: String, val iban: String, val currency: String, val name: String, val coreId: String? = null, val balanceMinor: Long? = null, val cardSuffixes: Map<String, String> = emptyMap()) {
     val key: String get() = "$iban|$currency"
     val label: String get() = "$currency · •${iban.takeLast(4)}"
 }
 data class TbcHistoryReadStats(val pages: Int = 0, val parsed: Int = 0, val blocked: Int = 0,
     val firstPageEmpty: Boolean = false)
 data class TbcHistoryRow(val movementId: String, val transactionId: String, val row: StatementRow)
-data class TbcHistoryPage(val rows: List<TbcHistoryRow>, val nextCursor: Long?, val empty: Boolean, val blockedCursor: Long? = null, val blockedCount: Int = 0)
+data class TbcHistoryPage(val rows: List<TbcHistoryRow>, val nextCursor: Long?, val empty: Boolean, val blockedCursor: Long? = null, val blockedCount: Int = 0, val holds: List<TbcHold> = emptyList())
+
+/** A bank authorization, distinct from a booked movement. Its fingerprint does not include mutable money. */
+data class TbcHold(val key: String, val iban: String, val currency: String, val amountMinor: Long,
+    val occurredAt: Long, val merchant: String, val cardLast4: String?)
 
 internal object TbcHistoryParser {
     private val epochDay = DateTimeFormatter.ofPattern("MMM d uuuu h:mma", Locale.ENGLISH).withResolverStyle(ResolverStyle.STRICT)
     private val pos = Regex("""^POS(?: wallet)? - (.+), ([\d,.]+) ([A-Z]{3}), ([A-Za-z]{3}\s+\d{1,2}\s+\d{4}\s+\d{1,2}:\d{2}[AP]M),.*$""")
+    fun purchaseTime(description: String): Long? = runCatching {
+        val match = pos.matchEntire(description.substringBefore('\n').trim()) ?: return null
+        LocalDateTime.parse(match.groupValues[4].replace(Regex("\\s+"), " "), epochDay)
+            .atZone(LedgerCalendar.zone).toInstant().toEpochMilli()
+    }.getOrNull()
     fun page(json: JSONArray, account: TbcLedgerAccount): TbcHistoryPage {
         val rows = mutableListOf<TbcHistoryRow>()
+        val holds = mutableListOf<TbcHold>()
         var cursor: Long? = null
         var blockedCursor: Long? = null
         var blockedCount = 0
@@ -43,6 +53,23 @@ internal object TbcHistoryParser {
                 if (tx.optString("entryType") == "BlockedTransaction") {
                     blockedCount++
                     blockedCursor = tx.optLong("blockedMovementDate").takeIf { it > 0 } ?: throw TbcException("HISTORY_PAGE")
+                    // The API repeats holds in responses for other currencies of the same product.
+                    // Route by the hold's own IBAN/currency, never by the request that returned it.
+                    val iban = tx.optString("blockedMovementIban")
+                    val currency = tx.optString("currency")
+                    if (iban == account.iban && currency == account.currency) {
+                        val cardId = tx.optLong("blockedMovementCardId").takeIf { it > 0 }?.toString()
+                            ?: throw TbcException("HISTORY_HOLD")
+                        val amount = BigDecimal(tx.get("amount").toString()).movePointRight(2).longValueExact()
+                        val title = tx.optString("title").trim()
+                        if (amount >= 0 || amount == Long.MIN_VALUE || title.isBlank() || tx.optString("transactionStatus") != "Green" ||
+                            !tx.optString("subTitle").equals("Blocked amount", true)) throw TbcException("HISTORY_HOLD")
+                        val time = requireNotNull(blockedCursor)
+                        val key = "hold|tbc|" + dev.whekin.whfin.data.push.TbcPush.hash("$iban|$currency|$cardId|$time")
+                        holds += TbcHold(key, iban, currency, amount, time, title, account.cardSuffixes[cardId])
+                    } else if (!iban.matches(Regex("GE[0-9]{2}TB[0-9]{16}")) || !currency.matches(Regex("[A-Z]{3}"))) {
+                        throw TbcException("HISTORY_HOLD")
+                    }
                     continue
                 }
                 if (tx.optString("entryType") != "StandardMovement" || id <= 0) throw TbcException("HISTORY_FORMAT")
@@ -82,7 +109,7 @@ internal object TbcHistoryParser {
                     bankTransactionId = TbcRowIdentity.mobileId(movement)))
             }
         }
-        return TbcHistoryPage(rows, cursor, json.length() == 0, blockedCursor, blockedCount)
+        return TbcHistoryPage(rows, cursor, json.length() == 0, blockedCursor, blockedCount, holds)
     }
 }
 

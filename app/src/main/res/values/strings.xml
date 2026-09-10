@@ -1608,6 +1608,8 @@
     <string name="tbc_read_counts">Read: %1$d · Already recorded: %2$d</string>
     <string name="tbc_read_all">All available history</string>
     <string name="tbc_read_recent">Recent history with overlap</string>
-    <string name="tbc_read_pages">Pages: %1$d · Bank rows: %2$d · Holds skipped: %3$d</string>
+    <string name="tbc_read_pages">Pages: %1$d · Bank rows: %2$d · Hold rows returned: %3$d</string>
     <string name="tbc_read_empty">TBC returned an empty first page.</string>
+    <string name="bank_hold_status">Pending bank charge</string>
+    <string name="tbc_pending_count">Holds for this account: %1$d</string>
 </resources>
