@@ -3280,7 +3280,7 @@ internal fun FeedRow(
                     title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1,
+                    maxLines = if (item.transferSummary != null) 2 else 1,
                 )
                 Text(
                     subtitle,

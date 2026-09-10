@@ -97,6 +97,28 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
     private val whfinApp = app as WhfinApp
     private val db = whfinApp.db
     private val checker = DataIntegrityChecker(db)
+    private val balanceReview = dev.whekin.whfin.data.sms.CredoBalanceReview(db)
+    internal val balancePreview = MutableStateFlow<dev.whekin.whfin.data.sms.CredoBalanceReview.Preview?>(null)
+    val balanceReviewError = MutableStateFlow(false)
+    val balanceReviewBusy = MutableStateFlow(false)
+    fun previewCredoBalances() { viewModelScope.launch {
+        balanceReviewBusy.value=true; balanceReviewError.value=false
+        try { balancePreview.value=balanceReview.preview() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { balanceReviewError.value=true }
+        finally { balanceReviewBusy.value=false }
+    } }
+    fun confirmCredoBalances() {
+        val preview=balancePreview.value ?: return
+        if(balanceReviewBusy.value) return
+        balanceReviewBusy.value=true
+        viewModelScope.launch {
+            try { balanceReview.confirm(preview); balancePreview.value=null; check() }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { balanceReviewError.value=true }
+            finally { balanceReviewBusy.value=false }
+        }
+    }
     private val mutations = TransactionMutationModule(db)
     private val _state = MutableStateFlow<State>(State.Checking)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -231,6 +253,11 @@ fun DataHealthRoute(
     val status by viewModel.status.collectAsState()
     val repairState by viewModel.repairState.collectAsState()
     val mergeState by viewModel.mergeState.collectAsState()
+    val balancePreview by viewModel.balancePreview.collectAsState()
+    val balanceBusy by viewModel.balanceReviewBusy.collectAsState()
+    val balanceError by viewModel.balanceReviewError.collectAsState()
+    balancePreview?.let { preview -> CredoBalanceReviewSheet(preview,balanceBusy,balanceError,
+        { viewModel.balancePreview.value=null },viewModel::confirmCredoBalances) }
     LaunchedEffect(Unit) { viewModel.check() }
     DataHealthScreen(
         state = state,
@@ -243,6 +270,9 @@ fun DataHealthRoute(
         onOpenCorrections = onOpenCorrections,
         onOpenBackup = onOpenBackup,
         onOpenTransaction = onOpenTransaction,
+        onReviewCredoBalances = viewModel::previewCredoBalances,
+        balanceReviewBusy = balanceBusy,
+        balanceReviewError = balanceError,
     )
 }
 
@@ -258,6 +288,9 @@ fun DataHealthScreen(
     onOpenCorrections: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
     onOpenTransaction: (Long) -> Unit = {},
+    onReviewCredoBalances: (() -> Unit)? = null,
+    balanceReviewBusy: Boolean = false,
+    balanceReviewError: Boolean = false,
 ) {
     var showTechnicalDetails by remember { mutableStateOf(false) }
     LazyColumn(
@@ -291,6 +324,12 @@ fun DataHealthScreen(
                     )
                 }
             }
+        }
+
+        if (onReviewCredoBalances != null) item {
+            WhfinButton(stringResource(R.string.credo_balance_review),onReviewCredoBalances,
+                style=WhfinActionStyle.Secondary,enabled=!balanceReviewBusy)
+            if(balanceReviewError) Text(stringResource(R.string.credo_balance_changed),color=MaterialTheme.colorScheme.error)
         }
 
         val issues = (state as? DataHealthViewModel.State.Checked)?.issues.orEmpty()
@@ -515,4 +554,26 @@ fun DataHealthScreen(
             }
         }
     }
+}
+
+@Composable
+internal fun CredoBalanceReviewSheet(
+    preview: dev.whekin.whfin.data.sms.CredoBalanceReview.Preview,
+    balanceBusy: Boolean = false, balanceError: Boolean = false,
+    onDismiss: () -> Unit, onConfirm: () -> Unit,
+) {
+        dev.whekin.whfin.ui.components.FormSheet(stringResource(R.string.credo_balance_review),
+            { if (!balanceBusy) onDismiss() },stringResource(R.string.credo_balance_apply),
+            !balanceBusy && !balanceError && preview.changes.isNotEmpty(),onConfirm) {
+            Text(stringResource(R.string.credo_balance_review_body))
+            if (preview.changes.isEmpty()) Text(stringResource(R.string.credo_balance_no_changes))
+            val byId=preview.rows.associateBy { it.id }
+            preview.changes.forEach { change ->
+                val currency=byId.getValue(change.id).currency
+                val before=change.before?.let { formatMinor(it,currency) } ?: stringResource(R.string.credo_balance_unassigned)
+                val after=change.after?.let { formatMinor(it,currency) } ?: stringResource(R.string.credo_balance_unassigned)
+                WhfinLedgerRow(title="${LedgerCalendar.dayOf(change.at)} · ${preview.labels[change.accountId]}",supportingText="$before → $after")
+            }
+            if(balanceError) Text(stringResource(R.string.credo_balance_changed),color=MaterialTheme.colorScheme.error)
+        }
 }

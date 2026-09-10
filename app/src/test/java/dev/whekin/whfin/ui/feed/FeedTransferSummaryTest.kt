@@ -10,6 +10,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FeedTransferSummaryTest {
+    @Test fun importedNamesDoNotRepeatTheSameAccountTail() {
+        val accounts = listOf(
+            AccountEntity(id=1,name="Credo GEL •0001",type=AccountType.BANK,currency="GEL",iban="GE00CD0000000000000001"),
+            AccountEntity(id=2,name="Credo GEL •0002",type=AccountType.BANK,currency="GEL",iban="GE00CD0000000000000002"))
+        val item = buildBaseFeedItems(listOf(transferLeg(1,1,-25000),transferLeg(2,2,25000)),emptyList(),emptyList(),accounts,emptyMap(),ZoneOffset.UTC).single()
+        assertEquals("Credo •0001 → •0002",item.transferSummary)
+    }
+
     @Test
     fun openingBalanceIsNotUserFacingAccountActivity_butLaterAdjustmentIs() {
         val account = AccountEntity(

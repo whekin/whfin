@@ -1674,4 +1674,10 @@
     <string name="tbc_read_empty">TBC вернул пустую первую страницу.</string>
     <string name="bank_hold_status">Ожидает списания</string>
     <string name="tbc_pending_count">Блокировок для счёта: %1$d</string>
+    <string name="credo_balance_review">Проверить остатки SMS Credo</string>
+    <string name="credo_balance_apply">Применить</string>
+    <string name="credo_balance_review_body">Исправляется только привязка напечатанного в SMS остатка к стороне перевода. Суммы операций, их счета и итоговые балансы не меняются. Неоднозначный остаток остаётся без привязки.</string>
+    <string name="credo_balance_no_changes">Изменения не требуются.</string>
+    <string name="credo_balance_unassigned">Без привязки</string>
+    <string name="credo_balance_changed">Не удалось применить просмотр или записи изменились. Закройте его и проверьте снова.</string>
 </resources>

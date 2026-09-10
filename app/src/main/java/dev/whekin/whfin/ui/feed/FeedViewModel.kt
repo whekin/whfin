@@ -172,7 +172,20 @@ internal fun buildBaseFeedItems(
         account.type == AccountType.CASH -> account.name
         account.iban == null -> account.name
         account.name.isBlank() -> "${account.currency} •${account.iban.takeLast(4)}"
-        else -> "${account.name} •${account.iban.takeLast(4)}"
+        else -> account.name.takeIf { it.contains(account.iban.takeLast(4)) }
+            ?: "${account.name} •${account.iban.takeLast(4)}"
+    }
+    fun direction(from: AccountEntity, to: AccountEntity): String {
+        fun seededBank(account: AccountEntity): String? {
+            val tail=account.iban?.takeLast(4) ?: return null
+            return Regex("^(.*?)\\s+${Regex.escape(account.currency)}\\s+[•·]\\s*${Regex.escape(tail)}$")
+                .matchEntire(account.name.trim())?.groupValues?.get(1)
+        }
+        val bank=seededBank(from)
+        return if (bank!=null && bank==seededBank(to)) {
+            if (from.currency==to.currency) "$bank •${from.iban!!.takeLast(4)} → •${to.iban!!.takeLast(4)}"
+            else "$bank •${from.iban!!.takeLast(4)} ${from.currency} → •${to.iban!!.takeLast(4)} ${to.currency}"
+        } else "${accountLabel(from)} → ${accountLabel(to)}"
     }
     val transferLegs = transactions.filter { it.transferGroupId != null }.groupBy { it.transferGroupId }
     // An opening row is a balance baseline, not an operation the person performed. Keep it in the
@@ -197,7 +210,9 @@ internal fun buildBaseFeedItems(
         val inferredDirection = if (isCurrencyExchange && current != null) {
             "${accountLabel(current)} → FX"
         } else if (tx.isTransfer && current != null && peerLabel != null) {
-            if (tx.amountMinor < 0) "${accountLabel(current)} → $peerLabel"
+            if (ibanPeer != null) {
+                if (tx.amountMinor < 0) direction(current,ibanPeer) else direction(ibanPeer,current)
+            } else if (tx.amountMinor < 0) "${accountLabel(current)} → $peerLabel"
             else "$peerLabel → ${accountLabel(current)}"
         } else null
         FeedItem(
@@ -207,7 +222,7 @@ internal fun buildBaseFeedItems(
             account = current,
             cardHint = accountMasks.singleOrNull()?.let { "••$it" },
             transferSummary = destination?.let { target ->
-                current?.let { "${accountLabel(it)} → ${accountLabel(target)}" }
+                current?.let { direction(it,target) }
             } ?: inferredDirection,
             destinationAmountMinor = destinationLeg?.amountMinor,
             destinationCurrency = destinationLeg?.currency,

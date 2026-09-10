@@ -88,6 +88,36 @@ class SmsBalanceRoutingImporterTest {
         )
     }
 
+    @Test fun aUniqueDestinationBalanceCanResolveAnOtherwiseAmbiguousConversion() = runBlocking {
+        db.accountDao().update(db.accountDao().byId(secondId)!!.copy(isArchived=true))
+        val source = db.accountDao().byId(everydayId)!!
+        val euro = db.accountDao().insert(source.copy(id=0,currency="EUR",iban="GE00CD0000000000000003"))
+        val other = db.accountDao().insert(source.copy(id=0,currency="EUR",iban="GE00CD0000000000000004"))
+        for ((id,balance) in listOf(euro to 1000L,other to 5000L)) db.transactionDao().insert(TransactionEntity(
+            accountId=id,amountMinor=balance,currency="EUR",occurredAt=ANCHOR_AT,status=TxStatus.CONFIRMED,source=TxSource.STATEMENT,balanceAfterMinor=balance,createdAt=ANCHOR_AT))
+        val body = "Currency exchange\nAmount: 250.00 GEL\nReceived amount: 100.00 EUR\nBalance: 110.00 EUR\nDate:9/10/2026 11:05:19 PM"
+        val result = importer.import(body,1789067120000L)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED,result.outcome)
+        val to = db.transactionDao().byExternalKey(smsExternalKey(body)+"|to")!!
+        assertEquals(euro,to.accountId)
+        assertEquals(11000L,to.balanceAfterMinor)
+    }
+
+    @Test fun ownTransferBalanceBelongsToTheOnlySideThatReachesIt() = runBlocking {
+        declare(everydayId,10000)
+        declare(secondId,200000)
+        val body = "Transfer between accounts\nAmount: 250.00 GEL;\nFrom: GE00CD0000000000000002\nTo: GE00CD0000000000000001\nBalance: 350.00 GEL\nDate: 9/10/2026 11:04:55 PM"
+        val result = importer.import(body,1789067100000L)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED,result.outcome)
+        val from = db.transactionDao().byId(result.transactionId!!)!!
+        val to = db.transactionDao().byExternalKey(smsExternalKey(body)+"|to")!!
+        assertEquals(null,from.balanceAfterMinor)
+        assertEquals(35000L,to.balanceAfterMinor)
+        val next = importer.import("Outgoing transfer\nAmount: 40.00 GEL;\nBalance: 310.00 GEL\nDate: 9/10/2026 11:05:55 PM",1789067160000L)
+        assertEquals(SmsDiagnosticOutcome.IMPORTED,next.outcome)
+        assertEquals(everydayId,db.transactionDao().byId(next.transactionId!!)!!.accountId)
+    }
+
     @Test
     fun `the stated balance routes a transfer that names no account`() = runBlocking {
         declare(everydayId, balanceMinor = 50_000)

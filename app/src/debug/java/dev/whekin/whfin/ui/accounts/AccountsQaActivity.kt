@@ -44,6 +44,7 @@ import java.util.Locale
  */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class AccountsQaActivity : ComponentActivity() {
+    var balanceReviewConfirmed = false
     var categorySelected = false
     var balanceAdjusted = false
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +68,21 @@ class AccountsQaActivity : ComponentActivity() {
             ) {
                 WhfinTheme(darkTheme = dark) {
                     Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
-                        if (intent.getBooleanExtra("transaction", false)) {
+                        if (intent.getBooleanExtra("transferLabels", false)) {
+                            val from=QA_ACCOUNTS.first().account.copy(name="Credo GEL •0001")
+                            val to=from.copy(id=2,currency="EUR",iban="GE00CD0000000000000002",name="Credo EUR •0002")
+                            val debit=TransactionEntity(id=1,accountId=from.id,amountMinor=-25000,currency="GEL",occurredAt=1789067100000L,
+                                status=TxStatus.CONFIRMED,source=TxSource.SMS,transferGroupId=1,isTransfer=true)
+                            val credit=debit.copy(id=2,accountId=to.id,amountMinor=10000,currency="EUR")
+                            val item=buildBaseFeedItems(listOf(debit,credit),emptyList(),emptyList(),listOf(from,to),emptyMap(),java.time.ZoneOffset.UTC).single()
+                            Column(Modifier.safeDrawingPadding()) { FeedRow(item,{}) }
+                        } else if (intent.getBooleanExtra("balanceReview", false)) {
+                            val rows = listOf(TransactionEntity(id=1,accountId=1,amountMinor=-25000,currency="GEL",occurredAt=1789067100000L,status=TxStatus.CONFIRMED,source=TxSource.SMS))
+                            val preview = dev.whekin.whfin.data.sms.CredoBalanceReview.Preview(rows,
+                                listOf(dev.whekin.whfin.data.sms.CredoBalanceReview.Change(1,1,1789067100000L,35000,null)),
+                                mapOf(1L to "Credo •0001 GEL"),emptyList())
+                            dev.whekin.whfin.ui.settings.CredoBalanceReviewSheet(preview,onDismiss={},onConfirm={ balanceReviewConfirmed=true })
+                        } else if (intent.getBooleanExtra("transaction", false)) {
                             var choosing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                             var selected by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<CategoryEntity?>(null) }
                             val category = CategoryEntity(id = 1, name = if (language == "ru") "Кафе" else "Coffee", kind = CategoryKind.EXPENSE,

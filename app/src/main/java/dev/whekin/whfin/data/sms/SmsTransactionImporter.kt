@@ -832,12 +832,23 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                     .filter(::isCurrencyExchangeLedger)
                 val destinations = db.accountDao().bankAccountsByCurrency(sms.receivedCurrency).filter { bank.accepts(db, it) }
                     .filter(::isCurrencyExchangeLedger)
-                sources.flatMap { from ->
-                    destinations.mapNotNull { to ->
-                        GroupedAccountResolution(from, to)
-                            .takeIf { validGroupedAccounts(sms, from, to) }
-                    }
-                }.singleOrNull()
+                val pairs = sources.flatMap { from ->
+                    destinations.mapNotNull { to -> GroupedAccountResolution(from, to)
+                        .takeIf { validGroupedAccounts(sms, from, to) } }
+                }
+                pairs.singleOrNull() ?: run {
+                    val balance = sms.balanceMinor
+                    val at = occurredMillis(sms, System.currentTimeMillis())
+                    val targets = if (balance != null && sms.balanceCurrency == sms.receivedCurrency) {
+                        val evidence = destinations.mapNotNull { target ->
+                            val anchor = db.transactionDao().latestDeclaredBalance(target.id, at) ?: return@mapNotNull null
+                            DeclaredBalanceEvidence(target.id, anchor.balanceAfterMinor!!,
+                                db.transactionDao().sumSinceDeclaredBalance(target.id, anchor.occurredAt, anchor.id, at))
+                        }
+                        accountAtDeclaredBalance(evidence, sms.receivedAmountMinor, balance)
+                    } else null
+                    pairs.filter { it.to.id == targets }.singleOrNull()
+                }
             }
             else -> null
         }
@@ -862,6 +873,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             from.currency == sms.currency &&
             to.currency == destinationCurrency &&
             eligibleTypes
+    }
+
+    private suspend fun groupedBalanceAccount(sms: BankSmsMessage.Sms, from: AccountEntity, to: AccountEntity, at: Long): Long? {
+        val declared = sms.balanceMinor ?: return null
+        val currency = sms.balanceCurrency ?: return null
+        if (from.currency != to.currency) return listOf(from, to).singleOrNull { it.currency == currency }?.id
+        if (currency != from.currency) return null
+        val after = listOf(from to -sms.amountMinor, to to sms.amountMinor).associate { (account, delta) ->
+            val anchor = db.transactionDao().latestDeclaredBalance(account.id, at)
+            account.id to anchor?.let { a -> runCatching { Math.addExact(Math.addExact(a.balanceAfterMinor!!,
+                db.transactionDao().sumSinceDeclaredBalance(account.id, a.occurredAt, a.id, at)), delta) }.getOrNull() }
+        }
+        return declaredBalanceSide(after, declared)
     }
 
     private suspend fun insertGroupedTransactions(
@@ -895,6 +919,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             else -> sms.amountMinor
         }
         val ownTransfer = sms as? BankSmsMessage.OwnTransfer
+        val balanceAccount = groupedBalanceAccount(sms, from, to, occurredAt)
         val ids = db.transactionDao().insertAll(
             listOf(
                 TransactionEntity(
@@ -908,7 +933,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                     transferGroupId = groupId,
                     isTransfer = true,
                     balanceAfterMinor = sms.balanceMinor
-                        .takeIf { sms !is BankSmsMessage.CurrencyExchange },
+                        .takeIf { balanceAccount == from.id },
                     externalKey = key,
                     createdAt = System.currentTimeMillis(),
                 ),
@@ -923,7 +948,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                     transferGroupId = groupId,
                     isTransfer = true,
                     balanceAfterMinor = sms.balanceMinor
-                        .takeIf { sms is BankSmsMessage.CurrencyExchange },
+                        .takeIf { balanceAccount == to.id },
                     externalKey = "$key|to",
                     createdAt = System.currentTimeMillis(),
                 ),

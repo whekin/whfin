@@ -34,6 +34,11 @@ internal fun accountAtDeclaredBalance(
     declaredBalanceMinor: Long,
 ): Long? = evidence
     .singleOrNull {
-        it.anchorBalanceMinor + it.movedSinceMinor + ledgerDeltaMinor == declaredBalanceMinor
+        runCatching { Math.addExact(Math.addExact(it.anchorBalanceMinor, it.movedSinceMinor), ledgerDeltaMinor) }.getOrNull() == declaredBalanceMinor
     }
     ?.accountId
+
+/** A generic transfer Balance belongs to neither side until the bank evidence identifies it. */
+internal fun declaredBalanceSide(afterByAccount: Map<Long, Long?>, reported: Long?): Long? = reported?.let { value ->
+    afterByAccount.entries.singleOrNull { it.value == value }?.key
+}

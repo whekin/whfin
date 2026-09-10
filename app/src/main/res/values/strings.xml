@@ -1612,4 +1612,10 @@
     <string name="tbc_read_empty">TBC returned an empty first page.</string>
     <string name="bank_hold_status">Pending bank charge</string>
     <string name="tbc_pending_count">Holds for this account: %1$d</string>
+    <string name="credo_balance_review">Review Credo SMS balances</string>
+    <string name="credo_balance_apply">Apply changes</string>
+    <string name="credo_balance_review_body">This repairs which transfer leg carries the balance printed in an SMS. Transaction amounts, account assignments and account totals stay unchanged. An unproven balance is left unassigned.</string>
+    <string name="credo_balance_no_changes">No changes are needed.</string>
+    <string name="credo_balance_unassigned">Unassigned</string>
+    <string name="credo_balance_changed">Could not apply this preview, or the ledger changed. Close it and review again.</string>
 </resources>
