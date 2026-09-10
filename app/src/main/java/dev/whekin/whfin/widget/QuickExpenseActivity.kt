@@ -2,6 +2,16 @@ package dev.whekin.whfin.widget
 
 import android.os.Bundle
 import android.widget.Toast
+import dev.whekin.whfin.data.db.PersonEntity
+import dev.whekin.whfin.data.mutation.ExpenseBeneficiary
+import dev.whekin.whfin.ui.feed.BeneficiaryDraft
+import dev.whekin.whfin.ui.feed.ExpenseBeneficiaryEditor
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.filled.ChevronRight
+import dev.whekin.whfin.core.ui.WhfinLedgerRow
+import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -58,6 +68,7 @@ import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinIconButton
 
 class QuickExpenseActivity : ComponentActivity() {
+    private var saving by mutableStateOf(false)
     companion object {
         const val EXTRA_CURRENCY = "currency"
         const val EXTRA_ACCOUNT_ID = "account_id"
@@ -89,6 +100,8 @@ class QuickExpenseActivity : ComponentActivity() {
                         suggester.rankCategories(expense) to suggester
                     }
                 }
+                val people by remember { (application as WhfinApp).userDb.personDao().observeActive() }
+                    .collectAsState(initial = emptyList())
                 QuickExpenseScreen(
                     initialCurrency = intent.getStringExtra(EXTRA_CURRENCY) ?: "GEL",
                     sourceLabel = intent.getStringExtra(EXTRA_SOURCE_LABEL)
@@ -98,7 +111,7 @@ class QuickExpenseActivity : ComponentActivity() {
                     suggester = suggestions?.second,
                     quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
                     onDismiss = ::finish,
-                    onSave = ::save,
+                    onSave = ::save, people = people, saving = saving,
                 )
             }
         }
@@ -110,28 +123,21 @@ class QuickExpenseActivity : ComponentActivity() {
         accountId: Long?,
         description: String?,
         categoryId: Long?,
+        beneficiary: ExpenseBeneficiary?,
     ) {
+        if (saving) return
+        saving = true
         lifecycleScope.launch {
-            val db = (application as WhfinApp).userDb
-            withContext(Dispatchers.IO) {
-                val requested = accountId?.let { db.accountDao().byId(it) }?.takeIf { it.currency == currency }
-                val account = requested ?: db.accountDao().allActive().firstOrNull { it.type == AccountType.CASH && it.currency == currency }
-                    ?: db.accountDao().insert(AccountEntity(
-                        name = if (currency == "GEL") "Cash" else "Cash $currency",
-                        type = AccountType.CASH, currency = currency, sortOrder = 1000,
-                    )).let { db.accountDao().byId(it)!! }
-                TransactionMutationModule(db).createManual(
-                    ManualMutation(
-                        accountId = account.id,
-                        amountMinor = -kotlin.math.abs(amountMinor),
-                        occurredAt = System.currentTimeMillis(),
-                        note = description,
-                        categoryId = categoryId,
-                    ),
-                )
-            }
-            Toast.makeText(this@QuickExpenseActivity, R.string.quick_saved, Toast.LENGTH_SHORT).show()
-            finish()
+            try {
+                withContext(Dispatchers.IO) {
+                    writeQuickExpense((application as WhfinApp).userDb, amountMinor, currency, accountId, description, categoryId, beneficiary)
+                }
+                Toast.makeText(this@QuickExpenseActivity, R.string.quick_saved, Toast.LENGTH_SHORT).show()
+                finish()
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) {
+                Toast.makeText(this@QuickExpenseActivity, R.string.quick_save_failed, Toast.LENGTH_LONG).show()
+            } finally { saving = false }
         }
     }
 }
@@ -146,12 +152,18 @@ internal fun QuickExpenseScreen(
     suggester: CategorySuggester?,
     quickExpenseKeypadEnabled: Boolean = true,
     onDismiss: () -> Unit,
-    onSave: (Long, String, Long?, String?, Long?) -> Unit,
+    onSave: (Long, String, Long?, String?, Long?, ExpenseBeneficiary?) -> Unit,
+    people: List<PersonEntity> = emptyList(),
+    saving: Boolean = false,
 ) {
+    var beneficiary by remember { mutableStateOf<BeneficiaryDraft?>(null) }
+    var showBeneficiary by remember { mutableStateOf(false) }
     val currency = initialCurrency
     var calculator by remember { mutableStateOf(AmountCalculator()) }
     var description by remember { mutableStateOf("") }
     var categoryId by remember { mutableStateOf<Long?>(null) }
+    var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
+    val formScroll = rememberScrollState()
     val minor = parseToMinor(calculator.resolvedText())?.takeIf { it > 0L }
     val imeVisible = WindowInsets.isImeVisible
     val amountFocusRequester = remember { FocusRequester() }
@@ -159,9 +171,24 @@ internal fun QuickExpenseScreen(
     val amountContentDescription = stringResource(R.string.tx_amount)
 
     LaunchedEffect(quickExpenseKeypadEnabled) {
-        if (!quickExpenseKeypadEnabled) amountFocusRequester.requestFocus()
+        if (!quickExpenseKeypadEnabled && !showBeneficiary) amountFocusRequester.requestFocus()
     }
 
+    if (showBeneficiary) {
+        Dialog(onDismissRequest = { showBeneficiary = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            WhfinDialogSystemBars(darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                ExpenseBeneficiaryEditor(people, beneficiary, { keyboardController?.hide(); showBeneficiary = false }, {
+                    beneficiary = it; keyboardController?.hide(); showBeneficiary = false
+                })
+            }
+        }
+        return
+    }
+    val validBeneficiary = beneficiary?.let { draft ->
+        (draft.personId?.let { id -> people.any { it.id == id } } ?: !draft.name.isNullOrBlank()) &&
+            (!draft.half || (minor ?: 0) >= 2)
+    } != false
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sheetHeightPx by remember { mutableFloatStateOf(0f) }
     val backdropColor = MaterialTheme.colorScheme.scrim
@@ -195,7 +222,7 @@ internal fun QuickExpenseScreen(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .imePadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(formScroll)
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -276,7 +303,6 @@ internal fun QuickExpenseScreen(
             if (categories.isNotEmpty()) {
                 // Ряд живёт вместе с суммой: введённая сумма пере-ранжирует подсказки.
                 // Выбор фиксирует порядок на момент тапа, чтобы кружок не прыгал под пальцем.
-                var lockedOrder by remember { mutableStateOf<List<CategoryEntity>?>(null) }
                 // Keep this derived directly from the current amount.  A remembered calculation
                 // can retain the pre-IME amount when BasicTextField updates in the same frame as
                 // the sheet's first composition, leaving the visible order stale.
@@ -299,6 +325,15 @@ internal fun QuickExpenseScreen(
                     },
                 )
             }
+            val recipient = beneficiary?.let { draft -> people.firstOrNull { it.id == draft.personId }?.name ?: draft.name }
+                ?: stringResource(R.string.expense_for_me)
+            WhfinLedgerRow(
+                title = stringResource(R.string.expense_beneficiary) + " · " + recipient,
+                supportingText = beneficiary?.let { stringResource(if (it.half) R.string.split_half else R.string.expense_beneficiary_whole) },
+                onClick = { if (!saving) { keyboardController?.hide(); showBeneficiary = true } },
+                trailing = { Icon(Icons.Default.ChevronRight, null) },
+                modifier = Modifier.testTag("quick-expense-beneficiary"),
+            )
             WhfinField(
                 value = description,
                 onValueChange = { description = it.take(80) },
@@ -313,13 +348,13 @@ internal fun QuickExpenseScreen(
                 )
             }
             WhfinButton(
-                label = stringResource(R.string.action_save),
+                label = stringResource(if (saving) R.string.quick_saving else R.string.action_save),
                 onClick = {
                     minor?.let {
-                        onSave(it, currency, sourceAccountId, description.trim().takeIf(String::isNotEmpty), categoryId)
+                        onSave(it, currency, sourceAccountId, description.trim().takeIf(String::isNotEmpty), categoryId, beneficiary?.mutation(it))
                     }
                 },
-                enabled = minor != null,
+                enabled = minor != null && validBeneficiary && !saving,
                 modifier = Modifier.fillMaxWidth().testTag("quick-expense-save"),
             )
         }
@@ -379,7 +414,7 @@ private fun QuickExpensePreview() {
             ),
             suggester = null,
             onDismiss = {},
-            onSave = { _, _, _, _, _ -> },
+            onSave = { _, _, _, _, _, _ -> },
         )
     }
 }
@@ -396,7 +431,7 @@ private fun QuickExpenseSystemKeyboardPreview() {
             suggester = null,
             quickExpenseKeypadEnabled = false,
             onDismiss = {},
-            onSave = { _, _, _, _, _ -> },
+            onSave = { _, _, _, _, _, _ -> },
         )
     }
 }

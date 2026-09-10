@@ -1534,4 +1534,6 @@
     <string name="expense_beneficiary_full_hint">The whole amount is a gift to this person. No debt is created.</string>
     <string name="expense_beneficiary_half_hint">Half is for this person, the remainder for you. No debt is created.</string>
     <string name="expense_beneficiary_whole">Whole amount</string>
+    <string name="quick_save_failed">Could not save. Your draft is still here; try again.</string>
+    <string name="quick_saving">Saving…</string>
 </resources>

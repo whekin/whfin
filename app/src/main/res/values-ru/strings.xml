@@ -1596,4 +1596,6 @@
     <string name="expense_beneficiary_full_hint">Вся сумма — подарок этому человеку. Долг не создаётся.</string>
     <string name="expense_beneficiary_half_hint">Половина суммы — на этого человека, остальное — на себя. Долг не создаётся.</string>
     <string name="expense_beneficiary_whole">Вся сумма</string>
+    <string name="quick_save_failed">Не удалось сохранить. Черновик остался в форме — попробуйте ещё раз.</string>
+    <string name="quick_saving">Сохранение…</string>
 </resources>

@@ -1,5 +1,8 @@
 package dev.whekin.whfin.widget
 
+import androidx.compose.ui.test.onNodeWithText
+import androidx.test.core.app.ApplicationProvider
+import dev.whekin.whfin.R
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasContentDescription
@@ -25,6 +28,46 @@ class QuickExpenseCategoryTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @Test fun recipientWorksWithSystemKeyboardAndKeepsTheAmount() {
+        var saved: Long? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { WhfinTheme {
+            QuickExpenseScreen("GEL", "Cash", 7, emptyList(), null, quickExpenseKeypadEnabled = false,
+                onDismiss = {}, people = listOf(dev.whekin.whfin.data.db.PersonEntity(id = 3, name = "Mira", color = 0)),
+                onSave = { amount, _, _, _, _, share -> saved = amount; assertEquals(3L, share?.personId) })
+        } }
+        compose.onNodeWithTag("quick-expense-system-amount").performTextInput("12.50")
+        compose.onNodeWithTag("quick-expense-beneficiary").performScrollTo().performClick()
+        compose.onNodeWithText("Mira").performClick()
+        compose.onNodeWithText(context.getString(R.string.action_done)).performClick()
+        compose.onNodeWithTag("quick-expense-save").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1250L, saved) }
+    }
+
+    @Test fun recipientSelectionKeepsCalculatorAndSavesTheFinalHalfShare() {
+        var savedAmount: Long? = null
+        var savedShare: dev.whekin.whfin.data.mutation.ExpenseBeneficiary? = null
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { WhfinTheme {
+            QuickExpenseScreen("GEL", "Cash", 7, emptyList(), null,
+                onDismiss = {}, people = listOf(dev.whekin.whfin.data.db.PersonEntity(id = 3, name = "Mira", color = 0)),
+                onSave = { amount, _, _, _, _, share -> savedAmount = amount; savedShare = share })
+        } }
+        compose.onNodeWithTag("whfin-amount-key-DIGIT_5").performScrollTo().performClick()
+        compose.onNodeWithTag("quick-expense-beneficiary").performScrollTo().performClick()
+        compose.onNodeWithText("Mira").performClick()
+        compose.onNodeWithText(context.getString(R.string.split_half)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.action_done)).performClick()
+        org.junit.Assert.assertNull(savedAmount)
+        compose.onNodeWithTag("whfin-amount-key-DIGIT_0").performScrollTo().performClick()
+        compose.onNodeWithTag("quick-expense-save").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(5000L, savedAmount)
+            assertEquals(3L, savedShare?.personId)
+            assertEquals(2500L, savedShare?.shareMinor)
+        }
+    }
+
     @Test
     fun expenseSavesWithSelectedCategory() {
         val category = CategoryEntity(
@@ -45,7 +88,7 @@ class QuickExpenseCategoryTest {
                     categories = listOf(category),
                     suggester = null,
                     onDismiss = {},
-                    onSave = { amount, _, _, _, categoryId ->
+                    onSave = { amount, _, _, _, categoryId, _ ->
                         savedAmount = amount
                         savedCategory = categoryId
                     },
@@ -80,7 +123,7 @@ class QuickExpenseCategoryTest {
                     suggester = null,
                     quickExpenseKeypadEnabled = false,
                     onDismiss = {},
-                    onSave = { amount, _, _, _, _ -> savedAmount = amount },
+                    onSave = { amount, _, _, _, _, _ -> savedAmount = amount },
                 )
             }
         }

@@ -21,7 +21,15 @@ class ComposerQaActivity : ComponentActivity() {
         setContent {
             var saved by remember { mutableStateOf<ManualTransaction?>(null) }
             WhfinTheme(darkTheme = intent.getBooleanExtra("dark", false)) {
-                if (saved != null) Box(Modifier.fillMaxSize().safeDrawingPadding()) { Text("Saved expense") } else AddTransactionSheet(
+                if (saved != null) Box(Modifier.fillMaxSize().safeDrawingPadding()) { Text("Saved expense") } else if (intent.getBooleanExtra("quick", false)) dev.whekin.whfin.widget.QuickExpenseScreen(
+                    initialCurrency = "GEL", sourceLabel = "Cash", sourceAccountId = 1,
+                    categories = emptyList(), suggester = null, onDismiss = { finish() },
+                    people = listOf(PersonEntity(id = 1, name = "Mira", color = 0)),
+                    onSave = { amount, _, _, _, _, beneficiary ->
+                        result = ManualTransaction(1, amountMinor = -amount, categoryId = null, note = null, day = java.time.LocalDate.now(), beneficiary = beneficiary)
+                        saved = result
+                    })
+                else AddTransactionSheet(
                     accounts = listOf(AccountEntity(id = 1, name = "Cash", type = AccountType.CASH, currency = "GEL")),
                     categories = listOf(CategoryEntity(id = 1, name = "Coffee", kind = CategoryKind.EXPENSE, icon = "Restaurant", color = 0)),
                     people = listOf(PersonEntity(id = 1, name = "Mira", color = 0)),
