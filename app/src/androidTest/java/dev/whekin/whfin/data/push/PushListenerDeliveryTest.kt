@@ -44,6 +44,9 @@ class PushListenerDeliveryTest {
             send("update", 1001)
             waitFor { journal.entries().any { it.push.bigText.contains("Balance:") } }
             assertEquals(1, journal.entries().mapNotNull { it.diagnosticId }.distinct().size)
+            send("loyalty", 1001)
+            waitFor { journal.entries().any { it.push.bigText.contains("Ertguli Piggy bank") && it.diagnosticId == first.diagnosticId } }
+            assertEquals(1, journal.entries().mapNotNull { it.diagnosticId }.distinct().size)
             send("unknown", 1002)
             waitFor { journal.entries().any { it.outcome == "UNRECOGNIZED" } }
             assertTrue(journal.entries().any { it.push.text.contains("future format") })

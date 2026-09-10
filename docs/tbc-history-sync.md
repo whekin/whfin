@@ -130,3 +130,8 @@ checks passed after implementation, including an empty first response versus old
 out by the requested date window. Release assembly/R8/lintVital and two native rendering cases
 passed. The diagnostic release was installed with data preserved; the next evidence is an owner-run
 sync with Read details expanded. No live bank request was initiated by the agent for this stage.
+
+The owner-run 0.3.40 read established that booked GEL history was being downloaded: four received
+rows were already in the ledger. Holds were separate. Follow-up journal inspection found a purchase
+rejected because of its Ertguli loyalty footer; 0.3.41 fixes that push template (see tbc-push.md).
+No API history selector or blocked-movement posting rule was changed for this finding.

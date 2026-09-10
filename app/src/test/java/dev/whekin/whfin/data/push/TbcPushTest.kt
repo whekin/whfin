@@ -14,6 +14,33 @@ class TbcPushTest {
             assertNull(parsed.balanceMinor)
         }
     }
+    private val grocery = "17.50 GEL\nMC TBC CARD (***0001)\nEXAMPLE GROCERY 10/09/26 15:20\nBalance: 400.00 GEL"
+    private val loyalty = "\nYou’ve received: 0.25 GEL\nIn Ertguli Piggy bank you have: 1.75 GEL"
+    @Test fun purchaseWithErtguliFooterRemainsOneExpense() {
+        for (footer in listOf(loyalty, loyalty.replace('’', '\''))) {
+            val full = grocery + footer
+            val notification = push(full).copy(bigText = full, lines = full.lines())
+            val classified = TbcPush.classify(notification)
+            assertTrue(classified is BankSmsMessage.Classification.Parsed)
+            val payment = (classified as BankSmsMessage.Classification.Parsed).sms as BankSmsMessage.CardPayment
+            assertEquals(1750L, payment.amountMinor)
+            assertEquals("EXAMPLE GROCERY", payment.merchantRaw)
+            assertNull(payment.balanceMinor)
+            assertEquals(TbcPush.ledgerKey(push(grocery), TbcPush.classify(push(grocery))), TbcPush.ledgerKey(notification, classified))
+        }
+    }
+    @Test fun loyaltyExceptionDoesNotHideIncomeRefundsOrUnknownFooters() {
+        for (body in listOf(loyalty, grocery + "\nYou’ve received: 0.25 GEL",
+            grocery.replace("EXAMPLE GROCERY", "REFUND EXAMPLE GROCERY") + loyalty,
+            grocery + loyalty + "\nIncoming transfer received",
+            grocery + loyalty.replace("0.25 GEL", "0.25 USD"),
+            grocery + loyalty.replace("0.25", "-0.25"))) {
+            assertFalse(TbcPush.classify(push(body)) is BankSmsMessage.Classification.Parsed)
+        }
+        assertFalse(TbcPush.classify(push(grocery + loyalty).copy(subText = "Incoming transfer received")) is BankSmsMessage.Classification.Parsed)
+        assertFalse(TbcPush.classify(push(grocery + loyalty).copy(bigText = grocery.replace("17.50", "19.50") + loyalty)) is BankSmsMessage.Classification.Parsed)
+    }
+
     @Test fun incomingAndUnknownMessagesNeverUseTheExpenseFallback() {
         for (body in listOf("Deposit 20 GEL (*0001) EXAMPLE 10/09/26 12:00", "Your payment was rejected", "New card features", "2.00 GEL (*0001) REFUND EXAMPLE CAFE 10/09/26 12:00"))
             assertFalse(TbcPush.classify(push(body)) is BankSmsMessage.Classification.Parsed)

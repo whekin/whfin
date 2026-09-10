@@ -38,15 +38,27 @@ object TbcPush {
     const val PACKAGE = "com.icomvision.bsc.tbc"
     private val auth = Regex("(?iu)\\b(?:otp|pin|password|passcode|code|log[ -]?in|authorization|sign[ -]?in|verification|authentication)\\b|парол|однораз|код|ავტორიზ|ერთჯერად|კოდი")
     private val nonExpense = Regex("(?iu)refund|reversal|deposit|received|incoming|cancel|declin|reject|ჩარიცხ|დაბრუნ|возврат|пополн|зачисл|отмен")
+    // Only this complete purchase footer is bonus information. Other "received" wording still
+    // blocks the expense fallback, including truncated footers and contradictory metadata.
+    private val ertguliFooter = Regex(
+        """(?s)^(.*\bBalance:\s*[0-9]+(?:[.,][0-9]{2})?\s+GEL)\s+You['’]ve received:\s*[0-9]+(?:[.,][0-9]{2})?\s+GEL\s+In Ertguli Piggy bank you have:\s*[0-9]+(?:[.,][0-9]{2})?\s+GEL\s*$"""
+    )
+    private fun purchaseText(body: String): String {
+        val prefix = ertguliFooter.matchEntire(body.trim())?.groupValues?.get(1) ?: return body
+        val parsed = (TbcSmsParser.classify(prefix) as? BankSmsMessage.Classification.Parsed)?.sms
+        return if (parsed is BankSmsMessage.CardPayment) prefix else body
+    }
     fun sensitive(push: BankPush): Boolean = push.fields().any {
         auth.containsMatchIn(it) || it.trim().matches(Regex("[0-9]{4,8}"))
     }
-    /** Only the two observed, amount-first card purchase templates imply an expense. */
+    /** Observed amount-first card purchases, optionally followed by the complete Ertguli footer. */
     fun classify(push: BankPush): BankSmsMessage.Classification {
         if (push.packageName != PACKAGE || push.groupSummary || push.truncated || sensitive(push))
             return BankSmsMessage.Classification.Ignored(BankSmsMessage.IgnoreReason.UNRELATED, false)
-        if (push.fields().any(nonExpense::containsMatchIn)) return BankSmsMessage.Classification.Unrecognized
-        val candidates = (listOf(push.bigText, push.text, push.lines.joinToString("\n"))).filter(String::isNotBlank).distinct()
+        val candidates = listOf(push.bigText, push.text, push.lines.joinToString("\n"))
+            .filter(String::isNotBlank).map(::purchaseText).distinct()
+        if ((listOf(push.title, push.subText) + candidates).any(nonExpense::containsMatchIn))
+            return BankSmsMessage.Classification.Unrecognized
         val parsed = candidates.mapNotNull { body ->
             if (!body.trim().matches(Regex("(?s)^[0-9][0-9,.]*\\s+[A-Z]{3}\\s+.*"))) return@mapNotNull null
             (TbcSmsParser.classify(body) as? BankSmsMessage.Classification.Parsed)?.sms as? BankSmsMessage.CardPayment

@@ -20,7 +20,13 @@ The two owner-observed amount-first card-payment layouts are treated as expenses
 subText/textLines are captured separately; the most complete consistent parsed representation is used.
 Conflicting representations, group summaries, oversized/truncated messages and unknown formats do not
 create expenses. Explicit refund/deposit/incoming/rejection wording is not passed through the expense
-fallback. Populations of income and refund examples are still needed before adding push credit rules.
+fallback. A complete observed Ertguli footer after a valid card purchase is the narrow exception:
+`You’ve received: … GEL` followed by `In Ertguli Piggy bank you have: … GEL`, after the
+purchase’s `Balance: … GEL`. The straight apostrophe variant also works. Only these two complete
+non-negative GEL bonus lines are removed for classification; the original journal stays intact.
+The purchase remains one expense, with no separate bonus income or balance anchor. Partial footers,
+other currencies, refunds/income elsewhere and contradictory fields still wait for review.
+Populations of income and refund examples are still needed before adding push credit rules.
 
 The existing TBC SMS parser supplies exact minor units, card tail, currency, merchant and transaction
 local time. Printed available balance remains in the original text but is never used as a booked
@@ -83,3 +89,20 @@ credential or payment code. The fixture is uninstalled and its temporary signing
 the run. The instrumentation restores listener access and opt-in, and excludes this scenario from
 ordinary suites without the explicit host flag. Actual TBC delivery on the owner's phone remains an
 owner-enabled validation after installation and Android access approval.
+
+## Ertguli footer regression (0.3.41)
+
+Live read diagnostics showed four booked GEL rows already recorded, plus holds excluded by the API
+adapter. The saved unrecognized push contained a valid purchase plus a loyalty footer. The generic
+non-expense `received` guard rejected that whole notification before its purchase could be parsed.
+A synthetic reproduction failed under `:app:testDebugUnitTest --tests
+'*TbcPushTest.purchaseWithErtguliFooterRemainsOneExpense'`, then passed after the narrow footer rule.
+
+Coverage includes original/richer notification identity, text/bigText/textLines, both apostrophes,
+partial/foreign-currency/negative/contradictory footers, late routing, repeated processing and later
+SMS evidence. Room retains one expense and no bonus income. The emulator delivery script now sends
+an Ertguli update through the actual NotificationListener and checks the same diagnostic identity.
+Full app unit/Compose: 1040 tests, no failures/errors, four skipped. Release R8/lintVital and native
+Android delivery passed; the temporary sender was removed. All published financial fixtures are
+synthetic. Logs: `/tmp/whfin-tbc-loyalty-red.log`, `/tmp/whfin-tbc-loyalty-green.log`,
+`/tmp/whfin-tbc-loyalty-final.log`, `/tmp/whfin-tbc-loyalty-delivery.log`.

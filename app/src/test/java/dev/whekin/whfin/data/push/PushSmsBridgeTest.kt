@@ -34,6 +34,22 @@ class PushSmsBridgeTest {
         val unresolved = importer.import(body)
         importer.resolveDiagnostic(requireNotNull(unresolved.diagnosticId), account)
     }
+    @Test fun loyaltyPurchaseAndItsUpdatedBonusRemainOneExpense() = runBlocking {
+        val receipt = "17.50 GEL\nMC TBC CARD (***0001)\nEXAMPLE GROCERY 10/09/26 15:20\nBalance: 400.00 GEL"
+        val footer = "\nYou’ve received: 0.25 GEL\nIn Ertguli Piggy bank you have: 1.75 GEL"
+        val notification = push.copy(text = receipt + footer, bigText = receipt + footer, lines = (receipt + footer).lines())
+        val first = pushImport(notification)
+        importer.resolveDiagnostic(requireNotNull(first.diagnosticId), account)
+        assertEquals(1, db.transactionDao().allForIntegrity().size)
+        assertEquals(-1750L, db.transactionDao().sumByAccount(account))
+        assertEquals(SmsDiagnosticOutcome.DUPLICATE, pushImport(notification).outcome)
+        val updated = (receipt + footer).replace("0.25", "0.50").replace("1.75", "2.00")
+        assertEquals(SmsDiagnosticOutcome.DUPLICATE, pushImport(notification.copy(text = updated, bigText = updated, lines = updated.lines())).outcome)
+        importer.import(receipt)
+        assertEquals(1, db.transactionDao().allForIntegrity().size)
+        assertEquals(-1750L, db.transactionDao().sumByAccount(account))
+    }
+
     @Test fun smsThenPushAndRepeatedPushMakeOneExpense() = runBlocking {
         mapping()
         assertEquals(SmsDiagnosticOutcome.ATTACHED, pushImport().outcome)
