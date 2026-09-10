@@ -52,6 +52,38 @@ class CorrectionLifecycleTest {
         mutations = TransactionMutationModule(db)
     }
 
+    @Test fun balanceAdjustmentCanBeUndoneWithoutRemovingOtherMoney() = runBlocking {
+        val opening = mutations.createOpeningBalance(accountId, 10000, 1L)
+        val repository = BalanceAdjustment(db)
+        val adjustment = repository.save(repository.read(accountId), 7000)
+        assertEquals(7000L, db.transactionDao().sumByAccount(accountId))
+        mutations.createAdjustment(accountId, 500, null, 3L)
+        repository.undo(adjustment)
+        assertEquals(10500L, db.transactionDao().sumByAccount(accountId))
+        assertEquals(0, mutations.delete(listOf(MutationSelection(opening))).changed)
+        assertEquals(10500L, db.transactionDao().sumByAccount(accountId))
+    }
+
+    @Test fun staleBalanceFormCannotOverwriteNewTransactions() = runBlocking {
+        val repository = BalanceAdjustment(db)
+        val snapshot = repository.read(accountId)
+        mutations.createAdjustment(accountId, 1000, null, 1L)
+        assertTrue(runCatching { repository.save(snapshot, 500) }.isFailure)
+        assertEquals(1000L, db.transactionDao().sumByAccount(accountId))
+    }
+
+    @Test fun deletingBalanceDeltaDoesNotDeleteCorrectionAuditOrOpening() = runBlocking {
+        val delta = mutations.createAdjustment(accountId, -100, null, 1L)
+        val row = db.transactionDao().byId(delta)!!
+        assertTrue(row.canDeleteLocally())
+        assertFalse(row.copy(isTransfer = true).canDeleteLocally())
+        assertFalse(row.copy(externalKey = "opening|synthetic").canDeleteLocally())
+        assertFalse(row.copy(correctionOfTransactionId = 42).canDeleteLocally())
+        assertFalse(row.copy(isVoided = true).canDeleteLocally())
+        assertEquals(1, mutations.delete(listOf(MutationSelection(delta))).changed)
+        assertEquals(0L, db.transactionDao().sumByAccount(accountId))
+    }
+
     @After
     fun tearDown() = db.close()
 

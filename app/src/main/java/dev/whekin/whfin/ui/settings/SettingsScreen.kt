@@ -21,6 +21,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Search
@@ -361,15 +369,28 @@ internal fun SettingsContent(
             keyboard?.show()
         }
     }
-    // Search is the first item in this same scroll container. A direction change must not create
-    // a second moving surface or consume scroll before the catalogue receives it.
+    val pullThreshold = with(LocalDensity.current) { 56.dp.toPx() }
+    val pullSearch = remember(searchState, pullThreshold) {
+        object : NestedScrollConnection {
+            var distance = 0f
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && searchState.page.isBlank() &&
+                    !searchState.searchVisible && catalogScroll.value == 0) {
+                    distance = (distance + available.y).coerceAtLeast(0f)
+                    if (distance >= pullThreshold) { distance = 0f; searchState.reveal(focusKeyboard = false) }
+                } else distance = 0f
+                return Offset.Zero
+            }
+            override suspend fun onPreFling(available: Velocity): Velocity { distance = 0f; return Velocity.Zero }
+        }
+    }
     Column(
         Modifier.fillMaxSize().navigationBarsPadding().imePadding()
-            .testTag("settings-catalog").verticalScroll(catalogScroll)
+            .testTag("settings-catalog").nestedScroll(pullSearch).verticalScroll(catalogScroll)
             .padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (searchState.page.isBlank() || searching) WhfinField(
+        if ((searchState.page.isBlank() && searchState.searchVisible) || searching) WhfinField(
             value = query,
             onValueChange = { value ->
                 searchState.query = value
@@ -391,6 +412,13 @@ internal fun SettingsContent(
                     Triple("about", R.string.about_title, R.string.settings_about_summary),
                 ).forEach { (page, title, summary) ->
                     dev.whekin.whfin.core.ui.WhfinLedgerRow(stringResource(title), supportingText = stringResource(summary),
+                        icon = when (page) {
+                            "connections" -> Icons.Default.CloudSync
+                            "catalog" -> Icons.Default.Category
+                            "app" -> Icons.Default.Tune
+                            "data" -> Icons.Default.Lock
+                            else -> Icons.Default.Info
+                        },
                         onClick = { navigationHaptics.performHapticFeedback(dev.whekin.whfin.core.ui.WhfinHaptics.navigation); searchState.open(page) }, divider = page != "about",
                         trailing = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.ChevronRight, null) })
                 }
@@ -784,6 +812,7 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "dynamic-colors",
+                icon = Icons.Default.Palette,
                 title = stringResource(R.string.settings_dynamic_colors),
                 summary = stringResource(R.string.settings_dynamic_colors_body),
                 keywords = stringResource(R.string.settings_keywords_theme),
@@ -795,6 +824,7 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "system-font",
+                icon = Icons.Default.TextFields,
                 title = stringResource(R.string.settings_system_font),
                 summary = stringResource(R.string.settings_system_font_body),
                 keywords = stringResource(R.string.settings_keywords_font),
@@ -806,6 +836,7 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "quick-keypad",
+                icon = Icons.Default.Dialpad,
                 title = stringResource(R.string.settings_quick_keypad),
                 summary = stringResource(R.string.settings_quick_keypad_body),
                 keywords = stringResource(R.string.settings_keywords_keypad),
@@ -817,6 +848,7 @@ private fun buildSettingsSections(
             ),
             SettingsRow(
                 id = "widget-button",
+                icon = Icons.Default.Widgets,
                 title = stringResource(R.string.settings_widget_open_app),
                 summary = stringResource(R.string.settings_widget_open_app_body),
                 keywords = stringResource(R.string.settings_keywords_widget),

@@ -36,7 +36,10 @@ class SettingsSearchVisualTest {
             // Text accessibility ink bounds can change when a sibling appears. The layout owner
             // is the invariant that matters: its height must never move the catalogue.
             val height = device.findObject(By.res("secondary-topbar")).visibleBounds.height()
-            assertFalse(device.hasObject(By.desc(hint)))
+            assertTrue(device.hasObject(By.desc(hint)))
+            assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
+            device.swipe(device.displayWidth / 2, device.displayHeight / 3, device.displayWidth / 2, device.displayHeight * 2 / 3, 35)
+            assertNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000))
             device.findObject(By.text(if (language == "ru") "Приложение" else "Application")).click()
             assertNotNull(device.wait(Until.findObject(By.desc(hint)), 5000))
             device.waitForIdle(1000)

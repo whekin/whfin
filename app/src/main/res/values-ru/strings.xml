@@ -1659,4 +1659,11 @@
     <string name="settings_push_receiving">Уведомления принимаются</string>
     <string name="settings_scoped_messages">%1$s · Сообщения</string>
     <string name="settings_capture_attention">Проверьте получение сообщений</string>
+    <string name="balance_adjustment_delete_body">Корректировка и её сумма в «Неучтённом» будут удалены. Баланс счёта пересчитается по оставшимся операциям.</string>
+    <string name="category_assign_hint">Назначить категорию</string>
+    <string name="category_change_hint">Категория · Нажмите, чтобы изменить</string>
+    <string name="category_search">Найти категорию</string>
+    <string name="balance_adjustment_saved">Баланс обновлён</string>
+    <string name="balance_adjustment_undo">Отменить</string>
+    <string name="balance_adjustment_retry">Не удалось сохранить баланс или операции изменились. Закройте форму и попробуйте снова.</string>
 </resources>

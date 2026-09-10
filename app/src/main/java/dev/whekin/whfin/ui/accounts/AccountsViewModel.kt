@@ -510,18 +510,6 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun adjustBalance(item: AccountWithBalance, deltaMinor: Long) {
-        viewModelScope.launch {
-            val unaccounted = db.categoryDao().systemByName(CategorySeeder.UNACCOUNTED)
-            transactionMutations.createAdjustment(
-                accountId = item.account.id,
-                amountMinor = deltaMinor,
-                categoryId = unaccounted?.id,
-                occurredAt = System.currentTimeMillis(),
-            )
-        }
-    }
-
     fun updateBankMapping(
         accounts: List<AccountEntity>,
         name: String,

@@ -126,8 +126,8 @@ inner navigation belongs to `SettingsSearchController`. Three rules hold.
   names the door behind it makes the reader open every door.
 - **Findable by the person's own word.** Each row carries `keywords` with the synonyms people actually
   type ("пин", "копия", "тема"); search matches title, state, synonyms and the section label, folds
-  `ё` to `е`, and narrows with each further word. The field scrolls with the catalogue; its top-bar
-  action reveals and focuses it. Nested pages expose that action continuously.
+  `ё` to `е`, and narrows with each further word. The field starts hidden. Pulling down the root reveals it without autofocus; its top-bar
+  action reveals and focuses it. Once visible, the field scrolls with the catalogue. Nested pages expose that action continuously.
 
 A problem that needs an action stays a `WhfinNotice` next to its row rather than becoming a state
 string: permission missing, messages unrouted. A destructive row keeps its own section heading and

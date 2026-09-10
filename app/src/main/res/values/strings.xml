@@ -1597,4 +1597,11 @@
     <string name="settings_push_receiving">Receiving notifications</string>
     <string name="settings_scoped_messages">%1$s · Messages</string>
     <string name="settings_capture_attention">Check message capture</string>
+    <string name="balance_adjustment_delete_body">This removes the balance adjustment and its Unaccounted amount. The account balance will be recalculated from the remaining transactions.</string>
+    <string name="category_assign_hint">Assign a category</string>
+    <string name="category_change_hint">Category · Tap to change</string>
+    <string name="category_search">Find a category</string>
+    <string name="balance_adjustment_saved">Balance updated</string>
+    <string name="balance_adjustment_undo">Undo</string>
+    <string name="balance_adjustment_retry">The balance could not be saved or the ledger changed. Close this form and try again.</string>
 </resources>

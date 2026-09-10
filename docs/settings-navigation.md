@@ -1,11 +1,13 @@
-# Settings navigation — 0.3.38
+# Settings navigation — 0.3.39
 
 The root has five rows: Connections, Bookkeeping, Application, Data and security, About WHFIN.
 The existing searchable leaf catalogue remains the source of global results. Search matches labels,
 state and synonyms across groups. A bank result opens its provider page; explicit sign-in and
 journal results open those destinations directly. Back restores the query. Fresh entry into Settings
 resets the inner path, while returning from an external settings destination preserves its parent.
-Search belongs to one scroll container; nested pages always expose the top-bar search action.
+Search starts hidden behind the top-bar icon. Tapping focuses the field and opens the keyboard;
+a deliberate downward pull at the root reveals the field without autofocus. The field belongs to
+one scroll container; nested pages always expose the top-bar search action. Root rows carry icons.
 
 ## Bank pages
 

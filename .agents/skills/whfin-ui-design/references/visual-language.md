@@ -102,7 +102,8 @@ but exclude it from day/month totals, balances, categories, and statistics. Grou
 transfers/conversions into one row; tapping opens the contextual resolver rather than generic Accounts.
 
 Transaction details should read like a compact receipt, not a database record: lead with category or
-counterparty, signed amount, date and account; keep editable status/category as flat ledger rows.
+counterparty, signed amount, date and account; put an obvious category action before status, and keep ordinary actions before optional bank details.
+Category selection supports search and returns to the receipt after selection or dismissal.
 Never promote a missing description to the title, and keep destructive actions behind overflow plus
 confirmation.
 
@@ -212,7 +213,9 @@ The root is five compact rows: Connections, Bookkeeping, Application, Data and s
 Connections uses one row per configured bank. A common provider page combines history sync, channels,
 accounts, sign-in and secondary diagnostics. Keep raw push logs out of routine configuration.
 Search reaches leaf settings globally and Back restores the originating query. Nested settings pages
-always show the top-bar search action. Search is the first item in the catalogue's single scroll container. Once it leaves view, show a search
+always show the top-bar search action. Search starts hidden behind the top-bar icon. An explicit tap reveals and focuses it; a deliberate
+downward pull at the root reveals it without autofocus. Once revealed, search is the first item
+in the catalogue's single scroll container. Once it leaves view, show a search
 icon at the right of the top bar, reserving its space even when hidden so the title never reflows.
 Tapping the icon returns to and focuses the field. Do not add an independent enterAlways header that
 consumes the catalogue's scroll or reappears on every small change of direction.
@@ -273,3 +276,10 @@ bank-centred, guided but skippable, and exposes only channels that work for the 
 - Never encode income/expense/status only by color.
 - Test long Georgian/Russian merchant names, large amounts, negative values, IBANs, multiple currencies, and missing descriptions.
 - At font scale 1.5, allow wrapping or reflow before truncating essential action labels.
+
+### Balance correction
+
+The amount on a normal account activity page opens its target-balance editor; chain snapshots stay
+read-only. Show the delta before saving and an Undo action after it. Deleting a local balance delta
+must name its effect on the balance; never treat opening anchors or correction audit rows as ordinary
+Unaccounted entries. A concurrent ledger change invalidates an open target-balance form.

@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.data.mutation.canDeleteLocally
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -751,13 +752,14 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun insertCredoAccount(name: String, currency: String): Long =
         db.insertBankLedger(CREDO_PROVIDER, name, currency)
 
-    fun assignCategory(item: FeedItem, categoryId: Long) {
+    fun assignCategory(item: FeedItem, categoryId: Long, onAssigned: () -> Unit = {}) {
         mutate {
             transactionMutations.assignCategory(item.tx.id, categoryId)
             item.merchant?.let { merchant ->
                 db.merchantDao().setCategory(merchant.id, categoryId)
                 db.transactionDao().categorizeUnassignedForMerchant(merchant.id, categoryId)
             }
+            onAssigned()
         }
     }
 
@@ -813,8 +815,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun deleteManual(item: FeedItem) {
-        if (item.tx.source != TxSource.MANUAL) return
+    fun deleteLocal(item: FeedItem) {
+        if (!item.tx.canDeleteLocally()) return
         mutateBatch {
             transactionMutations.delete(listOf(MutationSelection(item.tx.id, item.tx.transferGroupId)))
         }

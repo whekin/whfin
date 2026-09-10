@@ -40,8 +40,8 @@ android {
         applicationId = "dev.whekin.whfin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 50
-        versionName = "0.3.38"
+        versionCode = 51
+        versionName = "0.3.39"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

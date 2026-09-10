@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.data.mutation.canDeleteLocally
+import dev.whekin.whfin.data.mutation.isBalanceAdjustment
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -915,7 +917,7 @@ fun FeedScreen(
                 details = null
                 categoryFor = item
             },
-            onDelete = if (item.tx.source == dev.whekin.whfin.data.db.TxSource.MANUAL) {{
+            onDelete = if (item.tx.canDeleteLocally()) {{
                 details = null
                 deleteFor = item
             }} else null,
@@ -996,10 +998,14 @@ fun FeedScreen(
             categories = remember(categories, suggester, item.tx.id) {
                 suggester?.rankCategories(categories, item.tx.amountMinor, item.tx.currency) ?: categories
             },
-            onDismiss = { categoryFor = null },
+            onDismiss = { categoryFor = null; details = item },
             onSelect = { category ->
-                viewModel.assignCategory(item, category.id)
-                categoryFor = null
+                viewModel.assignCategory(item, category.id) {
+                    if (categoryFor?.tx?.id == item.tx.id) {
+                        categoryFor = null
+                        details = item.copy(category = category, tx = item.tx.copy(categoryId = category.id))
+                    }
+                }
             },
             onCreateCategory = viewModel::createCategory,
         )
@@ -1009,12 +1015,13 @@ fun FeedScreen(
         WhfinConfirmDialog(
             title = stringResource(R.string.transaction_delete),
             body = stringResource(
-                if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
+                if (item.tx.isBalanceAdjustment()) R.string.balance_adjustment_delete_body
+                else if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
                 else R.string.transaction_delete_body,
             ),
             confirmLabel = stringResource(R.string.action_delete),
             dismissLabel = stringResource(R.string.action_cancel),
-            onConfirm = { viewModel.deleteManual(item); deleteFor = null },
+            onConfirm = { viewModel.deleteLocal(item); deleteFor = null },
             onDismiss = { deleteFor = null },
         )
     }
@@ -1252,6 +1259,18 @@ private fun TransactionDetailsContent(
                 }
             }
         }
+        if (!isTransfer) item(key = "transaction-category") {
+            WhfinLedgerGroup {
+                dev.whekin.whfin.core.ui.WhfinLedgerRow(
+                    title = item.category?.name ?: stringResource(R.string.category_assign_hint),
+                    icon = CategoryIcons.resolve(item.category?.icon),
+                    iconTint = item.category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary,
+                    onClick = onChangeCategory,
+                    trailing = if (onChangeCategory != null) {{ Icon(Icons.Default.Edit, null) }} else null,
+                    modifier = Modifier.testTag("transaction-category"),
+                )
+            }
+        }
         item(key = "transaction-summary") {
             Column(Modifier.fillMaxWidth()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1269,14 +1288,6 @@ private fun TransactionDetailsContent(
                     },
                     onClick = onChangeStatus.takeIf { pending || tx.source != TxSource.SMS },
                 )
-                if (!isTransfer) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    DetailEditableRow(
-                        label = stringResource(R.string.tx_detail_category),
-                        value = item.category?.name ?: stringResource(R.string.feed_uncategorized),
-                        onClick = onChangeCategory,
-                    )
-                }
                 if (item.isDebt) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     DetailRow(
@@ -1303,35 +1314,6 @@ private fun TransactionDetailsContent(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     WhfinSectionLabel(stringResource(R.string.tx_note))
                     Text(tx.note, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-        }
-        if (hasBankDetails) item(key = "transaction-bank-details-toggle") {
-            TextButton(onClick = { showBankDetails = !showBankDetails }) {
-                Icon(
-                    Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.graphicsLayer(rotationZ = if (showBankDetails) 180f else 0f),
-                )
-                Text(stringResource(R.string.tx_detail_more))
-            }
-        }
-        if (hasBankDetails && showBankDetails) item(key = "transaction-bank-details") {
-            WhfinLedgerGroup {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
-                    item.account?.iban?.let { DetailRow("IBAN", it) }
-                    DetailRow(stringResource(R.string.tx_detail_source), tx.source.name.lowercase().replaceFirstChar(Char::titlecase))
-                    tx.rawCounterparty?.let { DetailRow(stringResource(R.string.tx_detail_counterparty), it) }
-                    tx.counterpartyIban?.let { DetailRow(stringResource(R.string.tx_detail_counterparty_iban), it) }
-                    tx.note?.let { DetailRow(stringResource(R.string.tx_detail_bank_description), it) }
-                    if (tx.origAmountMinor != null && tx.origCurrency != null) DetailRow(
-                        stringResource(R.string.tx_detail_original_amount),
-                        formatMinor(kotlin.math.abs(tx.origAmountMinor), tx.origCurrency),
-                    )
-                    if (item.fundedByConversionMinor != null && item.fundedByConversionCurrency != null) DetailRow(
-                        stringResource(R.string.tx_detail_converted_from),
-                        formatMinor(item.fundedByConversionMinor, item.fundedByConversionCurrency),
-                    )
                 }
             }
         }
@@ -1400,6 +1382,36 @@ private fun TransactionDetailsContent(
                 }
             }
         }
+        if (hasBankDetails) item(key = "transaction-bank-details-toggle") {
+            TextButton(onClick = { showBankDetails = !showBankDetails }) {
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.graphicsLayer(rotationZ = if (showBankDetails) 180f else 0f),
+                )
+                Text(stringResource(R.string.tx_detail_more))
+            }
+        }
+        if (hasBankDetails && showBankDetails) item(key = "transaction-bank-details") {
+            WhfinLedgerGroup {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
+                    item.account?.iban?.let { DetailRow("IBAN", it) }
+                    DetailRow(stringResource(R.string.tx_detail_source), tx.source.name.lowercase().replaceFirstChar(Char::titlecase))
+                    tx.rawCounterparty?.let { DetailRow(stringResource(R.string.tx_detail_counterparty), it) }
+                    tx.counterpartyIban?.let { DetailRow(stringResource(R.string.tx_detail_counterparty_iban), it) }
+                    tx.note?.let { DetailRow(stringResource(R.string.tx_detail_bank_description), it) }
+                    if (tx.origAmountMinor != null && tx.origCurrency != null) DetailRow(
+                        stringResource(R.string.tx_detail_original_amount),
+                        formatMinor(kotlin.math.abs(tx.origAmountMinor), tx.origCurrency),
+                    )
+                    if (item.fundedByConversionMinor != null && item.fundedByConversionCurrency != null) DetailRow(
+                        stringResource(R.string.tx_detail_converted_from),
+                        formatMinor(item.fundedByConversionMinor, item.fundedByConversionCurrency),
+                    )
+                }
+            }
+        }
+
     }
 }
 
@@ -2310,7 +2322,9 @@ internal fun CategoryPickerSheet(
     val kind = if (item.tx.amountMinor >= 0) CategoryKind.INCOME else CategoryKind.EXPENSE
     var customIcon by remember { mutableStateOf(if (kind == CategoryKind.EXPENSE) "VolunteerActivism" else "Work") }
     var customColor by remember { mutableIntStateOf(if (kind == CategoryKind.EXPENSE) 0xFFD16D5A.toInt() else 0xFF78906F.toInt()) }
-    val visible = categories.filter { !it.isSystem && it.kind == kind }
+    var categoryQuery by rememberSaveable(item.tx.id) { mutableStateOf("") }
+    val visible = categories.filter { !it.isSystem && it.kind == kind &&
+        it.name.contains(categoryQuery.trim(), ignoreCase = true) }
     val title = item.transferSummary ?: item.merchant?.displayName ?: item.tx.rawCounterparty
         ?: stringResource(R.string.feed_no_description)
     ModalBottomSheet(
@@ -2318,7 +2332,7 @@ internal fun CategoryPickerSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        Column(Modifier.padding(horizontal = 20.dp)) {
+        Column(Modifier.navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
             Text(
                 formatMinor(item.tx.amountMinor, item.tx.currency, withSign = true),
@@ -2340,6 +2354,8 @@ internal fun CategoryPickerSheet(
                     creating = false
                 }, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp))
             } else {
+                WhfinField(categoryQuery, { categoryQuery = it }, stringResource(R.string.category_search),
+                    leadingIcon = Icons.Default.Search, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
                 CategoryGrid(visible, item.tx.categoryId, onSelect, maxHeight = 350.dp,
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
                 WhfinButton(

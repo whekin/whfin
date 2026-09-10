@@ -10,6 +10,14 @@ import dev.whekin.whfin.data.db.TransferGroupEntity
 import dev.whekin.whfin.data.db.TransferGroupType
 import dev.whekin.whfin.data.db.WhfinDatabase
 
+/** An owner-entered balance delta, excluding opening anchors and imported correction audit rows. */
+fun TransactionEntity.isBalanceAdjustment(): Boolean = source == TxSource.ADJUSTMENT &&
+    status == TxStatus.MANUAL && !isTransfer && transferGroupId == null && !isVoided &&
+    correctionOfTransactionId == null && correctionRevokedAt == null && externalKey == null &&
+    mergedIntoTransactionId == null
+
+fun TransactionEntity.canDeleteLocally(): Boolean = source == TxSource.MANUAL || isBalanceAdjustment()
+
 /** A signed manual ledger entry. Transfers use both account ids; other entries use only [accountId]. */
 data class ManualMutation(
     val accountId: Long,
@@ -301,7 +309,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         )
     }
 
-    /** Deletes only manual rows. Debt movements stay until their debt event is corrected explicitly. */
+    /** Deletes manual rows and owner-entered balance deltas. Debt movements stay until their debt event is corrected explicitly. */
     suspend fun delete(selection: List<MutationSelection>): MutationReport = db.withTransaction {
         var changed = 0
         var skipped = 0
@@ -331,7 +339,7 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                     db.transactionDao().deleteTransferGroups(listOf(groupId))
                     changed += legs.size
                 }
-            } else if (row.source != TxSource.MANUAL || hasDebtEvent(row)) {
+            } else if (!row.canDeleteLocally() || hasDebtEvent(row)) {
                 skipped++
                 reasons += if (hasDebtEvent(row)) MutationRejection.DEBT_LINKED
                 else MutationRejection.IMPORTED_IS_PROTECTED

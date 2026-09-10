@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
@@ -597,6 +598,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { searchVisible = true },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -627,6 +629,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { searchVisible = true },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -708,18 +711,12 @@ class SettingsScreenTest {
             }
         }
 
-        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertDoesNotExist()
+        compose.onNodeWithTag("settings-search").assertDoesNotExist()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertIsDisplayed()
+        compose.onNodeWithTag("settings-catalog").performTouchInput { swipeDown() }
         compose.onNodeWithTag("settings-search").assertIsDisplayed()
-        compose.onNodeWithTag("settings-catalog").performTouchInput { swipeUp() }
-        compose.onNodeWithTag("settings-search").assertIsNotDisplayed()
-        compose.onNodeWithTag("settings-catalog").performTouchInput {
-            swipeDown(startY = centerY, endY = centerY + 60f, durationMillis = 300)
-        }
-        compose.onNodeWithTag("settings-search").assertIsNotDisplayed()
-        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertIsDisplayed().performClick()
-        compose.onNodeWithTag("settings-search").assertIsDisplayed()
-        compose.onNode(hasSetTextAction()).assertIsFocused()
-        compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertDoesNotExist()
+        compose.onNode(hasSetTextAction()).assertIsNotFocused()
+
     }
 
     @Test
@@ -728,6 +725,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { searchVisible = true },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -762,6 +760,7 @@ class SettingsScreenTest {
         compose.setContent {
             WhfinTheme {
                 SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { searchVisible = true },
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,

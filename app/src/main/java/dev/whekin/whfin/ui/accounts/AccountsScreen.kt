@@ -281,7 +281,7 @@ fun AccountsScreen(
                         .then(readableWidth)
                         .padding(padding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 16.dp, bottom = 100.dp),
                 ) {
                     item(key = "accounts-summary") {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {

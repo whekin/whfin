@@ -1,5 +1,14 @@
 package dev.whekin.whfin.ui.accounts
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import dev.whekin.whfin.data.mutation.BalanceAdjustment
+import dev.whekin.whfin.data.mutation.canDeleteLocally
+import dev.whekin.whfin.data.mutation.isBalanceAdjustment
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +27,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -122,6 +135,11 @@ internal fun AccountTransactionsScreen(
     var ownTransferFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
     var adjustBalance by remember { mutableStateOf(false) }
+    val adjustmentScope = rememberCoroutineScope()
+    val adjustmentSnackbar = remember { SnackbarHostState() }
+    val adjustmentSaved = stringResource(R.string.balance_adjustment_saved)
+    val undoLabel = stringResource(R.string.balance_adjustment_undo)
+    val adjustmentFailed = stringResource(R.string.balance_adjustment_retry)
     var correctOpening by remember { mutableStateOf(false) }
     val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp
     val imports by remember(accountId) { app.db.statementImportDao().observeForAccount(accountId) }
@@ -181,7 +199,7 @@ internal fun AccountTransactionsScreen(
                 details = null
                 categoryFor = item
             },
-            onDelete = if (item.tx.source == TxSource.MANUAL) {{
+            onDelete = if (item.tx.canDeleteLocally()) {{
                 details = null
                 deleteTransactionFor = item
             }} else null,
@@ -263,10 +281,14 @@ internal fun AccountTransactionsScreen(
             categories = androidx.compose.runtime.remember(categories, suggester, item.tx.id) {
                 suggester?.rankCategories(categories, item.tx.amountMinor, item.tx.currency) ?: categories
             },
-            onDismiss = { categoryFor = null },
+            onDismiss = { categoryFor = null; details = item },
             onSelect = { category ->
-                feedViewModel.assignCategory(item, category.id)
-                categoryFor = null
+                feedViewModel.assignCategory(item, category.id) {
+                    if (categoryFor?.tx?.id == item.tx.id) {
+                        categoryFor = null
+                        details = item.copy(category = category, tx = item.tx.copy(categoryId = category.id))
+                    }
+                }
             },
             onCreateCategory = feedViewModel::createCategory,
         )
@@ -292,13 +314,14 @@ internal fun AccountTransactionsScreen(
         WhfinConfirmDialog(
             title = stringResource(R.string.transaction_delete),
             body = stringResource(
-                if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
+                if (item.tx.isBalanceAdjustment()) R.string.balance_adjustment_delete_body
+                else if (item.tx.transferGroupId != null) R.string.transaction_delete_transfer_body
                 else R.string.transaction_delete_body,
             ),
             confirmLabel = stringResource(R.string.action_delete),
             dismissLabel = stringResource(R.string.action_cancel),
             onConfirm = {
-                    feedViewModel.deleteManual(item)
+                    feedViewModel.deleteLocal(item)
                     deleteTransactionFor = null
             },
             onDismiss = { deleteTransactionFor = null },
@@ -336,6 +359,9 @@ internal fun AccountTransactionsScreen(
         )
     }
 
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        SnackbarHost(adjustmentSnackbar, Modifier.navigationBarsPadding())
+    }
     selectedRow?.let { item ->
         // A bank account is its IBAN across every currency under it, so editing it is the one
         // account sheet rather than a per-currency form.
@@ -350,14 +376,16 @@ internal fun AccountTransactionsScreen(
                 editAccount = false
             },
         )
-        if (adjustBalance) AdjustBalanceSheet(
-            item = item,
-            onDismiss = { adjustBalance = false },
-            onConfirm = { delta ->
-                accountsViewModel.adjustBalance(item, delta)
-                adjustBalance = false
-            },
-        )
+        if (adjustBalance) BalanceAdjustmentRoute(item, { adjustBalance = false }, { id ->
+            adjustBalance = false
+            adjustmentScope.launch {
+                if (adjustmentSnackbar.showSnackbar(adjustmentSaved, undoLabel) == SnackbarResult.ActionPerformed) {
+                    try { BalanceAdjustment(app.db).undo(id) }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { adjustmentSnackbar.showSnackbar(adjustmentFailed) }
+                }
+            }
+        })
         if (editAccount && editsWholeAccount) BankMappingSheet(
             account = item.account,
             existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
@@ -564,9 +592,11 @@ private fun AccountTransactionsScope(
                         ) {
                             if (onCorrectOpening != null) DropdownMenuItem(
                                 text = { Text(stringResource(R.string.opening_correct_action)) },
+                                leadingIcon = { Icon(Icons.Default.History, null) },
                                 onClick = { accountMenuExpanded = false; onCorrectOpening() })
                             if (!isChain) DropdownMenuItem(
                                 text = { Text(stringResource(R.string.action_adjust_balance)) },
+                                leadingIcon = { Icon(Icons.Default.Tune, null) },
                                 onClick = { accountMenuExpanded = false; onAdjust() })
                             DropdownMenuItem(
                                 text = {
@@ -614,6 +644,9 @@ private fun AccountTransactionsScope(
         }
         WhfinAmount(
             formattedBalance,
+            modifier = if (!isChain && accountRow != null) Modifier.testTag("account-balance")
+                .clickable(onClickLabel = stringResource(R.string.action_adjust_balance), onClick = onAdjust)
+                .padding(vertical = 4.dp) else Modifier,
             symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
             style = MaterialTheme.typography.headlineLarge,
         )

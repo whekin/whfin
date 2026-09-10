@@ -1,5 +1,9 @@
 package dev.whekin.whfin.ui.accounts
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
+import dev.whekin.whfin.ui.feed.*
+import dev.whekin.whfin.data.db.*
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -38,7 +42,10 @@ import java.util.Locale
  * currencies under one imported account name, a five-figure balance inside a narrow cell, and a card
  * ledger that has run out.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class AccountsQaActivity : ComponentActivity() {
+    var categorySelected = false
+    var balanceAdjusted = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dark = intent.getBooleanExtra("dark", false)
@@ -59,8 +66,20 @@ class AccountsQaActivity : ComponentActivity() {
                 LocalDensity provides Density(LocalDensity.current.density, fontScale),
             ) {
                 WhfinTheme(darkTheme = dark) {
-                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        if (intent.getBooleanExtra("activity", false)) {
+                    Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
+                        if (intent.getBooleanExtra("transaction", false)) {
+                            var choosing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                            var selected by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<CategoryEntity?>(null) }
+                            val category = CategoryEntity(id = 1, name = if (language == "ru") "Кафе" else "Coffee", kind = CategoryKind.EXPENSE,
+                                icon = "LocalCafe", color = 0xFF78906F.toInt())
+                            val transaction = TransactionEntity(id = 1, accountId = 1, amountMinor = -1200, currency = "GEL",
+                                occurredAt = 1L, status = TxStatus.MANUAL, source = TxSource.MANUAL,
+                                rawCounterparty = "Example Cafe", categoryId = selected?.id)
+                            val feed = FeedItem(transaction, null, selected, QA_ACCOUNTS.first().account, null, day = java.time.LocalDate.of(2026, 9, 10))
+                            if (choosing) CategoryPickerSheet(feed, listOf(category), { choosing = false },
+                                { selected = it; categorySelected = true; choosing = false }, { _, _, _, _ -> })
+                            else TransactionDetailsSheet(feed, {}, { choosing = true }, {}, onEdit = {}, onDebt = null, onClearDebt = null)
+                        } else if (intent.getBooleanExtra("activity", false)) {
                             var edit by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                             var adjust by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
                             var correction by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -72,7 +91,7 @@ class AccountsQaActivity : ComponentActivity() {
                                 onDismiss = { edit = false }, onConfirm = { _, _, _, _, _, _, _ -> edit = false })
                             if (correction) UserOpeningCorrectionSheet(item.account.currency, balance,
                                 onDismiss = { correction = false }, onConfirm = { balance = it; correction = false })
-                            if (adjust) AdjustBalanceSheet(item, { adjust = false }, { adjust = false })
+                            if (adjust) AdjustBalanceSheet(item, { adjust = false }, { balance += it; balanceAdjusted = true; adjust = false })
                         } else Column(
                             Modifier
                                 .safeDrawingPadding()

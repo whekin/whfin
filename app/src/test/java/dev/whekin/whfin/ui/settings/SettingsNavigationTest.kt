@@ -23,6 +23,13 @@ class SettingsNavigationTest {
         state.open("bank:CREDO"); state.reset()
         assertEquals("", state.query); assertFalse(state.back())
     }
+    @Test fun searchStartsHiddenAndCanBeDismissed() {
+        val state = state()
+        assertFalse(state.searchVisible)
+        state.reveal(focusKeyboard = false)
+        assertTrue(state.searchVisible); assertEquals(0, state.request)
+        assertTrue(state.back()); assertFalse(state.searchVisible)
+    }
     @Test fun searchFromChildRevealsGlobalSearch() {
         val state = state(); state.open("data"); state.reveal()
         assertEquals("", state.page)

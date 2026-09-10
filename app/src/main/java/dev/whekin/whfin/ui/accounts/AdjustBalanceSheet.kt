@@ -15,8 +15,8 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.ui.components.FormSheet
 import dev.whekin.whfin.ui.formatMinor
-import dev.whekin.whfin.ui.parseToMinor
 import java.math.BigDecimal
+import kotlinx.coroutines.launch
 
 /**
  * Ленивый сценарий: ввёл фактический баланс — разница легла в «Неучтённое»
@@ -27,19 +27,23 @@ fun AdjustBalanceSheet(
     item: AccountWithBalance,
     onDismiss: () -> Unit,
     onConfirm: (deltaMinor: Long) -> Unit,
+    saving: Boolean = false,
+    error: Boolean = false,
 ) {
     var actualText by remember {
         mutableStateOf(BigDecimal(item.balanceMinor).movePointLeft(2).toPlainString())
     }
-    val actualMinor = parseToMinor(actualText) ?: actualText.toBigDecimalOrNull()
-        ?.movePointRight(2)?.toLong()
-    val delta = actualMinor?.minus(item.balanceMinor)
+    val actualMinor = runCatching {
+        actualText.replace(" ", "").replace(',', '.').toBigDecimal().movePointRight(2).longValueExact()
+    }.getOrNull()
+    val delta = actualMinor?.let { runCatching { Math.subtractExact(it, item.balanceMinor) }.getOrNull() }
+
 
     FormSheet(
         title = stringResource(R.string.adjust_balance_title),
-        onDismiss = onDismiss,
+        onDismiss = { if (!saving) onDismiss() },
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = delta != null && delta != 0L,
+        primaryEnabled = !saving && !error && delta != null && delta != 0L,
         onPrimary = { onConfirm(delta!!) },
     ) {
         Text(
@@ -53,12 +57,13 @@ fun AdjustBalanceSheet(
         )
         WhfinField(
             value = actualText,
-            onValueChange = { actualText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == '-' }.take(14) },
+            onValueChange = { if (!saving) actualText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == '-' }.take(14) },
             label = stringResource(R.string.adjust_actual),
             suffix = item.account.currency,
             keyboardType = KeyboardType.Decimal,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (error) Text(stringResource(R.string.balance_adjustment_retry))
         if (delta != null && delta != 0L) {
             Text(
                 stringResource(
@@ -70,4 +75,33 @@ fun AdjustBalanceSheet(
             )
         }
     }
+}
+
+@Composable
+internal fun BalanceAdjustmentRoute(item: AccountWithBalance, onDismiss: () -> Unit, onSaved: (Long) -> Unit) {
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp
+    val repository = remember(app) { dev.whekin.whfin.data.mutation.BalanceAdjustment(app.db) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var snapshot by remember(item.account.id) { mutableStateOf<dev.whekin.whfin.data.mutation.BalanceAdjustment.Snapshot?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(item.account.id) {
+        try { snapshot = repository.read(item.account.id) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { error = true }
+    }
+    val loaded = snapshot
+    if (loaded == null) FormSheet(stringResource(R.string.adjust_balance_title), onDismiss,
+        stringResource(R.string.action_cancel), true, onDismiss) {
+        if (error) Text(stringResource(R.string.balance_adjustment_retry))
+        else dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
+    } else AdjustBalanceSheet(item.copy(balanceMinor = loaded.balance), onDismiss, { delta ->
+        saving = true
+        scope.launch {
+            try { onSaved(repository.save(loaded, Math.addExact(loaded.balance, delta))) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { error = true }
+            finally { saving = false }
+        }
+    }, saving, error)
 }
