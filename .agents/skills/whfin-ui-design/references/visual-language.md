@@ -176,6 +176,11 @@ name is stored as the identity a statement would have written, so nothing downst
 mechanism to read it. A transfer has no counterparty: both of its sides are the person's own
 accounts.
 
+A new expense also asks "For whom", defaulting to self, before Save. Keep this separate from
+"Paid to": the merchant receiving payment is not necessarily the person benefiting. Selecting or
+naming a person and choosing their share is an internal composer step, with Back returning to the
+same expense. Draft choices must not create people or ledger rows before the expense is saved.
+
 ### Working sheets
 
 Treat filter, mapping, and compact-edit sheets as small working surfaces rather than plain stacks of

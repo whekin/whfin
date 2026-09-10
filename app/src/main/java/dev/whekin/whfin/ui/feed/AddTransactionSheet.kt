@@ -76,6 +76,7 @@ import dev.whekin.whfin.core.ui.WhfinChoiceRail
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import androidx.compose.ui.tooling.preview.Preview
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.luminance
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.ui.demo.DemoWorkspaceFrame
 import dev.whekin.whfin.data.LedgerCalendar
@@ -90,6 +91,7 @@ data class ManualTransaction(
     val day: LocalDate,
     /** Who the money went to or came from; a transfer's sides are own accounts and carry none. */
     val counterparty: String? = null,
+    val beneficiary: dev.whekin.whfin.data.mutation.ExpenseBeneficiary? = null,
 )
 
 private enum class ManualKind(val label: Int, val title: Int) {
@@ -181,6 +183,9 @@ fun AddTransactionSheet(
     var showTypeMenu by remember { mutableStateOf(false) }
     var showAllCategories by remember { mutableStateOf(false) }
     var showCounterparties by remember { mutableStateOf(false) }
+    val composerKeyboard = LocalSoftwareKeyboardController.current
+    var showBeneficiary by remember { mutableStateOf(false) }
+    var beneficiary by remember(editing?.tx?.id) { mutableStateOf<BeneficiaryDraft?>(null) }
     // An imported row keeps its own counterparty; a hand-written one starts from whatever the last
     // save recorded, so editing a payment does not silently strip the name off it.
     var counterparty by remember(editing?.tx?.id) {
@@ -216,14 +221,19 @@ fun AddTransactionSheet(
     val amountMinor = parseToMinor(amountText)
     val destinationMinor = parseToMinor(destinationAmount)
     val conversion = kind == ManualKind.TRANSFER && destination != null && destination.currency != account?.currency
-    val valid = amountMinor != null && (kind == ManualKind.DEBT || account != null) &&
+    val beneficiaryValid = kind != ManualKind.EXPENSE || beneficiary?.let {
+        (it.personId?.let { id -> people.any { person -> person.id == id } } ?: !it.name.isNullOrBlank()) &&
+            (!it.half || (amountMinor ?: 0L) >= 2L)
+    } != false
+    val valid = beneficiaryValid && amountMinor != null && (kind == ManualKind.DEBT || account != null) &&
         (kind != ManualKind.TRANSFER || destination != null) && (!conversion || destinationMinor != null)
         && (kind != ManualKind.DEBT || debtPersonId != null || debtPersonName.isNotBlank())
     val dirty = amountText.isNotBlank() || destinationAmount.isNotBlank() || categoryId != null || note.isNotBlank() ||
-        day != LocalDate.now() || kind != initialKind || counterparty.isNotBlank()
+        day != LocalDate.now() || kind != initialKind || counterparty.isNotBlank() || beneficiary != null
     val requestClose = { if (dirty) confirmDiscard = true else onDismiss() }
     val requestDialogDismiss = {
         when {
+            showBeneficiary -> showBeneficiary = false
             showAllCategories -> showAllCategories = false
             showCounterparties -> showCounterparties = false
             else -> requestClose()
@@ -261,6 +271,7 @@ fun AddTransactionSheet(
             // Both sides of a transfer are the person's own accounts, so it has no counterparty to
             // name and must not teach the dictionary about them.
             counterparty = counterparty.trim().takeIf { it.isNotEmpty() && !transfer },
+            beneficiary = beneficiary?.takeIf { kind == ManualKind.EXPENSE && editing == null }?.mutation(savedAmountMinor),
         )
         if (editing != null) onUpdate(editing, result) else onSave(result)
     }
@@ -272,7 +283,7 @@ fun AddTransactionSheet(
             decorFitsSystemWindows = false,
         ),
     ) {
-        WhfinDialogSystemBars()
+        WhfinDialogSystemBars(darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f)
         // The composer answers the Back pull like every other page: it insets under the finger and
         // comes back if the finger lifts early. A dirty form still asks before discarding — the
         // gesture only decides when to ask, never what the answer is.
@@ -282,7 +293,11 @@ fun AddTransactionSheet(
                 Modifier.fillMaxSize().whfinPredictiveBack(backGesture),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                if (showCounterparties) {
+                if (showBeneficiary) {
+                    ExpenseBeneficiaryEditor(people, beneficiary, { composerKeyboard?.hide(); showBeneficiary = false }, {
+                        beneficiary = it; composerKeyboard?.hide(); showBeneficiary = false
+                    })
+                } else if (showCounterparties) {
                     val direction = if (kind == ManualKind.INCOME) CounterpartyDirection.INCOMING
                     else CounterpartyDirection.OUTGOING
                     CounterpartySelectorScreen(
@@ -345,6 +360,20 @@ fun AddTransactionSheet(
                                 onCategory = { categoryId = it }, onMore = { showAllCategories = true },
                                 onAccount = { accountId = it }, onCreateCashCurrency = createCashCurrency,
                                 onDate = { showDatePicker = true }, onNote = { note = it },
+                                beneficiaryContent = {
+                                    if (editing == null) {
+                                        val label = beneficiary?.let { draft ->
+                                            people.firstOrNull { it.id == draft.personId }?.name ?: draft.name
+                                        } ?: stringResource(R.string.expense_for_me)
+                                        dev.whekin.whfin.core.ui.WhfinLedgerRow(
+                                            title = stringResource(R.string.expense_beneficiary),
+                                            supportingText = if (beneficiary == null) label else "$label · " + stringResource(if (beneficiary?.half == true) R.string.split_half else R.string.expense_beneficiary_whole),
+                                            icon = Icons.Outlined.Person,
+                                            onClick = { composerKeyboard?.hide(); showBeneficiary = true },
+                                            trailing = { Icon(Icons.Default.ChevronRight, null) },
+                                        )
+                                    }
+                                },
                             )
                             ManualKind.INCOME -> IncomeLayout(
                                 categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem }, categoryId,
@@ -594,7 +623,9 @@ private fun minorInput(value: Long): String {
     counterparty: String, counterpartyCandidates: List<CounterpartyCandidate>,
     onCounterparty: (CounterpartyCandidate?) -> Unit, onMoreCounterparties: () -> Unit,
     onCategory: (Long) -> Unit, onMore: () -> Unit, onAccount: (Long) -> Unit, onCreateCashCurrency: (String) -> Unit,
-    onDate: () -> Unit, onNote: (String) -> Unit) {
+    onDate: () -> Unit, onNote: (String) -> Unit,
+    beneficiaryContent: @Composable () -> Unit = {},
+) {
     CounterpartyRow(
         label = stringResource(R.string.tx_counterparty_out),
         candidates = counterpartyCandidates,
@@ -626,6 +657,7 @@ private fun minorInput(value: Long): String {
             }
         }
     }
+    beneficiaryContent()
     Column(Modifier.fillMaxWidth()) {
         CompactAccountSelector(stringResource(R.string.tx_account), sources, accountId, Modifier.fillMaxWidth(), onAccount, onCreateCashCurrency = onCreateCashCurrency)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

@@ -32,6 +32,13 @@ data class ManualMutation(
     val rawCounterparty: String? = null,
 )
 
+/** Whole expense when shareMinor is null; otherwise an explicit positive share on this person. */
+data class ExpenseBeneficiary(
+    val personId: Long? = null,
+    val newPersonName: String? = null,
+    val shareMinor: Long? = null,
+)
+
 data class AllocationMutation(
     val amountMinor: Long,
     val categoryId: Long? = null,
@@ -94,8 +101,26 @@ class TransactionMutationException(
  */
 class TransactionMutationModule(private val db: WhfinDatabase) {
 
-    suspend fun createManual(input: ManualMutation, allocations: List<AllocationMutation> = emptyList()): Long =
+    suspend fun createManual(input: ManualMutation, allocations: List<AllocationMutation> = emptyList(), beneficiary: ExpenseBeneficiary? = null): Long =
         db.withTransaction {
+            if (beneficiary != null) {
+                if (input.amountMinor >= 0 || input.amountMinor == Long.MIN_VALUE || input.destinationAccountId != null || allocations.isNotEmpty())
+                    reject("A beneficiary requires an unsplit expense.")
+                val total = -input.amountMinor
+                val share = beneficiary.shareMinor ?: total
+                if (share !in 1..total) reject("The beneficiary share must fit the expense.")
+                val name = beneficiary.newPersonName?.trim()?.takeIf { it.isNotEmpty() }
+                if ((beneficiary.personId == null) == (name == null)) reject("Choose a person or enter a new name.")
+                val personId = beneficiary.personId?.also { id ->
+                    if (db.personDao().byId(id)?.isArchived != false) reject("The selected person is unavailable.")
+                } ?: db.personDao().insert(dev.whekin.whfin.data.db.PersonEntity(name = requireNotNull(name), color = 0xFF78906F.toInt()))
+                val shares = buildList {
+                    add(AllocationMutation(-share, input.categoryId, personId,
+                        if (share == total) AllocationPurpose.GIFT else AllocationPurpose.SHARED))
+                    if (share < total) add(AllocationMutation(-(total - share), input.categoryId, purpose = AllocationPurpose.PERSONAL))
+                }
+                return@withTransaction createManual(input, shares)
+            }
             val account = account(input.accountId)
             requireNonZero(input.amountMinor)
             val destination = input.destinationAccountId?.let { account(it) }

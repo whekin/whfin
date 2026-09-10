@@ -1528,4 +1528,10 @@
     <string name="opening_correct_changed">Could not save the correction</string>
     <string name="opening_correct_retry">Close and reopen this form to read the latest account data.</string>
     <string name="opening_correct_title">Starting balance</string>
+    <string name="expense_beneficiary">For whom</string>
+    <string name="expense_for_me">For me</string>
+    <string name="expense_beneficiary_help">Who benefits from this expense? This is separate from who received the payment.</string>
+    <string name="expense_beneficiary_full_hint">The whole amount is a gift to this person. No debt is created.</string>
+    <string name="expense_beneficiary_half_hint">Half is for this person, the remainder for you. No debt is created.</string>
+    <string name="expense_beneficiary_whole">Whole amount</string>
 </resources>

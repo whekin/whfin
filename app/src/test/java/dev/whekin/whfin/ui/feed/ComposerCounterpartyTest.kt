@@ -5,6 +5,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.CategoryEntity
@@ -87,13 +92,49 @@ class ComposerCounterpartyTest {
         compose.runOnIdle { assertEquals(null, saved?.counterparty) }
     }
 
-    private fun content(onSave: (ManualTransaction) -> Unit) {
+    @Test fun cashGiftHasBeneficiaryBeforeTheExpenseIsSaved() {
+        var saved: ManualTransaction? = null
+        content(listOf(dev.whekin.whfin.data.db.PersonEntity(id = 4, name = "Mira", color = 0))) { saved = it }
+        compose.onNodeWithTag("composer-amount").performTextInput("12.50")
+        compose.onNodeWithText("For whom").performScrollTo().performClick()
+        compose.onNodeWithText("Mira").performClick()
+        compose.onNodeWithText("Done").performClick()
+        org.junit.Assert.assertNull(saved)
+        compose.onNodeWithText("Save").performClick()
+        compose.runOnIdle {
+            assertEquals(cash.id, saved?.accountId)
+            assertEquals(-1250L, saved?.amountMinor)
+            assertEquals(4L, saved?.beneficiary?.personId)
+            assertEquals(null, saved?.beneficiary?.shareMinor)
+            assertEquals(null, saved?.counterparty)
+        }
+    }
+
+    @Test fun aNewPersonAndHalfShareRemainDraftsAndFollowTheFinalAmount() {
+        var saved: ManualTransaction? = null
+        content { saved = it }
+        compose.onNodeWithTag("composer-amount").performTextInput("12")
+        compose.onNodeWithText("For whom").performScrollTo().performClick()
+        compose.onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("beneficiary-new-name"))).performTextInput("Mira")
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.onNodeWithText(context.getString(dev.whekin.whfin.R.string.split_half)).performScrollTo().performClick()
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithTag("composer-amount").performScrollTo().performTextReplacement("15.01")
+        org.junit.Assert.assertNull(saved)
+        compose.onNodeWithText("Save").performClick()
+        compose.runOnIdle {
+            assertEquals("Mira", saved?.beneficiary?.newPersonName)
+            assertEquals(750L, saved?.beneficiary?.shareMinor)
+        }
+    }
+
+    private fun content(people: List<dev.whekin.whfin.data.db.PersonEntity> = emptyList(), onSave: (ManualTransaction) -> Unit) {
         compose.setContent {
             WhfinTheme {
                 AddTransactionSheet(
                     accounts = listOf(cash),
                     categories = listOf(groceries, eatingOut),
-                    people = emptyList(),
+                    people = people,
                     onDismiss = {},
                     onSave = onSave,
                     onSaveDebt = {},

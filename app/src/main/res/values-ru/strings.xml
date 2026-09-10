@@ -1099,7 +1099,7 @@
     <string name="new_expense">Новый расход</string>
     <string name="new_income">Новый доход</string>
     <string name="new_transfer">Новый перевод</string>
-    <string name="tx_counterparty_out">Кому</string>
+    <string name="tx_counterparty_out">Кому заплатили</string>
     <string name="tx_counterparty_in">От кого</string>
     <string name="tx_counterparty_add">Указать имя</string>
     <string name="tx_counterparty_search">Поиск по имени</string>
@@ -1590,4 +1590,10 @@
     <string name="opening_correct_changed">Не удалось сохранить исправление</string>
     <string name="opening_correct_retry">Закройте и откройте форму снова, чтобы получить актуальные данные счёта.</string>
     <string name="opening_correct_title">Начальный остаток</string>
+    <string name="expense_beneficiary">Для кого</string>
+    <string name="expense_for_me">Для себя</string>
+    <string name="expense_beneficiary_help">Кому предназначен расход? Это может быть другой человек, чем тот, кому вы заплатили.</string>
+    <string name="expense_beneficiary_full_hint">Вся сумма — подарок этому человеку. Долг не создаётся.</string>
+    <string name="expense_beneficiary_half_hint">Половина суммы — на этого человека, остальное — на себя. Долг не создаётся.</string>
+    <string name="expense_beneficiary_whole">Вся сумма</string>
 </resources>

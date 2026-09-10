@@ -666,6 +666,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                     merchantId = merchant?.id,
                     rawCounterparty = tx.counterparty?.trim()?.takeIf(String::isNotEmpty),
                 ),
+                beneficiary = tx.beneficiary,
             )
             learnCounterparty(merchant, tx.categoryId)
         }
