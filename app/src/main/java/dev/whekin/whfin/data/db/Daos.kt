@@ -374,6 +374,9 @@ interface MerchantDao {
 
 @Dao
 interface TransactionDao {
+    @Query("SELECT * FROM transactions WHERE accountId = :accountId AND isVoided = 0 ORDER BY id")
+    suspend fun activeForAccount(accountId: Long): List<TransactionEntity>
+
     @Insert suspend fun insertTransferGroup(group: TransferGroupEntity): Long
 
     /** Groups the owner joined by hand, so the ledger can offer to take exactly those apart. */
@@ -1087,6 +1090,9 @@ interface DebtDao {
 
 @Dao
 interface StatementImportDao {
+    @Query("UPDATE statement_imports SET openingBalanceMinor = :amount, closingBalanceMinor = :amount WHERE id = :id AND origin = 'USER_OPENING'")
+    suspend fun replaceUserOpening(id: Long, amount: Long): Int
+
     @Query("SELECT * FROM statement_imports ORDER BY importedAt DESC")
     fun observeAll(): Flow<List<StatementImportEntity>>
 

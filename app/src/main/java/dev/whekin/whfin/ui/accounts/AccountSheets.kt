@@ -401,21 +401,11 @@ private fun FundRoleSelector(
         Triple(FundRole.AVAILABLE, R.string.account_fund_available, Icons.Outlined.AccountBalanceWallet),
         Triple(FundRole.RESERVE, R.string.account_purpose_reserve, Icons.Outlined.Savings),
     )
-    // Two answers to one question divide the width between them, the way the theme choice in
-    // Settings does. Sized to their own text they sat as two loose buttons at the left of an empty
-    // row, and nothing said they were alternatives rather than two things you could press.
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { (mode, label, icon) ->
-            WhfinFilterPill(
-                label = stringResource(label),
-                selected = selected == mode,
-                onClick = { onSelect(mode) },
-                leadingIcon = icon,
-                centered = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
+    dev.whekin.whfin.core.ui.WhfinSegmentedChoice(
+        options = options.map { (mode, label, _) -> dev.whekin.whfin.core.ui.WhfinChoice(mode, stringResource(label)) },
+        selected = selected,
+        onSelect = onSelect,
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

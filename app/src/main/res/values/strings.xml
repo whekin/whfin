@@ -1518,4 +1518,14 @@
     <string name="tbc_saved_legacy_body">This device has a saved session from an earlier version. Sign in with your username and password once to remember them too.</string>
     <string name="tbc_otp_autofill">The code can be filled from SMS. Android may ask to read that one message; you still confirm sign-in.</string>
     <string name="tbc_otp_progress">Digits entered: %1$d</string>
+    <string name="opening_correct_action">Correct starting balance</string>
+    <string name="opening_correct_unavailable">The starting balance is no longer editable. It may already be verified by a statement.</string>
+    <string name="opening_correct_saving">Saving…</string>
+    <string name="opening_correct_body">Fix an incorrect setup amount by entering the balance these recorded transactions should add up to. Existing transactions stay unchanged; no expense or income is added.</string>
+    <string name="opening_correct_current">Balance now: %1$s</string>
+    <string name="opening_correct_target">Balance after correction</string>
+    <string name="opening_correct_delta">Starting balance changes by %1$s</string>
+    <string name="opening_correct_changed">Could not save the correction</string>
+    <string name="opening_correct_retry">Close and reopen this form to read the latest account data.</string>
+    <string name="opening_correct_title">Starting balance</string>
 </resources>

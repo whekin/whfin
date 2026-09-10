@@ -1580,4 +1580,14 @@
     <string name="tbc_saved_legacy_body">Здесь сохранена сессия из прежней версии. Один раз войдите по логину и паролю, чтобы запомнить и их.</string>
     <string name="tbc_otp_autofill">Код может заполниться из SMS. Android может попросить доступ к этому сообщению; вход вы подтверждаете сами.</string>
     <string name="tbc_otp_progress">Введено цифр: %1$d</string>
+    <string name="opening_correct_action">Исправить начальный остаток</string>
+    <string name="opening_correct_unavailable">Начальный остаток больше нельзя изменить: возможно, он уже подтверждён выпиской.</string>
+    <string name="opening_correct_saving">Сохранение…</string>
+    <string name="opening_correct_body">Если при подключении указали неверную сумму, задайте правильный баланс по записанным операциям. Сами операции сохранятся; нового расхода или дохода не появится.</string>
+    <string name="opening_correct_current">Сейчас по записям: %1$s</string>
+    <string name="opening_correct_target">Баланс после исправления</string>
+    <string name="opening_correct_delta">Начальный остаток изменится на %1$s</string>
+    <string name="opening_correct_changed">Не удалось сохранить исправление</string>
+    <string name="opening_correct_retry">Закройте и откройте форму снова, чтобы получить актуальные данные счёта.</string>
+    <string name="opening_correct_title">Начальный остаток</string>
 </resources>

@@ -202,6 +202,53 @@ class TbcHistorySyncTest {
         assertTrue(db.transactionDao().allForIntegrity().isEmpty())
     }
 
+    @Test fun mistakenOpeningCanBeCorrectedWithoutTodaysAdjustmentOrTransactionChanges() = runBlocking {
+        TbcHistorySync(db).initialize(sync().initialHistories.single(), 30100)
+        val account = db.accountDao().allActive().single()
+        val correction = UserOpeningCorrection(db)
+        val before = db.transactionDao().allStatementRows(account.id)
+        correction.correct(requireNotNull(correction.read(account.id)), 0)
+        assertEquals(0L, db.transactionDao().sumByAccount(account.id))
+        assertEquals(before, db.transactionDao().allStatementRows(account.id))
+        val adjustments = db.transactionDao().activeForAccount(account.id).filter { it.source == TxSource.ADJUSTMENT }
+        assertTrue(adjustments.all { it.isTransfer && it.categoryId == null })
+        sync()
+        assertEquals(0L, db.transactionDao().sumByAccount(account.id))
+        correction.correct(requireNotNull(correction.read(account.id)), -1234)
+        assertEquals(-1234L, db.transactionDao().sumByAccount(account.id))
+        StatementImporter(db).import(file.inputStream())
+        assertNull(correction.read(account.id))
+        assertEquals(20100L, db.transactionDao().sumByAccount(account.id))
+    }
+
+    @Test fun emptyZeroOpeningCanBeCorrectedAndReturnedToZeroForOnlyOneCurrency() = runBlocking {
+        val remotes = listOf(remote, remote.copy(currency = "USD"))
+        val gateway = Gateway(remotes, remotes.associate { it.key to emptyList<TbcHistoryRow>() })
+        TbcHistorySync(db).sync(gateway, today).initialHistories.forEach { TbcHistorySync(db).initialize(it, 0) }
+        val account = requireNotNull(db.accountDao().byIbanAndCurrency(remote.iban, "GEL"))
+        val correction = UserOpeningCorrection(db)
+        correction.correct(requireNotNull(correction.read(account.id)), 1200)
+        assertEquals(1200L, db.transactionDao().sumByAccount(account.id))
+        val usd = requireNotNull(db.accountDao().byIbanAndCurrency(remote.iban, "USD"))
+        assertEquals(0L, db.transactionDao().sumByAccount(usd.id))
+        correction.correct(requireNotNull(correction.read(account.id)), 0)
+        assertTrue(db.transactionDao().allForIntegrity().isEmpty())
+        assertTrue(TbcHistorySync(db).sync(gateway, today).needsStatement.isEmpty())
+    }
+
+    @Test fun openingCorrectionRejectsStaleLedgerAndNewBankEvidence() = runBlocking {
+        TbcHistorySync(db).initialize(sync().initialHistories.single(), 30100)
+        val account = db.accountDao().allActive().single()
+        val correction = UserOpeningCorrection(db)
+        val snapshot = requireNotNull(correction.read(account.id))
+        correction.correct(snapshot, 12300)
+        assertTrue(runCatching { correction.correct(snapshot, 0) }.exceptionOrNull() is UserOpeningCorrection.Changed)
+        val fresh = requireNotNull(correction.read(account.id))
+        StatementImporter(db).import(file.inputStream())
+        assertTrue(runCatching { correction.correct(fresh, 0) }.exceptionOrNull() is UserOpeningCorrection.Changed)
+        assertEquals(20100L, db.transactionDao().sumByAccount(account.id))
+    }
+
     @Test fun manualConfirmationCannotRunTwiceOrUseAnExpiredRead() = runBlocking {
         val initial = sync().initialHistories.single()
         val expired = runCatching { TbcHistorySync(db).initialize(initial.copy(readAt = 1), 0) }.exceptionOrNull()

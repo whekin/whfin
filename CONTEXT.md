@@ -166,3 +166,10 @@ _Avoid_: Monthly target, mandatory deadline
 A conditional path from today's Reserve balance if the declared monthly amount continues, without
 assumed interest, withdrawals or market returns. It is a scenario, never a promised balance or bank schedule.
 _Avoid_: Guaranteed return, scheduled transfer, recorded balance
+
+### Исправление начального остатка
+
+Ошибка в USER_OPENING исправляет исходную основу расчёта, а не создаёт новую денежную операцию.
+Владелец задаёт желаемый баланс по текущему снимку записей; разница меняет USER_OPENING и
+OpeningAnchor в одной транзакции. Банковское подтверждение имеет приоритет и закрывает такое
+редактирование. Изменившийся с момента просмотра снимок требует нового подтверждения.

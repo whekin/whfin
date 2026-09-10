@@ -129,6 +129,12 @@ On secondary ledger lists, keep creation as a compact icon action in the header 
 button competing with the editorial title or a FAB covering rows. When the list is empty, repeat the
 action with a clear text label inside the empty state.
 
+Account activity names the bank, currency and account number once using the shared account naming
+rules. The balance is a read-only amount, without a settings icon or hidden adjustment tap target.
+Keep account editing as a compact pencil beside its heading; balance repair and deletion belong in
+the labelled overflow menu. An erroneous owner-entered opening is corrected at its original basis,
+not recorded as a new unexplained movement today.
+
 ### Analytics
 
 Lead with the selected period's spending, then income and net result as supporting figures. At large

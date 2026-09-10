@@ -92,3 +92,23 @@ transaction amount validation, which rejects zero. Blank, over-precision and ove
 invalid. Initial confirmation identifies a ledger by IBAN and currency, so four currencies sharing
 one IBAN can each be confirmed at zero. Empty history still persists the opening and full-history
 marker; a subsequent sync must not ask for that opening again.
+
+## Correcting an owner-entered starting balance
+
+Account activity → account actions → Correct starting balance opens a preview of the current ledger
+balance and the desired balance after correction. This fixes an erroneous setup amount; it does not
+record a new movement or use a fresh bank read. The target includes exactly the already recorded
+active rows shown in the ledger, including any manual/SMS rows.
+
+`UserOpeningCorrection` reads the account, its single USER_OPENING snapshot and all active rows in
+one transaction. Saving compares that snapshot again, applies the difference to the stored opening
+and rebuilds `OpeningAnchor` in the same Room transaction. No transaction amounts, links, allocations,
+categories or dates change except the opening anchor. Its transfer semantics exclude it from income
+and expenses. Zero can remove the anchor row while retaining USER_OPENING. Other currency ledgers
+are untouched. The existing backup representation preserves the corrected opening without a schema
+change. A later authoritative statement still supersedes the owner-entered amount.
+
+The action is available only for an owner-entered opening with no authoritative opening evidence.
+A changed ledger or a statement arriving while the form is open invalidates the preview; the form
+asks to reopen instead of silently applying a difference to a new balance. Ordinary balance
+adjustments remain a separate action for a new unexplained difference.

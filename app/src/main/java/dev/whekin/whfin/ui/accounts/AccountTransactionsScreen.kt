@@ -122,6 +122,16 @@ internal fun AccountTransactionsScreen(
     var ownTransferFor by remember { mutableStateOf<FeedItem?>(null) }
     var editAccount by remember { mutableStateOf(false) }
     var adjustBalance by remember { mutableStateOf(false) }
+    var correctOpening by remember { mutableStateOf(false) }
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp
+    val imports by remember(accountId) { app.db.statementImportDao().observeForAccount(accountId) }
+        .collectAsState(initial = null)
+    val canCorrectOpening = imports?.let { rows ->
+        rows.count { it.origin == dev.whekin.whfin.data.db.StatementImportOrigin.USER_OPENING } == 1 &&
+            rows.none { it.origin != dev.whekin.whfin.data.db.StatementImportOrigin.USER_OPENING && it.openingBalanceMinor != null }
+    } == true
+    if (correctOpening) UserOpeningCorrectionRoute(accountId, { correctOpening = false })
+
     var deleteAccount by remember { mutableStateOf(false) }
 
     val contentCallbacks = AccountActivityCallbacks(
@@ -129,6 +139,7 @@ internal fun AccountTransactionsScreen(
         onEditAccount = { editAccount = true },
         onAdjustBalance = { adjustBalance = true },
         onDeleteAccount = { deleteAccount = true },
+        onCorrectOpening = if (canCorrectOpening) ({ correctOpening = true }) else null,
     )
     when (val value = state) {
         AccountTransactionsUiState.Loading -> AccountTransactionsState(
@@ -393,11 +404,12 @@ internal fun AccountTransactionsScreen(
     }
 }
 
-private data class AccountActivityCallbacks(
+internal data class AccountActivityCallbacks(
     val onTransaction: (FeedItem) -> Unit,
     val onEditAccount: () -> Unit,
     val onAdjustBalance: () -> Unit,
     val onDeleteAccount: () -> Unit,
+    val onCorrectOpening: (() -> Unit)? = null,
 )
 
 @Composable
@@ -422,7 +434,7 @@ private fun AccountTransactionsState(
 }
 
 @Composable
-private fun AccountTransactionsContent(
+internal fun AccountTransactionsContent(
     account: AccountEntity,
     balanceMinor: Long,
     items: List<FeedItem>,
@@ -448,6 +460,7 @@ private fun AccountTransactionsContent(
                     onEdit = callbacks.onEditAccount,
                     onAdjust = callbacks.onAdjustBalance,
                     onDelete = callbacks.onDeleteAccount,
+                    onCorrectOpening = callbacks.onCorrectOpening,
                 )
             }
             if (empty) item(key = "account-transactions-empty") {
@@ -511,8 +524,10 @@ private fun AccountTransactionsScope(
     onEdit: () -> Unit,
     onAdjust: () -> Unit,
     onDelete: () -> Unit,
+    onCorrectOpening: (() -> Unit)? = null,
 ) {
     val isChain = account.type == AccountType.CRYPTO
+    val bankLabels = dev.whekin.whfin.ui.accountChoiceLabels(account, accountRow?.groupName, showSource = true)
     val accountDetail = when {
         // A watch-only row is one asset at one address: naming the chain says more than a ticker.
         isChain -> listOfNotNull(
@@ -520,9 +535,7 @@ private fun AccountTransactionsScope(
             account.currency,
             accountRow?.address?.let(::shortAddress),
         ).joinToString(" · ")
-        account.iban != null ->
-            stringResource(R.string.account_transactions_iban_currency, account.iban.takeLast(4), account.currency)
-        else -> account.currency
+        else -> listOfNotNull(bankLabels.second, account.currency).joinToString(" · ")
     }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     Column(
@@ -531,11 +544,14 @@ private fun AccountTransactionsScope(
     ) {
         WhfinSectionHeader(
             // A wallet is named once, at the address; the ticker belongs to the line under it.
-            title = if (isChain) accountRow?.groupName ?: account.name else account.name,
+            title = if (isChain) accountRow?.groupName ?: account.name else bankLabels.first,
             supportingText = accountDetail,
             trailing = if (accountRow == null) null else {
                 {
-                    Box {
+                    Row {
+                        WhfinIconButton(Icons.Default.Edit,
+                            stringResource(if (isChain) R.string.crypto_wallet_rename else R.string.account_edit), onEdit, outlined = false)
+                        Box {
                         WhfinIconButton(
                             icon = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.account_actions),
@@ -546,6 +562,12 @@ private fun AccountTransactionsScope(
                             expanded = accountMenuExpanded,
                             onDismissRequest = { accountMenuExpanded = false },
                         ) {
+                            if (onCorrectOpening != null) DropdownMenuItem(
+                                text = { Text(stringResource(R.string.opening_correct_action)) },
+                                onClick = { accountMenuExpanded = false; onCorrectOpening() })
+                            if (!isChain) DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_adjust_balance)) },
+                                onClick = { accountMenuExpanded = false; onAdjust() })
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -569,6 +591,7 @@ private fun AccountTransactionsScope(
                                 },
                             )
                         }
+                        }
                     }
                 }
             },
@@ -589,71 +612,12 @@ private fun AccountTransactionsScope(
             onChain != null -> "${formatBaseUnits(onChain.baseUnits, onChain.decimals)} ${account.currency}"
             else -> "—"
         }
-        if (!isChain && accountRow != null) {
-            Surface(
-                onClick = onAdjust,
-                shape = MaterialTheme.shapes.medium,
-                color = androidx.compose.ui.graphics.Color.Transparent,
-            ) {
-                Row(
-                    Modifier.heightIn(min = 48.dp).padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    WhfinAmount(
-                        formattedBalance,
-                        symbol = currencySymbol(account.currency),
-                        style = MaterialTheme.typography.headlineLarge,
-                    )
-                    Icon(
-                        Icons.Default.Tune,
-                        contentDescription = stringResource(R.string.action_adjust_balance),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        } else {
-            WhfinAmount(
-                formattedBalance,
-                symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
-                style = MaterialTheme.typography.headlineLarge,
-            )
-        }
-        if (accountRow != null) {
-            AccountActivityAction(
-                icon = Icons.Default.Edit,
-                label = stringResource(if (isChain) R.string.crypto_wallet_rename else R.string.account_edit),
-                onClick = onEdit,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        WhfinAmount(
+            formattedBalance,
+            symbol = if (isChain) account.currency.takeIf { onChain != null } else currencySymbol(account.currency),
+            style = MaterialTheme.typography.headlineLarge,
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
-@Composable
-private fun AccountActivityAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val color = MaterialTheme.colorScheme.primary
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = androidx.compose.ui.graphics.Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Row(
-            Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            Icon(icon, null, Modifier.size(19.dp), tint = color)
-            Text(label, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 2)
-        }
     }
 }
 
