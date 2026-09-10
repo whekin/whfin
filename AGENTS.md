@@ -43,8 +43,10 @@ This is a single-context repository with root domain documentation and system-wi
   Синтетический regression упал до правки и прошёл после; полный app: 1040 тестов,
   0 failures/errors, 4 skipped. Release R8/lintVital и public-tree прошли. Настоящая Android
   доставка бонусного update на эмуляторе прошла с тем же diagnostic id, fixture удалён.
-  Установлено на телефон через install -r, подтверждены 0.3.41 / 53. Для восстановления
-  сохранённой покупки ждём разблокировки телефона владельцем; записи его БД не меняли вручную.
+  Установлено на телефон через install -r, подтверждены 0.3.41 / 53. После разблокировки
+  владельцем сохранённый push обработан повторно: NEEDS_CARD_MAPPING. Через штатный UI карта
+  привязана к единственному подходящему GEL-счёту TBC; расход появился в Account activity.
+  Ещё одна обработка дала DUPLICATE, без второй покупки. Прямых записей в БД телефона не было.
   Контракт/логи: docs/tbc-push.md, /tmp/whfin-tbc-loyalty-*.log. Все fixtures синтетические.
 
 

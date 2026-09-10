@@ -106,3 +106,9 @@ Full app unit/Compose: 1040 tests, no failures/errors, four skipped. Release R8/
 Android delivery passed; the temporary sender was removed. All published financial fixtures are
 synthetic. Logs: `/tmp/whfin-tbc-loyalty-red.log`, `/tmp/whfin-tbc-loyalty-green.log`,
 `/tmp/whfin-tbc-loyalty-final.log`, `/tmp/whfin-tbc-loyalty-delivery.log`.
+
+On-device recovery: after the owner unlocked WHFIN, Process again changed the saved example from
+UNRECOGNIZED to NEEDS_CARD_MAPPING. The normal routing UI offered one compatible TBC account; linking
+its GEL ledger imported the expense. The restored purchase was verified in Account activity, and one
+more Process again returned DUPLICATE. No direct device database access or synthetic phone tests
+were used. API sync still excludes card holds; this repair concerns the missed push and its routing.
