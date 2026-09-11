@@ -68,7 +68,15 @@ class AccountsQaActivity : ComponentActivity() {
             ) {
                 WhfinTheme(darkTheme = dark) {
                     Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
-                        if (intent.getBooleanExtra("transferLabels", false)) {
+                        if (intent.getBooleanExtra("duplicateReview", false)) {
+                            val old=TransactionEntity(id=1,accountId=1,amountMinor=-12345,currency="GEL",occurredAt=1788465600000L,
+                                rawCounterparty="EXAMPLE STORE",status=TxStatus.CONFIRMED,source=TxSource.STATEMENT,balanceAfterMinor=20000)
+                            val fresh=old.copy(id=2,balanceAfterMinor=19000)
+                            val preview=dev.whekin.whfin.data.importer.CredoDuplicateReview.Preview(
+                                listOf(dev.whekin.whfin.data.importer.CredoDuplicateReview.Pairing(old,fresh,"Credo •0001 GEL")),listOf(old,fresh),emptyList())
+                            dev.whekin.whfin.ui.settings.CredoDuplicateReviewSheet(preview,
+                                onDismiss={},onConfirm={ balanceReviewConfirmed=true })
+                        } else if (intent.getBooleanExtra("transferLabels", false)) {
                             val from=QA_ACCOUNTS.first().account.copy(name="Credo GEL •0001")
                             val to=from.copy(id=2,currency="EUR",iban="GE00CD0000000000000002",name="Credo EUR •0002")
                             val debit=TransactionEntity(id=1,accountId=from.id,amountMinor=-25000,currency="GEL",occurredAt=1789067100000L,

@@ -1618,4 +1618,10 @@
     <string name="credo_balance_no_changes">No changes are needed.</string>
     <string name="credo_balance_unassigned">Unassigned</string>
     <string name="credo_balance_changed">Could not apply this preview, or the ledger changed. Close it and review again.</string>
+    <string name="credo_duplicate_review">Review duplicate purchases</string>
+    <string name="credo_duplicate_body">Choose a pair only if it was one purchase. The original purchase and category stay; bank balance comes from the newer copy. Nothing changes before you confirm.</string>
+    <string name="credo_duplicate_merge">Merge selected pair</string>
+    <string name="credo_duplicate_empty">No eligible pairs found. Transport charges of 1 GEL and purchases with linked splits or debts are excluded.</string>
+    <string name="credo_duplicate_effect">One extra expense will stop counting. Account balance increases by %1$s. Bank balance after the purchase: %2$s → %3$s. You can undo this before further ledger changes.</string>
+    <string name="credo_duplicate_undo">Undo last merge</string>
 </resources>

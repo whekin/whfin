@@ -31,6 +31,19 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Проверена цепочка SMS → две выписки и явное объединение — 0.3.45 (57).
+  Три приватных backup подтвердили SMS, успешную первую сверку того же ID и второй Insert
+  при следующем sync. Полный regression красный без revision bridge, зелёный с ним.
+  Предпросмотр предлагает точные пары legacy Credo, исключая 1 GEL/переводы/API/долги/доли/
+  конфликт категорий; выбор и подтверждение явные. Сохраняется исходный ID и категория,
+  банковский остаток/ключ из новой копии, merged copy не учитывается. Есть snapshot-safe Undo.
+  1072 теста, 0 failures/errors, 4 skipped; release и native EN/light RU/dark/font1.5 прошли.
+  Кадры /tmp/whfin-duplicate-ui, логи /tmp/whfin-duplicate-*.log, /tmp/whfin-sms-chain-red.log.
+  Установлено на Samsung install -r, подтверждены 0.3.45/57. Через штатный UI объединён только
+  подтверждённый Jysk; поиск истории показывает одну покупку и сохранённую категорию Home.
+  Остальные четыре кандидата не объединены. Владелец попросил массовый выбор — следующий этап.
+
+
 - [x] Повторные выписки Credo с изменившимся остатком — 0.3.44 (56), 2026-09-11.
   Свежий owner backup подтвердил две statement-строки одной покупки с разными balanceAfter;
   fallback key включает остаток. Синтетический regression через настоящий planner/applier

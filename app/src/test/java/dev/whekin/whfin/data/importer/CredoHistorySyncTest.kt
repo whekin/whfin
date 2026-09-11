@@ -61,6 +61,25 @@ class CredoHistorySyncTest {
         assertTrue(CredoRowIdentity.hasMobile(after.externalKey, CredoRowIdentity.mobileId("a")))
         assertEquals(9500L, db.transactionDao().allForIntegrity().sumOf { it.amountMinor })
     }
+    @Test fun smsThenTwoOverlappingStatementsKeepOriginalPurchase() = runBlocking {
+        val account = BankLedgerResolver(db).resolve(statement(emptyList())).account
+        val sms = dev.whekin.whfin.data.sms.SmsTransactionImporter(db)
+        val body = "Payment: 5.00 GEL Card N ****0001 EXAMPLE CAFE>Tbilisi GE Balance: 15.23 GEL 09/09/2026 18:20:00"
+        val imported = sms.import(body)
+        if (imported.outcome != SmsDiagnosticOutcome.IMPORTED) sms.resolveDiagnostic(requireNotNull(imported.diagnosticId), account.id)
+        val before = db.transactionDao().allForIntegrity().single { it.source == TxSource.SMS }
+        val category = db.categoryDao().insert(CategoryEntity(name = "Owner category", kind = CategoryKind.EXPENSE, icon = "Home", color = 0))
+        db.transactionDao().update(before.copy(categoryId = category))
+        val posted = row().copy(postedDate = day.plusDays(1))
+        assertEquals(1, file(listOf(posted)).reconciled)
+        assertEquals(TxSource.STATEMENT, db.transactionDao().byId(before.id)!!.source)
+        assertEquals(0, file(listOf(posted.copy(balanceAfterMinor = 9400))).inserted)
+        val after = db.transactionDao().allStatementRows(account.id).single()
+        assertEquals(before.id, after.id)
+        assertEquals(category, after.categoryId)
+        assertEquals(9400L, after.balanceAfterMinor)
+        assertTrue(file(listOf(posted.copy(balanceAfterMinor = 9400))).isNoOp)
+    }
     @Test fun repeatedFileWithRevisedRunningBalanceKeepsOnePurchase() = runBlocking {
         file()
         val account = db.accountDao().allActive().single()

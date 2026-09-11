@@ -1680,4 +1680,10 @@
     <string name="credo_balance_no_changes">Изменения не требуются.</string>
     <string name="credo_balance_unassigned">Без привязки</string>
     <string name="credo_balance_changed">Не удалось применить просмотр или записи изменились. Закройте его и проверьте снова.</string>
+    <string name="credo_duplicate_review">Проверить дубли покупок</string>
+    <string name="credo_duplicate_body">Выбери пару, если это была одна покупка. Сохранятся исходная операция и категория; банковский остаток возьмём из новой копии. До подтверждения ничего не изменится.</string>
+    <string name="credo_duplicate_merge">Объединить выбранную пару</string>
+    <string name="credo_duplicate_empty">Подходящих пар нет. Платежи по 1 GEL и покупки с долями или долгами исключены.</string>
+    <string name="credo_duplicate_effect">Один лишний расход перестанет учитываться. Баланс счёта увеличится на %1$s. Банковский остаток после покупки: %2$s → %3$s. Объединение можно отменить до следующих изменений в учёте.</string>
+    <string name="credo_duplicate_undo">Отменить последнее объединение</string>
 </resources>

@@ -39,3 +39,38 @@ and ambiguous twins. The original red log is /tmp/whfin-jysk-red.log; full test/
 Full app suite: 1065 tests, zero failures/errors, four skipped. Release R8/lintVital passed;
 the existing Compose stack mapping warning for the widget remains non-blocking. Version 0.3.44
 (56) installed using install -r and verified with package manager. Owner financial rows unchanged.
+
+## Verified SMS lineage and explicit repair — 0.3.45
+
+Comparing three private backups establishes the exact sequence for the reported purchase:
+SMS in the earlier backup; the same transaction ID reconciled to STATEMENT by the first sync;
+a second STATEMENT row created by the later sync with a revised running balance. Current source
+alone had not established this history. A test now drives the actual SMS parser/importer, first
+statement and revised second statement. Temporarily disabling the revision bridge makes that
+full-chain test fail with a second insert; restoring it keeps the original ID and category.
+
+Data health offers **Review duplicate purchases**. This is an explicit one-pair decision, never a
+startup repair. The preview groups Credo legacy file-backed debit rows by account, currency, both
+dates, exact description and counterparty. It proposes only pairs with different creation times
+and different non-null balances. Transactions in the same import, 1 GEL charges, transfers, API
+identities, conflicting categories, corrections, allocations and debts are excluded. These are
+candidates, not proof of duplicate purchases; the owner confirms that there was one purchase.
+
+Confirmation checks the entire transaction/account snapshot and rechecks debt/allocation links in
+one Room transaction. It keeps the original ID and category, takes the newer copy's bank balance
+and external key, and marks the newer copy as merged into the survivor. No balancing adjustment
+is generated; the redundant expense stops contributing to account totals. The retired row remains
+in the database/backup. Old and new exports after the merge are tested not to resurrect it.
+
+An immediate **Undo last merge** action restores both exact rows and keys atomically while the
+screen's view model is alive. A changed ledger/account snapshot or new financial links prevents
+undo. It is not a persistent, unrestricted historical unmerge feature. No schema change is needed.
+
+Private backups and review artifacts remain outside the repository. The owner's phone is never
+used for instrumentation or direct database edits; actual repairs use the reviewed app interface.
+
+Validation: 1072 tests, zero failures/errors, four skipped. EN/light and RU/dark/font 1.5 native
+selection/confirmation passed; frames inspected in /tmp/whfin-duplicate-ui. Full release succeeded.
+Version 0.3.45/57 installed on Samsung. The owner-reported purchase was merged through the ordinary
+app UI; history search confirmed a single purchase with the preserved category. Other candidates
+were not merged. The owner subsequently requested checkboxes and a single batch action.

@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -118,6 +120,32 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
             catch (_: Exception) { balanceReviewError.value=true }
             finally { balanceReviewBusy.value=false }
         }
+    }
+    private val duplicateReview = dev.whekin.whfin.data.importer.CredoDuplicateReview(db)
+    internal val duplicatePreview = MutableStateFlow<dev.whekin.whfin.data.importer.CredoDuplicateReview.Preview?>(null)
+    internal val duplicateUndo = MutableStateFlow<dev.whekin.whfin.data.importer.CredoDuplicateReview.Applied?>(null)
+    val duplicateBusy = MutableStateFlow(false)
+    val duplicateError = MutableStateFlow(false)
+    private fun duplicateAction(action: suspend () -> Unit) {
+        if (duplicateBusy.value) return
+        duplicateBusy.value = true; duplicateError.value = false
+        viewModelScope.launch {
+            try { action() }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { duplicateError.value = true }
+            finally { duplicateBusy.value = false }
+        }
+    }
+    fun previewDuplicates() = duplicateAction { duplicatePreview.value = duplicateReview.preview() }
+    fun confirmDuplicate(id: Long) = duplicateAction {
+        duplicateUndo.value = duplicateReview.confirm(requireNotNull(duplicatePreview.value), id)
+        duplicatePreview.value = null
+        check(); whfinApp.refreshIntegrity()
+    }
+    fun undoDuplicate() = duplicateAction {
+        duplicateReview.undo(requireNotNull(duplicateUndo.value))
+        duplicateUndo.value = null
+        check(); whfinApp.refreshIntegrity()
     }
     private val mutations = TransactionMutationModule(db)
     private val _state = MutableStateFlow<State>(State.Checking)
@@ -258,6 +286,12 @@ fun DataHealthRoute(
     val balanceError by viewModel.balanceReviewError.collectAsState()
     balancePreview?.let { preview -> CredoBalanceReviewSheet(preview,balanceBusy,balanceError,
         { viewModel.balancePreview.value=null },viewModel::confirmCredoBalances) }
+    val duplicatePreview by viewModel.duplicatePreview.collectAsStateWithLifecycle()
+    val duplicateBusy by viewModel.duplicateBusy.collectAsStateWithLifecycle()
+    val duplicateError by viewModel.duplicateError.collectAsStateWithLifecycle()
+    val duplicateUndo by viewModel.duplicateUndo.collectAsStateWithLifecycle()
+    duplicatePreview?.let { CredoDuplicateReviewSheet(it, duplicateBusy, duplicateError,
+        { viewModel.duplicatePreview.value = null }, viewModel::confirmDuplicate) }
     LaunchedEffect(Unit) { viewModel.check() }
     DataHealthScreen(
         state = state,
@@ -271,6 +305,13 @@ fun DataHealthRoute(
         onOpenBackup = onOpenBackup,
         onOpenTransaction = onOpenTransaction,
         onReviewCredoBalances = viewModel::previewCredoBalances,
+        duplicateReview = {
+            WhfinButton(stringResource(R.string.credo_duplicate_review), viewModel::previewDuplicates,
+                style = WhfinActionStyle.Secondary, enabled = !duplicateBusy)
+            if (duplicateUndo != null) WhfinButton(stringResource(R.string.credo_duplicate_undo), viewModel::undoDuplicate,
+                style = WhfinActionStyle.Secondary, enabled = !duplicateBusy)
+            if (duplicateError) Text(stringResource(R.string.credo_balance_changed), color = MaterialTheme.colorScheme.error)
+        },
         balanceReviewBusy = balanceBusy,
         balanceReviewError = balanceError,
     )
@@ -291,6 +332,7 @@ fun DataHealthScreen(
     onReviewCredoBalances: (() -> Unit)? = null,
     balanceReviewBusy: Boolean = false,
     balanceReviewError: Boolean = false,
+    duplicateReview: @Composable () -> Unit = {},
 ) {
     var showTechnicalDetails by remember { mutableStateOf(false) }
     LazyColumn(
@@ -331,6 +373,8 @@ fun DataHealthScreen(
                 style=WhfinActionStyle.Secondary,enabled=!balanceReviewBusy)
             if(balanceReviewError) Text(stringResource(R.string.credo_balance_changed),color=MaterialTheme.colorScheme.error)
         }
+
+        item { duplicateReview() }
 
         val issues = (state as? DataHealthViewModel.State.Checked)?.issues.orEmpty()
         val flagged = (state as? DataHealthViewModel.State.Checked)?.flagged.orEmpty()
