@@ -1686,4 +1686,9 @@
     <string name="credo_duplicate_empty">Подходящих пар нет. Платежи по 1 GEL и покупки с долями или долгами исключены.</string>
     <string name="credo_duplicate_effect">Один лишний расход перестанет учитываться. Баланс счёта увеличится на %1$s. Банковский остаток после покупки: %2$s → %3$s. Объединение можно отменить до следующих изменений в учёте.</string>
     <string name="credo_duplicate_undo">Отменить последнее объединение</string>
+    <string name="credo_duplicate_batch_body">Отметь покупки, записанные дважды. Сохранятся исходные операции и категории; банковские остатки возьмём из новых копий.</string>
+    <string name="credo_duplicate_merge_count">Объединить выбранные (%1$d)</string>
+    <string name="credo_duplicate_all">Выбрать все</string>
+    <string name="credo_duplicate_clear">Снять выбор</string>
+    <string name="credo_duplicate_batch_effect">Лишних расходов: %1$d. Балансы счетов увеличатся на %2$s. Отмена вернёт всю выбранную группу до следующих изменений в учёте.</string>
 </resources>

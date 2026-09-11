@@ -137,8 +137,8 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun previewDuplicates() = duplicateAction { duplicatePreview.value = duplicateReview.preview() }
-    fun confirmDuplicate(id: Long) = duplicateAction {
-        duplicateUndo.value = duplicateReview.confirm(requireNotNull(duplicatePreview.value), id)
+    fun confirmDuplicate(ids: Set<Long>) = duplicateAction {
+        duplicateUndo.value = duplicateReview.confirm(requireNotNull(duplicatePreview.value), ids)
         duplicatePreview.value = null
         check(); whfinApp.refreshIntegrity()
     }

@@ -74,3 +74,22 @@ selection/confirmation passed; frames inspected in /tmp/whfin-duplicate-ui. Full
 Version 0.3.45/57 installed on Samsung. The owner-reported purchase was merged through the ordinary
 app UI; history search confirmed a single purchase with the preserved category. Other candidates
 were not merged. The owner subsequently requested checkboxes and a single batch action.
+
+## Batch review — 0.3.46
+
+The owner requested replacing repeated one-pair actions with checkboxes and a single apply button.
+The preview now supports independent selection, Select all/Clear selection, a selected-pair count,
+and a signed account-balance increase summed separately for each currency with checked arithmetic.
+Selection starts empty. The primary action is disabled for an empty selection or an overflowing sum.
+
+All selected pairs are checked before any row is changed and applied in one Room transaction. An
+unknown selected ID, stale snapshot, or newly attached split/debt rejects the whole batch. Immediate
+undo restores the entire batch from the same before/after snapshot. Existing candidate restrictions
+are unchanged; the bulk action does not reinterpret similar-looking transactions as proven duplicates.
+WhfinCheckList provides a single accessible checkbox target per row, shared ledger spacing, and
+wrapping labels. No extra confirmation dialog follows the displayed selected count and impact.
+
+Batch validation: 1075 app tests, zero failures/errors, four skipped; release R8/lintVital passed.
+Native EN/light and RU/dark/font 1.5 checked independent toggling, Select all, and a two-pair payload.
+Both tests passed; /tmp/whfin-batch-ui frames were inspected. Version 0.3.46/58 installed and verified
+on Samsung. Four remaining owner candidates have not been applied as a batch.

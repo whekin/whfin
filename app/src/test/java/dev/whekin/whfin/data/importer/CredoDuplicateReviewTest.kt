@@ -74,6 +74,41 @@ class CredoDuplicateReviewTest {
         assertTrue(runCatching { service.undo(applied) }.isFailure)
         assertEquals(1,db.transactionDao().allForIntegrity().count { !it.isVoided })
     }
+    private suspend fun secondPair() {
+        val a = db.transactionDao().byId(1)!!
+        val b = db.transactionDao().byId(2)!!
+        db.transactionDao().insert(a.copy(id=3, note="Second purchase", rawCounterparty="SECOND STORE", amountMinor=-250, externalKey="stmt|second|old"))
+        db.transactionDao().insert(b.copy(id=4, note="Second purchase", rawCounterparty="SECOND STORE", amountMinor=-250, externalKey="stmt|second|new"))
+    }
+    @Test fun batchMergeAndUndoAreOneAtomicSelection() = runBlocking {
+        secondPair()
+        val service = CredoDuplicateReview(db)
+        val before = db.transactionDao().allForIntegrity()
+        val preview = service.preview()
+        assertEquals(2, preview.pairs.size)
+        val applied = service.confirm(preview, setOf(1L,3L))
+        assertEquals(setOf(1L,3L), db.transactionDao().allForIntegrity().filterNot { it.isVoided }.map { it.id }.toSet())
+        service.undo(applied)
+        assertEquals(before, db.transactionDao().allForIntegrity())
+    }
+    @Test fun partialSelectionLeavesOtherPairAndInvalidBatchWritesNothing() = runBlocking {
+        secondPair()
+        val service = CredoDuplicateReview(db)
+        val before = db.transactionDao().allForIntegrity()
+        val preview = service.preview()
+        assertTrue(runCatching { service.confirm(preview, setOf(1L,99L)) }.isFailure)
+        assertEquals(before, db.transactionDao().allForIntegrity())
+        service.confirm(preview, setOf(3L))
+        assertEquals(listOf(1L), service.preview().pairs.map { it.original.id })
+    }
+    @Test fun newLinkOnSecondPairBlocksEntireBatch() = runBlocking {
+        secondPair()
+        val service = CredoDuplicateReview(db)
+        val preview = service.preview()
+        db.transactionAllocationDao().insertAll(listOf(TransactionAllocationEntity(transactionId=3,amountMinor=-250,purpose=AllocationPurpose.PERSONAL)))
+        assertTrue(runCatching { service.confirm(preview, setOf(1L,3L)) }.isFailure)
+        assertEquals(preview.rows, db.transactionDao().allForIntegrity())
+    }
     @Test fun transportAndSameImportTwinsAreNotSuggested() = runBlocking {
         val service=CredoDuplicateReview(db)
         db.transactionDao().update(db.transactionDao().byId(2)!!.copy(createdAt=1))

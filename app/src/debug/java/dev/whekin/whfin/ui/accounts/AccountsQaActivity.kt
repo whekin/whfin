@@ -45,6 +45,7 @@ import java.util.Locale
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class AccountsQaActivity : ComponentActivity() {
     var balanceReviewConfirmed = false
+    var mergedPairCount = 0
     var categorySelected = false
     var balanceAdjusted = false
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,9 +74,10 @@ class AccountsQaActivity : ComponentActivity() {
                                 rawCounterparty="EXAMPLE STORE",status=TxStatus.CONFIRMED,source=TxSource.STATEMENT,balanceAfterMinor=20000)
                             val fresh=old.copy(id=2,balanceAfterMinor=19000)
                             val preview=dev.whekin.whfin.data.importer.CredoDuplicateReview.Preview(
-                                listOf(dev.whekin.whfin.data.importer.CredoDuplicateReview.Pairing(old,fresh,"Credo •0001 GEL")),listOf(old,fresh),emptyList())
+                                listOf(dev.whekin.whfin.data.importer.CredoDuplicateReview.Pairing(old,fresh,"Credo •0001 GEL"),
+                                    dev.whekin.whfin.data.importer.CredoDuplicateReview.Pairing(old.copy(id=3,rawCounterparty="SECOND STORE",amountMinor=-250),fresh.copy(id=4,amountMinor=-250),"Credo •0001 GEL")),listOf(old,fresh),emptyList())
                             dev.whekin.whfin.ui.settings.CredoDuplicateReviewSheet(preview,
-                                onDismiss={},onConfirm={ balanceReviewConfirmed=true })
+                                onDismiss={},onConfirm={ mergedPairCount=it.size; balanceReviewConfirmed=true })
                         } else if (intent.getBooleanExtra("transferLabels", false)) {
                             val from=QA_ACCOUNTS.first().account.copy(name="Credo GEL •0001")
                             val to=from.copy(id=2,currency="EUR",iban="GE00CD0000000000000002",name="Credo EUR •0002")

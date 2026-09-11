@@ -1624,4 +1624,9 @@
     <string name="credo_duplicate_empty">No eligible pairs found. Transport charges of 1 GEL and purchases with linked splits or debts are excluded.</string>
     <string name="credo_duplicate_effect">One extra expense will stop counting. Account balance increases by %1$s. Bank balance after the purchase: %2$s → %3$s. You can undo this before further ledger changes.</string>
     <string name="credo_duplicate_undo">Undo last merge</string>
+    <string name="credo_duplicate_batch_body">Select purchases that were recorded twice. The original records and categories stay; bank balances come from the newer copies.</string>
+    <string name="credo_duplicate_merge_count">Merge selected (%1$d)</string>
+    <string name="credo_duplicate_all">Select all</string>
+    <string name="credo_duplicate_clear">Clear selection</string>
+    <string name="credo_duplicate_batch_effect">Extra expenses removed: %1$d. Account balances increase by %2$s. Undo restores the whole selection before further ledger changes.</string>
 </resources>

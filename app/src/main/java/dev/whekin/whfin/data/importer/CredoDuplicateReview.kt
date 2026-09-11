@@ -41,15 +41,20 @@ internal class CredoDuplicateReview(private val db: WhfinDatabase) {
             db.debtDao().eventsForTransaction(tx.id).isEmpty() &&
             db.transactionDao().activeCorrectionsFor(tx.id).isEmpty()
 
-    suspend fun confirm(preview: Preview, originalId: Long): Applied = db.withTransaction {
+    suspend fun confirm(preview: Preview, originalId: Long): Applied = confirm(preview, setOf(originalId))
+
+    suspend fun confirm(preview: Preview, originalIds: Set<Long>): Applied = db.withTransaction {
+        require(originalIds.isNotEmpty())
         check(db.transactionDao().allForIntegrity() == preview.rows && db.accountDao().allForIntegrity() == preview.accounts) { "Ledger changed; reopen review" }
-        val pair = preview.pairs.single { it.original.id == originalId }
-        check(unlinked(pair.original) && unlinked(pair.newer)) { "Links changed; reopen review" }
-        // Keep the original ID for message diagnostics and category references. Retire the newer
-        // copy before transferring its unique external key. Never create a balancing adjustment.
-        db.transactionDao().update(pair.newer.copy(externalKey = null, isVoided = true, mergedIntoTransactionId = originalId))
-        db.transactionDao().update(pair.original.copy(externalKey = pair.newer.externalKey,
-            balanceAfterMinor = pair.newer.balanceAfterMinor, categoryId = pair.original.categoryId ?: pair.newer.categoryId))
+        val pairs = preview.pairs.filter { it.original.id in originalIds }
+        require(pairs.size == originalIds.size)
+        check(pairs.all { unlinked(it.original) && unlinked(it.newer) }) { "Links changed; reopen review" }
+        // One atomic decision for the whole selection; preserve original IDs and categories.
+        for (pair in pairs) {
+            db.transactionDao().update(pair.newer.copy(externalKey = null, isVoided = true, mergedIntoTransactionId = pair.original.id))
+            db.transactionDao().update(pair.original.copy(externalKey = pair.newer.externalKey,
+                balanceAfterMinor = pair.newer.balanceAfterMinor, categoryId = pair.original.categoryId ?: pair.newer.categoryId))
+        }
         Applied(preview, db.transactionDao().allForIntegrity())
     }
 

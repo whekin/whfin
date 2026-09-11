@@ -1,6 +1,8 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -145,6 +147,27 @@ fun <T> WhfinSegmentedChoice(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Multiple independent ledger choices, with the whole row as one checkbox target. */
+@Composable
+fun <T> WhfinCheckList(options: List<WhfinChoice<T>>, selected: Set<T>, onToggle: (T) -> Unit, enabled: Boolean = true) {
+    WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, option ->
+            Row(Modifier.fillMaxWidth()
+                .toggleable(value = option.value in selected, enabled = enabled, role = Role.Checkbox, onValueChange = { onToggle(option.value) })
+                .background(if (option.value in selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+                .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Checkbox(checked = option.value in selected, onCheckedChange = null, enabled = enabled)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                    option.supportingText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+            if (index < options.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
