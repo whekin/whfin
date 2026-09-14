@@ -543,9 +543,20 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 transactionId = canceled.transactionId,
             )
         }
-        if (bank == BankSmsBank.TBC && sms is BankSmsMessage.CardPayment) db.smsDiagnosticDao().byExternalKey(key)?.transactionId?.let { id ->
-            db.transactionDao().byId(id)?.let { return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE,
-                db.smsDiagnosticDao().byExternalKey(key)?.id, id) }
+        // Message identity survives settlement, which replaces the transaction's external key.
+        // Re-reading a receipt must not erase its durable diagnostic link or create new money.
+        db.smsDiagnosticDao().byExternalKey(key)?.let { evidence ->
+            evidence.transactionId?.let { id ->
+                var linked = db.transactionDao().byId(id)
+                val seen = mutableSetOf<Long>()
+                while (linked?.mergedIntoTransactionId != null && seen.add(linked.id))
+                    linked = db.transactionDao().byId(requireNotNull(linked.mergedIntoTransactionId))
+                linked?.let { survivor ->
+                    if (persist && evidence.transactionId != survivor.id)
+                        db.smsDiagnosticDao().update(evidence.copy(transactionId = survivor.id))
+                    return SmsImportResult(SmsDiagnosticOutcome.DUPLICATE, evidence.id.takeIf { persist }, survivor.id)
+                }
+            }
         }
         attachBankHold(sms, key, receivedAt, persist)?.let { return it }
         crossChannelCard(sms, key, receivedAt, persist)?.let { return it }

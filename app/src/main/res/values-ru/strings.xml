@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="credo_sync_balance_review">История загружена. Остаток на конец выписки не совпал с банком. Проверьте несопоставленные сообщения и дубли в разделе «Проверка данных». Корректировка баланса не создавалась.</string>
     <plurals name="accounts_container_count">
         <item quantity="one">%1$d счёт</item>
         <item quantity="few">%1$d счёта</item>

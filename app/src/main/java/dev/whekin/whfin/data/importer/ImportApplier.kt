@@ -44,6 +44,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 is PlannedRow.Insert -> insert(entry, account, statement.currency, now)
                 is PlannedRow.Reconcile -> reconcile(entry, statement.currency)
                 is PlannedRow.ReconcileDuplicate -> reconcileDuplicate(entry, statement.currency)
+                is PlannedRow.Consolidate -> consolidate(entry, statement.currency)
             }
         }
 
@@ -85,6 +86,28 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         return importId
     }
 
+    private suspend fun consolidate(entry: PlannedRow.Consolidate, currency: String) {
+        val rows = entry.transactionIds.map { requireNotNull(db.transactionDao().byId(it)) }
+        val existing = entry.statementId?.let { requireNotNull(db.transactionDao().byId(it)) }
+        val participants = rows + listOfNotNull(existing)
+        if (participants.mapNotNull { it.categoryId }.distinct().size > 1 || participants.any {
+            it.isVoided || it.transferGroupId != null || it.isTransfer ||
+                db.transactionAllocationDao().forTransaction(it.id).isNotEmpty() ||
+                db.debtDao().eventsForTransaction(it.id).isNotEmpty()
+        }) throw InvalidStatementException("A consolidated charge has protected financial links.")
+        val survivor = rows.first()
+        val category = participants.firstNotNullOfOrNull { it.categoryId }
+        for (retired in participants.filterNot { it.id == survivor.id }) {
+            db.transactionDao().update(retired.copy(externalKey = null, isVoided = true, mergedIntoTransactionId = survivor.id))
+            for (message in db.smsDiagnosticDao().forTransaction(retired.id))
+                db.smsDiagnosticDao().update(message.copy(transactionId = survivor.id))
+            db.bankHoldDao().relink(retired.id, survivor.id)
+        }
+        reconcile(PlannedRow.Reconcile(entry.row, entry.externalKey, survivor.id), currency)
+        val updated = requireNotNull(db.transactionDao().byId(survivor.id))
+        db.transactionDao().update(updated.copy(categoryId = category ?: updated.categoryId))
+    }
+
     private suspend fun insert(entry: PlannedRow.Insert, account: AccountEntity, currency: String, now: Long) {
         val row = entry.row
         val merchant = merchantFor(row)
@@ -115,6 +138,10 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun reconcile(entry: PlannedRow.Reconcile, currency: String) {
         val row = entry.row
         val draft = db.transactionDao().byId(entry.transactionId) ?: return
+        if ((draft.amountMinor != row.amountMinor || draft.currency != currency) &&
+            (db.transactionAllocationDao().forTransaction(draft.id).isNotEmpty() ||
+                db.debtDao().eventsForTransaction(draft.id).isNotEmpty()))
+            throw InvalidStatementException("A changed bank amount has a split or debt link.")
         val explicitBridge = draft.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
             ?.type == dev.whekin.whfin.data.db.TransferGroupType.OWN_LINK
         if (row.bankTransactionId != null && draft.transferGroupId != null && !explicitBridge) {
@@ -142,7 +169,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 counterpartyIban = row.beneficiaryAccount,
                 // The statement is authoritative about the money, not about what the user decided
                 // this row means: a category already on the draft outlives an import that has none.
-                categoryId = draft.categoryId.takeIf { draft.source == TxSource.STATEMENT || (row.bankTransactionId != null && draft.source == TxSource.BANK_HOLD) }
+                categoryId = draft.categoryId
                     ?: (if (row.operation == StatementOperation.FEE) operationCategory(row) else null)
                     ?: merchant?.categoryId
                     ?: counterpartyCategory(row)
@@ -171,6 +198,10 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
     private suspend fun reconcileDuplicate(entry: PlannedRow.ReconcileDuplicate, currency: String) {
         val duplicate = db.transactionDao().byId(entry.duplicateStatementId) ?: return
         val sms = db.transactionDao().byId(entry.transactionId) ?: return
+        if ((duplicate.categoryId != null && sms.categoryId != null && duplicate.categoryId != sms.categoryId) ||
+            db.transactionAllocationDao().forTransaction(duplicate.id).isNotEmpty() ||
+            db.debtDao().eventsForTransaction(duplicate.id).isNotEmpty())
+            throw InvalidStatementException("Duplicate evidence has conflicting categories, splits or debt links.")
 
         val duplicateBridge = duplicate.transferGroupId?.let { db.transactionDao().transferGroupById(it) }
             ?.takeIf { it.type == dev.whekin.whfin.data.db.TransferGroupType.OWN_LINK }
@@ -201,10 +232,14 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
             ),
         )
         db.bankHoldDao().relink(duplicate.id, sms.id)
+        for (message in db.smsDiagnosticDao().forTransaction(duplicate.id))
+            db.smsDiagnosticDao().update(message.copy(transactionId = sms.id))
         reconcile(
             PlannedRow.Reconcile(entry.row, entry.externalKey, entry.transactionId),
             currency,
         )
+        val updated = requireNotNull(db.transactionDao().byId(sms.id))
+        db.transactionDao().update(updated.copy(categoryId = sms.categoryId ?: duplicate.categoryId ?: updated.categoryId))
     }
 
     /**

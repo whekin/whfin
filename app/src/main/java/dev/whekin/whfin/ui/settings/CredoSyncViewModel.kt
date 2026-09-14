@@ -80,6 +80,7 @@ data class CredoSyncFileResult(
     val originalStatementToken: String? = null,
     /** Masked, user-facing SAF suggestion; never contains the full account number. */
     val originalStatementFileName: String? = null,
+    val balanceNeedsReview: Boolean = false,
 )
 
 enum class CredoSyncExtraPhase { LINKING_CARDS, CHECKING_HISTORY }
@@ -374,6 +375,7 @@ class CredoSyncViewModel internal constructor(
                         duplicates = result.duplicates,
                         reconciled = result.reconciled,
                         unmappedOperationNames = result.unmappedOperationNames,
+                        balanceNeedsReview = result.balanceNeedsReview,
                     )
                 } catch (error: CredoSessionExpiredException) {
                     // Сессия умерла посреди прогона: остальные счета не молотим тем же 401,
@@ -504,6 +506,7 @@ class CredoSyncViewModel internal constructor(
                 var inserted = carried?.inserted ?: 0
                 var duplicates = carried?.duplicates ?: 0
                 var reconciled = carried?.reconciled ?: 0
+                var balanceNeedsReview = carried?.balanceNeedsReview ?: false
                 val unmappedOperationNames = linkedSetOf<String>().apply { addAll(carried?.unmappedOperationNames.orEmpty()) }
                 var errorCode: String? = null
                 var failedWindow: dev.whekin.whfin.data.credo.CredoHistoryChunk? = null
@@ -569,6 +572,7 @@ class CredoSyncViewModel internal constructor(
                             inserted += result.inserted
                             duplicates += result.duplicates
                             reconciled += result.reconciled
+                            balanceNeedsReview = balanceNeedsReview || result.balanceNeedsReview
                         }
                         preview.statement
                     } catch (error: CredoSessionExpiredException) {
@@ -630,13 +634,14 @@ class CredoSyncViewModel internal constructor(
                         originalStatementToken = failedOriginal?.token,
                         originalStatementFileName = failedOriginal?.fileName,
                     )
-                    inserted == 0 && reconciled == 0 && unmappedOperationNames.isEmpty() -> unchanged += 1
+                    inserted == 0 && reconciled == 0 && unmappedOperationNames.isEmpty() && !balanceNeedsReview -> unchanged += 1
                     else -> results += CredoSyncFileResult(
                         account.maskedLabel,
                         inserted = inserted,
                         duplicates = duplicates,
                         reconciled = reconciled,
                         unmappedOperationNames = unmappedOperationNames,
+                        balanceNeedsReview = balanceNeedsReview,
                         askedFrom = failedWindow?.from?.toString(),
                         askedTo = failedWindow?.to?.toString(),
                         detail = failedDetail,

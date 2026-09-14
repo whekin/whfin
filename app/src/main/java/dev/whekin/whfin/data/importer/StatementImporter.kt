@@ -38,6 +38,7 @@ class StatementImporter(private val db: WhfinDatabase) {
         val importId: Long,
         val reviewCount: Int,
         val unmappedOperationNames: Set<String> = emptySet(),
+        val balanceNeedsReview: Boolean = false,
     )
 
     /** What an import would do to the ledger as it stands right now, without writing anything. */
@@ -52,6 +53,7 @@ class StatementImporter(private val db: WhfinDatabase) {
         val reconciled: Int,
         val reviewCount: Int,
         val unmappedOperationNames: Set<String> = emptySet(),
+        val balanceNeedsReview: Boolean = false,
     ) {
         /** A wrong file picked here leaves an account behind, so this is worth confirming. */
         val createsAccount: Boolean get() = ledgerEffect == LedgerEffect.CREATED
@@ -64,7 +66,7 @@ class StatementImporter(private val db: WhfinDatabase) {
          */
         val changesNothing: Boolean
             get() = ledgerEffect == LedgerEffect.UNCHANGED &&
-                inserted == 0 && reconciled == 0 && reviewCount == 0
+                inserted == 0 && reconciled == 0 && reviewCount == 0 && !balanceNeedsReview
     }
 
     private val zone = LedgerCalendar.zone
@@ -105,6 +107,7 @@ class StatementImporter(private val db: WhfinDatabase) {
             reconciled = plan.reconciled,
             reviewCount = plan.reviewCandidateIds.size,
             unmappedOperationNames = statement.unmappedOperationNames,
+            balanceNeedsReview = StatementLedgerAudit(db, zone).needsReview(statement, account.id),
         )
     }
 
@@ -144,6 +147,7 @@ class StatementImporter(private val db: WhfinDatabase) {
                 importId = importId,
                 reviewCount = plan.reviewCandidateIds.size,
                 unmappedOperationNames = statement.unmappedOperationNames,
+                balanceNeedsReview = StatementLedgerAudit(db, zone).needsReview(statement, plan.accountId),
             )
         }
     }

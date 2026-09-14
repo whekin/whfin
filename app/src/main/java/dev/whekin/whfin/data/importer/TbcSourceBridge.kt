@@ -26,6 +26,12 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
             if (matches.size > 1) conflict()
             val found = matches.singleOrNull()
             if (found != null) {
+                if (bank == "Credo" && id == null && !sameFileRow(row, found)) {
+                    // A balance-based legacy key may be reused by a different merchant after the
+                    // bank reorders equal-sized charges. It is a locator, not proof of identity.
+                    unmatched[key] = row
+                    continue
+                }
                 claimed += found.id
                 if (mobile && !ids.isMobileOnly(found.externalKey)) {
                     // The file is richer evidence. Mobile data must not erase its running balance,
@@ -50,6 +56,23 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
             for ((key, matches) in fileChoices) {
                 val row = unmatched.getValue(key)
                 if (matches.isEmpty()) continue
+                if (key in known) continue
+                if (matches.size > 1) {
+                    val cohort = fileChoices.filterValues { choices -> choices.map { it.id }.toSet() == matches.map { it.id }.toSet() }
+                    // Reordered identical postings still represent the same number of movements.
+                    // Preserve every ID; no operation is removed or new amount inferred.
+                    if (cohort.size != matches.size || matches.any { it.id in claimed } ||
+                        fileChoices.filterKeys { it !in cohort }.values.any { choices -> choices.any { candidate -> candidate in matches } }) conflict()
+                    cohort.keys.zip(matches.sortedBy { it.id }).forEach { (cohortKey, found) ->
+                        val incomingRow = unmatched.getValue(cohortKey)
+                        claimed += found.id
+                        val retained = requireNotNull(found.externalKey)
+                        known[cohortKey] = if (found.isVoided || found.balanceAfterMinor == incomingRow.balanceAfterMinor)
+                            PlannedRow.Duplicate(incomingRow, retained)
+                        else PlannedRow.Reconcile(incomingRow, retained, found.id)
+                    }
+                    continue
+                }
                 val found = matches.singleOrNull() ?: conflict()
                 if (fileChoices.values.count { found in it } != 1) conflict()
                 claimed += found.id
@@ -90,6 +113,7 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
         // An unmatched row that could be a renamed opposite-source row is not safe to insert.
         for ((key, row) in unmatched) {
             if (key in known) continue
+            if (bank == "Credo" && row.bankTransactionId == null && existing.any { ids.hasFile(it.externalKey, key) }) conflict()
             val mobile = ids.isMobileId(row.bankTransactionId)
             if (existing.any { it.id !in claimed && it.externalKey != null &&
                     (if (mobile) !ids.isMobileOnly(it.externalKey) else ids.mobileFromKey(it.externalKey) != null) && potentialDuplicate(row, it) }) conflict()

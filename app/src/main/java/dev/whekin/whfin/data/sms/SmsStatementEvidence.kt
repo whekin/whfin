@@ -166,14 +166,18 @@ internal class SmsStatementEvidence(
     ): List<Pair<AccountEntity, TransactionEntity>> {
         val occurredAt = diagnostic.occurredAt ?: return emptyList()
         val day = Instant.ofEpochMilli(occurredAt).atZone(zone).toLocalDate()
+        val receivedDay = Instant.ofEpochMilli(diagnostic.receivedAt).atZone(zone).toLocalDate()
+        val days = if (BankSmsBank.fromKey(diagnostic.externalKey) == BankSmsBank.CREDO && day > receivedDay &&
+            diagnostic.kind in setOf(SmsDiagnosticKind.OUTGOING_TRANSFER, SmsDiagnosticKind.INCOMING_TRANSFER))
+            setOf(day, receivedDay) else setOf(day)
         // A card reaches the statement a day or two after the purchase, and the statement books it
         // on the purchase date; a day either side covers the disagreement without inviting another.
-        val from = day.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val to = day.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         val accounts = restrictTo?.filter { it.currency == currency }
             ?: db.accountDao().bankAccountsByCurrency(currency)
         return accounts.filter { BankSmsBank.fromKey(diagnostic.externalKey).accepts(db, it) }.flatMap { account ->
-            db.transactionDao().statementCandidates(account.id, from, to)
+            days.flatMap { possibleDay -> db.transactionDao().statementCandidates(account.id,
+                possibleDay.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+                possibleDay.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli() - 1) }.distinctBy { it.id }
                 .filter {
                     db.smsDiagnosticDao()
                         .countOtherForTransaction(it.id, diagnostic.externalKey) == 0

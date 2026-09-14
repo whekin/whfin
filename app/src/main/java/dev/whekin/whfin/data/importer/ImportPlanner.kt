@@ -30,9 +30,15 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             else -> null
         }
         val bridge = sourceBridge?.plan(statement, db.transactionDao().allStatementRows(account.id)).orEmpty()
+        val smsReconciliation = CredoSmsReconciliation(db, zone)
+        val aggregates = smsReconciliation.aggregates(statement, account.id)
+        val transfers = smsReconciliation.transfers(statement, account.id) + smsReconciliation.ownTransfers(statement, account.id)
         // One draft may confirm only one statement line: without this the same SMS would be claimed
         // by every similar row in the file and the rest would be inserted as duplicates of it.
-        val claimed = mutableSetOf<Long>()
+        val aggregateIds = aggregates.values.flatten().map { it.id }
+        if (aggregateIds.size != aggregateIds.distinct().size)
+            throw AmbiguousStatementIdentityException("One message could explain multiple consolidated charges.")
+        val claimed = aggregateIds.toMutableSet()
         val candidatesByWindow = mutableMapOf<Pair<LocalDate, Boolean>, List<dev.whekin.whfin.data.db.TransactionEntity>>()
 
         val withdrawnHolds = if (statement.bank.provider == "TBC") db.bankHoldDao().forAccount(account.id)
@@ -56,8 +62,20 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
                 if (canonical in existingKeys) throw InvalidStatementException("A withdrawn hold conflicts with an existing settlement.")
                 return@map PlannedRow.LinkIdentity(row, canonical, held.id)
             }
-            bridge[canonical]?.let { return@map it }
-            val key = sourceBridge?.existingKey(row, canonical, existingKeys) ?: canonical
+            val bridged = bridge[canonical]
+            val key = bridged?.externalKey ?: sourceBridge?.existingKey(row, canonical, existingKeys) ?: canonical
+            aggregates[canonical]?.let { cohort ->
+                val existing = when (bridged) {
+                    is PlannedRow.Reconcile -> db.transactionDao().byId(bridged.transactionId)
+                    is PlannedRow.LinkIdentity -> db.transactionDao().byId(bridged.transactionId)
+                    else -> db.transactionDao().byExternalKey(key)
+                }
+                if (existing?.isVoided == true) throw InvalidStatementException("A consolidated charge conflicts with an owner withdrawal.")
+                claimed += cohort.map { it.id }
+                return@map PlannedRow.Consolidate(existing?.let { fileAuthoritativeRow(row, it, bridged) } ?: row,
+                    key, cohort.map { it.id }, existing?.id)
+            }
+            // A file/API identity is not a reason to skip a still-active SMS copy.
             val day = row.purchaseDate ?: row.postedDate
             val crossesMidnight = row.operation.isOwnMovement
             val candidates = candidatesByWindow.getOrPut(day to crossesMidnight) {
@@ -78,7 +96,8 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
                     } != false
             }
 
-            val draft = StatementReconciler.match(row, candidates)
+            val draft = transfers[canonical]?.takeIf { it.id !in claimed } ?: StatementReconciler.match(row, candidates)
+            if (draft == null) bridged?.let { return@map it }
             if (draft?.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD &&
                 dev.whekin.whfin.data.tbc.TbcHistoryParser.purchaseTime(row.description) == null &&
                 statement.rows.count { other -> (other.purchaseDate ?: other.postedDate) == day &&
@@ -91,9 +110,14 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             if (draft?.source == dev.whekin.whfin.data.db.TxSource.BANK_HOLD && draft.amountMinor != row.amountMinor &&
                 (db.transactionAllocationDao().forTransaction(draft.id).isNotEmpty() || db.debtDao().eventsForTransaction(draft.id).isNotEmpty()))
                 throw InvalidStatementException("A changed pending purchase is linked to a split or debt.")
-            if (key in existingKeys) {
-                val existing = db.transactionDao().byExternalKey(key)
-                if (row.bankTransactionId != null && existing != null && !existing.isVoided &&
+            val bridgedTransactionId = when (bridged) {
+                is PlannedRow.Reconcile -> bridged.transactionId
+                is PlannedRow.LinkIdentity -> bridged.transactionId
+                else -> null
+            }
+            if (key in existingKeys || bridgedTransactionId != null) {
+                val existing = bridgedTransactionId?.let { db.transactionDao().byId(it) } ?: db.transactionDao().byExternalKey(key)
+                if (draft == null && bridged !is PlannedRow.Duplicate && row.bankTransactionId != null && existing != null && !existing.isVoided &&
                     (existing.amountMinor != row.amountMinor || existing.balanceAfterMinor != row.balanceAfterMinor ||
                         existing.occurredAt != day.atStartOfDay(zone).toInstant().toEpochMilli() ||
                         existing.postedAt != row.postedDate.atStartOfDay(zone).toInstant().toEpochMilli() ||
@@ -113,7 +137,8 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
                     !existing.isVoided
                 ) {
                     claimed += draft.id
-                    return@map PlannedRow.ReconcileDuplicate(row, key, draft.id, existing.id)
+                    val authoritative = fileAuthoritativeRow(row, existing, bridged)
+                    return@map PlannedRow.ReconcileDuplicate(authoritative, key, draft.id, existing.id)
                 }
                 return@map PlannedRow.Duplicate(row, key)
             }
@@ -156,6 +181,18 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             safeTo.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1,
         ).map { it.id }.filterNot { it in reconciled }
     }
+
+    private fun fileAuthoritativeRow(row: dev.whekin.whfin.data.statement.StatementRow,
+        existing: dev.whekin.whfin.data.db.TransactionEntity, bridged: PlannedRow?) =
+        if (row.bankTransactionId != null && (bridged is PlannedRow.Duplicate || bridged is PlannedRow.LinkIdentity)) row.copy(
+            amountMinor = existing.amountMinor,
+            balanceAfterMinor = existing.balanceAfterMinor,
+            description = existing.note ?: existing.rawCounterparty.orEmpty(),
+            merchantRaw = existing.rawCounterparty,
+            beneficiaryAccount = existing.counterpartyIban,
+            purchaseDate = java.time.Instant.ofEpochMilli(existing.occurredAt).atZone(zone).toLocalDate(),
+            postedDate = java.time.Instant.ofEpochMilli(existing.postedAt ?: existing.occurredAt).atZone(zone).toLocalDate(),
+        ) else row
 
     private companion object {
         const val SETTLEMENT_LAG_DAYS = 3L

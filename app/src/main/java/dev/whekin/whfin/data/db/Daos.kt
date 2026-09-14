@@ -1149,6 +1149,8 @@ interface ReconciliationIssueDao {
 
 @Dao
 interface SmsDiagnosticDao {
+    @Query("SELECT d.* FROM sms_diagnostics d JOIN transactions t ON t.id = d.transactionId WHERE t.accountId = :accountId AND t.source = 'SMS' AND t.isVoided = 0")
+    suspend fun activeEvidenceForAccount(accountId: Long): List<SmsDiagnosticEntity>
     @Query("SELECT * FROM sms_diagnostics WHERE transactionId = :id") suspend fun forTransaction(id: Long): List<SmsDiagnosticEntity>
     @Query("SELECT * FROM sms_diagnostics ORDER BY receivedAt DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<SmsDiagnosticEntity>>

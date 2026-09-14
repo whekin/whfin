@@ -83,7 +83,9 @@ class AccountsQaActivity : ComponentActivity() {
                                         },
                                         canLoadOlderHistory = false,
                                         accounts = listOf(dev.whekin.whfin.data.credo.CredoRemoteAccount("GE00CD0000000000000001", "GEL", 1, "Account", "ACCOUNT")),
-                                        results = listOf(dev.whekin.whfin.ui.settings.CredoSyncFileResult("Credo •0001 GEL", errorCode = "HISTORY_MATCH_AMBIGUOUS"))),
+                                        results = listOf(dev.whekin.whfin.ui.settings.CredoSyncFileResult("Credo •0001 GEL",
+                                            errorCode = if (intent.getBooleanExtra("balanceReview", false)) null else "HISTORY_MATCH_AMBIGUOUS",
+                                            balanceNeedsReview = intent.getBooleanExtra("balanceReview", false)))),
                                     canStoreCredentials = true, onOpenAppLock = {}, onConnect = { _, _, _ -> },
                                     onSubmitOtp = {}, onResendOtp = {}, onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {})
                             }

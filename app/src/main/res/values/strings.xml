@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="credo_sync_balance_review">History loaded. The recorded balance at the statement end differs from the bank. Review unmatched messages and duplicate operations in Data health; no balance adjustment was made.</string>
     <plurals name="accounts_container_count">
         <item quantity="one">%1$d account</item>
         <item quantity="other">%1$d accounts</item>

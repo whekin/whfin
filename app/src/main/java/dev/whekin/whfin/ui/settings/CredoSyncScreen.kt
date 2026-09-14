@@ -840,9 +840,12 @@ private fun ConnectedContent(
                         if (file.originalStatementToken != null) {
                             append('\n').append(stringResource(R.string.credo_sync_original_available))
                         }
+                        if (file.balanceNeedsReview) {
+                            append('\n').append(stringResource(R.string.credo_sync_balance_review))
+                        }
                     },
                     icon = Icons.Default.AccountBalance,
-                    iconTint = if (hasFailure) MaterialTheme.colorScheme.error
+                    iconTint = if (hasFailure || file.balanceNeedsReview) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.primary,
                     trailing = if (
                         file.originalStatementToken != null && file.originalStatementFileName != null
@@ -860,7 +863,7 @@ private fun ConnectedContent(
                             )
                         }
                     } else null,
-                    supportingMaxLines = if (file.originalStatementToken != null) 6 else 5,
+                    supportingMaxLines = if (file.balanceNeedsReview) Int.MAX_VALUE else if (file.originalStatementToken != null) 6 else 5,
                     divider = index != state.results.lastIndex,
                 )
             }
