@@ -45,7 +45,7 @@ class CredoHistoryLoadTest {
     private val zone = ZoneId.of("Asia/Tbilisi")
 
     /** Serves one year per call; the API extent independently names the oldest available row. */
-    private inner class HistoryGateway(private val years: Long = 2) : CredoGateway {
+    private inner class HistoryGateway(private val years: Long = 2, private val failRecent: Boolean = false, private val ambiguousRecent: Boolean = false) : CredoGateway {
         val windows = mutableListOf<Pair<LocalDate, LocalDate>>()
 
         override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
@@ -109,6 +109,12 @@ class CredoHistoryLoadTest {
         override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount) =
             dev.whekin.whfin.data.credo.CredoHistoryExtent(LocalDate.now(zone).minusYears(years))
 
+        override suspend fun history(session: CredoSession, account: CredoRemoteAccount, from: LocalDate, to: LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> {
+            if (failRecent) throw dev.whekin.whfin.data.importer.InvalidStatementException("Synthetic validation failure")
+            if (ambiguousRecent) throw dev.whekin.whfin.data.importer.AmbiguousStatementIdentityException("Synthetic matching conflict")
+            throw CredoApiException("HISTORY_UNAVAILABLE")
+        }
+
         private fun String.toLocalDate(): LocalDate =
             Instant.from(DateTimeFormatter.ISO_INSTANT.parse(this)).atZone(zone).toLocalDate()
     }
@@ -165,6 +171,42 @@ class CredoHistoryLoadTest {
         assertEquals(2, result.inserted)
         assertEquals(0, vm.state.value.unchanged)
         assertEquals(0, vm.state.value.currentChunk)
+    }
+
+    @Test fun existingCompleteCoverageIsRecoveredEvenWhenRecentMatchingFails() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val firstGateway = HistoryGateway()
+        val first = CredoSyncViewModel(app, firstGateway, CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        first.connect("user", "password", remember = false)
+        await { first.state.value.stage == CredoSyncStage.Connected }
+        first.loadHistory()
+        await { first.state.value.stage == CredoSyncStage.Connected && !first.state.value.canLoadOlderHistory }
+        dev.whekin.whfin.data.credo.CredoHistoryStore(app).clear()
+        val gateway = HistoryGateway(failRecent = true)
+        val vm = CredoSyncViewModel(app, gateway, CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+        vm.sync()
+        await { vm.state.value.stage == CredoSyncStage.Connected && !vm.state.value.canLoadOlderHistory }
+        assertEquals("STATEMENT_REJECTED", vm.state.value.results.single().errorCode)
+        assertEquals(0, gateway.windows.size)
+    }
+
+    @Test fun ambiguousApiPlanFallsBackToOneBankExport() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val seed = CredoSyncViewModel(app, HistoryGateway(), CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        seed.connect("user", "password", remember = false)
+        await { seed.state.value.stage == CredoSyncStage.Connected }
+        seed.loadHistory()
+        await { seed.state.value.stage == CredoSyncStage.Connected && !seed.state.value.canLoadOlderHistory }
+        val gateway = HistoryGateway(ambiguousRecent = true)
+        val vm = CredoSyncViewModel(app, gateway, CredoSecretStore(app), syncDispatcher = dispatcher, retryDelayMillis = emptyList())
+        vm.connect("user", "password", remember = false)
+        await { vm.state.value.stage == CredoSyncStage.Connected }
+        vm.sync()
+        await { vm.state.value.stage == CredoSyncStage.Connected && gateway.windows.size == 1 }
+        assertEquals(1, gateway.windows.size)
+        org.junit.Assert.assertTrue(vm.state.value.results.none { it.errorCode != null })
     }
 
     @Test fun firstConnectionAutomaticallyWalksPastZeroAndAnEmptyYear() {

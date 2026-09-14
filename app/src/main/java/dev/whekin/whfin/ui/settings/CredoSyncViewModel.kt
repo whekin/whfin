@@ -308,6 +308,11 @@ class CredoSyncViewModel internal constructor(
                         if (e.code.isCredoAuthError()) throw CredoSessionExpiredException(e)
                         // Older/fake gateways and products without a history ID retain bank export.
                         if (e.code == "HISTORY_UNAVAILABLE" || e.code == "HISTORY_REQUIRES_STATEMENT") null else throw e
+                    } catch (e: dev.whekin.whfin.data.importer.AmbiguousStatementIdentityException) {
+                        // The API plan is atomic and has written nothing. A current bank export
+                        // can still identify these legacy rows by their file identities.
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.XLSX_AMBIGUOUS_API)
+                        null
                     }
                     if (apiPlan != null) {
                         dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.API_APPLIED, apiPlan.totalRows, apiPlan.inserted)
@@ -424,6 +429,25 @@ class CredoSyncViewModel internal constructor(
             refreshHistoryPresence()
             retryAccountKeys = nextRetryAccountKeys
             retryStore.save(nextRetryAccountKeys)
+            // Coverage is independent of whether a recent row could be reconciled. Verify each
+            // imported ledger against the bank's oldest row without downloading its files again.
+            for (account in allAccounts.filter { it.stableKey !in historyStore.load() }) {
+                val earliest = earliestKnownFor(account) ?: continue
+                try {
+                    val extent = gateway.historyExtent(activeSession, account) ?: continue
+                    if (extent.oldestDate == null || earliest <= extent.oldestDate) {
+                        historyStore.markComplete(setOf(account.stableKey))
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.HISTORY_COMPLETE)
+                    } else {
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.HISTORY_INCOMPLETE)
+                    }
+                } catch (error: Exception) {
+                    error.throwIfCancellation()
+                    // An unavailable boundary is not proof that history is complete.
+                    if (error is CredoApiException && error.code.isCredoAuthError()) break
+                }
+            }
+            refreshHistoryPresence()
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
                 currentAccount = 0,
@@ -913,6 +937,7 @@ class CredoSyncViewModel internal constructor(
         // Distinct from the gateway's INVALID_STATEMENT, which means the download itself would not
         // decode. These two mean the bytes arrived and our own reading of them refused.
         is MalformedStatementException -> "STATEMENT_UNREADABLE"
+        is dev.whekin.whfin.data.importer.AmbiguousStatementIdentityException -> "HISTORY_MATCH_AMBIGUOUS"
         is InvalidStatementException -> "STATEMENT_REJECTED"
         is AmbiguousBankLedgerException -> "AMBIGUOUS_LEDGER"
         else -> "UNKNOWN_ERROR"

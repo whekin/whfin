@@ -242,7 +242,9 @@ class MyCredoGateway internal constructor(
             // Some FX card receipts are presentation pairs, not independent ledger movements.
             // Keep the proven export path until that representation is verified against a statement.
             if (booked.groupBy { it.getString("operationDateTime") }.values.any { group ->
-                group.size > 1 && group.any { it.optString("transactionTypeName") == "Currency_exchange" ||
+                group.size > 1 && group.any { it.optString("operationType") == "Card transaction" ||
+                    it.optString("description").startsWith("გადახდა - ") || it.optString("description").startsWith("Payment - ") } &&
+                group.any { it.optString("transactionTypeName") == "Currency_exchange" ||
                     it.optString("transactionType") == "CurrencyExchange" ||
                     it.optString("operationType") in setOf("Currency conversion", "Currency exchange", "უნაღდო კონვერტაცია") }
             }) {

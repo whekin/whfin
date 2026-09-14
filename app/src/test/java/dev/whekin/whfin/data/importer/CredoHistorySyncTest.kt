@@ -46,6 +46,18 @@ class CredoHistorySyncTest {
     private suspend fun sync(rows: List<StatementRow>) = CredoHistorySync(db).sync(gateway(rows), session, remote, day, day)
     @Before fun setup() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), WhfinDatabase::class.java).allowMainThreadQueries().build() }
     @After fun close() = db.close()
+    @Test fun peerAccountDisambiguatesSameDaySameAmountTransfers() = runBlocking {
+        val first = row().copy(operation = StatementOperation.OWN_TRANSFER, description = "Own transfer", merchantRaw = null,
+            beneficiaryName = "Owner", beneficiaryAccount = "GE00CD0000000000000002")
+        val second = first.copy(beneficiaryAccount = "GE00CD0000000000000003", balanceAfterMinor = 9000)
+        file(listOf(first, second))
+        val remoteRows = listOf(first.copy(bankTransactionId = CredoRowIdentity.mobileId("a"), balanceAfterMinor = null, description = "Transfer between own accounts"),
+            second.copy(bankTransactionId = CredoRowIdentity.mobileId("b"), balanceAfterMinor = null, description = "Transfer between own accounts"))
+        assertEquals(2, sync(remoteRows)!!.reconciled)
+        assertTrue(sync(remoteRows)!!.isNoOp)
+        assertEquals(2, db.transactionDao().allStatementRows(db.accountDao().allActive().single().id).size)
+    }
+
     @Test fun firstLedgerRequestsAutomaticStatementSeed() = runBlocking {
         assertNull(sync(listOf(row("a"))))
         assertTrue(db.accountDao().allActive().isEmpty())

@@ -69,7 +69,18 @@ class AccountsQaActivity : ComponentActivity() {
             ) {
                 WhfinTheme(darkTheme = dark) {
                     Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
-                        if (intent.getBooleanExtra("duplicateReview", false)) {
+                        if (intent.getBooleanExtra("credoCoverage", false)) {
+                            Column(Modifier.safeDrawingPadding()) {
+                                dev.whekin.whfin.ui.settings.CredoSyncScreen(
+                                    state = dev.whekin.whfin.ui.settings.CredoSyncUiState(
+                                        stage = dev.whekin.whfin.ui.settings.CredoSyncStage.Connected,
+                                        canLoadOlderHistory = false,
+                                        accounts = listOf(dev.whekin.whfin.data.credo.CredoRemoteAccount("GE00CD0000000000000001", "GEL", 1, "Account", "ACCOUNT")),
+                                        results = listOf(dev.whekin.whfin.ui.settings.CredoSyncFileResult("Credo •0001 GEL", errorCode = "HISTORY_MATCH_AMBIGUOUS"))),
+                                    canStoreCredentials = true, onOpenAppLock = {}, onConnect = { _, _, _ -> },
+                                    onSubmitOtp = {}, onResendOtp = {}, onSync = {}, onLoadHistory = {}, onDisconnect = {}, onDismissError = {})
+                            }
+                        } else if (intent.getBooleanExtra("duplicateReview", false)) {
                             val old=TransactionEntity(id=1,accountId=1,amountMinor=-12345,currency="GEL",occurredAt=1788465600000L,
                                 rawCounterparty="EXAMPLE STORE",status=TxStatus.CONFIRMED,source=TxSource.STATEMENT,balanceAfterMinor=20000)
                             val fresh=old.copy(id=2,balanceAfterMinor=19000)

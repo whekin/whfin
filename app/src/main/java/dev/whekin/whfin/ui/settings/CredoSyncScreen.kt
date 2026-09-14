@@ -937,6 +937,7 @@ private fun credoErrorMessage(code: String): String = when (code) {
     "HISTORY_INCOMPLETE", "HISTORY_LIMIT", "HISTORY_UNAVAILABLE" -> stringResource(R.string.credo_sync_history_incomplete)
     "EMPTY_STATEMENT" -> stringResource(R.string.credo_sync_error_empty)
     "INVALID_STATEMENT" -> stringResource(R.string.credo_sync_error_download)
+    "HISTORY_MATCH_AMBIGUOUS" -> stringResource(R.string.credo_sync_error_matching)
     "STATEMENT_UNREADABLE", "STATEMENT_REJECTED" -> stringResource(R.string.credo_sync_error_statement)
     "UNSUPPORTED_STATEMENT" -> stringResource(R.string.statements_unsupported)
     "AMBIGUOUS_LEDGER" -> stringResource(R.string.credo_sync_error_ambiguous)

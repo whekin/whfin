@@ -68,8 +68,12 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
                      else ids.isMobileOnly(tx.externalKey)) &&
                     sameMoneyAndDay(row, tx)
             }
-            val exact = pool.filter { descriptionMatches(row, it) }
-            if (exact.isNotEmpty()) exact else pool.filter { compatible(row, it) }
+            val usePeer = bank == "Credo" && row.operation.isOwnMovement
+            val samePeer = pool.filter { usePeer && row.beneficiaryAccount != null && row.beneficiaryAccount == it.counterpartyIban }
+            val compatiblePeers = pool.filter { !usePeer || row.beneficiaryAccount == null || it.counterpartyIban == null || row.beneficiaryAccount == it.counterpartyIban }
+            val exact = compatiblePeers.filter { descriptionMatches(row, it) }
+            val exactPeer = samePeer.filter { descriptionMatches(row, it) }
+            if (exactPeer.isNotEmpty()) exactPeer else if (samePeer.isNotEmpty()) samePeer else if (exact.isNotEmpty()) exact else compatiblePeers.filter { compatible(row, it) }
         }
         for ((key, row) in unmatched) {
             val matches = choices.getValue(key)
@@ -135,7 +139,7 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
             (a.length >= 12 && b.startsWith("$a,")) || (b.length >= 12 && a.startsWith("$b,")))
     }
     private fun normalized(value: String) = value.trim().lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").replace(Regex("\\s*([,;:])\\s*"), "$1")
-    private fun conflict(): Nothing = throw InvalidStatementException("$bank history and XLSX cannot be matched uniquely. No changes were made to this account.")
+    private fun conflict(): Nothing = throw AmbiguousStatementIdentityException("$bank history and XLSX cannot be matched uniquely. No changes were made to this account.")
 }
 
 internal object TbcSourceBridge : ApiSourceBridge(TbcRowIdentity, "TBC")

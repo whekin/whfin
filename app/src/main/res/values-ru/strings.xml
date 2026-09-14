@@ -1691,4 +1691,5 @@
     <string name="credo_duplicate_all">Выбрать все</string>
     <string name="credo_duplicate_clear">Снять выбор</string>
     <string name="credo_duplicate_batch_effect">Лишних расходов: %1$d. Балансы счетов увеличатся на %2$s. Отмена вернёт всю выбранную группу до следующих изменений в учёте.</string>
+    <string name="credo_sync_error_matching">Некоторые банковские операции соответствуют нескольким записям. Этот счёт оставлен без изменений.</string>
 </resources>

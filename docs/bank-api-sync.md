@@ -108,3 +108,37 @@ It cannot accept server messages, account identifiers, credentials or raw respon
 local Logcat diagnostics, not persisted bank evidence and not included in portable backup.
 They do not change routing, filtering or financial writes. A prior XLSX import does not prove
 which fallback caused it; diagnosis needs a fresh foreground run with these events.
+
+## Coverage and matching fixes (0.3.48)
+
+A recent matching failure previously prevented the automatic historical-coverage step for every
+account, leaving the older-history action visible even when the imported opening already covered
+the bank's earliest operation. After a recent pass, incomplete markers are now checked per imported
+ledger against API historyExtent. Only a verified empty bank history or an imported boundary at/before
+the bank's oldest row marks it complete. Failed/unavailable extent checks preserve incompleteness.
+This check downloads no XLSX and is independent of a recent reconciliation error.
+
+Ordinary currency exchanges sharing a timestamp with other non-card movements no longer trigger the
+card-FX presentation fallback. The fallback still protects groups containing both a conversion and
+a card receipt/operation. Details are validated for each ordinary row before import.
+
+Credo own movements can use an equal counterparty IBAN to distinguish equal money/day candidates;
+contradictory explicit peers are excluded. Exact descriptions still distinguish repeated movements
+to the same peer, and correspondence must remain unique in both directions. This rule is limited to
+Credo own movements; TBC receipt matching and ordinary purchases are unchanged.
+
+An ambiguous API/file identity plan raises a typed error before any writes. Routine Credo sync can
+then try one current XLSX through the ordinary validator/importer instead of leaving the whole
+account unavailable. A conflict that remains in the file is shown as ambiguous matching, not an
+unreadable file. The local event XLSX_AMBIGUOUS_API distinguishes this fallback from conversion groups.
+No credentials, raw bank responses or amounts were added to logs. Existing transactions are never
+merged by these changes outside the normal, validated import plan.
+
+Validation: full app suite 1079 tests, zero failures/errors, four skipped. The ordinary-exchange
+regression failed before narrowing the card-FX guard; targeted coverage/matching tests passed after
+changes. A TBC receipt regression caught overly broad peer matching and passed after restricting it
+to Credo own movements. Final profile tests and release R8/lintVital passed; the first lint run had
+an internal Kotlin ClassCastException and was repeated without suppressing checks. Native RU/dark
+font 1.5 and EN/light passed after clearing emulator System UI/Launcher ANR dialogs; final frames
+were inspected. Version 0.3.48/60 installed on Samsung. Actual post-fix owner sync is still requested;
+these tests do not prove that every private conversion/deposit representation is covered.

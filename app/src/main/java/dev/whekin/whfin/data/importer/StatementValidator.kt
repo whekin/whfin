@@ -2,7 +2,9 @@ package dev.whekin.whfin.data.importer
 
 import dev.whekin.whfin.data.statement.BankStatement
 
-class InvalidStatementException(message: String) : Exception(message)
+open class InvalidStatementException(message: String) : Exception(message)
+
+class AmbiguousStatementIdentityException(message: String) : InvalidStatementException(message)
 
 /**
  * Rejects a statement before the importer mutates the ledger.

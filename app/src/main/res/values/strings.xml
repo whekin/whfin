@@ -1629,4 +1629,5 @@
     <string name="credo_duplicate_all">Select all</string>
     <string name="credo_duplicate_clear">Clear selection</string>
     <string name="credo_duplicate_batch_effect">Extra expenses removed: %1$d. Account balances increase by %2$s. Undo restores the whole selection before further ledger changes.</string>
+    <string name="credo_sync_error_matching">Some bank operations match more than one existing record. This account was left unchanged.</string>
 </resources>

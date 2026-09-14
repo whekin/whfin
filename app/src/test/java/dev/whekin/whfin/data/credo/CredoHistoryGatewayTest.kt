@@ -69,6 +69,13 @@ class CredoHistoryGatewayTest {
         assertTrue(messages.any { it.startsWith("XLSX_CONVERSION_GROUP") })
         assertTrue(messages.all { it.matches(Regex("[A-Z_]+ count=[0-9]+ secondary=[0-9]+")) })
     }
+    @Test fun ordinaryExchangeAtSharedTimestampDoesNotRequireAFile() = runBlocking {
+        val a = row("fx").put("transactionType", "CurrencyExchange").put("operationType", "Currency exchange").put("description", "Exchange")
+        val b = row("transfer").put("operationType", "Transfer between own accounts").put("description", "Own transfer")
+        val result = gateway(listOf(page(2, 1, a, b), detail(a), detail(b))).history(session, account, today, today)
+        assertEquals(2, result.size)
+    }
+
     @Test fun extentRequestsTheWholeHistoricalRangeAndIgnoresOlderPendingRows() = runBlocking {
         val old = row("old").put("operationDateTime", "2022-05-10 10:00:00")
         val hold = row("hold", true).put("operationDateTime", "2020-01-01 10:00:00")
