@@ -19,9 +19,11 @@ import java.time.LocalDate
 @Config(sdk = [35])
 class MultiBankSmsImportTest {
     private lateinit var db: WhfinDatabase
+    private val queries = java.util.concurrent.CopyOnWriteArrayList<String>()
     @Before fun setup() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), WhfinDatabase::class.java)
-            .allowMainThreadQueries().build()
+            .allowMainThreadQueries()
+            .setQueryCallback({ sql, _ -> queries += sql }, java.util.concurrent.Executor { it.run() }).build()
     }
     @After fun close() = db.close()
     private suspend fun bank(provider: String, iban: String, mapped: Boolean = true): AccountEntity {
@@ -33,6 +35,22 @@ class MultiBankSmsImportTest {
     }
     private val tbcPayment = "2.00 GEL (*0001) EXAMPLE BUS 08/09/26 22:22"
     private val credoPayment = "Payment: 2.00 GEL Card N ****0001 EXAMPLE BUS>Tbilisi GE Balance: 20.00 GEL 08/09/2026 22:22:00"
+    @Test fun mappedCardLookupDoesNotRepeatForEveryInboxMessage() = runBlocking {
+        bank("Credo", "GE00CD0000000000000001")
+        queries.clear()
+        assertEquals(0, SmsTransactionImporter(db).learnCardsFrom(List(100) { credoPayment }))
+        assertEquals(1, queries.count { it.contains("si.last4") })
+        assertTrue(db.transactionDao().allForIntegrity().isEmpty())
+    }
+    @Test fun missedCardEvidenceDoesNotHideALaterMatchingMessage() = runBlocking {
+        val account = bank("Credo", "GE00CD0000000000000001", mapped = false)
+        val time = LocalDate.of(2026, 9, 8).atStartOfDay(LedgerCalendar.zone).toInstant().toEpochMilli()
+        db.transactionDao().insert(TransactionEntity(accountId = account.id, amountMinor = -200, currency = "GEL",
+            occurredAt = time, rawCounterparty = "EXAMPLE BUS", source = TxSource.STATEMENT, status = TxStatus.CONFIRMED))
+        val messages = listOf(credoPayment.replace("EXAMPLE BUS", "UNKNOWN SHOP"), credoPayment, credoPayment)
+        assertEquals(1, SmsTransactionImporter(db).learnCardsFrom(messages))
+        assertEquals(account.id, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+    }
     @Test fun sameCardSuffixInTwoBanksRoutesToTheSendingBank() = runBlocking {
         val credo = bank("Credo", "GE00CD0000000000000001")
         val tbc = bank("TBC", SyntheticTbcWorkbook.IBAN)

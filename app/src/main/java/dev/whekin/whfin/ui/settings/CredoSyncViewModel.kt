@@ -82,6 +82,8 @@ data class CredoSyncFileResult(
     val originalStatementFileName: String? = null,
 )
 
+enum class CredoSyncExtraPhase { LINKING_CARDS, CHECKING_HISTORY }
+
 data class CredoSyncUiState(
     val stage: CredoSyncStage = CredoSyncStage.Disconnected,
     val savedUsername: String? = null,
@@ -96,6 +98,7 @@ data class CredoSyncUiState(
     /** Days of historical rates fetched so far, while a history load prices what it brought in. */
     val valuedDays: Int = 0,
     val currentPhase: StatementImporter.Phase? = null,
+    val extraPhase: CredoSyncExtraPhase? = null,
     val results: List<CredoSyncFileResult> = emptyList(),
     /** True while the rows describe kept failures of an earlier run rather than this session's. */
     val resultsAreRetained: Boolean = false,
@@ -294,6 +297,7 @@ class CredoSyncViewModel internal constructor(
                     currentAccount = index + 1,
                     currentAccountTotal = accounts.size,
                     currentPhase = StatementImporter.Phase.READING,
+                    extraPhase = null,
                     results = results.toList(),
                     unchanged = unchanged,
                     errorCode = null,
@@ -425,16 +429,22 @@ class CredoSyncViewModel internal constructor(
                 }
                 results += fileResult
             }
+            _state.value = _state.value.copy(extraPhase = CredoSyncExtraPhase.LINKING_CARDS)
             linkCardsFromInbox()
             refreshHistoryPresence()
             retryAccountKeys = nextRetryAccountKeys
             retryStore.save(nextRetryAccountKeys)
             // Coverage is independent of whether a recent row could be reconciled. Verify each
             // imported ledger against the bank's oldest row without downloading its files again.
-            for (account in allAccounts.filter { it.stableKey !in historyStore.load() }) {
+            val extents = mutableMapOf<String, dev.whekin.whfin.data.credo.CredoHistoryExtent>()
+            val coverageAccounts = allAccounts.filter { it.stableKey !in historyStore.load() }
+            for ((index, account) in coverageAccounts.withIndex()) {
+                _state.value = _state.value.copy(extraPhase = CredoSyncExtraPhase.CHECKING_HISTORY,
+                    currentAccount = index + 1, currentAccountTotal = coverageAccounts.size)
                 val earliest = earliestKnownFor(account) ?: continue
                 try {
                     val extent = gateway.historyExtent(activeSession, account) ?: continue
+                    extents[account.stableKey] = extent
                     if (extent.oldestDate == null || earliest <= extent.oldestDate) {
                         historyStore.markComplete(setOf(account.stableKey))
                         dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.HISTORY_COMPLETE)
@@ -450,6 +460,7 @@ class CredoSyncViewModel internal constructor(
             refreshHistoryPresence()
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
+                extraPhase = null,
                 currentAccount = 0,
                 currentAccountTotal = 0,
                 currentPhase = null,
@@ -460,7 +471,7 @@ class CredoSyncViewModel internal constructor(
             )
             if (results.none { it.errorCode != null || it.detail != null }) {
                 if (fullHistory && allAccounts.any { it.stableKey !in historyStore.load() }) {
-                    loadHistory(results, unchanged)
+                    loadHistory(results, unchanged, extents)
                 } else preferences.setLastCredoSyncAt(System.currentTimeMillis())
             }
         }
@@ -473,7 +484,8 @@ class CredoSyncViewModel internal constructor(
      * accounts; the explicit action resumes an incomplete walk. API pagination establishes the
      * oldest available row, so a quiet or zero-opening year never truncates the walk.
      */
-    fun loadHistory(carryResults: List<CredoSyncFileResult> = emptyList(), carryUnchanged: Int = 0) {
+    fun loadHistory(carryResults: List<CredoSyncFileResult> = emptyList(), carryUnchanged: Int = 0,
+        knownExtents: Map<String, dev.whekin.whfin.data.credo.CredoHistoryExtent> = emptyMap()) {
         val activeSession = session ?: return fail("LOGIN_EXPIRED")
         val accounts = _state.value.accounts.filter { it.stableKey !in historyStore.load() }
         if (accounts.isEmpty()) return
@@ -499,8 +511,9 @@ class CredoSyncViewModel internal constructor(
                 var failedOriginal: FailedStatementStore.Entry? = null
                 var earliest = earliestKnownFor(account) ?: LocalDate.now(zone).plusDays(1)
 
-                _state.value = _state.value.copy(currentAccount = index + 1, currentChunk = 1)
-                val extent = try { gateway.historyExtent(activeSession, account) }
+                _state.value = _state.value.copy(currentAccount = index + 1, currentChunk = 1,
+                    extraPhase = CredoSyncExtraPhase.CHECKING_HISTORY)
+                val extent = try { knownExtents[account.stableKey] ?: gateway.historyExtent(activeSession, account) }
                     catch (error: Exception) {
                         error.throwIfCancellation()
                         if (error is CredoApiException && error.code.isCredoAuthError()) {
@@ -522,6 +535,7 @@ class CredoSyncViewModel internal constructor(
                     val window = requested.copy(from = maxOf(requested.from, extent?.oldestDate ?: requested.from))
                     _state.value = _state.value.copy(
                         stage = CredoSyncStage.Syncing,
+                        extraPhase = null,
                         currentAccount = index + 1,
                         currentChunk = chunk,
                         currentPhase = StatementImporter.Phase.READING,
@@ -634,17 +648,20 @@ class CredoSyncViewModel internal constructor(
             // Years of foreign rows arrive at once, and each day of them needs its own historical
             // rate. The routine cap would spread that over as many visits to statistics as it takes,
             // so this path sees it through while the user is still here to watch.
+            _state.value = _state.value.copy(extraPhase = null)
             runCatching {
                 TransactionValuationRepository(db, NbgHistoricalRateProvider()).backfillAll { pass ->
                     _state.value = _state.value.copy(valuedDays = pass.daysFetched)
                 }
             }.onFailure(Throwable::throwIfCancellation)
 
+            _state.value = _state.value.copy(extraPhase = CredoSyncExtraPhase.LINKING_CARDS)
             linkCardsFromInbox()
             historyStore.markComplete(walkedToTheEnd)
             refreshHistoryPresence()
             _state.value = _state.value.copy(
                 stage = CredoSyncStage.Connected,
+                extraPhase = null,
                 currentAccount = 0,
                 currentChunk = 0,
                 currentPhase = null,

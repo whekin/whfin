@@ -31,6 +31,20 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Прогресс синка и повторные запросы — 0.3.49 (61), 2026-09-15.
+  Живой sync 0.3.48 завершился: депозиты прошли через XLSX, догружена старая история пяти
+  счетов, кнопка Fetch older history исчезла. Надпись Matching SMS оставалась во время API
+  historyExtent — это stale progress. Добавлены отдельные LINKING_CARDS/CHECKING_HISTORY
+  с актуальным номером счёта. Ранняя граница переиспользуется в немедленной догрузке одного
+  синка, без persistent cache. Positive cache карт внутри bank-specific Room-транзакции
+  сократил 100 одинаковых lookup до 1; misses не кэшируются, позднее evidence работает.
+  Полный app 1081 тест, 0 failures/errors, 4 skipped; release R8/lintVital и public-tree прошли.
+  Native EN/light coverage и RU/dark/font1.5 linking-cards — 2 теста прошли, кадры просмотрены:
+  /tmp/whfin-progress-en.png, /tmp/whfin-progress-ru.png. Логи /tmp/whfin-sync-speed-*.log.
+  Установлена на Samsung install -r, подтверждены 0.3.49/61; ускорение owner sync не замерено.
+  API остаётся с XLSX fallback для карточных FX и неоднозначного сопоставления; он не устранён.
+
+
 - [x] Полнота истории и сопоставление Credo — 0.3.48 (60), 2026-09-15.
   Проверка ранней API-границы импортированных счетов выполняется независимо от ошибок свежего
   синка; подтверждённая полнота восстанавливает marker без XLSX и скрывает старую историю.

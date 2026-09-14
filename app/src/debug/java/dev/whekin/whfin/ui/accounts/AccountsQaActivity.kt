@@ -73,7 +73,14 @@ class AccountsQaActivity : ComponentActivity() {
                             Column(Modifier.safeDrawingPadding()) {
                                 dev.whekin.whfin.ui.settings.CredoSyncScreen(
                                     state = dev.whekin.whfin.ui.settings.CredoSyncUiState(
-                                        stage = dev.whekin.whfin.ui.settings.CredoSyncStage.Connected,
+                                        stage = if (intent.hasExtra("credoProgress")) dev.whekin.whfin.ui.settings.CredoSyncStage.Syncing else dev.whekin.whfin.ui.settings.CredoSyncStage.Connected,
+                                        currentAccount = 2, currentAccountTotal = 3,
+                                        currentPhase = dev.whekin.whfin.data.importer.StatementImporter.Phase.RECONCILING,
+                                        extraPhase = when (intent.getStringExtra("credoProgress")) {
+                                            "history" -> dev.whekin.whfin.ui.settings.CredoSyncExtraPhase.CHECKING_HISTORY
+                                            "cards" -> dev.whekin.whfin.ui.settings.CredoSyncExtraPhase.LINKING_CARDS
+                                            else -> null
+                                        },
                                         canLoadOlderHistory = false,
                                         accounts = listOf(dev.whekin.whfin.data.credo.CredoRemoteAccount("GE00CD0000000000000001", "GEL", 1, "Account", "ACCOUNT")),
                                         results = listOf(dev.whekin.whfin.ui.settings.CredoSyncFileResult("Credo •0001 GEL", errorCode = "HISTORY_MATCH_AMBIGUOUS"))),

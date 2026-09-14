@@ -1119,13 +1119,19 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
      */
     suspend fun learnCardsFrom(bodies: List<String>): Int = db.withTransaction {
         var learned = 0
+        // Positive lookups stay valid throughout this transaction. Do not cache misses: a later
+        // message can provide the first statement evidence for a previously unknown card.
+        val knownCards = mutableSetOf<Pair<String, String>>()
         bodies.forEach { body ->
             val payment = (bank.classify(body) as? BankSmsMessage.Classification.Parsed)?.sms as? BankSmsMessage.CardPayment ?: return@forEach
+            val card = payment.cardLast4 to (payment.balanceCurrency ?: payment.currency)
+            if (card in knownCards) return@forEach
             if (db.accountDao().byCardAndCurrency(
                     payment.cardLast4,
                     payment.balanceCurrency ?: payment.currency,
                 ).any { bank.accepts(db, it) }
             ) {
+                knownCards += card
                 return@forEach
             }
             val probe = diagnosticFor(
@@ -1137,6 +1143,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             )
             val match = statementEvidence.find(probe)?.takeIf { it.exact } ?: return@forEach
             learnCardMapping(probe, match.account)
+            knownCards += card
             learned += 1
         }
         learned

@@ -719,6 +719,8 @@ private fun ConnectedContent(
                 state.currentAccountTotal.takeIf { it > 0 } ?: state.accounts.size,
             ),
             body = when {
+                state.extraPhase == CredoSyncExtraPhase.CHECKING_HISTORY -> stringResource(R.string.credo_sync_checking_coverage)
+                state.extraPhase == CredoSyncExtraPhase.LINKING_CARDS -> stringResource(R.string.credo_sync_linking_cards)
                 state.valuedDays > 0 -> stringResource(R.string.credo_sync_valuing, state.valuedDays)
                 state.currentChunk > 0 -> stringResource(
                     R.string.credo_sync_history_progress,

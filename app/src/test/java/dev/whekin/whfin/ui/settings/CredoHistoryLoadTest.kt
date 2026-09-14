@@ -47,6 +47,7 @@ class CredoHistoryLoadTest {
     /** Serves one year per call; the API extent independently names the oldest available row. */
     private inner class HistoryGateway(private val years: Long = 2, private val failRecent: Boolean = false, private val ambiguousRecent: Boolean = false) : CredoGateway {
         val windows = mutableListOf<Pair<LocalDate, LocalDate>>()
+        var extentCalls = 0
 
         override suspend fun initiateLogin(credentials: CredoCredentials) = CredoLoginChallenge(
             operationId = "op",
@@ -106,8 +107,10 @@ class CredoHistoryLoadTest {
             )
         }
 
-        override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount) =
-            dev.whekin.whfin.data.credo.CredoHistoryExtent(LocalDate.now(zone).minusYears(years))
+        override suspend fun historyExtent(session: CredoSession, account: CredoRemoteAccount): dev.whekin.whfin.data.credo.CredoHistoryExtent {
+            extentCalls++
+            return dev.whekin.whfin.data.credo.CredoHistoryExtent(LocalDate.now(zone).minusYears(years))
+        }
 
         override suspend fun history(session: CredoSession, account: CredoRemoteAccount, from: LocalDate, to: LocalDate): List<dev.whekin.whfin.data.statement.StatementRow> {
             if (failRecent) throw dev.whekin.whfin.data.importer.InvalidStatementException("Synthetic validation failure")
@@ -216,6 +219,7 @@ class CredoHistoryLoadTest {
         vm.connect("user", "password", remember = false, syncWhenConnected = true)
         await { vm.state.value.stage == CredoSyncStage.Connected && !vm.state.value.canLoadOlderHistory }
         assertEquals(4, gateway.windows.size)
+        assertEquals(1, gateway.extentCalls)
         assertEquals(4, vm.state.value.results.single().inserted)
         assertNull(vm.state.value.results.single().errorCode)
         val account = kotlinx.coroutines.runBlocking { db().accountDao().byIbanAndCurrency(SyntheticCredoWorkbook.IBAN, "GEL")!! }

@@ -142,3 +142,28 @@ an internal Kotlin ClassCastException and was repeated without suppressing check
 font 1.5 and EN/light passed after clearing emulator System UI/Launcher ANR dialogs; final frames
 were inspected. Version 0.3.48/60 installed on Samsung. Actual post-fix owner sync is still requested;
 these tests do not prove that every private conversion/deposit representation is covered.
+
+## Accurate progress and repeated work (0.3.49)
+
+Owner logs and the live screen showed RECONCILING left visible while the connector was already
+paging API historyExtent. The run was progressing, not stuck in SMS matching. The same run completed
+older-history imports for five ledgers and the older-history action disappeared; previous deposit
+identity errors were handled by current XLSX fallback. This does not mean XLSX fallback is eliminated.
+
+Credo now has explicit LINKING_CARDS and CHECKING_HISTORY progress states. The current/total account
+counter follows the actual coverage pass, and the extra state is reset for file import, valuation,
+and completion. Cached extent results are passed only from a recent pass to its immediately following
+history walk, avoiding a second full pagination of the same bank boundary. No cross-session or
+persistent cache can hide later bank history.
+
+SMS card learning caches only positive (card suffix, ledger currency) lookups inside the same
+bank-specific Room transaction. A 100-message mapped-card regression issued 100 identical SQL queries
+before the change and one afterwards. Misses are never cached: later messages can provide the first
+exact statement evidence. Account routing, transfer matching, and financial amounts are unchanged.
+The test also checks that a missed early message does not hide later card evidence.
+
+Validation: mapped-card SQL-count regression failed with 100 queries before the change and passed
+with one afterwards. Full app suite: 1081 tests, zero failures/errors, four skipped. Release
+R8/lintVital passed. Two native progress cases passed (EN/light, RU/dark/font 1.5); screenshots
+/tmp/whfin-progress-en.png and /tmp/whfin-progress-ru.png were inspected. The observed owner run
+completed on 0.3.48 before deployment; no end-to-end speedup on the phone is claimed yet.
