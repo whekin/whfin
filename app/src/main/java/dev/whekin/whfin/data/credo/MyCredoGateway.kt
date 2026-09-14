@@ -186,7 +186,10 @@ class MyCredoGateway internal constructor(
     }
 
     private suspend fun historyItems(session: CredoSession, account: CredoRemoteAccount, from: LocalDate?): List<JSONObject> {
-        val accountId = account.accountId ?: throw CredoApiException("HISTORY_UNAVAILABLE")
+        val accountId = account.accountId ?: run {
+            CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.XLSX_NO_HISTORY_ID)
+            throw CredoApiException("HISTORY_UNAVAILABLE")
+        }
         val items = linkedMapOf<String, JSONObject>()
         var expectedTotal: Int? = null
         var expectedPages: Int? = null
@@ -203,6 +206,7 @@ class MyCredoGateway internal constructor(
                     (expectedTotal != null && (expectedTotal != total || expectedPages != pages))) throw CredoApiException("HISTORY_CHANGED")
                 expectedTotal = total; expectedPages = pages
                 val rows = result.getJSONArray("itemList")
+                CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.API_PAGE, page, rows.length())
                 for (i in 0 until rows.length()) {
                     val item = rows.getJSONObject(i)
                     val id = CredoHistoryParser.text(item, "stmtEntryId") ?: throw CredoApiException("HISTORY_FORMAT")
@@ -241,7 +245,11 @@ class MyCredoGateway internal constructor(
                 group.size > 1 && group.any { it.optString("transactionTypeName") == "Currency_exchange" ||
                     it.optString("transactionType") == "CurrencyExchange" ||
                     it.optString("operationType") in setOf("Currency conversion", "Currency exchange", "უნაღდო კონვერტაცია") }
-            }) throw CredoApiException("HISTORY_REQUIRES_STATEMENT")
+            }) {
+                CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.XLSX_CONVERSION_GROUP)
+                throw CredoApiException("HISTORY_REQUIRES_STATEMENT")
+            }
+            CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.API_ROWS, booked.size)
             return booked.map { item ->
                 val id = item.getString("stmtEntryId")
                 val details = graphQl(session, DETAIL_QUERY, JSONObject().put("stmtEntryId", id))

@@ -98,3 +98,13 @@ year; TBC reads older-than-year rows and switches to an incremental window after
 read. Existing openings retain the current balance when older API rows arrive. Release R8/lintVital
 and public-tree checks passed. A disposable-emulator portable backup/restore test preserves
 TBC_HISTORY and repeated sync identity. No live bank history was requested; phone was disconnected.
+
+## Local route diagnostics (0.3.47)
+
+Credo emits fixed events under `WHFIN_CREDO_SYNC`: account position, API page/row counts,
+API apply counts, missing opening/history ID, conversion-group fallback, XLSX download and
+account error. The logging API accepts only an enum and two nonnegative integer counters.
+It cannot accept server messages, account identifiers, credentials or raw responses. These are
+local Logcat diagnostics, not persisted bank evidence and not included in portable backup.
+They do not change routing, filtering or financial writes. A prior XLSX import does not prove
+which fallback caused it; diagnosis needs a fresh foreground run with these events.

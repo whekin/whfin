@@ -31,6 +31,19 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Диагностика выбора API/XLSX Credo — 0.3.47 (59), 2026-09-15.
+  После owner report прочитан свежий portable backup и финансовые TBC push через UI.
+  В backup последние результативные Credo imports — XLSX от 11 сентября; это не доказывает
+  причину fallback и не исключает позже no-op/failed sync. Добавлен локальный WHFIN_CREDO_SYNC:
+  фиксированный enum и два числовых счётчика, без raw/секретов/реквизитов. Показывает API pages,
+  apply, missing opening/history ID, conversion fallback и download. Финансовые правила неизменны.
+  27 профильных тестов, 0 failures/errors; release R8/lintVital/public-tree прошли. Установлено
+  install -r на Samsung, подтверждены 0.3.47/59. Запрошен owner-driven sync для чтения причины.
+  Приватный разбор /tmp/whfin-sep15-review.md: подозрительные SMS/statement пары и две unrouted
+  операции; текущие финансовые записи не менялись. Новые Money Transfer push ждут уточнения
+  направления; обычные покупки имеют Recorded. Полнота API и исправление новых дублей не заявлены.
+
+
 - [x] Массовый выбор дублей — 0.3.46 (58).
   Чекбоксы, Выбрать все/Снять выбор и одна кнопка с числом пар. До применения показывается
   суммарное изменение по валютам с checked arithmetic. Вся группа проверяется и записывается

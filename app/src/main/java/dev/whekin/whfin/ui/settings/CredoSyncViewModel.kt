@@ -287,6 +287,7 @@ class CredoSyncViewModel internal constructor(
             val nextRetryAccountKeys = mutableSetOf<String>()
             var unchanged = 0
             for ((index, account) in accounts.withIndex()) {
+                dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_START, index + 1, accounts.size)
                 val (fromIso, toIso) = statementRangeFor(account)
                 _state.value = _state.value.copy(
                     stage = CredoSyncStage.Syncing,
@@ -309,11 +310,13 @@ class CredoSyncViewModel internal constructor(
                         if (e.code == "HISTORY_UNAVAILABLE" || e.code == "HISTORY_REQUIRES_STATEMENT") null else throw e
                     }
                     if (apiPlan != null) {
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.API_APPLIED, apiPlan.totalRows, apiPlan.inserted)
                         if (apiPlan.isNoOp) unchanged++ else results += CredoSyncFileResult(
                             account.maskedLabel, inserted = apiPlan.inserted, duplicates = apiPlan.duplicates,
                             reconciled = apiPlan.reconciled, unmappedOperationNames = apiPlan.statement.unmappedOperationNames)
                         continue
                     }
+                    dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.XLSX_DOWNLOAD)
                     val bytes = downloadWithRetry(
                         session = activeSession,
                         account = account,
@@ -382,6 +385,7 @@ class CredoSyncViewModel internal constructor(
                     return@launch
                 } catch (error: Exception) {
                     error.throwIfCancellation()
+                    dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_ERROR)
                     val code = error.safeCode()
                     if (code in NO_MORE_HISTORY) {
                         // The bank exports nothing for a period an account sat still through. With
@@ -459,6 +463,7 @@ class CredoSyncViewModel internal constructor(
             val walkedToTheEnd = mutableSetOf<String>()
             var unchanged = (carryUnchanged - accounts.count { account -> carryResults.none { it.accountLabel == account.maskedLabel } }).coerceAtLeast(0)
             for ((index, account) in accounts.withIndex()) {
+                dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_START, index + 1, accounts.size)
                 val carried = carryResults.singleOrNull { it.accountLabel == account.maskedLabel }
                 var inserted = carried?.inserted ?: 0
                 var duplicates = carried?.duplicates ?: 0
@@ -502,7 +507,8 @@ class CredoSyncViewModel internal constructor(
                     )
                     var downloadedBytes: ByteArray? = null
                     val statement = try {
-                        val bytes = downloadWithRetry(
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.XLSX_DOWNLOAD)
+                    val bytes = downloadWithRetry(
                             activeSession,
                             account,
                             DateTimeFormatter.ISO_INSTANT.format(window.from.atStartOfDay(zone).toInstant()),
@@ -545,7 +551,8 @@ class CredoSyncViewModel internal constructor(
                         return@launch
                     } catch (error: Exception) {
                         error.throwIfCancellation()
-                        val code = error.safeCode()
+                        dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_ERROR)
+                    val code = error.safeCode()
                         // An empty middle year is not the end. Continue to the oldest API row.
                         if (code in NO_MORE_HISTORY && extent?.oldestDate != null && window.from > extent.oldestDate) {
                             earliest = window.from

@@ -9,11 +9,15 @@ import java.time.LocalDate
 
 /** Initial creation remains an automatically downloaded, balance-proven bank statement. */
 class CredoHistorySync(private val db: WhfinDatabase) {
+    private fun noOpening(): ImportPlan? {
+        CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.XLSX_NO_OPENING)
+        return null
+    }
     suspend fun sync(gateway: CredoGateway, session: CredoSession, remote: CredoRemoteAccount,
         from: LocalDate, to: LocalDate): ImportPlan? {
-        val account = db.accountDao().byIbanAndCurrency(remote.accountNumber, remote.currency) ?: return null
-        val opening = db.statementImportDao().earliestWithOpeningBalance(account.id) ?: return null
-        val start = maxOf(from, opening.periodFrom?.let(LocalDate::ofEpochDay) ?: return null)
+        val account = db.accountDao().byIbanAndCurrency(remote.accountNumber, remote.currency) ?: return noOpening()
+        val opening = db.statementImportDao().earliestWithOpeningBalance(account.id) ?: return noOpening()
+        val start = maxOf(from, opening.periodFrom?.let(LocalDate::ofEpochDay) ?: return noOpening())
         val rows = gateway.history(session, remote, start, to)
         val statement = BankStatement(BankProfile("Credo", "Credo"), remote.accountNumber, remote.currency,
             start, to, null, null, rows)

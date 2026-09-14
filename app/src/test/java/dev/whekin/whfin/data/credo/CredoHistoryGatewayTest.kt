@@ -60,9 +60,14 @@ class CredoHistoryGatewayTest {
         }
     }
     @Test fun conversionPresentationPairRequestsBankStatementInsteadOfInventingLedgerRows() = runBlocking {
+        org.robolectric.shadows.ShadowLog.clear()
         val a = row("fx").put("transactionType", "CurrencyExchange")
         val error = runCatching { gateway(listOf(page(2, 1, a, row("payment")))).history(session, account, today, today) }.exceptionOrNull()
         assertEquals("HISTORY_REQUIRES_STATEMENT", (error as CredoApiException).code)
+        val messages = org.robolectric.shadows.ShadowLog.getLogsForTag(CredoSyncDiagnostics.TAG).map { it.msg }
+        assertTrue(messages.any { it.startsWith("API_PAGE") })
+        assertTrue(messages.any { it.startsWith("XLSX_CONVERSION_GROUP") })
+        assertTrue(messages.all { it.matches(Regex("[A-Z_]+ count=[0-9]+ secondary=[0-9]+")) })
     }
     @Test fun extentRequestsTheWholeHistoricalRangeAndIgnoresOlderPendingRows() = runBlocking {
         val old = row("old").put("operationDateTime", "2022-05-10 10:00:00")
