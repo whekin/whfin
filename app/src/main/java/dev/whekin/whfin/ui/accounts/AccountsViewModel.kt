@@ -497,7 +497,14 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             // profile fields; bank product belongs exclusively to Bank details and must survive
             // editing any currency row in this sheet.
             if (groupId != null && iban != null) {
-                db.accountDao().updateIbanProfile(groupId, iban, normalizedName, fundRole)
+                // One answer for the whole container, so the name has to be one the container can
+                // hold. An import's own "<Bank> <CUR> •<last4>" speaks for a single currency; copied
+                // across the IBAN it renames the USD ledger after the GEL one. Left empty, each
+                // ledger goes back to being named by its bank, number and product.
+                val containerName = normalizedName
+                    .takeUnless { dev.whekin.whfin.data.db.isGeneratedLedgerName(it, iban) }
+                    .orEmpty()
+                db.accountDao().updateIbanProfile(groupId, iban, containerName, fundRole)
             } else {
                 db.accountDao().update(
                     account.copy(

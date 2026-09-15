@@ -2,6 +2,7 @@ package dev.whekin.whfin
 
 import android.app.Application
 import dev.whekin.whfin.data.db.CategorySeeder
+import dev.whekin.whfin.data.db.repairCrossCurrencyLedgerNames
 import dev.whekin.whfin.data.db.WhfinDatabase
 import dev.whekin.whfin.data.categorization.CategoryMaintenance
 import dev.whekin.whfin.data.importer.StatementImporter
@@ -157,6 +158,7 @@ class WhfinApp : Application() {
                 activeAccounts.filter { it.type == AccountType.CASH && it.sortOrder == -100 }
                     .forEach { userDb.accountDao().update(it.copy(sortOrder = 1000)) }
             }
+            startupStep("ledgerNames") { userDb.repairCrossCurrencyLedgerNames() }
             startupStep("categoryMaintenance") { CategoryMaintenance.run(userDb) }
             startupStep("refreshIntegrity") { refreshIntegrity() }
         }

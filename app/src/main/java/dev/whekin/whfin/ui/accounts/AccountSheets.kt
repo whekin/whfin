@@ -520,7 +520,11 @@ fun BankMappingSheet(
     onDismiss: () -> Unit,
     onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
 ) {
-    var name by remember(account.id, account.name) { mutableStateOf(account.name) }
+    // A name the import wrote is not an answer the owner gave, so the field starts empty and the
+    // ledgers keep being named by their bank, number and product until there is something to say.
+    var name by remember(account.id, account.name) {
+        mutableStateOf(if (dev.whekin.whfin.data.db.isGeneratedLedgerName(account.name, account.iban)) "" else account.name)
+    }
     var fundRole by remember(account.id, account.fundRole) { mutableStateOf(account.fundRole) }
     var iban by remember { mutableStateOf(account.iban.orEmpty()) }
     var bankProduct by remember(account.id, account.bankProduct) {
@@ -545,7 +549,7 @@ fun BankMappingSheet(
         title = stringResource(R.string.account_settings_title),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = name.isNotBlank(),
+        primaryEnabled = true,
         onPrimary = {
             onConfirm(
                 name,

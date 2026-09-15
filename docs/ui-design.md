@@ -883,3 +883,23 @@ Two consequences worth keeping: a count the rows already state is not repeated i
 them (per-account "No changes" replaced "accounts unchanged: N"), and a label WHFIN writes itself —
 the deposit listing is not an account the bank named — is a string resource, so it is read in the
 reader's language like every other word on the page.
+
+## A name for one currency is not a name for the account (2026-09-16)
+
+The account editor answers for the whole IBAN — name, fund role, product and cards are container
+questions — so saving it writes one name onto every currency ledger under it. The name it started
+with was the one the import had written for the first ledger, "<Bank> <CUR> •<last4>", and that
+shape speaks for one currency: saving once left the USD, EUR and GBP ledgers of a TBC account all
+called "TBC GEL •0001", and the Accounts screen dutifully showed the USD ledger as "GEL".
+
+A generated name is recognised by its own shape — a currency code and the account's own tail — so no
+bank name is needed to tell it from something a person wrote. The editor now starts empty on such a
+name instead of presenting it as an answer, an empty name can be saved, and saving boilerplate
+stores nothing. An empty name is a normal state for a bank ledger, not a missing one: the screens
+name it by its bank, its number and its product, which is what they already did for a ledger the
+owner had never named. `accountTitle` is that fallback in one place, so the two screens that printed
+`account.name` directly no longer show a blank line when the name is empty.
+
+Names already copied across are repaired once at startup, and only where the copy is provably wrong:
+a generated name whose currency is not the ledger's own. A generated name still standing on the
+ledger it was generated for is left alone, and so is every name a person wrote.

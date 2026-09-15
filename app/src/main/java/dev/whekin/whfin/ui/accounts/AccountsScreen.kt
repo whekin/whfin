@@ -76,6 +76,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.ui.accountNumberLabel
+import dev.whekin.whfin.ui.accountTitle
 import dev.whekin.whfin.ui.accountProductLabel
 import dev.whekin.whfin.ui.ledgerOwnName
 import dev.whekin.whfin.ui.currencySymbol
@@ -396,7 +397,7 @@ fun AccountsScreen(
                                                 Modifier.weight(1f),
                                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                                             ) {
-                                                Text(account.name, style = MaterialTheme.typography.titleSmall)
+                                                Text(accountTitle(account), style = MaterialTheme.typography.titleSmall)
                                                 Text(
                                                     "${accountTypeLabel(account.type)} · ${account.currency}",
                                                     style = MaterialTheme.typography.bodySmall,
@@ -802,7 +803,7 @@ private fun AccountGroupDetailsDialog(
                         }.joinToString("\n")
                         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                             WhfinLedgerRow(
-                                title = first.account.name,
+                                title = accountTitle(first.account, first.groupName),
                                 supportingText = supporting,
                                 supportingMaxLines = 4,
                                 icon = accountTypeIcon(first.account.type),

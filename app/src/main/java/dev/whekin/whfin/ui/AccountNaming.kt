@@ -55,6 +55,18 @@ fun accountProductLabel(product: BankProduct?): String? = when (product) {
 }
 
 /**
+ * What to call this account where the screen shows one name and nothing else.
+ *
+ * A ledger may hold no name of its own: a bank names its currencies itself, and the owner's name for
+ * the container is the same for all of them, so an empty one is normal rather than missing. The bank
+ * number, then the product, then the currency each say something true about it.
+ */
+@Composable
+fun accountTitle(account: AccountEntity, sourceName: String? = null): String =
+    ledgerOwnName(account, sourceName) ?: accountNumberLabel(account)
+        ?: accountProductLabel(account.bankProduct) ?: account.currency
+
+/**
  * The two lines that name one ledger in a list of ledgers to choose between.
  *
  * Title: what the owner named it, else the number the bank gave it, else what kind of account it is.
