@@ -401,6 +401,14 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
             skipped = 1,
             skippedReason = MutationRejection.IMPORTED_IS_PROTECTED,
         )
+        // One statement line describes one payment. If a copy has already been folded into this
+        // line, a second message claiming it is a second payment disappearing into the first, which
+        // is exactly what repeated same-price fares look like.
+        if (db.transactionDao().foldedInto(survivorId) > 0) return@withTransaction MutationReport(
+            changed = 0,
+            skipped = 1,
+            skippedReason = MutationRejection.IMPORTED_IS_PROTECTED,
+        )
         // A share or a debt says something about this copy that the survivor does not carry, and
         // retiring the row would take that statement with it.
         if (hasDebtEvent(duplicate) || db.transactionAllocationDao().forTransaction(duplicate.id).isNotEmpty()) {

@@ -497,6 +497,10 @@ interface TransactionDao {
         toMillis: Long,
     ): List<TransactionEntity>
 
+    /** How many copies already point at this row as the one that stays. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE mergedIntoTransactionId = :survivorId")
+    suspend fun foldedInto(survivorId: Long): Int
+
     @Query(
             "SELECT t.* FROM transactions t JOIN accounts a ON a.id = t.accountId " +
             "WHERE a.groupId = :groupId AND t.isTransfer = 1 AND t.transferGroupId IS NULL " +

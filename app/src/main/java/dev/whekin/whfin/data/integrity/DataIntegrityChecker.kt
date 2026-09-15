@@ -174,14 +174,16 @@ class DataIntegrityChecker(
                 .filterNot { it.isVoided }
                 .filter { it.source == TxSource.STATEMENT }
                 .groupBy { Triple(it.accountId, it.amountMinor, it.occurredAt.dayIn(zone)) }
+            // How many are doubled is the count of statement lines, not the count of messages. Three
+            // bus fares of the same price in one day are three rides; if the statement prints one of
+            // them so far, exactly one message is a copy and the other two are rides it has yet to
+            // print. Flagging all three would claim two payments that happened did not.
             transactions
                 .filterNot { it.isVoided }
                 .filter { it.source == TxSource.SMS }
-                .forEach { sms ->
-                    val twins = statementByDay[
-                        Triple(sms.accountId, sms.amountMinor, sms.occurredAt.dayIn(zone)),
-                    ].orEmpty()
-                    if (twins.isNotEmpty()) {
+                .groupBy { Triple(it.accountId, it.amountMinor, it.occurredAt.dayIn(zone)) }
+                .forEach { (key, messages) ->
+                    messages.sortedBy { it.id }.take(statementByDay[key].orEmpty().size).forEach { sms ->
                         add(
                             error(
                                 "duplicate_statement_row",

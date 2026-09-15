@@ -136,6 +136,36 @@ class MergedTransactionIntegrityTest {
     }
 
     @Test
+    fun `repeated fares are only doubled as often as the statement prints them`() = runBlocking {
+        suspend fun ride(source: TxSource, index: Int) = db.transactionDao().insert(
+            TransactionEntity(
+                accountId = accountId,
+                amountMinor = -100,
+                currency = "GEL",
+                occurredAt = 1_000L + index * 60_000L,
+                rawCounterparty = "TBCTPBUS",
+                status = TxStatus.CONFIRMED,
+                source = source,
+                externalKey = "${source.name.lowercase()}|$index",
+                createdAt = index.toLong(),
+            ),
+        )
+        repeat(3) { ride(TxSource.SMS, it) }
+        ride(TxSource.STATEMENT, 0)
+
+        // Three rides, one of them printed so far: one message is a copy, two are rides waiting to
+        // be printed. Calling all three doubled would say two payments never happened.
+        assertEquals(
+            listOf("duplicate_statement_row"),
+            DataIntegrityChecker(db).run().issues.map { it.code },
+        )
+
+        ride(TxSource.STATEMENT, 1)
+        ride(TxSource.STATEMENT, 2)
+        assertEquals(3, DataIntegrityChecker(db).run().issues.count { it.code == "duplicate_statement_row" })
+    }
+
+    @Test
     fun `the same money on different days is not a duplicate`() = runBlocking {
         val day = 24L * 60 * 60 * 1000
         db.transactionDao().insert(

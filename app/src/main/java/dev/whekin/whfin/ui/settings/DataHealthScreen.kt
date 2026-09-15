@@ -61,6 +61,7 @@ import kotlinx.coroutines.launch
 import dev.whekin.whfin.data.LedgerCalendar
 import dev.whekin.whfin.ui.formatMinor
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import dev.whekin.whfin.data.mutation.DuplicateFolding
 import dev.whekin.whfin.data.mutation.TransactionMutationModule
 import androidx.compose.ui.platform.testTag
 
@@ -198,9 +199,8 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Folds each doubled operation into the statement line that describes it.
      *
-     * Only an unambiguous pair is folded: one message beside exactly one statement line of the same
-     * account, amount and day. Two payments of the same size on one day are indistinguishable, and
-     * picking one would retire the wrong copy — those stay listed for a person to look at.
+     * Every message claims a line of its own, so repeated payments of the same size on one day stay
+     * as many payments as they were; see [DuplicateFolding].
      */
     fun mergeDuplicates() {
         if (_mergeState.value.repairing) return
@@ -210,17 +210,7 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
                 .filter { it.code == "duplicate_statement_row" }
                 .mapNotNull { it.entityId }
                 .distinct()
-            var merged = 0
-            doubled.forEach { smsId ->
-                val sms = db.transactionDao().byId(smsId) ?: return@forEach
-                val day = LedgerCalendar.dayOf(sms.occurredAt)
-                val survivor = db.transactionDao().statementCandidates(
-                    sms.accountId,
-                    LedgerCalendar.startOfDay(day),
-                    LedgerCalendar.startOfDay(day.plusDays(1)) - 1,
-                ).filter { it.amountMinor == sms.amountMinor }.singleOrNull() ?: return@forEach
-                if (mutations.mergeDuplicate(smsId, survivor.id).changed > 0) merged++
-            }
+            val merged = DuplicateFolding(db, mutations).fold(doubled)
             val report = checker.run()
             _state.value = State.Checked(report.issues, report.issues.mapNotNull { describe(it) }.toMap())
             _mergeState.value = RepairState(

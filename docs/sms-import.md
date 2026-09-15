@@ -236,3 +236,24 @@ blank.
    double-counted after statement reconciliation.
 5. Send one new real transaction message through the broadcast path and verify its visible diagnostic
    outcome. Physical-phone work stays manual/read-only until the user explicitly confirms an import.
+
+## Repeated fares are repeated payments (2026-09-15)
+
+Three bus rides of the same price on one day are three payments, and the ledger holds each of them
+twice while both channels describe it — once from the message, once from the statement line. The
+`duplicate_statement_row` check finds a suspect by account, amount and day, which is how it catches
+a pair the two channels named differently; it is not proof that two payments are one payment.
+
+Two things follow, and neither was true before. The check now reports as many doubled operations as
+there are statement lines to be doubled by: with three messages and one printed line, exactly one
+message is a copy and the other two are rides the statement has not printed yet. Calling all three
+doubled would claim two payments that happened did not.
+
+And folding gives every message a statement line **of its own** (`DuplicateFolding`). Which of two
+indistinguishable lines a message folds into does not matter; how many lines get claimed does. The
+previous action folded only when exactly one line existed, so it did nothing for repeated fares —
+but nothing stopped the underlying merge from letting three messages retire into the same line, and
+two real rides would have disappeared into the first. The merge itself now refuses a line that has
+already absorbed a copy, so no caller can lose a payment that way, and a line naming a different
+merchant is not a place to fold into at all. When the lines run out the remaining messages stay
+listed, and the next sync that prints them makes them foldable.
