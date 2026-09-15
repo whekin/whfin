@@ -38,10 +38,11 @@ class TbcLoginViewModel internal constructor(
     private val rememberChoice: dev.whekin.whfin.data.security.BankSessionChoice =
         dev.whekin.whfin.data.security.DeviceBankSessionChoice(app, "tbc"),
     private val credentialStore: BankCredentialStore = EncryptedBankCredentialStore(app, "tbc"),
+    private val backgroundExecution: Boolean = false,
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(app, { MobileTbcGateway() }, EncryptedBankSessionStore(app, "tbc"),
-        { gateway, progress -> dev.whekin.whfin.data.importer.TbcHistorySync((app as dev.whekin.whfin.WhfinApp).db)
-            .sync(gateway, progress = progress) })
+        { gateway, progress -> dev.whekin.whfin.data.importer.TbcHistorySync((app as dev.whekin.whfin.WhfinApp).userDb)
+            .sync(gateway, progress = progress) }, backgroundExecution = true)
     private fun hasSavedSignIn() = store.hasSaved() || credentialStore.hasCredentials()
     private fun loginState() = TbcLoginState(hasSaved = hasSavedSignIn(), hasSavedCredentials = credentialStore.hasCredentials(),
         remember = rememberChoice.read() ?: hasSavedSignIn(), error = rememberChoice.problem())
@@ -154,7 +155,7 @@ class TbcLoginViewModel internal constructor(
         val initial = previous.initialHistories.singleOrNull { it.remote.key == key } ?: return
         run(TbcLoginStage.Connected) {
             val app = getApplication<Application>() as dev.whekin.whfin.WhfinApp
-            val plan = withContext(Dispatchers.IO) { dev.whekin.whfin.data.importer.TbcHistorySync(app.db).initialize(initial, amountMinor) }
+            val plan = withContext(Dispatchers.IO) { dev.whekin.whfin.data.importer.TbcHistorySync(app.userDb).initialize(initial, amountMinor) }
             val result = previous.copy(inserted = previous.inserted + plan.inserted, matched = previous.matched + plan.reconciled,
                 needsStatement = previous.needsStatement.filterNot { it.key == key },
                 initialHistories = previous.initialHistories.filterNot { it.remote.key == key })
@@ -172,6 +173,7 @@ class TbcLoginViewModel internal constructor(
     }
 
     private suspend fun syncCurrent() {
+        if (backgroundExecution) getApplication<dev.whekin.whfin.WhfinApp>().bankSync.markDataStarted("TBC")
         val client = requireNotNull(gateway)
         val result = synchronize?.invoke(client) { current, total ->
             mutable.value = mutable.value.copy(syncProgress = current to total)
@@ -180,20 +182,22 @@ class TbcLoginViewModel internal constructor(
             dev.whekin.whfin.data.preferences.UiPreferences(getApplication<Application>()).setLastTbcSyncAt(System.currentTimeMillis())
         }
         persistSession()
-        mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncProgress = null, syncResult = result)
         if (result != null && result.inserted > 0) {
             val app = getApplication<Application>() as? dev.whekin.whfin.WhfinApp
-            if (app != null) viewModelScope.launch(Dispatchers.IO) {
-                runCatching { dev.whekin.whfin.data.rates.TransactionValuationRepository(app.db,
+            if (app != null) withContext(Dispatchers.IO) {
+                try { dev.whekin.whfin.data.rates.TransactionValuationRepository(app.userDb,
                     dev.whekin.whfin.data.rates.NbgHistoricalRateProvider()).backfill() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { /* Valuation remains best effort; bank rows are already imported. */ }
             }
         }
+        mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncProgress = null, syncResult = result)
     }
     private fun run(failureStage: TbcLoginStage, block: suspend () -> Unit) {
         if ((getApplication<Application>() as? dev.whekin.whfin.WhfinApp)?.isDemoMode == true) return
         if (work?.isActive == true) return
         mutable.value = mutable.value.copy(stage = TbcLoginStage.Working, error = null, syncResult = null, syncProgress = null)
-        work = viewModelScope.launch {
+        work = launchBankWork {
             try { block() }
             catch (error: CancellationException) { throw error }
             catch (error: Exception) {
@@ -208,6 +212,15 @@ class TbcLoginViewModel internal constructor(
             }
         }
     }
+    private fun launchBankWork(block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit): Job =
+        if (backgroundExecution) getApplication<dev.whekin.whfin.WhfinApp>().bankSync.launch("TBC", Dispatchers.Main.immediate, {
+            if (mutable.value.stage == TbcLoginStage.Working)
+                {
+                challenge = null; pendingCredentials = null; usingSavedCredentials = false
+                mutable.value = mutable.value.copy(stage = if (session != null) TbcLoginStage.Connected else TbcLoginStage.Login,
+                    error = "SYNC_INTERRUPTED", syncProgress = null)
+                }
+        }, block) else viewModelScope.launch(block = block)
     fun leave() {
         work?.cancel(); work = null
         gateway?.clear(); gateway = null; session = null; challenge = null

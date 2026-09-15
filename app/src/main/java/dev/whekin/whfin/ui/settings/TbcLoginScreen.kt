@@ -38,7 +38,7 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
         Text(stringResource(R.string.demo_mode_live_import_unavailable), Modifier.padding(20.dp))
         return
     }
-    val vm: TbcLoginViewModel = viewModelOverride ?: viewModel()
+    val vm: TbcLoginViewModel = viewModelOverride ?: (androidx.compose.ui.platform.LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp).bankSync.tbc
     val activity = androidx.compose.ui.platform.LocalContext.current as? dev.whekin.whfin.MainActivity
     DisposableEffect(activity) {
         activity?.protectBankScreen(true)
@@ -108,7 +108,6 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
             if (state.hasSaved && canStoreSession) sensitive.require(SensitiveAction.BankCredential) { beginOtp { vm.restore() } }
         }
     }
-    DisposableEffect(vm) { onDispose { vm.leave() } }
     TbcLoginScreen(if (preparing) state.copy(stage = TbcLoginStage.Working) else state, canStoreSession,
         { username, password -> beginOtp { vm.login(username, password) } }, vm::confirm, vm::setRemember,
         onRestore = { sensitive.require(SensitiveAction.BankCredential) { beginOtp { vm.restore() } } },
@@ -318,6 +317,7 @@ private fun TbcOtpPreview() = WhfinTheme { androidx.compose.material3.Surface {
 } }
 
 internal fun tbcErrorText(code: String): Int = when (code) {
+    "SYNC_INTERRUPTED" -> R.string.bank_sync_interrupted
     "LOGIN" -> R.string.tbc_error_login
     "OTP" -> R.string.tbc_error_code
     "SESSION" -> R.string.tbc_error_session

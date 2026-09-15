@@ -140,7 +140,7 @@ fun CredoSyncRoute(
      * leaving afterwards should not require finding the Back arrow again.
      */
     onDone: (() -> Unit)? = null,
-    viewModel: CredoSyncViewModel = viewModel(),
+    viewModel: CredoSyncViewModel = (LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp).bankSync.credo,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -930,6 +930,7 @@ private fun ConnectedContent(
 
 @Composable
 private fun credoErrorMessage(code: String): String = when (code) {
+    "SYNC_INTERRUPTED" -> stringResource(R.string.bank_sync_interrupted)
     "CREDENTIALS_REQUIRED", "INVALID_INPUT_DATA" -> stringResource(R.string.credo_sync_error_credentials)
     "INVALID_OTP" -> stringResource(R.string.credo_sync_error_otp)
     "OTP_NOT_SENT" -> stringResource(R.string.credo_sync_error_otp_not_sent)
@@ -950,7 +951,7 @@ private fun credoErrorMessage(code: String): String = when (code) {
 }
 
 private fun StatementImporter.Phase?.phaseLabel(): Int = when (this) {
-    StatementImporter.Phase.READING, null -> R.string.statements_phase_reading
+    StatementImporter.Phase.READING, null -> R.string.bank_sync_reading
     StatementImporter.Phase.IMPORTING -> R.string.statements_phase_importing
     StatementImporter.Phase.RECONCILING -> R.string.statements_phase_reconciling
     StatementImporter.Phase.VERIFYING -> R.string.statements_phase_verifying

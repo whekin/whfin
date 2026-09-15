@@ -17,8 +17,8 @@
 |---|---|---|
 | SMS банков (Credo / TBC) | оперативная проводка с provenance `SMS`; участия не требует, кроме действительно неоднозначного routing | активная операция, позже тихо сверяется выпиской |
 | Excel-выписка (MYCREDO / TBC xlsx) | источник правды, сверка | `confirmed` |
-| MyCredo private connector (experimental) | foreground JSON history, automatic initial XLSX and reconciliation | `confirmed` |
-| TBC mobile connector | foreground API history и карточные блокировки после XLSX или введённого владельцем остатка | проведённые `confirmed`, блокировки `pending` |
+| MyCredo private connector (experimental) | JSON history по явному запуску, automatic initial XLSX and reconciliation; продолжение в Android-службе | `confirmed` |
+| TBC mobile connector | API history по явному запуску и карточные блокировки после XLSX или введённого владельцем остатка; продолжение в Android-службе | проведённые `confirmed`, блокировки `pending` |
 | Ручной ввод / виджет | кеш, корректировки | `manual` |
 | Крипто watch-адреса | EVM/Tron balances; подтверждённая история Tron USDT/USDC | balance snapshot + операции CRYPTO |
 
@@ -393,3 +393,12 @@ API, fallback XLSX остаётся для групп карточных кон�
 позволяет переставить мерчантов у покупок одинаковой суммы. После файлового sync Credo показывает
 расхождение остатка на конец выписки отдельно от успешной загрузки. Денежная корректировка
 не создаётся. Правила, ограничения и проверки: docs/bank-evidence-reconciliation.md.
+
+### Синхронизация без ожидания на экране — 0.3.52
+
+После подтверждения банка и начала загрузки истории возвращаемся на Home. Иконка синхронизации
+показывает активную работу; по нажатию видны этап, номер счёта и результат каждого банка. Открытие
+результата не запускает новый вход. Credo и TBC продолжают явный синк при сворачивании приложения
+и уничтожении Activity через dataSync foreground service. Коды и сессии не передаются в Intent
+или уведомление. После гибели процесса показывается прерывание, повтор — явным действием владельца.
+Контракт, ограничения Android и проверки: docs/bank-background-sync.md.

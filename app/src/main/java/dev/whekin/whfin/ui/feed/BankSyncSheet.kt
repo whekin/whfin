@@ -20,22 +20,26 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun BankSyncSheet(times: List<Pair<String, Long?>>, onDismiss: () -> Unit, onSync: (String) -> Unit) {
+internal fun BankSyncSheet(times: List<Pair<String, Long?>>, onDismiss: () -> Unit,
+    statuses: List<dev.whekin.whfin.data.sync.BankSyncStatus> = emptyList(), onSync: (String) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        BankSyncContent(times, onSync)
+        BankSyncContent(times, onSync, statuses)
     }
 }
 
 @Composable
-internal fun BankSyncContent(times: List<Pair<String, Long?>>, onSync: (String) -> Unit) {
+internal fun BankSyncContent(times: List<Pair<String, Long?>>, onSync: (String) -> Unit,
+    statuses: List<dev.whekin.whfin.data.sync.BankSyncStatus> = emptyList()) {
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.bank_sync_title), style = MaterialTheme.typography.headlineSmall)
-        Text(stringResource(R.string.bank_sync_hint), style = MaterialTheme.typography.bodyMedium,
+        Text(stringResource(if (statuses.isEmpty()) R.string.bank_sync_title else R.string.bank_sync_status_title), style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(if (statuses.isEmpty()) R.string.bank_sync_hint else R.string.bank_sync_status_hint), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (times.isEmpty()) dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
-        for ((bank, timestamp) in times) {
+        val banks = (times + statuses.map { it.bank to null }).distinctBy { it.first }
+        if (banks.isEmpty()) dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
+        for ((bank, timestamp) in banks) {
+            val status = statuses.firstOrNull { it.bank == bank }
             val age = timestamp?.let { ((System.currentTimeMillis() - it).coerceAtLeast(0) / 86_400_000).toInt() }
-            val description = when {
+            val description = if (status != null) bankSyncDescription(status) else when {
                 age == null -> stringResource(R.string.bank_sync_first)
                 age == 0 -> stringResource(R.string.bank_sync_today)
                 age >= 7 -> stringResource(R.string.bank_sync_week_due, age)
@@ -51,6 +55,21 @@ internal fun BankSyncContent(times: List<Pair<String, Long?>>, onSync: (String) 
             }
         }
     }
+}
+
+@Composable
+internal fun bankSyncDescription(status: dev.whekin.whfin.data.sync.BankSyncStatus): String {
+    val phase = stringResource(when (status.phase) {
+        dev.whekin.whfin.data.sync.SyncPhase.AUTHORIZING -> R.string.bank_sync_authorizing
+        dev.whekin.whfin.data.sync.SyncPhase.CONFIRMATION -> R.string.bank_sync_confirmation
+        dev.whekin.whfin.data.sync.SyncPhase.READING -> R.string.bank_sync_reading
+        dev.whekin.whfin.data.sync.SyncPhase.MATCHING -> R.string.bank_sync_matching
+        dev.whekin.whfin.data.sync.SyncPhase.HISTORY -> R.string.bank_sync_history
+        dev.whekin.whfin.data.sync.SyncPhase.COMPLETE -> R.string.bank_sync_complete
+        dev.whekin.whfin.data.sync.SyncPhase.ATTENTION -> R.string.bank_sync_attention
+        dev.whekin.whfin.data.sync.SyncPhase.INTERRUPTED -> R.string.bank_sync_interrupted
+    })
+    return if (status.active && status.total > 0) phase + "\n" + stringResource(R.string.bank_sync_account_progress, status.current, status.total) else phase
 }
 
 @Preview(locale = "ru")

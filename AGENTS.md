@@ -31,6 +31,27 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Синк вне экрана — 0.3.52 (64), 2026-09-15.
+  Credo/TBC используют process-owned controllers и общий BankSyncRuntime. Явно запущенные jobs
+  продолжаются при Home/уничтожении Activity; вложенная догрузка удерживает одну foreground-службу.
+  После начала подтверждённой загрузки — однократный возврат Home, включая быстрое завершение;
+  повторное открытие прогресса не закрывает его. Ошибочный OTP и отдельный ввод начального остатка
+  не вызывают переход. Home показывает вращающийся sync и этап/счёт/результат по нажатию.
+  API-ожидание больше не подписано как чтение XLSX. TBC valuation входит в ту же задачу; банковская
+  работа использует userDb независимо от Demo UI. Отмена входа очищает временные credentials.
+  Неэкспортируемая dataSync service, generic private notification, bounded wake lock, 30-minute
+  watchdog и Android onTimeout. START_NOT_STICKY; process-death marker хранит только bank names,
+  без OTP/сессий/паролей. После гибели процесса — явный повтор, автоматического входа нет.
+  Полный app: 1098 тестов, 0 failures/errors, 5 skipped; release R8/lintVital прошли. Native EN/light,
+  RU/dark/system-font1.5, compact и foreground completion после Home + Activity destruction —
+  4 сценария прошли. Дополнительно compact scroll проверил доступ к обоим банкам. Кадры просмотрены:
+  /tmp/whfin-background-ui-final и /tmp/whfin-background-compact-bottom.png. После завершения сервисов
+  не осталось. Эмуляторный System UI ANR при холодном старте закрыт через наблюдаемый UI.
+  Контракт docs/bank-background-sync.md, логи /tmp/whfin-background-*.log. Owner backup подтвердил
+  предыдущую SMS-сверку; старые statement-only дубли не исправлялись. После повторного подключения
+  установлена на Samsung через install -r, подтверждены 0.3.52/64. Данные сохранены; живой банковский
+  синк со сворачиванием на телефоне пока не проверен.
+
 - [x] Совместимость старых переводов при живом sync — 0.3.51 (63), 2026-09-15.
   Owner-driven sync подтвердил API pages и XLSX fallback; три сохранённые выписки отклонялись
   как неоднозначные. На изолированной копии backup воспроизведена регрессия 0.3.50: у старых

@@ -246,6 +246,7 @@ fun FeedScreen(
     onEnableSms: () -> Unit,
     onDismissSmsOnboarding: () -> Unit,
     showCredoSyncReminder: Boolean = true,
+    bankSyncStatuses: List<dev.whekin.whfin.data.sync.BankSyncStatus> = emptyList(),
     showSetupInvitation: Boolean = false,
     onResumeSetup: () -> Unit = {},
     onDismissSetupInvitation: () -> Unit = {},
@@ -287,7 +288,7 @@ fun FeedScreen(
     val integrityCodes by viewModel.integrityCodes.collectAsState()
     var showBankSync by remember { mutableStateOf(false) }
     val bankSyncTimes by viewModel.bankSyncTimes.collectAsState()
-    if (showBankSync) BankSyncSheet(bankSyncTimes, { showBankSync = false }) { bank ->
+    if (showBankSync) BankSyncSheet(bankSyncTimes, { showBankSync = false }, bankSyncStatuses) { bank ->
         showBankSync = false
         if (bank == "Credo") onOpenCredoSync() else onOpenTbcSync()
     }
@@ -523,11 +524,7 @@ fun FeedScreen(
                         // Analytics and the full record are destinations now, so the two icons that
                         // used to be their only doors are gone from here. What the header keeps is
                         // the one thing that had no stable place at all.
-                        if (showCredoSyncReminder) WhfinIconButton(
-                            icon = Icons.Default.Sync,
-                            contentDescription = stringResource(R.string.bank_sync_title),
-                            onClick = { showBankSync = true }, outlined = false,
-                        )
+                        if (showCredoSyncReminder) BankSyncIndicator(bankSyncStatuses.any { it.active }) { showBankSync = true }
                         onOpenSettings?.let { openSettings ->
                             WhfinIconButton(
                                 icon = Icons.Default.Settings,

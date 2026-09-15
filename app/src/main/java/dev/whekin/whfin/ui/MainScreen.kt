@@ -387,6 +387,24 @@ fun MainScreen(
     val scene = target.scene
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val bankSync = (context.applicationContext as dev.whekin.whfin.WhfinApp).bankSync
+    val bankStatuses by bankSync.statuses.collectAsState()
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(bankStatuses, demoMode) {
+        if (!demoMode) for (status in bankStatuses) {
+            if (status.canReturnHome && bankSync.consumeHomeHandoff(status.bank)) {
+                val bankPage = if (status.bank == "Credo") SecondaryDestination.CredoSync else SecondaryDestination.TbcLogin
+                if (secondaryDestination == bankPage) {
+                    keyboard?.hide()
+                    root = RootDestination.Home
+                    secondaryDestination = null
+                    secondaryBackStack = emptyList()
+                    credoRoutineSyncRequestKey = 0
+                    tbcRoutineSyncRequestKey = 0
+                }
+            }
+        }
+    }
     val bankPreferencesScope = androidx.compose.runtime.rememberCoroutineScope()
     val packageInfo = remember(context.packageName) {
         context.packageManager.getPackageInfo(context.packageName, 0)
@@ -463,8 +481,13 @@ fun MainScreen(
                 if (leaving == SecondaryDestination.AppLock) appLockReturnTo = null
                 if (leaving == SecondaryDestination.CategoryIntelligence) categoryQueue = null
                 if (leaving == SecondaryDestination.CredoSync) {
+                    bankSync.credo.cancelSignIn()
                     credoReturnTo = null
                     credoRoutineSyncRequestKey = 0
+                }
+                if (leaving == SecondaryDestination.TbcLogin && !bankSync.tbc.state.value.sessionVerified) {
+                    bankSync.tbc.leave()
+                    bankSync.dismissIdle("TBC")
                 }
             }
         }
@@ -518,8 +541,9 @@ fun MainScreen(
                                             root = RootDestination.Transactions
                                         },
                                         onOpenDataHealth = { open(SecondaryDestination.DataHealth) },
-                                        onOpenCredoSync = { openCredo(caller = null, syncLatest = true) },
-                                        onOpenTbcSync = { tbcRoutineSyncRequestKey++; open(SecondaryDestination.TbcLogin) },
+                                        bankSyncStatuses = if (demoMode) emptyList() else bankStatuses,
+                                        onOpenCredoSync = { openCredo(caller = null, syncLatest = bankStatuses.none { it.bank == "Credo" }) },
+                                        onOpenTbcSync = { if (bankStatuses.none { it.bank == "TBC" }) tbcRoutineSyncRequestKey++; open(SecondaryDestination.TbcLogin) },
                                         onOpenAccounts = { root = RootDestination.Accounts },
                                         onOpenSettings = { open(SecondaryDestination.Settings) },
                                         hasLowBalanceNotificationPermission = demoMode || hasLowBalanceNotificationPermission,

@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="bank_sync_status_title">Bank sync</string>
+    <string name="bank_sync_status_hint">Choose a bank to see progress or the result.</string>
+    <string name="bank_sync_running">Bank sync in progress</string>
+    <string name="bank_sync_background_hint">You can use other apps. Tap to open WHFIN.</string>
+    <string name="bank_sync_authorizing">Confirming bank access…</string>
+    <string name="bank_sync_confirmation">Bank confirmation required. Tap to continue.</string>
+    <string name="bank_sync_reading">Getting transactions…</string>
+    <string name="bank_sync_matching">Matching transactions…</string>
+    <string name="bank_sync_history">Checking older history…</string>
+    <string name="bank_sync_complete">Finished. Tap to view the result.</string>
+    <string name="bank_sync_attention">Needs attention. Tap to view the result.</string>
+    <string name="bank_sync_interrupted">Sync was interrupted. Open the bank connection to retry.</string>
+    <string name="bank_sync_account_progress">Account %1$d of %2$d</string>
     <string name="credo_sync_balance_review">History loaded. The recorded balance at the statement end differs from the bank. Review unmatched messages and duplicate operations in Data health; no balance adjustment was made.</string>
     <plurals name="accounts_container_count">
         <item quantity="one">%1$d account</item>

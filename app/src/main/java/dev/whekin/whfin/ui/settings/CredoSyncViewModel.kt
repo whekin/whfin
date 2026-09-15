@@ -133,14 +133,26 @@ class CredoSyncViewModel internal constructor(
     private val historyStore: CredoHistoryStore = CredoHistoryStore(app),
     private val loadSavedCredentials: () -> CredoCredentials? = secretStore::load,
     private val saveCredentials: (CredoCredentials) -> Unit = secretStore::save,
+    private val backgroundExecution: Boolean = false,
 ) : AndroidViewModel(app) {
     constructor(app: Application) : this(
         app = app,
         gateway = MyCredoGateway(app),
         secretStore = CredoSecretStore(app),
+        backgroundExecution = true,
     )
 
-    private val db = (app as WhfinApp).db
+    private val db = (app as WhfinApp).userDb
+    private fun launchBankWork(dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Main.immediate,
+        block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit): kotlinx.coroutines.Job =
+        if (backgroundExecution) getApplication<WhfinApp>().bankSync.launch("Credo", dispatcher, {
+            if (_state.value.stage in setOf(CredoSyncStage.Connecting, CredoSyncStage.Syncing) || _state.value.isBusy)
+                {
+                    challenge = null; pendingCredentials = null; syncAfterLogin = false
+                    loginDraft.credential = ""
+                    _state.value = _state.value.copy(stage = CredoSyncStage.Disconnected, isBusy = false, errorCode = "SYNC_INTERRUPTED")
+                }
+        }, block) else viewModelScope.launch(dispatcher, block = block)
     /** Cleared with this process; deliberately never saved to a Bundle, preferences, or Room. */
     val loginDraft = CredoLoginDraft()
     private val zone = LedgerCalendar.zone
@@ -181,10 +193,10 @@ class CredoSyncViewModel internal constructor(
     fun connect(username: String, credential: String, remember: Boolean, syncWhenConnected: Boolean = false) {
         if (_state.value.stage == CredoSyncStage.Connecting) return
         syncAfterLogin = syncWhenConnected
-        viewModelScope.launch {
+        launchBankWork {
             val credentials = resolveCredentials(username, credential) ?: run {
                 fail("CREDENTIALS_REQUIRED")
-                return@launch
+                return@launchBankWork
             }
             beginLogin(credentials, remember)
         }
@@ -202,11 +214,11 @@ class CredoSyncViewModel internal constructor(
             sync(fullHistory = true)
             return
         }
-        viewModelScope.launch {
+        launchBankWork {
             val credentials = withContext(Dispatchers.IO) { loadSavedCredentials() }
             if (credentials == null) {
                 revealSavedUsername()
-                return@launch
+                return@launchBankWork
             }
             syncAfterLogin = true
             beginLogin(credentials, remember = true)
@@ -256,12 +268,12 @@ class CredoSyncViewModel internal constructor(
         if (otp.length != OTP_LENGTH || !otp.all(Char::isDigit)) return fail("INVALID_OTP")
         if (_state.value.stage != CredoSyncStage.AwaitingOtp) return
         _state.value = _state.value.copy(errorCode = null, isBusy = true)
-        viewModelScope.launch { finishLogin(loginChallenge, credentials, otp) }
+        launchBankWork { finishLogin(loginChallenge, credentials, otp) }
     }
 
     fun resendOtp() {
         val operationId = challenge?.operationId ?: return fail("LOGIN_EXPIRED")
-        viewModelScope.launch {
+        launchBankWork {
             _state.value = _state.value.copy(errorCode = null, isBusy = true)
             runCatching { gateway.sendOtp(operationId) }
                 .onSuccess {
@@ -285,7 +297,12 @@ class CredoSyncViewModel internal constructor(
             ?.let { failed -> allAccounts.filter { it.stableKey in failed } }
             .orEmpty()
             .ifEmpty { allAccounts }
-        viewModelScope.launch(syncDispatcher) {
+        // Reserve the run before dispatching IO, so a second tap or onboarding collector cannot
+        // start a second account pass while the first coroutine is still waiting to execute.
+        _state.value = _state.value.copy(stage = CredoSyncStage.Syncing, isBusy = false,
+            currentAccount = 1, currentAccountTotal = accounts.size, currentPhase = StatementImporter.Phase.READING)
+        launchBankWork(syncDispatcher) {
+            if (backgroundExecution) getApplication<WhfinApp>().bankSync.markDataStarted("Credo")
             _state.value = _state.value.copy(results = emptyList(), resultsAreRetained = false)
             val results = mutableListOf<CredoSyncFileResult>()
             val nextRetryAccountKeys = mutableSetOf<String>()
@@ -393,7 +410,7 @@ class CredoSyncViewModel internal constructor(
                         retryableFailures = 0,
                         errorCode = "SESSION_EXPIRED",
                     )
-                    return@launch
+                    return@launchBankWork
                 } catch (error: Exception) {
                     error.throwIfCancellation()
                     dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_ERROR)
@@ -495,7 +512,8 @@ class CredoSyncViewModel internal constructor(
         _state.value = _state.value.copy(stage = CredoSyncStage.Syncing, currentAccountTotal = accounts.size,
             currentAccount = 1, currentChunk = 1, currentPhase = StatementImporter.Phase.READING,
             results = emptyList(), resultsAreRetained = false, errorCode = null)
-        viewModelScope.launch(syncDispatcher) {
+        launchBankWork(syncDispatcher) {
+            if (backgroundExecution) getApplication<WhfinApp>().bankSync.markDataStarted("Credo")
             val labels = accounts.map { it.maskedLabel }.toSet()
             val results = carryResults.filterNot { it.accountLabel in labels }.toMutableList()
             val walkedToTheEnd = mutableSetOf<String>()
@@ -522,7 +540,7 @@ class CredoSyncViewModel internal constructor(
                         if (error is CredoApiException && error.code.isCredoAuthError()) {
                             session = null
                             _state.value = _state.value.copy(stage = CredoSyncStage.Disconnected, errorCode = "SESSION_EXPIRED", results = results + CredoSyncFileResult(account.maskedLabel, inserted = inserted, reconciled = reconciled, errorCode = "SESSION_EXPIRED"))
-                            return@launch
+                            return@launchBankWork
                         }
                         errorCode = error.safeCode()
                         null
@@ -590,7 +608,7 @@ class CredoSyncViewModel internal constructor(
                             retryableFailures = 0,
                             errorCode = "SESSION_EXPIRED",
                         )
-                        return@launch
+                        return@launchBankWork
                     } catch (error: Exception) {
                         error.throwIfCancellation()
                         dev.whekin.whfin.data.credo.CredoSyncDiagnostics.record(dev.whekin.whfin.data.credo.CredoSyncDiagnostics.Event.ACCOUNT_ERROR)
@@ -725,6 +743,7 @@ class CredoSyncViewModel internal constructor(
     }
 
     fun disconnect() {
+        if (backgroundExecution) getApplication<WhfinApp>().bankSync.cancel("Credo")
         secretStore.clear()
         challenge = null
         pendingCredentials = null
@@ -737,6 +756,17 @@ class CredoSyncViewModel internal constructor(
         loginDraft.username = ""
         loginDraft.credential = ""
         _state.value = CredoSyncUiState()
+    }
+
+    fun cancelSignIn() {
+        if (_state.value.stage !in setOf(CredoSyncStage.Connecting, CredoSyncStage.AwaitingOtp)) return
+        if (backgroundExecution) {
+            getApplication<WhfinApp>().bankSync.cancel("Credo")
+            getApplication<WhfinApp>().bankSync.dismissIdle("Credo")
+        }
+        challenge = null; pendingCredentials = null; syncAfterLogin = false
+        loginDraft.credential = ""
+        _state.value = _state.value.copy(stage = CredoSyncStage.Disconnected, isBusy = false, errorCode = null)
     }
 
     /** App Lock is the product gate for persisted bank credentials; without it, forget them. */

@@ -25,6 +25,7 @@ import dev.whekin.whfin.data.notifications.PhysicalCardBalanceMonitor
 import dev.whekin.whfin.data.integrity.IntegrityIssue
 
 class WhfinApp : Application() {
+    val bankSync by lazy { dev.whekin.whfin.data.sync.BankSyncRuntime(this) }
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val credoOtpInbox = CredoOtpInbox()
@@ -174,4 +175,3 @@ class WhfinApp : Application() {
 internal fun integritySignature(issues: List<IntegrityIssue>): String? = issues
     .takeIf { it.isNotEmpty() }
     ?.let { found -> found.map { it.code }.distinct().sorted().joinToString(",") + "|" + found.size }
-

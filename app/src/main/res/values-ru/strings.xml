@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="bank_sync_status_title">Синхронизация банков</string>
+    <string name="bank_sync_status_hint">Выберите банк, чтобы посмотреть ход синхронизации или результат.</string>
+    <string name="bank_sync_running">Идёт синхронизация банков</string>
+    <string name="bank_sync_background_hint">Можно пользоваться другими приложениями. Нажмите, чтобы открыть WHFIN.</string>
+    <string name="bank_sync_authorizing">Подтверждаем доступ к банку…</string>
+    <string name="bank_sync_confirmation">Нужно подтверждение банка. Нажмите, чтобы продолжить.</string>
+    <string name="bank_sync_reading">Получаем операции…</string>
+    <string name="bank_sync_matching">Сопоставляем операции…</string>
+    <string name="bank_sync_history">Проверяем старую историю…</string>
+    <string name="bank_sync_complete">Готово. Нажмите, чтобы посмотреть результат.</string>
+    <string name="bank_sync_attention">Требуется внимание. Нажмите, чтобы посмотреть результат.</string>
+    <string name="bank_sync_interrupted">Синхронизация прервана. Откройте подключение банка, чтобы повторить.</string>
+    <string name="bank_sync_account_progress">Счёт %1$d из %2$d</string>
     <string name="credo_sync_balance_review">История загружена. Остаток на конец выписки не совпал с банком. Проверьте несопоставленные сообщения и дубли в разделе «Проверка данных». Корректировка баланса не создавалась.</string>
     <plurals name="accounts_container_count">
         <item quantity="one">%1$d счёт</item>
