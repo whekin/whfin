@@ -1501,7 +1501,8 @@
     <string name="tbc_error_response">TBC returned an unexpected response. This test connection needs further verification.</string>
     <string name="tbc_sync_action">Sync transactions</string>
     <string name="tbc_sync_progress">Loading transactions · account %1$d of %2$d</string>
-    <string name="tbc_sync_result">New: %1$d · matched: %2$d · accounts unchanged: %3$d</string>
+    <string name="tbc_sync_result">New transactions: %1$d · matched: %2$d</string>
+    <string name="tbc_deposits_family">Deposits</string>
     <string name="tbc_initial_statement">Confirm each account’s booked balance to start without a file. You can verify it with a statement later.</string>
     <string name="tbc_history_conflict">Mobile history and the statement cannot be matched uniquely. This account was left unchanged.</string>
     <string name="tbc_history_format">Could not read the complete history for this account. Nothing from this account was imported.</string>
@@ -1516,9 +1517,15 @@
     <string name="bank_connect_action">Connect bank</string>
     <string name="bank_connect_offer">Connect %1$s to load accounts and transactions. The bank may ask you to confirm sign-in.</string>
     <string name="bank_create_manually">Skip connection, create manually</string>
-    <string name="tbc_booked_balance">Booked balance · %1$s</string>
     <string name="tbc_confirm_balance">Confirm balance and load transactions</string>
     <string name="tbc_balance_prefilled">Filled in with the figure TBC shows for this account. The bank does not say whether it already deducts pending charges, so check it before confirming.</string>
+    <string name="tbc_booked_balance_field">Booked balance</string>
+    <string name="tbc_section_attention">Needs you</string>
+    <string name="tbc_section_accounts">Accounts</string>
+    <string name="tbc_row_needs_balance">Waiting for its starting balance</string>
+    <string name="tbc_row_new">New: %1$d</string>
+    <string name="tbc_row_matched">Matched: %1$d</string>
+    <string name="tbc_row_unchanged">No changes</string>
     <string name="statements_origin_user_opening">Balance entered by you</string>
     <string name="tbc_balance_help">Which balance should I enter?</string>
     <string name="tbc_balance_help_body">Use the booked balance, before deducting pending card payments. Available balance may be lower. Enter the amount for the history just loaded; if transactions changed, sync again first. Your amount is recorded as an estimate, not a bank-verified balance.</string>

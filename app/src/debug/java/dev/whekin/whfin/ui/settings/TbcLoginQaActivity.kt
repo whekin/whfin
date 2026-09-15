@@ -34,7 +34,29 @@ class TbcLoginQaActivity : ComponentActivity() {
             accounts = accounts, error = intent.getStringExtra("error"),
             hasSaved = intent.getBooleanExtra("saved", false), hasSavedCredentials = intent.getBooleanExtra("credentials", intent.getBooleanExtra("saved", false)), remember = intent.getBooleanExtra("saved", false),
             syncResult = if (intent.getStringExtra("stage") == "Connected") {
-                if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
+                // One run containing every state the result surface has to order: an account the
+                // owner must answer, ordinary outcomes, a deposit whose figures disagree, a failed
+                // account, and a product family that could not be listed at all.
+                if (intent.getBooleanExtra("rich", false)) {
+                    val waiting = dev.whekin.whfin.data.tbc.TbcLedgerAccount("12", "GE00TB0000000000000002", "GEL",
+                        "Everyday", balanceMinor = 128740L)
+                    dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 5, matched = 1, unchanged = 1,
+                        needsStatement = listOf(waiting),
+                        initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
+                            waiting, java.time.LocalDate.of(2025, 9, 15), java.time.LocalDate.of(2026, 9, 15), emptyList())),
+                        errors = listOf("EUR · •0001: HISTORY_FORMAT",
+                            "${dev.whekin.whfin.data.importer.TbcHistorySync.DEPOSITS_LABEL}: NETWORK"),
+                        reports = listOf(
+                            dev.whekin.whfin.data.importer.TbcSyncReport("GEL · •0001", 12, alreadyKnown = 8,
+                                inserted = 3, matched = 1, pending = 2,
+                                stats = dev.whekin.whfin.data.tbc.TbcHistoryReadStats(pages = 2, parsed = 12)),
+                            dev.whekin.whfin.data.importer.TbcSyncReport("USD · •0001", 0,
+                                stats = dev.whekin.whfin.data.tbc.TbcHistoryReadStats(pages = 1, firstPageEmpty = true)),
+                            dev.whekin.whfin.data.importer.TbcSyncReport("My Safe · GEL · •0009", 2, inserted = 2,
+                                fullHistory = true, bankBalanceDiffers = true),
+                            dev.whekin.whfin.data.importer.TbcSyncReport("EUR · •0001", 0, error = "HISTORY_FORMAT"),
+                            dev.whekin.whfin.data.importer.TbcSyncReport("GEL · •0002", 0, waitingForBalance = true)))
+                } else if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
                     dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")),
                     initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
                         dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday"),

@@ -206,8 +206,15 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         }
     }
 
-    private companion object {
-        val IBAN = Regex("GE[0-9]{2}TB[0-9]{16}")
-        const val DEPOSITS_LABEL = "Deposits"
+    companion object {
+        private val IBAN = Regex("GE[0-9]{2}TB[0-9]{16}")
+
+        /**
+         * Names the deposit listing itself rather than one account.
+         *
+         * A stable key, not a word: every other label in a report is the bank's own account naming,
+         * and this one is WHFIN speaking, so the screen says it in the reader's language.
+         */
+        const val DEPOSITS_LABEL = "tbc:deposits"
     }
 }

@@ -29,6 +29,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.*
 import dev.whekin.whfin.data.security.LocalSensitiveActions
 import dev.whekin.whfin.data.security.SensitiveAction
+import dev.whekin.whfin.data.importer.TbcHistorySync
 import dev.whekin.whfin.data.tbc.TbcAccount
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
@@ -201,80 +202,150 @@ internal fun TbcLoginScreen(
                 WhfinButton(stringResource(R.string.action_cancel), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
             TbcLoginStage.Code -> Unit // Dedicated keypad surface above.
-            TbcLoginStage.Connected -> {
-                Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
-                if (state.hasSaved) Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                state.syncResult?.let { result ->
-                    if (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || result.needsStatement.isEmpty()) {
-                        Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched, result.unchanged))
-                    }
-                    if (result.reports.isNotEmpty()) {
-                        var showReadDetails by remember(result) { mutableStateOf(false) }
-                        WhfinButton(stringResource(R.string.tbc_read_details), { showReadDetails = !showReadDetails },
-                            style = WhfinActionStyle.Quiet)
-                        if (showReadDetails) result.reports.forEach { report ->
-                            WhfinLedgerRow(title = report.label,
-                                supportingText = buildString {
-                                    append(stringResource(R.string.tbc_read_counts, report.received, report.alreadyKnown))
-                                    append("\n"); append(stringResource(R.string.tbc_pending_count, report.pending))
-                                    append("\n")
-                                    append(stringResource(if (report.fullHistory) R.string.tbc_read_all else R.string.tbc_read_recent))
-                                    report.stats?.let { stats ->
-                                        append("\n")
-                                        append(stringResource(R.string.tbc_read_pages, stats.pages, stats.parsed, stats.blocked))
-                                        if (stats.firstPageEmpty) { append("\n"); append(stringResource(R.string.tbc_read_empty)) }
-                                    }
-                                    if (report.bankBalanceDiffers) { append("\n"); append(stringResource(R.string.tbc_read_deposit_gap)) }
-                                }, supportingMaxLines = 8)
-                        }
-                    }
-                    if (result.needsStatement.isNotEmpty()) {
-                        Text(stringResource(R.string.tbc_initial_statement))
-                        var explainBalance by remember { mutableStateOf(false) }
-                        WhfinButton(stringResource(R.string.tbc_balance_help), { explainBalance = !explainBalance },
-                            style = WhfinActionStyle.Quiet)
-                        if (explainBalance) Text(stringResource(R.string.tbc_balance_help_body), style = MaterialTheme.typography.bodySmall)
-                        result.needsStatement.forEach { remote ->
-                            val initial = result.initialHistories.singleOrNull { it.remote.key == remote.key }
-                            if (initial != null) {
-                                // The bank prints a figure for the account; what it means is not
-                                // documented, so it is an offer to check rather than an anchor.
-                                val suggested = remote.balanceMinor?.let(::formatBookedBalance)
-                                var balance by remember(initial.remote.key, initial.readAt) { mutableStateOf(suggested.orEmpty()) }
-                                val parsed = parseBookedBalance(balance)
-                                WhfinField(balance, { balance = it },
-                                    stringResource(R.string.tbc_booked_balance, remote.label),
-                                    keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
-                                if (suggested != null) Text(stringResource(R.string.tbc_balance_prefilled),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                WhfinButton(stringResource(R.string.tbc_confirm_balance), {
-                                    parsed?.let { onConfirmBalance(remote.key, it) }; keyboard?.hide()
-                                }, Modifier.fillMaxWidth(), enabled = parsed != null)
-                            } else Text(remote.label)
-                        }
-                        WhfinButton(stringResource(R.string.statements_upload), onOpenStatements, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-                    }
-                    result.errors.forEach { error ->
-                        Text(error.substringBefore(":") + ": " + stringResource(tbcErrorText(error.substringAfterLast(":").trim())),
-                            color = MaterialTheme.colorScheme.error)
-                    }
-                }
-                if (state.accounts.isEmpty() && state.error == null) Text(stringResource(R.string.tbc_no_accounts))
-                state.accounts.filter { account -> state.syncResult?.needsStatement.orEmpty().none {
-                    it.iban == account.iban && it.currency == account.currency
-                } }.forEach { account ->
-                    WhfinLedgerRow(title = "${account.currency} · •${account.iban.takeLast(4)}",
-                        supportingText = account.name, icon = Icons.Default.AccountBalance)
-                }
-                WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth(),
-                    style = if (state.syncResult?.needsStatement.orEmpty().isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Secondary)
-                WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-            }
+            TbcLoginStage.Connected -> TbcConnectedContent(state, onRefresh, onForget, onOpenStatements,
+                onConfirmBalance, { keyboard?.hide() })
         }
         Spacer(Modifier.height(8.dp))
     }
+}
+
+/**
+ * What the sync did, read in the order the owner needs it.
+ *
+ * The accounts that want an answer come first and carry their own action; everything else is one
+ * list of accounts, each saying what happened to it. The technical read — pages, bank rows, holds —
+ * stays behind one disclosure, because it answers "why is this number what it is", not "what now".
+ * A failure belongs to the row it happened on rather than to a separate paragraph of red text.
+ */
+@Composable
+private fun ColumnScope.TbcConnectedContent(
+    state: TbcLoginState,
+    onRefresh: () -> Unit,
+    onForget: () -> Unit,
+    onOpenStatements: () -> Unit,
+    onConfirmBalance: (String, Long) -> Unit,
+    onHideKeyboard: () -> Unit,
+) {
+    val result = state.syncResult
+    val waiting = result?.needsStatement.orEmpty()
+    val reports = result?.reports.orEmpty()
+    val failures = result?.errors.orEmpty().associate {
+        it.substringBeforeLast(":").trim() to it.substringAfterLast(":").trim()
+    }
+    val unreported = failures.filterKeys { label -> reports.none { it.label == label } }
+    var showReadDetails by remember(result) { mutableStateOf(false) }
+
+    Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
+    if (state.hasSaved) Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (result != null && (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || waiting.isEmpty()))
+        Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+    if (waiting.isNotEmpty() || unreported.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            WhfinSectionLabel(stringResource(R.string.tbc_section_attention))
+            if (waiting.isNotEmpty()) {
+                Text(stringResource(R.string.tbc_initial_statement), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                var explainBalance by remember { mutableStateOf(false) }
+                WhfinButton(stringResource(R.string.tbc_balance_help), { explainBalance = !explainBalance },
+                    style = WhfinActionStyle.Quiet)
+                if (explainBalance) Text(stringResource(R.string.tbc_balance_help_body),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    waiting.forEachIndexed { index, remote ->
+                        val initial = result?.initialHistories?.singleOrNull { it.remote.key == remote.key }
+                        WhfinLedgerRow(title = remote.label, supportingText = stringResource(R.string.tbc_row_needs_balance),
+                            icon = Icons.Default.AccountBalance, divider = index < waiting.lastIndex)
+                        if (initial != null) {
+                            // The bank prints a figure for the account; what it means is not documented,
+                            // so it is an offer to check rather than an anchor.
+                            val suggested = remote.balanceMinor?.let(::formatBookedBalance)
+                            var balance by remember(remote.key, initial.readAt) { mutableStateOf(suggested.orEmpty()) }
+                            val parsed = parseBookedBalance(balance)
+                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                WhfinField(balance, { balance = it }, stringResource(R.string.tbc_booked_balance_field),
+                                    keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
+                                if (suggested != null) Text(stringResource(R.string.tbc_balance_prefilled),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                WhfinButton(stringResource(R.string.tbc_confirm_balance), {
+                                    parsed?.let { onConfirmBalance(remote.key, it) }; onHideKeyboard()
+                                }, Modifier.fillMaxWidth(), enabled = parsed != null)
+                            }
+                        }
+                    }
+                }
+                WhfinButton(stringResource(R.string.statements_upload), onOpenStatements,
+                    Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+            }
+            // A product family that could not be listed is its own failure, not part of the form above.
+            if (unreported.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                unreported.entries.forEachIndexed { index, (label, code) ->
+                    WhfinLedgerRow(title = if (label == TbcHistorySync.DEPOSITS_LABEL)
+                        stringResource(R.string.tbc_deposits_family) else label,
+                        supportingText = stringResource(tbcErrorText(code)),
+                        supportingMaxLines = 4, icon = Icons.Default.AccountBalance,
+                        iconTint = MaterialTheme.colorScheme.error, divider = index < unreported.size - 1)
+                }
+            }
+        }
+    }
+
+    val synced = reports.filterNot { it.waitingForBalance }
+    val listed = state.accounts.filter { account -> waiting.none { it.iban == account.iban && it.currency == account.currency } }
+    if (synced.isEmpty() && listed.isEmpty() && waiting.isEmpty() && state.error == null) {
+        Text(stringResource(R.string.tbc_no_accounts))
+    } else if (synced.isNotEmpty() || listed.isNotEmpty()) {
+        WhfinSectionLabel(stringResource(R.string.tbc_section_accounts))
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            if (synced.isNotEmpty()) synced.forEachIndexed { index, report ->
+                val failure = report.error ?: failures[report.label]
+                WhfinLedgerRow(
+                    title = report.label,
+                    supportingText = buildString {
+                        if (failure != null) append(stringResource(tbcErrorText(failure))) else {
+                            val outcome = buildList {
+                                if (report.inserted > 0) add(stringResource(R.string.tbc_row_new, report.inserted))
+                                if (report.matched > 0) add(stringResource(R.string.tbc_row_matched, report.matched))
+                                if (isEmpty()) add(stringResource(R.string.tbc_row_unchanged))
+                            }
+                            append(outcome.joinToString(" · "))
+                        }
+                        if (report.bankBalanceDiffers) { append("\n"); append(stringResource(R.string.tbc_read_deposit_gap)) }
+                        if (showReadDetails) {
+                            append("\n"); append(stringResource(R.string.tbc_read_counts, report.received, report.alreadyKnown))
+                            append("\n"); append(stringResource(R.string.tbc_pending_count, report.pending))
+                            append("\n"); append(stringResource(if (report.fullHistory) R.string.tbc_read_all else R.string.tbc_read_recent))
+                            report.stats?.let { stats ->
+                                append("\n"); append(stringResource(R.string.tbc_read_pages, stats.pages, stats.parsed, stats.blocked))
+                                if (stats.firstPageEmpty) { append("\n"); append(stringResource(R.string.tbc_read_empty)) }
+                            }
+                        }
+                    },
+                    supportingMaxLines = if (showReadDetails) 10 else 4,
+                    icon = Icons.Default.AccountBalance,
+                    iconTint = if (failure != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    trailing = if (report.inserted > 0) {
+                        { Text("+${report.inserted}", style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary) }
+                    } else null,
+                    divider = index < synced.lastIndex,
+                )
+            } else listed.forEachIndexed { index, account ->
+                WhfinLedgerRow(title = "${account.currency} · •${account.iban.takeLast(4)}",
+                    supportingText = account.name.takeIf { it.isNotBlank() }, icon = Icons.Default.AccountBalance,
+                    divider = index < listed.lastIndex)
+            }
+        }
+        if (synced.isNotEmpty()) WhfinButton(stringResource(R.string.tbc_read_details),
+            { showReadDetails = !showReadDetails }, style = WhfinActionStyle.Quiet)
+    }
+
+    WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth(),
+        style = if (waiting.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Secondary)
+    WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
 }
 
 /** A booked balance can be zero or negative; transaction amount validation is different. */

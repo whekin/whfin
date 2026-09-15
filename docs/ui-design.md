@@ -855,3 +855,31 @@ to break at; the amount itself has none.
 inline action — "All changes (5)" under a column of rows — starts where those rows start. The inset
 stays the default where a quiet action sits beside another action, because there it is the space
 between them.
+
+## A sync result answers "what now", not "what ran" (2026-09-15)
+
+The TBC result page used to be a technical readout: two counter lines, one disclosure that expanded
+every account into five concatenated sentences, the booked-balance form *below* that wall, failures
+as a separate paragraph of red text, and then a second list of the same accounts rendered
+differently. The one thing that needed the owner was the hardest thing to reach.
+
+It is ordered the way the answer is built. **Needs you** comes first and carries its own action: the
+account names itself, the balance field sits directly under it already filled with the bank's own
+figure, and the note explaining that the figure is unverified sits between the field and its button.
+A product family that could not be listed at all is a failure of its own, in its own group, not a
+line inside that form.
+
+Then one list of accounts — the same list the sync reported, not a second rendering of it. Each row
+says what happened to it in its own words ("New: 3 · Matched: 1", "No changes", or the failure's
+explanation) and carries the count that arrived as a right-hand figure, so the column of `+3` is
+scannable without reading a sentence. A failure tints its own row's icon and explains itself there,
+because a red paragraph under a list cannot say which row it is about.
+
+The technical read — pages, bank rows, holds, the empty first page — stays behind one disclosure.
+It answers "why is this number what it is", which is a different question from "what now", and it
+belongs to each row rather than to a separate block.
+
+Two consequences worth keeping: a count the rows already state is not repeated in the summary above
+them (per-account "No changes" replaced "accounts unchanged: N"), and a label WHFIN writes itself —
+the deposit listing is not an account the bank named — is a string resource, so it is read in the
+reader's language like every other word on the page.

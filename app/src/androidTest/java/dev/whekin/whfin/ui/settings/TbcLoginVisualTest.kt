@@ -12,6 +12,14 @@ import org.junit.Test
 import java.io.File
 
 class TbcLoginVisualTest {
+    /** A result page is longer than the screen; a target below the fold is still a visible target. */
+    private fun scrollTo(device: UiDevice, text: String) = device.findObject(By.text(text)) ?: run {
+        androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
+            .scrollTextIntoView(text)
+        device.waitForIdle(500)
+        requireNotNull(device.findObject(By.text(text))) { "Expected \"$text\" somewhere on the page" }
+    }
+
     @Test fun englishLight() = render("en-light")
     @Test fun russianDarkLarge() = render("ru-dark-large", "ru", true, 1.5f)
     @Test fun historyReadDetailsRussianLarge() = render("read-details-ru", "ru", true, 1.5f, stage = "Connected")
@@ -20,13 +28,16 @@ class TbcLoginVisualTest {
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
     @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
     @Test fun manualBalanceEnglish() = render("manual-balance-en", stage = "Connected", initial = true)
+    @Test fun syncResultEnglish() = render("result-en", stage = "Connected", rich = true)
+    @Test fun syncResultRussianDarkLarge() = render("result-ru-dark-large", "ru", true, 1.5f, stage = "Connected", rich = true)
     @Test fun errorRussian() = render("error-ru", "ru", error = "LOGIN")
     @Test fun savedEnglishLight() = render("saved-en", saved = true)
     @Test fun savedRussianDarkLarge() = render("saved-ru-dark-large", "ru", true, 1.5f, saved = true)
     @Test fun expiredRussian() = render("expired-ru", "ru", error = "SESSION")
     @Test fun keyboardAndSyntheticLoginJourney() = render("ime-journey", journey = true)
     private fun render(name: String, language: String = "en", dark: Boolean = false, font: Float = 1f,
-        stage: String = "Login", error: String? = null, journey: Boolean = false, initial: Boolean = false, saved: Boolean = false) {
+        stage: String = "Login", error: String? = null, journey: Boolean = false, initial: Boolean = false,
+        saved: Boolean = false, rich: Boolean = false) {
         check(Build.HARDWARE in setOf("ranchu", "goldfish"))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
@@ -34,6 +45,7 @@ class TbcLoginVisualTest {
         val intent = Intent(context, TbcLoginQaActivity::class.java).apply {
             putExtra("language", language); putExtra("dark", dark); putExtra("fontScale", font)
             putExtra("stage", stage); putExtra("error", error); putExtra("initial", initial); putExtra("saved", saved)
+            putExtra("rich", rich)
         }
         val previousIme = device.executeShellCommand("settings get secure show_ime_with_hard_keyboard").trim()
         if (journey || initial) device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
@@ -42,10 +54,22 @@ class TbcLoginVisualTest {
             assertNotNull(device.wait(Until.findObject(By.text(if (language == "ru") "Подключение TBC" else "TBC connection")), 10000))
             device.waitForIdle(1500)
             val out = File(context.getExternalFilesDir(null), "tbc-login-qa").apply { mkdirs() }
+            if (rich) {
+                // What the owner owes an answer to is on screen without scrolling, and the balance
+                // it wants is already filled in from the bank's own figure.
+                val attention = if (language == "ru") "Требует решения" else "Needs you"
+                val accounts = if (language == "ru") "Счета" else "Accounts"
+                assertNotNull(device.wait(Until.findObject(By.text(attention)), 5000))
+                assertTrue(device.hasObject(By.text("1287.40")))
+                assertTrue(device.hasObject(By.textContains(if (language == "ru") "Ждёт начальный остаток" else "Waiting for its starting balance")))
+                // The deposit listing is WHFIN's own word, so it is read in the reader's language.
+                assertNotNull(scrollTo(device, if (language == "ru") "Депозиты" else "Deposits"))
+                scrollTo(device, accounts)
+                assertTrue(device.takeScreenshot(File(out, "$name-accounts.png")))
+            }
             if (stage == "Connected" && !initial) {
                 val details = if (language == "ru") "Подробности загрузки" else "Read details"
-                assertNotNull(device.wait(Until.findObject(By.text(details)), 5000))
-                device.findObject(By.text(details)).click()
+                scrollTo(device, details).click()
                 assertNotNull(device.wait(Until.findObject(By.textContains(if (language == "ru") "пустую первую страницу" else "empty first page")), 5000))
             }
             if (saved) assertFalse(device.hasObject(By.clazz("android.widget.EditText")))

@@ -1563,7 +1563,8 @@
     <string name="tbc_error_response">TBC вернул неожиданный ответ. Тестовое подключение требует дополнительной проверки.</string>
     <string name="tbc_sync_action">Синхронизировать операции</string>
     <string name="tbc_sync_progress">Получаем операции · счёт %1$d из %2$d</string>
-    <string name="tbc_sync_result">Новых: %1$d · сопоставлено: %2$d · счетов без изменений: %3$d</string>
+    <string name="tbc_sync_result">Новых операций: %1$d · сопоставлено: %2$d</string>
+    <string name="tbc_deposits_family">Депозиты</string>
     <string name="tbc_initial_statement">Подтвердите проведённый остаток каждого счёта, чтобы начать без файла. Позже его можно сверить выпиской.</string>
     <string name="tbc_history_conflict">Не удалось однозначно сопоставить историю и выписку. Данные этого счёта не изменены.</string>
     <string name="tbc_history_format">Не удалось прочитать полную историю счёта. Операции этого счёта не загружены.</string>
@@ -1578,9 +1579,15 @@
     <string name="bank_connect_action">Подключить банк</string>
     <string name="bank_connect_offer">Подключите %1$s, чтобы загрузить счета и операции. Банк может попросить подтвердить вход.</string>
     <string name="bank_create_manually">Без подключения — создать вручную</string>
-    <string name="tbc_booked_balance">Проведённый остаток · %1$s</string>
     <string name="tbc_confirm_balance">Подтвердить остаток и загрузить операции</string>
     <string name="tbc_balance_prefilled">Подставлена цифра, которую TBC показывает по этому счёту. Банк не говорит, вычтены ли из неё покупки в обработке, поэтому сверьте её перед подтверждением.</string>
+    <string name="tbc_booked_balance_field">Проведённый остаток</string>
+    <string name="tbc_section_attention">Требует решения</string>
+    <string name="tbc_section_accounts">Счета</string>
+    <string name="tbc_row_needs_balance">Ждёт начальный остаток</string>
+    <string name="tbc_row_new">Новых: %1$d</string>
+    <string name="tbc_row_matched">Сверено: %1$d</string>
+    <string name="tbc_row_unchanged">Без изменений</string>
     <string name="statements_origin_user_opening">Остаток введён вами</string>
     <string name="tbc_balance_help">Какой остаток указывать?</string>
     <string name="tbc_balance_help_body">Укажите проведённый остаток, без вычета покупок в обработке. Доступный остаток может быть меньше. Сумма должна соответствовать только что загруженной истории; если появились операции, сначала обновите её. Ваш остаток сохранится как оценка, а не как проверенный банком баланс.</string>
