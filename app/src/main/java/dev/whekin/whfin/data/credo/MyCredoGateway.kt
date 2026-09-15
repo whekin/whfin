@@ -14,6 +14,9 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import javax.net.ssl.HttpsURLConnection
 import kotlin.math.roundToInt
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -89,7 +92,7 @@ internal class UrlConnectionCredoTransport(
  * Private, unsupported MyCredo web protocol adapter.
  *
  * The endpoint and request shapes mirror the public MyCredo web client. They can change without
- * notice, so the adapter deliberately exposes a small read-only surface and contains no logging.
+ * notice, so the adapter deliberately exposes a small read-only surface and never logs raw requests or responses.
  */
 class MyCredoGateway internal constructor(
     private val context: Context,
@@ -252,12 +255,20 @@ class MyCredoGateway internal constructor(
                 throw CredoApiException("HISTORY_REQUIRES_STATEMENT")
             }
             CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.API_ROWS, booked.size)
-            return booked.map { item ->
-                val id = item.getString("stmtEntryId")
-                val details = graphQl(session, DETAIL_QUERY, JSONObject().put("stmtEntryId", id))
-                    .getJSONObject("customer").getJSONArray("transactions")
-                if (details.length() != 1) throw CredoApiException("HISTORY_FORMAT")
-                CredoHistoryParser.row(item, details.getJSONObject(0), account)
+            // A bounded batch overlaps independent reads without launching a coroutine per history
+            // row. Await all details before returning anything to the atomic ledger importer.
+            return booked.chunked(DETAIL_PARALLELISM).flatMap { batch ->
+                coroutineScope {
+                    batch.map { item ->
+                        async {
+                            val id = item.getString("stmtEntryId")
+                            val details = graphQl(session, DETAIL_QUERY, JSONObject().put("stmtEntryId", id))
+                                .getJSONObject("customer").getJSONArray("transactions")
+                            if (details.length() != 1) throw CredoApiException("HISTORY_FORMAT")
+                            CredoHistoryParser.row(item, details.getJSONObject(0), account)
+                        }
+                    }.awaitAll()
+                }
             }.filter { !it.postedDate.isBefore(from) && !it.postedDate.isAfter(to) }
                 .sortedBy { it.postedDate }
         } catch (e: kotlinx.coroutines.CancellationException) { throw e }
@@ -300,11 +311,7 @@ class MyCredoGateway internal constructor(
             session?.let { put("Authorization", "Bearer ${it.accessToken}") }
         }
         val response = JSONObject(
-            transport.post(
-                GRAPHQL_URL,
-                headers,
-                JSONObject().put("query", query).put("variables", variables).toString(),
-            ),
+            timedGraphQlPost(query, headers, JSONObject().put("query", query).put("variables", variables).toString()),
         )
         val errors = response.optJSONArray("errors")
         if (errors != null && errors.length() > 0) {
@@ -315,6 +322,25 @@ class MyCredoGateway internal constructor(
             throw CredoApiException(code)
         }
         response.optJSONObject("data") ?: throw CredoApiException("INVALID_API_RESPONSE")
+    }
+
+    private fun timedGraphQlPost(query: String, headers: Map<String, String>, body: String): String {
+        val kind = when (query) { HISTORY_QUERY -> 1; DETAIL_QUERY -> 2; EXPORT_EXCEL_MUTATION -> 3; else -> 0 }
+        if (kind == 0) return transport.post(GRAPHQL_URL, headers, body)
+        val started = System.nanoTime()
+        fun elapsed() = ((System.nanoTime() - started) / 1_000_000).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+        CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.REQUEST_START, secondary = kind)
+        try {
+            return transport.post(GRAPHQL_URL, headers, body).also {
+                CredoSyncDiagnostics.record(CredoSyncDiagnostics.Event.REQUEST_DONE, elapsed(), kind)
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (error: Exception) {
+            val timeout = error is java.net.SocketTimeoutException || error.cause is java.net.SocketTimeoutException
+            CredoSyncDiagnostics.record(if (timeout) CredoSyncDiagnostics.Event.REQUEST_TIMEOUT
+                else CredoSyncDiagnostics.Event.REQUEST_FAILED, elapsed(), kind)
+            throw error
+        }
     }
 
     private fun responseData(raw: String): JSONObject {
@@ -344,6 +370,7 @@ class MyCredoGateway internal constructor(
     private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) { block() }
 
     private companion object {
+        const val DETAIL_PARALLELISM = 3
         const val CHANNEL = 508
         const val ENGLISH_LANGUAGE = 2
         const val AUTH_URL = "https://mobileapp.mycredo.ge/api/Auth"

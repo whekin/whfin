@@ -147,3 +147,27 @@ Before adding background refresh, prove real login/OTP, all-ledger export and du
 owner's device. Then decide separately whether persisting a refresh token is justified. Official bank
 API access is outside the current roadmap; if reconsidered after a public launch, it must use a separate
 implementation, consent model and security review.
+
+## Bounded detail reads — 0.3.54
+
+A measured owner run spent about 40 seconds on a failed account request and roughly 36 seconds
+between API row listing and application/fallback across several ledgers. The main account's file
+path took about six seconds. These boundaries do not identify the precise cause of the failed
+request, and do not establish that XLSX parsing or matching dominates the run.
+
+History pages and accounts remain sequential. Independent booked-row details are fetched in batches
+of at most three, with ordered `awaitAll`; all details must validate before the history is returned
+to the atomic importer. Any failure stops subsequent batches, without returning partial history.
+There is no persistent transaction cache, shorter timeout, extra retry or change to money matching.
+The transport creates a separate connection per request and the session is immutable for these reads.
+
+Sanitized `WHFIN_CREDO_SYNC` REQUEST_START / REQUEST_DONE / REQUEST_FAILED / REQUEST_TIMEOUT events
+add network timing. `count` is elapsed milliseconds (zero at start), `secondary` is a fixed kind:
+1 = history page, 2 = row detail, 3 = XLSX export. No request ID, bank text, amount or credential is
+logged. DONE means the HTTP response body was read, not that bank data has passed parsing/import.
+These timings help separate a slow network response from work after the response.
+
+A deterministic synthetic transport requires three detail calls to overlap and asserts the cap,
+result order and complete row count. Further regressions cover failure before a second batch and
+safe timeout diagnostics. Real wall-clock improvement still needs an owner-driven sync; a bank/network
+stall can continue to dominate even when the detail phase is shorter.

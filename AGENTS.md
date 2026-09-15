@@ -31,6 +31,25 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Ограниченный параллелизм деталей Credo — 0.3.54 (66), 2026-09-15.
+  Sanitized owner log: один account request ждал ~40 s и завершился ACCOUNT_ERROR;
+  несколько detail phases занимали суммарно ~36 s, основной XLSX path ~6 s. Причина сетевой
+  ошибки по старому логу неизвестна; matching/XLSX не объявлены главным bottleneck.
+  Детали booked rows читаются группами максимум по 3, порядок awaitAll сохраняется. Ошибка
+  прекращает следующие группы; importer получает только полную проверенную историю. Accounts
+  и pages остаются последовательными, таймауты/retries/финансовые правила/схема не менялись.
+  REQUEST_START/DONE/FAILED/TIMEOUT хранят только elapsed ms и enum kind 1 page / 2 detail /
+  3 export. HTTP DONE не означает успешный parse/apply. Нет raw, идентификаторов и секретов.
+  Синтетический barrier regression красный на последовательном коде, зелёный после правки;
+  проверены cap=3, порядок, полный результат, abort до следующей группы и таймаут без raw.
+  Fake transport теперь отвечает по request ID, а не по порядку завершения потоков.
+  Полный app: 1110 tests, 0 failures/errors, 5 skipped; signed release R8/lintVital прошли.
+  Логи /tmp/whfin-sync-parallel-{red,green,final}.log; public-tree/diff-check прошли.
+  Установлена на Samsung install -r, данные сохранены; перед установкой bank sync service
+  не был активен. Реальное сокращение полного синка ещё требует owner-driven запуска:
+  сетевой stall может доминировать и после ускорения деталей. Контракт docs/credo-private-sync.md.
+
+
 - [x] Полная Credo-выписка сверяет legacy multiplicity — 0.3.53 (65), 2026-09-15.
   До bridge планируются подтверждённые лишние statement-копии с разными balance keys;
   точные description/date/money/peer cohorts сохраняют исходные ID, категории и число повторов.

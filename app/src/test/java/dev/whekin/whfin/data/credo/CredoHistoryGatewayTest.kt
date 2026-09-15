@@ -27,12 +27,77 @@ class CredoHistoryGatewayTest {
         JSONArray().put(JSONObject(row.toString()).put("accountNumber", account.accountNumber)
             .put("contragentAccount", "GE00TB0000000000000001"))))).toString()
     private fun gateway(responses: List<String>, requests: MutableList<JSONObject> = mutableListOf()): CredoGateway {
-        val queue = java.util.ArrayDeque(responses)
+        val detailResponses = responses.mapNotNull { raw ->
+            val item = JSONObject(raw).optJSONObject("data")?.optJSONObject("customer")
+                ?.optJSONArray("transactions")?.optJSONObject(0)
+            item?.optString("stmtEntryId")?.let { it to raw }
+        }.toMap()
+        val queue = java.util.ArrayDeque(responses.filterNot { it in detailResponses.values })
         return MyCredoGateway(ApplicationProvider.getApplicationContext<Context>(), object : CredoTransport {
             override fun post(url: String, headers: Map<String, String>, body: String): String {
-                requests += JSONObject(body); return queue.removeFirst()
+                val request = JSONObject(body)
+                synchronized(requests) { requests += request }
+                val id = request.getJSONObject("variables").optString("stmtEntryId")
+                return detailResponses[id] ?: synchronized(queue) { queue.removeFirst() }
             }
         }, "synthetic-device")
+    }
+    @Test fun detailRequestsOverlapWithABoundAndKeepBankOrder() = runBlocking {
+        val items = (0..5).map { row("item-$it") }
+        val gate = java.util.concurrent.CountDownLatch(3)
+        val active = java.util.concurrent.atomic.AtomicInteger()
+        val peak = java.util.concurrent.atomic.AtomicInteger()
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val transport = object : CredoTransport {
+            override fun post(url: String, headers: Map<String, String>, body: String): String {
+                val variables = JSONObject(body).getJSONObject("variables")
+                if (!variables.has("stmtEntryId")) return page(6, 1, *items.toTypedArray())
+                val index = variables.getString("stmtEntryId").substringAfterLast('-').toInt()
+                val running = active.incrementAndGet()
+                peak.updateAndGet { maxOf(it, running) }
+                calls.incrementAndGet()
+                try {
+                    gate.countDown()
+                    check(gate.await(2, java.util.concurrent.TimeUnit.SECONDS)) { "Details are still fetched serially" }
+                    Thread.sleep((3 - index % 3) * 10L)
+                    return detail(items[index])
+                } finally { active.decrementAndGet() }
+            }
+        }
+        val gateway = MyCredoGateway(ApplicationProvider.getApplicationContext<Context>(), transport, "synthetic-device")
+        val result = gateway.history(session, account, today, today)
+        assertEquals(3, peak.get())
+        assertEquals(6, calls.get())
+        assertEquals((0..5).map { CredoRowIdentity.mobileId("item-$it") }, result.map { it.bankTransactionId })
+    }
+    @Test fun failedDetailStopsBeforeAnotherBatchAndReturnsNoPartialHistory() = runBlocking {
+        val items = (0..5).map { row("item-$it") }
+        val requested = java.util.concurrent.ConcurrentLinkedQueue<Int>()
+        val gateway = MyCredoGateway(ApplicationProvider.getApplicationContext<Context>(), object : CredoTransport {
+            override fun post(url: String, headers: Map<String, String>, body: String): String {
+                val variables = JSONObject(body).getJSONObject("variables")
+                if (!variables.has("stmtEntryId")) return page(6, 1, *items.toTypedArray())
+                val index = variables.getString("stmtEntryId").substringAfterLast('-').toInt()
+                requested += index
+                if (index == 1) throw CredoApiException("NETWORK_ERROR")
+                return detail(items[index])
+            }
+        }, "synthetic-device")
+        assertTrue(runCatching { gateway.history(session, account, today, today) }.exceptionOrNull() is CredoApiException)
+        assertTrue(requested.all { it < 3 })
+        assertTrue(requested.contains(1))
+    }
+    @Test fun timeoutDiagnosticsContainOnlyDurationAndRequestKind() = runBlocking {
+        org.robolectric.shadows.ShadowLog.clear()
+        val gateway = MyCredoGateway(ApplicationProvider.getApplicationContext<Context>(), object : CredoTransport {
+            override fun post(url: String, headers: Map<String, String>, body: String): String {
+                throw CredoApiException("NETWORK_ERROR", java.net.SocketTimeoutException("private-example-body"))
+            }
+        }, "synthetic-device")
+        assertTrue(runCatching { gateway.history(session, account, today, today) }.isFailure)
+        val messages = org.robolectric.shadows.ShadowLog.getLogsForTag(CredoSyncDiagnostics.TAG).map { it.msg }
+        assertTrue(messages.any { it.startsWith("REQUEST_TIMEOUT") && it.endsWith("secondary=1") })
+        assertTrue(messages.all { it.matches(Regex("[A-Z_]+ count=[0-9]+ secondary=[0-9]+")) })
     }
     @Test fun paginationReadsAllPagesExcludesHoldsAndValidatesDetails() = runBlocking {
         val a = row("a"); val b = row("b"); val calls = mutableListOf<JSONObject>()
