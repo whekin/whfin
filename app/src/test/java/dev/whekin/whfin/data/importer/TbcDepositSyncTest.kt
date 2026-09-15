@@ -48,8 +48,12 @@ class TbcDepositSyncTest {
         override suspend fun accounts() = emptyList<TbcAccount>()
         override fun snapshot() = TbcSession(emptyMap(), "synthetic")
         override fun clear() = Unit
+        val asked = mutableListOf<String>()
         override suspend fun ledgerAccounts() = ledgers
-        override suspend fun history(account: TbcLedgerAccount, from: LocalDate, through: LocalDate) = emptyList<TbcHistoryRow>()
+        override suspend fun history(account: TbcLedgerAccount, from: LocalDate, through: LocalDate): List<TbcHistoryRow> {
+            asked += account.key
+            return emptyList()
+        }
         override suspend fun deposits(): List<TbcDepositAccount> = depositsFailure?.let { throw it } ?: deposits
         override suspend fun depositStatement(deposit: TbcDepositAccount) = statements.getValue(deposit.key)
     }
@@ -120,6 +124,36 @@ class TbcDepositSyncTest {
         assertEquals(0L, ledgerSum(spending))
         assertEquals(2, db.accountDao().allForIntegrity().size)
         assertEquals(30000L, ledgerSum(requireNotNull(db.accountDao().byIbanAndCurrency(iban, "GEL")).id))
+    }
+
+    @Test fun aProductTheBankCallsADepositIsNotAlsoReadAsACardLedger() = runBlocking {
+        // The dashboard lists My Safe beside the card accounts, but only the deposit listing prints
+        // a running balance, so reading it there is what removes the booked-balance question.
+        val alsoInDashboard = TbcLedgerAccount("31", iban, "GEL", "My Safe")
+        val gateway = Gateway(ledgers = listOf(alsoInDashboard), deposits = listOf(deposit),
+            statements = mapOf(deposit.key to statement()))
+        val result = sync(gateway)
+        assertTrue(result.errors.toString(), result.errors.isEmpty())
+        assertTrue(gateway.asked.isEmpty())
+        assertTrue(result.needsStatement.isEmpty())
+        assertEquals(2, result.inserted)
+        assertEquals(listOf("My Safe · GEL · •0009"), result.reports.map { it.label })
+        assertEquals(30000L, ledgerSum(requireNotNull(db.accountDao().byIbanAndCurrency(iban, "GEL")).id))
+    }
+
+    @Test fun aLedgerAlreadyReadThroughTheCardHistoryIsNotImportedTwiceFromItsOwnStatement() = runBlocking {
+        val group = db.financialGroupDao().insert(
+            FinancialGroupEntity(name = "TBC", type = FinancialGroupType.BANK, provider = "TBC"))
+        val account = db.accountDao().insert(AccountEntity(name = "My Safe", type = AccountType.BANK,
+            groupId = group, currency = "GEL", iban = iban))
+        db.transactionDao().insert(TransactionEntity(accountId = account, amountMinor = 9900L, currency = "GEL",
+            occurredAt = today.minusDays(5).atStartOfDay(dev.whekin.whfin.data.LedgerCalendar.zone).toInstant().toEpochMilli(),
+            status = TxStatus.CONFIRMED, source = TxSource.STATEMENT,
+            externalKey = "stmt|$iban|GEL|id|${TbcRowIdentity.mobileId("movement-1")}"))
+        val result = sync(Gateway(deposits = listOf(deposit), statements = mapOf(deposit.key to statement())))
+        assertEquals(listOf("DEPOSIT_MIXED"), result.errors.map { it.substringAfterLast(": ") })
+        assertEquals(1, db.transactionDao().allForIntegrity().size)
+        assertEquals(9900L, ledgerSum(account))
     }
 
     @Test fun aDepositWithoutMovementsIsReportedAndWritesNothing() = runBlocking {

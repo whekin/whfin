@@ -1518,6 +1518,7 @@
     <string name="bank_create_manually">Skip connection, create manually</string>
     <string name="tbc_booked_balance">Booked balance · %1$s</string>
     <string name="tbc_confirm_balance">Confirm balance and load transactions</string>
+    <string name="tbc_balance_prefilled">Filled in with the figure TBC shows for this account. The bank does not say whether it already deducts pending charges, so check it before confirming.</string>
     <string name="statements_origin_user_opening">Balance entered by you</string>
     <string name="tbc_balance_help">Which balance should I enter?</string>
     <string name="tbc_balance_help_body">Use the booked balance, before deducting pending card payments. Available balance may be lower. Enter the amount for the history just loaded; if transactions changed, sync again first. Your amount is recorded as an estimate, not a bank-verified balance.</string>
@@ -1626,6 +1627,7 @@
     <string name="tbc_read_empty">TBC returned an empty first page.</string>
     <string name="tbc_read_deposit_gap">TBC shows a different balance for this deposit than its movements add up to.</string>
     <string name="tbc_deposit_format">Could not read this deposit. Nothing from it was imported.</string>
+    <string name="tbc_deposit_mixed">This deposit already holds rows read from the card history, so its own statement was not imported on top of them.</string>
     <string name="bank_hold_status">Pending bank charge</string>
     <string name="tbc_pending_count">Holds for this account: %1$d</string>
     <string name="credo_balance_review">Review Credo SMS balances</string>

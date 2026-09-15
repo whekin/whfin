@@ -94,6 +94,28 @@ class TbcSavedLoginScreenTest {
         assertEquals("2460", submitted)
     }
 
+    @Test fun theBanksOwnFigureIsOfferedForCheckingRatherThanTypedFromScratch() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val known = dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL",
+            "Everyday", balanceMinor = -1234L)
+        val silent = dev.whekin.whfin.data.tbc.TbcLedgerAccount("11", "GE00TB0000000000000002", "USD", "Travel")
+        var confirmed: Pair<String, Long>? = null
+        val remotes = listOf(known, silent)
+        compose.setContent {
+            WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
+                syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = remotes,
+                    initialHistories = remotes.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
+                        it, java.time.LocalDate.now(), java.time.LocalDate.now(), emptyList()) })), true,
+                onConfirmBalance = { key, amount -> confirmed = key to amount }) }
+        }
+        compose.onNodeWithText("-12.34").assertExists()
+        // Nothing is asserted about an account the bank said nothing about.
+        compose.onAllNodesWithText(context.getString(R.string.tbc_balance_prefilled)).assertCountEquals(1)
+        compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[0].performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(known.key to -1234L, confirmed) }
+        compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[1].performScrollTo().assertIsNotEnabled()
+    }
+
     @Test fun bookedBalanceAcceptsZeroAndDebtWithoutTruncationOrOverflow() {
         listOf("0", "0.00", "0,00", " 0 ").forEach { assertEquals(0L, parseBookedBalance(it)) }
         assertEquals(-1234L, parseBookedBalance("-12,34"))

@@ -186,3 +186,24 @@ a non-IBAN account number, a failed listing beside a working card account, and a
 not adopted. What they cannot establish is the shape of the owner's real My Safe response: an
 owner-run sync is the next evidence, and an unfamiliar shape surfaces as DEPOSIT_FORMAT,
 DEPOSIT_ACCOUNT or DEPOSIT_CHAIN in the read details rather than as silence.
+
+## Source priority and the offered opening (0.3.56)
+
+The first owner-run sync after 0.3.55 showed the product as an ordinary ledger: TBC lists My Safe in
+`cards-and-accounts` too, its PFM history returned a single row, and WHFIN asked for a booked
+balance the way it does for any first card-account import. Two products in one run would also have
+been read twice, so the deposit listing now decides the family: a key it names is skipped by the
+card-history pass entirely, and the deposit endpoint — the only one printing a running balance —
+supplies both the movements and the opening. That is what removes the balance question for it.
+
+Switching source is only safe on a ledger the card history has not already written. A ledger holding
+rows with mobile movement IDs is therefore reported as DEPOSIT_MIXED and left alone: the deposit
+statement cannot name those IDs, so importing the same money from the other side would duplicate it
+instead of recognizing it. Choosing by the bank's own listing, rather than by what WHFIN imported
+first, keeps the choice stable across runs.
+
+For the accounts that do still ask, the field is now filled in with the figure the bank prints for
+that account (`balance` on the card product, `amount` on the dashboard) instead of starting empty.
+This is an offer to check, not an anchor: the response never states whether that figure is booked or
+already net of pending charges, so the note beside it says so and the owner still confirms
+explicitly. An account the bank said nothing about keeps an empty field and a disabled action.

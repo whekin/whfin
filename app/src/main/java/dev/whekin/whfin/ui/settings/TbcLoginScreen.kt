@@ -238,11 +238,17 @@ internal fun TbcLoginScreen(
                         result.needsStatement.forEach { remote ->
                             val initial = result.initialHistories.singleOrNull { it.remote.key == remote.key }
                             if (initial != null) {
-                                var balance by remember(initial.remote.key, initial.readAt) { mutableStateOf("") }
+                                // The bank prints a figure for the account; what it means is not
+                                // documented, so it is an offer to check rather than an anchor.
+                                val suggested = remote.balanceMinor?.let(::formatBookedBalance)
+                                var balance by remember(initial.remote.key, initial.readAt) { mutableStateOf(suggested.orEmpty()) }
                                 val parsed = parseBookedBalance(balance)
                                 WhfinField(balance, { balance = it },
                                     stringResource(R.string.tbc_booked_balance, remote.label),
                                     keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
+                                if (suggested != null) Text(stringResource(R.string.tbc_balance_prefilled),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 WhfinButton(stringResource(R.string.tbc_confirm_balance), {
                                     parsed?.let { onConfirmBalance(remote.key, it) }; keyboard?.hide()
                                 }, Modifier.fillMaxWidth(), enabled = parsed != null)
@@ -275,6 +281,10 @@ internal fun TbcLoginScreen(
 internal fun parseBookedBalance(text: String): Long? = runCatching {
     text.replace(" ", "").replace(',', '.').toBigDecimal().movePointRight(2).longValueExact()
 }.getOrNull()
+
+/** Plain editable digits, not a localized money label: the field parses what it shows. */
+internal fun formatBookedBalance(minor: Long): String =
+    java.math.BigDecimal.valueOf(minor, 2).toPlainString()
 
 @Composable
 private fun TbcOtpContent(state: TbcLoginState, code: String, onChange: (String) -> Unit,
@@ -329,6 +339,7 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT", "HISTORY_HOLD" -> R.string.tbc_history_format
     "HISTORY_CHANGED" -> R.string.tbc_history_changed
     "DEPOSIT_FORMAT", "DEPOSIT_ACCOUNT", "DEPOSIT_CHAIN" -> R.string.tbc_deposit_format
+    "DEPOSIT_MIXED" -> R.string.tbc_deposit_mixed
     "OTP_METHOD", "BANK_ACTION" -> R.string.tbc_error_bank_action
     else -> R.string.tbc_error_response
 }

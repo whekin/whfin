@@ -38,10 +38,15 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             emptyList()
         }
         val total = accounts.size + deposits.size
+        val depositKeys = deposits.map { it.key }.toSet()
         data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean, val holds: List<TbcHold>)
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
             progress(index + 1, total)
+            // The bank files this product as a deposit, and that listing prints a running balance
+            // this history does not. One product is read from one source: the deposit pass owns it,
+            // so it also supplies the opening instead of asking the owner for a booked balance.
+            if (remote.key in depositKeys) continue
             val account = db.accountDao().byIbanAndCurrency(remote.iban, remote.currency)
             val opening = account?.let { db.statementImportDao().earliestWithOpeningBalance(it.id) }
             val imports = account?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
@@ -112,13 +117,18 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(error = code)
             }
         }
-        val known = accounts.map { it.key }.toSet()
         for ((index, deposit) in deposits.withIndex()) {
             progress(accounts.size + index + 1, total)
-            // A product already read as a currency ledger must not be imported a second time here.
-            if (deposit.key in known) continue
             try {
                 if (!deposit.accountNo.matches(IBAN)) throw TbcException("DEPOSIT_ACCOUNT")
+                // An older build may have already read this product through the card history. Its
+                // rows carry mobile IDs the deposit statement cannot name, so importing the same
+                // money from the other source would duplicate it rather than recognize it.
+                db.accountDao().byIbanAndCurrency(deposit.accountNo, deposit.currency)?.let { ledger ->
+                    if (db.transactionDao().allStatementRows(ledger.id)
+                            .any { TbcRowIdentity.mobileFromKey(it.externalKey.orEmpty()) != null })
+                        throw TbcException("DEPOSIT_MIXED")
+                }
                 val read = gateway.depositStatement(deposit)
                 if (read.rows.isEmpty()) {
                     reports[deposit.key] = TbcSyncReport(deposit.label, 0, fullHistory = true)

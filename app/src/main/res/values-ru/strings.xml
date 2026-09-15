@@ -1580,6 +1580,7 @@
     <string name="bank_create_manually">Без подключения — создать вручную</string>
     <string name="tbc_booked_balance">Проведённый остаток · %1$s</string>
     <string name="tbc_confirm_balance">Подтвердить остаток и загрузить операции</string>
+    <string name="tbc_balance_prefilled">Подставлена цифра, которую TBC показывает по этому счёту. Банк не говорит, вычтены ли из неё покупки в обработке, поэтому сверьте её перед подтверждением.</string>
     <string name="statements_origin_user_opening">Остаток введён вами</string>
     <string name="tbc_balance_help">Какой остаток указывать?</string>
     <string name="tbc_balance_help_body">Укажите проведённый остаток, без вычета покупок в обработке. Доступный остаток может быть меньше. Сумма должна соответствовать только что загруженной истории; если появились операции, сначала обновите её. Ваш остаток сохранится как оценка, а не как проверенный банком баланс.</string>
@@ -1688,6 +1689,7 @@
     <string name="tbc_read_empty">TBC вернул пустую первую страницу.</string>
     <string name="tbc_read_deposit_gap">TBC показывает по этому депозиту другой остаток, чем сумма его движений.</string>
     <string name="tbc_deposit_format">Не удалось прочитать этот депозит. Из него ничего не загружено.</string>
+    <string name="tbc_deposit_mixed">В этом депозите уже есть строки из карточной истории, поэтому его собственная выписка поверх них не загружалась.</string>
     <string name="bank_hold_status">Ожидает списания</string>
     <string name="tbc_pending_count">Блокировок для счёта: %1$d</string>
     <string name="credo_balance_review">Проверить остатки SMS Credo</string>
