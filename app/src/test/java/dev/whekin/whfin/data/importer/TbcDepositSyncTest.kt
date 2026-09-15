@@ -141,7 +141,7 @@ class TbcDepositSyncTest {
         assertEquals(30000L, ledgerSum(requireNotNull(db.accountDao().byIbanAndCurrency(iban, "GEL")).id))
     }
 
-    @Test fun aLedgerAlreadyReadThroughTheCardHistoryIsNotImportedTwiceFromItsOwnStatement() = runBlocking {
+    @Test fun aLedgerAlreadyReadThroughTheCardHistoryKeepsItsOwnRowsUntouched() = runBlocking {
         val group = db.financialGroupDao().insert(
             FinancialGroupEntity(name = "TBC", type = FinancialGroupType.BANK, provider = "TBC"))
         val account = db.accountDao().insert(AccountEntity(name = "My Safe", type = AccountType.BANK,
@@ -151,9 +151,36 @@ class TbcDepositSyncTest {
             status = TxStatus.CONFIRMED, source = TxSource.STATEMENT,
             externalKey = "stmt|$iban|GEL|id|${TbcRowIdentity.mobileId("movement-1")}"))
         val result = sync(Gateway(deposits = listOf(deposit), statements = mapOf(deposit.key to statement())))
-        assertEquals(listOf("DEPOSIT_MIXED"), result.errors.map { it.substringAfterLast(": ") })
+        assertTrue(result.errors.toString(), result.errors.isEmpty())
+        assertTrue(result.reports.single().readAsLedger)
         assertEquals(1, db.transactionDao().allForIntegrity().size)
         assertEquals(9900L, ledgerSum(account))
+    }
+
+    @Test fun aLedgerTheCardHistoryAlreadyWroteStaysWithIt() = runBlocking {
+        val group = db.financialGroupDao().insert(
+            FinancialGroupEntity(name = "TBC", type = FinancialGroupType.BANK, provider = "TBC"))
+        val account = db.accountDao().insert(AccountEntity(name = "My Safe", type = AccountType.BANK,
+            groupId = group, currency = "GEL", iban = iban))
+        db.transactionDao().insert(TransactionEntity(accountId = account, amountMinor = 9900L, currency = "GEL",
+            occurredAt = today.minusDays(5).atStartOfDay(dev.whekin.whfin.data.LedgerCalendar.zone).toInstant().toEpochMilli(),
+            status = TxStatus.CONFIRMED, source = TxSource.STATEMENT,
+            externalKey = "stmt|$iban|GEL|id|${TbcRowIdentity.mobileId("movement-1")}"))
+        db.statementImportDao().insert(StatementImportEntity(accountId = account,
+            periodFrom = today.minusYears(1).toEpochDay(), periodTo = today.minusDays(2).toEpochDay(),
+            openingBalanceMinor = 0, closingBalanceMinor = 0, totalRows = 1, inserted = 1, duplicates = 0,
+            reconciled = 0, importedAt = 1, origin = StatementImportOrigin.TBC_HISTORY))
+        // The deposit listing names this product, but handing it over would leave its ledger with
+        // no source at all: the deposit statement cannot name rows the card history already wrote.
+        val ledger = TbcLedgerAccount("31", iban, "GEL", "My Safe")
+        val gateway = Gateway(ledgers = listOf(ledger), deposits = listOf(deposit),
+            statements = mapOf(deposit.key to statement()))
+        val result = sync(gateway)
+
+        assertTrue(result.errors.toString(), result.errors.isEmpty())
+        assertEquals(listOf(ledger.key), gateway.asked)
+        assertEquals(9900L, ledgerSum(account))
+        assertTrue(result.reports.single { it.readAsLedger }.label.contains("My Safe"))
     }
 
     @Test fun aDepositWithoutMovementsIsReportedAndWritesNothing() = runBlocking {

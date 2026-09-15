@@ -16,7 +16,9 @@ data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown:
     val inserted: Int = 0, val matched: Int = 0, val waitingForBalance: Boolean = false,
     val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null, val pending: Int = 0,
     /** The product's own figure disagrees with the movements it returned: the list is not the whole story. */
-    val bankBalanceDiffers: Boolean = false)
+    val bankBalanceDiffers: Boolean = false,
+    /** A deposit whose ledger the card history already owns, so its own statement was not read. */
+    val readAsLedger: Boolean = false)
 data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
     val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis(), val holds: List<TbcHold> = emptyList())
 data class TbcInitializationResult(val inserted: Int, val reconciled: Int)
@@ -43,11 +45,13 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
             progress(index + 1, total)
-            // The bank files this product as a deposit, and that listing prints a running balance
-            // this history does not. One product is read from one source: the deposit pass owns it,
-            // so it also supplies the opening instead of asking the owner for a booked balance.
-            if (remote.key in depositKeys) continue
             val account = db.accountDao().byIbanAndCurrency(remote.iban, remote.currency)
+            // The bank files this product as a deposit, and that listing prints a running balance
+            // this history does not, so the deposit pass owns it and supplies the opening instead
+            // of asking the owner for a booked balance. A ledger this history has already written
+            // stays with this history: the two sources name rows differently, and handing it over
+            // would either duplicate the movements or leave the ledger with no source at all.
+            if (remote.key in depositKeys && !readByThisHistory(account)) continue
             val opening = account?.let { db.statementImportDao().earliestWithOpeningBalance(it.id) }
             val imports = account?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
             val fullHistory = imports.none { it.origin == StatementImportOrigin.TBC_HISTORY }
@@ -122,12 +126,11 @@ class TbcHistorySync(private val db: WhfinDatabase) {
             try {
                 if (!deposit.accountNo.matches(IBAN)) throw TbcException("DEPOSIT_ACCOUNT")
                 // An older build may have already read this product through the card history. Its
-                // rows carry mobile IDs the deposit statement cannot name, so importing the same
-                // money from the other source would duplicate it rather than recognize it.
-                db.accountDao().byIbanAndCurrency(deposit.accountNo, deposit.currency)?.let { ledger ->
-                    if (db.transactionDao().allStatementRows(ledger.id)
-                            .any { TbcRowIdentity.mobileFromKey(it.externalKey.orEmpty()) != null })
-                        throw TbcException("DEPOSIT_MIXED")
+                // rows carry mobile IDs the deposit statement cannot name, so the card history goes
+                // on owning it; importing the same money from the other source would duplicate it.
+                if (readByThisHistory(db.accountDao().byIbanAndCurrency(deposit.accountNo, deposit.currency))) {
+                    reports[deposit.key] = TbcSyncReport(deposit.label, 0, readAsLedger = true)
+                    continue
                 }
                 val read = gateway.depositStatement(deposit)
                 if (read.rows.isEmpty()) {
@@ -163,6 +166,11 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         }
         return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors, reports.values.toList())
     }
+
+    /** Whether the mobile card history has already written rows into this ledger, by their own IDs. */
+    private suspend fun readByThisHistory(account: AccountEntity?): Boolean = account != null &&
+        db.transactionDao().allStatementRows(account.id)
+            .any { TbcRowIdentity.mobileFromKey(it.externalKey.orEmpty()) != null }
 
     /**
      * Brings a deposit ledger into existence.

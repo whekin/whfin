@@ -1632,9 +1632,9 @@
     <string name="tbc_read_recent">Recent history with overlap</string>
     <string name="tbc_read_pages">Pages: %1$d · Bank rows: %2$d · Hold rows returned: %3$d</string>
     <string name="tbc_read_empty">TBC returned an empty first page.</string>
+    <string name="tbc_read_deposit_as_ledger">Read through the card history, so its own deposit statement was not imported on top.</string>
     <string name="tbc_read_deposit_gap">TBC shows a different balance for this deposit than its movements add up to.</string>
     <string name="tbc_deposit_format">Could not read this deposit. Nothing from it was imported.</string>
-    <string name="tbc_deposit_mixed">This deposit already holds rows read from the card history, so its own statement was not imported on top of them.</string>
     <string name="bank_hold_status">Pending bank charge</string>
     <string name="tbc_pending_count">Holds for this account: %1$d</string>
     <string name="credo_balance_review">Review Credo SMS balances</string>

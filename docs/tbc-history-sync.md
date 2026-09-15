@@ -217,3 +217,29 @@ visible thing left to try was running the sync again. The result now moves that 
 to reporting in one step — `afterInitialBalance` clears the wait and writes what the import actually
 did — so confirming the balance is the last thing a new account needs. The rows it imports are the
 ones already read during that sync; no second pass fetches them.
+
+## Funding a deposit is not spending (2026-09-16)
+
+The owner moved 1500 GEL from the TBC current account to the deposit and the ledger recorded 1500
+of spending on one side and 1500 of income on the other. Both rows carry the same two lines from the
+bank: a title naming the deposit contract, and the subtitle `საკუთარ ანგარიშებს შორის გადარიცხვა` —
+the bank itself saying the money moved between the owner's own accounts.
+
+The reader only recognized that statement in English (`internal transfer`, and only under the title
+`Transfer between your accounts`). In this owner's whole history not one row carries the English
+wording, so the rule had never matched anything; everything else with a minus fell through to OTHER,
+which is an ordinary expense. The subtitle is now read in either language, whatever the title says,
+and a conversion keeps its own meaning under it. Cross-bank Credo→TBC transfers were already paired
+correctly by reciprocal IBANs and are unaffected.
+
+Rows already imported keep their classification: a mobile row that is already in the ledger is known
+by its movement id and is not rewritten by a later read. The one pair recorded before this fix is
+joined with the ordinary "Own transfer" action on the operation, which is reversible.
+
+## Which source owns a deposit ledger
+
+The deposit listing wins for a product it names, but only while the card history has not written
+into that ledger. A ledger holding rows with mobile movement ids keeps being read by the card
+history: the deposit statement cannot name those ids, so handing the product over would either
+duplicate its movements or — since the card pass would then skip it — leave the ledger with no
+source at all. Such a deposit is reported as read through the card history rather than as an error.

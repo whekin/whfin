@@ -319,6 +319,7 @@ private fun ColumnScope.TbcConnectedContent(
                             append(outcome.joinToString(" · "))
                         }
                         if (report.bankBalanceDiffers) { append("\n"); append(stringResource(R.string.tbc_read_deposit_gap)) }
+                        if (report.readAsLedger) { append("\n"); append(stringResource(R.string.tbc_read_deposit_as_ledger)) }
                         if (showReadDetails) {
                             append("\n"); append(stringResource(R.string.tbc_read_counts, report.received, report.alreadyKnown))
                             append("\n"); append(stringResource(R.string.tbc_pending_count, report.pending))
@@ -415,7 +416,6 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT", "HISTORY_HOLD" -> R.string.tbc_history_format
     "HISTORY_CHANGED" -> R.string.tbc_history_changed
     "DEPOSIT_FORMAT", "DEPOSIT_ACCOUNT", "DEPOSIT_CHAIN" -> R.string.tbc_deposit_format
-    "DEPOSIT_MIXED" -> R.string.tbc_deposit_mixed
     "OTP_METHOD", "BANK_ACTION" -> R.string.tbc_error_bank_action
     else -> R.string.tbc_error_response
 }

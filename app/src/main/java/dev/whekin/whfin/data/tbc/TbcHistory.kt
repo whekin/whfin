@@ -87,10 +87,17 @@ internal object TbcHistoryParser {
                     pos.matchEntire(title) ?: throw TbcException("HISTORY_FORMAT")
                 } else null
                 val category = tx.optString("categoryCode")
+                // The subtitle is the bank saying whose accounts the money moved between, and it
+                // says it in Georgian: funding a deposit is titled by its contract number and only
+                // this line marks it as the owner's own money moving. Read as a title-only English
+                // phrase it was an ordinary payment, so a deposit top-up counted as spending on one
+                // side and income on the other.
+                val ownAccounts = subtitle.equals("internal transfer", true) ||
+                    subtitle == "საკუთარ ანგარიშებს შორის გადარიცხვა"
                 val operation = when {
                     card != null -> StatementOperation.CARD_PAYMENT
-                    title == "კონვერტაცია" && subtitle.equals("internal transfer", true) -> StatementOperation.CURRENCY_EXCHANGE
-                    title.equals("Transfer between your accounts", true) && subtitle.equals("internal transfer", true) -> StatementOperation.OWN_TRANSFER
+                    title == "კონვერტაცია" && ownAccounts -> StatementOperation.CURRENCY_EXCHANGE
+                    ownAccounts -> StatementOperation.OWN_TRANSFER
                     category == "BANK_INSURE_TAX" && title.contains("საკომისიო") -> StatementOperation.FEE
                     title.startsWith("ნაკრების საკომისიო") -> StatementOperation.FEE
                     category == "UTIL_PAY" -> StatementOperation.BILL_PAYMENT
