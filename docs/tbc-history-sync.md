@@ -137,3 +137,52 @@ The owner-run 0.3.40 read established that booked GEL history was being download
 rows were already in the ledger. Holds were separate. Follow-up journal inspection found a purchase
 rejected because of its Ertguli loyalty footer; 0.3.41 fixes that push template (see tbc-push.md).
 No API history selector or blocked-movement posting rule was changed for this finding.
+
+## Deposits, including My Safe (0.3.55)
+
+The owner opened a My Safe product and WHFIN showed nothing at all: account discovery read only
+`GET /products/api/v1/cards` and `GET /dashboard/api/v1/cards-and-accounts`, and TBC keeps savings
+and term products in a third listing. Those two calls cannot return a product they do not carry, so
+no error appeared either — the deposit simply did not exist for the app.
+
+`GET /deposits/api/v1/deposits` now lists them and `GET /deposits/api/v1/statements/{id}` reads one
+product's movements. Both are mobile endpoints on the same authenticated session, documented in
+[tbc-connector-research.md](tbc-connector-research.md). The details route is not called: it carries
+interest rates and dates, not money WHFIN books. A second listing page is refused rather than
+silently dropping products, and the deposit id must be a bank number before it reaches the URL path.
+
+A deposit movement is `depositAmount`, `interestedAmount` and `withdrawnDepositAmount` with the
+running `balance`, not a PFM movement. Two things the response does not state are settled by that
+chain instead of by assumption: which end of the list is the oldest row, and whether a withdrawal is
+printed positive to subtract or already signed. The documented convention is tried first and the
+alternative only when at least two rows can prove it; a list that proves neither is refused. A row
+that moves nothing is not written, and the same chain check then still has to hold across it.
+
+The opening is the bank's own arithmetic — the balance before the earliest returned row — so a
+deposit never asks the owner for a booked balance the way a card ledger does. A truncated list stays
+safe for the same reason: the anchor describes only the imported period. When the product's own
+`currentAmount` disagrees with the movements it returned, the import still happens but the read
+details say so, because that gap means the list is not the whole story.
+
+Interest is INTEREST; top-ups and withdrawals are SAVINGS_TOPUP, which is own movement and therefore
+outside income and expenses — the counter leg is on the current account. A combination the bank has
+not been observed to print stays a visible OTHER row rather than a guessed classification.
+
+The ledger is identified by the deposit IBAN and currency. An IBAN-less ledger is never adopted
+here, unlike a statement import: those rows are created by card SMS, and handing one to a deposit
+would move a savings history onto everyday money. An account number that is not a TBC IBAN is a
+reported question, not an invented identity. A product already read as a currency ledger is skipped.
+On creation the product type follows the bank's own `addAmountPossibility`; Available/Reserve stays
+the owner's statement. Movements are deduplicated by the ordinary statement identity, so a repeated
+sync is a no-op, and the first import is recorded as TBC_HISTORY.
+
+Failure is scoped: an unreadable deposit listing costs the card accounts nothing, and one bad
+deposit does not stop the others. Session, protection and rate-limit failures still stop the run.
+
+Host tests cover the listing, a newest-first chain reversed into an oldest-first statement with its
+derived opening, zero rows, a broken chain, the signed-withdrawal alternative and its refusal on a
+single row, path safety, ledger creation with the bank's product type, repeat sync, the balance gap,
+a non-IBAN account number, a failed listing beside a working card account, and an SMS ledger that is
+not adopted. What they cannot establish is the shape of the owner's real My Safe response: an
+owner-run sync is the next evidence, and an unfamiliar shape surfaces as DEPOSIT_FORMAT,
+DEPOSIT_ACCOUNT or DEPOSIT_CHAIN in the read details rather than as silence.

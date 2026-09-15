@@ -14,7 +14,9 @@ data class TbcSyncResult(val inserted: Int = 0, val matched: Int = 0, val unchan
 /** Counts and masked account labels only; no raw bank payload or authentication data. */
 data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown: Int = 0,
     val inserted: Int = 0, val matched: Int = 0, val waitingForBalance: Boolean = false,
-    val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null, val pending: Int = 0)
+    val error: String? = null, val fullHistory: Boolean = false, val stats: TbcHistoryReadStats? = null, val pending: Int = 0,
+    /** The product's own figure disagrees with the movements it returned: the list is not the whole story. */
+    val bankBalanceDiffers: Boolean = false)
 data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
     val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis(), val holds: List<TbcHold> = emptyList())
 data class TbcInitializationResult(val inserted: Int, val reconciled: Int)
@@ -27,10 +29,19 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val missing = mutableListOf<TbcLedgerAccount>()
         val errors = mutableListOf<String>()
         val reports = linkedMapOf<String, TbcSyncReport>()
+        // Deposits are a separate product family; failing to list them must not cost the card accounts.
+        val deposits = try { gateway.deposits() } catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            val code = (e as? TbcException)?.code
+            if (code in setOf("SESSION", "PROTECTION", "RATE_LIMIT")) throw e
+            errors += DEPOSITS_LABEL + ": " + (code ?: "DEPOSIT_FORMAT")
+            emptyList()
+        }
+        val total = accounts.size + deposits.size
         data class Ready(val remote: TbcLedgerAccount, val account: AccountEntity, val from: LocalDate, val rows: List<TbcHistoryRow>, val fullHistory: Boolean, val holds: List<TbcHold>)
         val ready = mutableListOf<Ready>()
         for ((index, remote) in accounts.withIndex()) {
-            progress(index + 1, accounts.size)
+            progress(index + 1, total)
             val account = db.accountDao().byIbanAndCurrency(remote.iban, remote.currency)
             val opening = account?.let { db.statementImportDao().earliestWithOpeningBalance(it.id) }
             val imports = account?.let { db.statementImportDao().forAccount(it.id) }.orEmpty()
@@ -101,7 +112,64 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 reports[item.remote.key] = requireNotNull(reports[item.remote.key]).copy(error = code)
             }
         }
+        val known = accounts.map { it.key }.toSet()
+        for ((index, deposit) in deposits.withIndex()) {
+            progress(accounts.size + index + 1, total)
+            // A product already read as a currency ledger must not be imported a second time here.
+            if (deposit.key in known) continue
+            try {
+                if (!deposit.accountNo.matches(IBAN)) throw TbcException("DEPOSIT_ACCOUNT")
+                val read = gateway.depositStatement(deposit)
+                if (read.rows.isEmpty()) {
+                    reports[deposit.key] = TbcSyncReport(deposit.label, 0, fullHistory = true)
+                    continue
+                }
+                val statement = BankStatement(BankProfile("TBC", "TBC"), deposit.accountNo, deposit.currency,
+                    read.rows.first().postedDate, read.rows.last().postedDate, read.openingMinor, read.closingMinor, read.rows)
+                StatementValidator.validate(statement)
+                val plan = db.withTransaction {
+                    val existing = db.accountDao().byIbanAndCurrency(deposit.accountNo, deposit.currency)
+                    val account = existing ?: createDepositLedger(deposit)
+                    val first = db.statementImportDao().forAccount(account.id)
+                        .none { it.origin == StatementImportOrigin.TBC_HISTORY }
+                    val plan = ImportPlanner(db, LedgerCalendar.zone)
+                        .plan(statement, account, existing == null, false, collectReview = false)
+                    if (!plan.isNoOp || first) ImportApplier(db, LedgerCalendar.zone).apply(plan, account, null,
+                        if (first) StatementImportOrigin.TBC_HISTORY else StatementImportOrigin.TBC_SYNC)
+                    plan
+                }
+                reports[deposit.key] = TbcSyncReport(deposit.label, read.rows.size, alreadyKnown = plan.duplicates,
+                    inserted = plan.inserted, matched = plan.reconciled, fullHistory = true,
+                    bankBalanceDiffers = deposit.balanceMinor != null && deposit.balanceMinor != read.closingMinor)
+                if (plan.isNoOp) unchanged++ else { inserted += plan.inserted; matched += plan.reconciled }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                val code = (e as? TbcException)?.code
+                    ?: if (e is InvalidStatementException) "DEPOSIT_CHAIN" else "DEPOSIT_FORMAT"
+                if (code in setOf("SESSION", "PROTECTION", "RATE_LIMIT")) throw e
+                errors += deposit.label + ": " + code
+                reports[deposit.key] = TbcSyncReport(deposit.label, 0, error = code, fullHistory = true)
+            }
+        }
         return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors, reports.values.toList())
+    }
+
+    /**
+     * Brings a deposit ledger into existence.
+     *
+     * Unlike a statement import this never adopts an IBAN-less ledger: those are created by SMS from
+     * card spending, and handing one to a deposit would move a savings history onto an everyday
+     * account. The product type is the bank's own answer about further top-ups, not a reading of the
+     * owner's Available/Reserve choice.
+     */
+    private suspend fun createDepositLedger(deposit: TbcDepositAccount): AccountEntity {
+        val groupId = db.financialGroupDao().byProvider(FinancialGroupType.BANK, "TBC")?.id
+            ?: db.financialGroupDao().insert(FinancialGroupEntity(name = "TBC", type = FinancialGroupType.BANK, provider = "TBC"))
+        val id = db.accountDao().insert(AccountEntity(
+            name = deposit.name.ifBlank { "TBC ${deposit.currency} •${deposit.accountNo.takeLast(4)}" },
+            type = AccountType.BANK, groupId = groupId, currency = deposit.currency, iban = deposit.accountNo,
+            bankProduct = deposit.acceptsTopUp?.let { if (it) BankProduct.DEMAND_DEPOSIT else BankProduct.TERM_DEPOSIT }))
+        return requireNotNull(db.accountDao().byId(id))
     }
     /** Uses the exact displayed read, never a fresh download after the owner enters its balance. */
     suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): TbcInitializationResult {
@@ -128,4 +196,8 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         }
     }
 
+    private companion object {
+        val IBAN = Regex("GE[0-9]{2}TB[0-9]{16}")
+        const val DEPOSITS_LABEL = "Deposits"
+    }
 }

@@ -225,6 +225,7 @@ internal fun TbcLoginScreen(
                                         append(stringResource(R.string.tbc_read_pages, stats.pages, stats.parsed, stats.blocked))
                                         if (stats.firstPageEmpty) { append("\n"); append(stringResource(R.string.tbc_read_empty)) }
                                     }
+                                    if (report.bankBalanceDiffers) { append("\n"); append(stringResource(R.string.tbc_read_deposit_gap)) }
                                 }, supportingMaxLines = 8)
                         }
                     }
@@ -327,6 +328,7 @@ internal fun tbcErrorText(code: String): Int = when (code) {
     "HISTORY_CONFLICT" -> R.string.tbc_history_conflict
     "HISTORY_PAGE", "HISTORY_FORMAT", "HISTORY_ACCOUNT", "HISTORY_HOLD" -> R.string.tbc_history_format
     "HISTORY_CHANGED" -> R.string.tbc_history_changed
+    "DEPOSIT_FORMAT", "DEPOSIT_ACCOUNT", "DEPOSIT_CHAIN" -> R.string.tbc_deposit_format
     "OTP_METHOD", "BANK_ACTION" -> R.string.tbc_error_bank_action
     else -> R.string.tbc_error_response
 }

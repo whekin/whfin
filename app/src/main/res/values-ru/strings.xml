@@ -1686,6 +1686,8 @@
     <string name="tbc_read_recent">Свежая история с перекрытием</string>
     <string name="tbc_read_pages">Страниц: %1$d · Строк банка: %2$d · Блокировок в ответе: %3$d</string>
     <string name="tbc_read_empty">TBC вернул пустую первую страницу.</string>
+    <string name="tbc_read_deposit_gap">TBC показывает по этому депозиту другой остаток, чем сумма его движений.</string>
+    <string name="tbc_deposit_format">Не удалось прочитать этот депозит. Из него ничего не загружено.</string>
     <string name="bank_hold_status">Ожидает списания</string>
     <string name="tbc_pending_count">Блокировок для счёта: %1$d</string>
     <string name="credo_balance_review">Проверить остатки SMS Credo</string>

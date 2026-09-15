@@ -42,6 +42,9 @@ interface TbcGateway {
     suspend fun history(account: TbcLedgerAccount, from: java.time.LocalDate, through: java.time.LocalDate): List<TbcHistoryRow> = throw TbcException("HISTORY_FORMAT")
     fun historyReadStats(): TbcHistoryReadStats? = null
     fun pendingHolds(): List<TbcHold> = emptyList()
+    /** Savings/deposit products, which the card and dashboard listings do not contain. */
+    suspend fun deposits(): List<TbcDepositAccount> = emptyList()
+    suspend fun depositStatement(deposit: TbcDepositAccount): TbcDepositStatement = throw TbcException("DEPOSIT_FORMAT")
     suspend fun accounts(): List<TbcAccount>
     fun clear()
     fun snapshot(): TbcSession
@@ -158,6 +161,18 @@ class MobileTbcGateway internal constructor(private val transport: TbcTransport)
             if (!iban.matches(Regex("GE[0-9]{2}TB[0-9]{16}")) || !currency.matches(Regex("[A-Z]{3}"))) throw TbcException("RESPONSE")
             TbcAccount(row.optLong("id").takeIf { it > 0 }, iban, currency, row.optString("name"))
         }.distinctBy { it.iban to it.currency }
+    }
+    override suspend fun deposits(): List<TbcDepositAccount> = withContext(Dispatchers.IO) {
+        try { TbcDepositParser.accounts(request(API, "/deposits/api/v1/deposits")) }
+        catch (e: TbcException) { throw e }
+        catch (_: Exception) { throw TbcException("DEPOSIT_FORMAT") }
+    }
+    override suspend fun depositStatement(deposit: TbcDepositAccount): TbcDepositStatement = withContext(Dispatchers.IO) {
+        // The id reaches the URL path, so it stays a bank-issued number rather than arbitrary text.
+        if (!deposit.id.matches(Regex("[0-9]{1,19}"))) throw TbcException("DEPOSIT_FORMAT")
+        try { TbcDepositParser.statement(JSONArray(requestText(API, "/deposits/api/v1/statements/${deposit.id}"))) }
+        catch (e: TbcException) { throw e }
+        catch (_: Exception) { throw TbcException("DEPOSIT_FORMAT") }
     }
     override suspend fun ledgerAccounts(): List<TbcLedgerAccount> = withContext(Dispatchers.IO) {
         try {
