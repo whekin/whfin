@@ -621,6 +621,8 @@ data class StatementImportEntity(
     @ColumnInfo(defaultValue = "0")
     val reviewCount: Int = 0,
     val importedAt: Long,
+    /** Hashes and proven counts of complete file rows; no raw descriptions. */
+    val rowMultiplicity: String? = null,
 )
 
 @Entity(

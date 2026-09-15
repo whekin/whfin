@@ -461,7 +461,8 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
                     // excluded from balances and feed projections together with its source row.
                     isVoided = true,
                     correctionOfTransactionId = row.id,
-                    externalKey = "correction|${row.id}|$now|$index",
+                    // Restoring and correcting again can happen in the same millisecond.
+                    externalKey = "correction|${row.id}|${java.util.UUID.randomUUID()}|$index",
                     createdAt = now,
                 ),
             )

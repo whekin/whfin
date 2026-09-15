@@ -35,6 +35,16 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
         val statement = plan.statement
         val now = System.currentTimeMillis()
 
+        for (merge in plan.statementMerges) {
+            val survivor = requireNotNull(db.transactionDao().byId(merge.transactionId))
+            val retired = requireNotNull(db.transactionDao().byId(merge.duplicateId))
+            db.transactionDao().update(survivor.copy(categoryId = survivor.categoryId ?: retired.categoryId))
+            db.transactionDao().update(retired.copy(externalKey = null, isVoided = true,
+                mergedIntoTransactionId = survivor.id))
+            for (message in db.smsDiagnosticDao().forTransaction(retired.id))
+                db.smsDiagnosticDao().update(message.copy(transactionId = survivor.id))
+            db.bankHoldDao().relink(retired.id, survivor.id)
+        }
         plan.entries.forEach { entry ->
             when (entry) {
                 is PlannedRow.Duplicate -> Unit
@@ -68,6 +78,7 @@ internal class ImportApplier(private val db: WhfinDatabase, private val zone: Zo
                 reconciled = plan.reconciled,
                 reviewCount = plan.reviewCandidateIds.size,
                 importedAt = now,
+                rowMultiplicity = CredoStatementMultiplicity.evidence(statement),
             ),
         )
 

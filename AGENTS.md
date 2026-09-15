@@ -31,6 +31,32 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Полная Credo-выписка сверяет legacy multiplicity — 0.3.53 (65), 2026-09-15.
+  До bridge планируются подтверждённые лишние statement-копии с разными balance keys;
+  точные description/date/money/peer cohorts сохраняют исходные ID, категории и число повторов.
+  Исключены API identities, коррекции/withdrawals, transfer groups, income links, долги/доли,
+  конфликтующие категории и неоднозначные diagnostic/hold-связи повторных групп. Singleton
+  diagnostics/holds переносятся на survivor; retired row остаётся в backup с mergedInto ID.
+  Room 7→8 добавляет nullable rowMultiplicity в statement_imports: хеши и подтверждённые
+  количества полного файла. Старый cutoff и ранее доказанное большее количество защищают
+  реальные повторы, в том числе после portable restore. Старые backups принимаются без evidence.
+  Это ограниченная сверка полных файлов, не удаление всех отсутствующих строк и не универсальный
+  versioned snapshot. Расхождения защищённых/неоднозначных случаев остаются для проверки.
+  Приватный regression на свежем backup владельца + сохранённом XLSX через реальный importer:
+  ровно 6 statement-копий убраны из активного счёта, cutoff balance совпал с 1.66 GEL;
+  повтор — 0 insert/reconcile, финансовые поля и transfer membership стабильны. Проверка задаётся
+  WHFIN_RESTORE_CHECK, WHFIN_STATEMENT_CHECK, WHFIN_REQUIRE_BALANCE=1, WHFIN_EXPECT_MERGES=6;
+  приватные файлы остаются вне репозитория. Никакой ручной денежной корректировки не создавалось.
+  Попутно воспроизведён collision correction-key при повторной коррекции в одну миллисекунду:
+  UUID заменил timestamp в уникальном ключе; existing correction lifecycle regression прошёл.
+  Финальный полный app: 1107 тестов, 0 failures/errors, 4 skipped; release R8/lintVital прошли.
+  Ранние прогоны выявили нестабильный TBC login test (прошёл отдельно и в финальном полном),
+  correction collision (исправлен) и устаревший positional SQL native fixture (обновлён).
+  Native emulator: migration 7→8 + backup allowlist + полный export/restore — 3 теста прошли.
+  Логи /tmp/whfin-statement-multiplicity-verified.log и *-native-final.log; public-tree/diff-check
+  прошли. Установлена на Samsung install -r, данные сохранены; живой sync владельцем ещё нужен.
+
+
 - [x] Синк вне экрана — 0.3.52 (64), 2026-09-15.
   Credo/TBC используют process-owned controllers и общий BankSyncRuntime. Явно запущенные jobs
   продолжаются при Home/уничтожении Activity; вложенная догрузка удерживает одну foreground-службу.

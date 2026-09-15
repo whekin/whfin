@@ -23,13 +23,18 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
         collectReview: Boolean = true,
     ): ImportPlan {
         val identity = StatementIdentity.of(statement)
-        val existingKeys = db.transactionDao().externalKeysForAccount(account.id).toHashSet()
+        val statementRows = db.transactionDao().allStatementRows(account.id)
+        val statementMerges = CredoStatementMultiplicity(db).plan(statement, account.id, statementRows)
+        val retiredIds = statementMerges.map { it.duplicateId }.toSet()
+        val retainedRows = statementRows.filterNot { it.id in retiredIds }
+        val retiredKeys = statementRows.filter { it.id in retiredIds }.mapNotNull { it.externalKey }.toSet()
+        val existingKeys = db.transactionDao().externalKeysForAccount(account.id).filterNot { it in retiredKeys }.toHashSet()
         val sourceBridge = when (statement.bank.provider) {
             "TBC" -> TbcSourceBridge
             "Credo" -> CredoSourceBridge
             else -> null
         }
-        val bridge = sourceBridge?.plan(statement, db.transactionDao().allStatementRows(account.id)).orEmpty()
+        val bridge = sourceBridge?.plan(statement, retainedRows).orEmpty()
         val smsReconciliation = CredoSmsReconciliation(db, zone)
         val aggregates = smsReconciliation.aggregates(statement, account.id)
         val transfers = smsReconciliation.transfers(statement, account.id) + smsReconciliation.ownTransfers(statement, account.id)
@@ -156,6 +161,7 @@ internal class ImportPlanner(private val db: WhfinDatabase, private val zone: Zo
             accountCreated = accountCreated,
             accountAdopted = accountAdopted,
             entries = entries,
+            statementMerges = statementMerges,
             reviewCandidateIds = if (collectReview) reviewCandidates(statement, account, claimed) else emptyList(),
         )
     }

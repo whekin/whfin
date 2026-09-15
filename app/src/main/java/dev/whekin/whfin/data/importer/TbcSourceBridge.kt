@@ -128,7 +128,7 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
         return found.singleOrNull() ?: canonical
     }
 
-    private fun sameFileRow(row: StatementRow, tx: TransactionEntity): Boolean =
+    internal fun sameFileRow(row: StatementRow, tx: TransactionEntity): Boolean =
         row.amountMinor == tx.amountMinor &&
             row.postedDate == day(tx.postedAt ?: tx.occurredAt) &&
             (row.purchaseDate ?: row.postedDate) == day(tx.occurredAt) &&

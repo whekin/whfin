@@ -87,6 +87,22 @@ class CredoHistorySyncTest {
         assertEquals(9500L, active.single().balanceAfterMinor)
         assertTrue(sync(listOf(row("a")))!!.isNoOp)
     }
+    @Test fun completeStatementRetiresLegacyBalanceRevisionAndKeepsOriginalCategory() = runBlocking {
+        file()
+        val account = db.accountDao().allActive().single()
+        val original = db.transactionDao().allStatementRows(account.id).single()
+        val category = db.categoryDao().insert(CategoryEntity(name = "Chosen", kind = CategoryKind.EXPENSE, icon = "Home", color = 0))
+        db.transactionDao().update(original.copy(categoryId = category))
+        val revised = row().copy(balanceAfterMinor = 8500)
+        val copyId = db.transactionDao().insert(original.copy(id = 0, externalKey = StatementIdentity.of(statement(listOf(revised))).rowKey(revised), balanceAfterMinor = 8500))
+        assertTrue(file().reconciled > 0)
+        val active = db.transactionDao().allStatementRows(account.id).filterNot { it.isVoided }
+        assertEquals(listOf(original.id), active.map { it.id })
+        assertEquals(category, active.single().categoryId)
+        assertEquals(original.id, db.transactionDao().byId(copyId)!!.mergedIntoTransactionId)
+        assertTrue(file().isNoOp)
+        assertFalse(StatementLedgerAudit(db, LedgerCalendar.zone).needsReview(statement(listOf(row())).copy(openingBalanceMinor = 10000, closingBalanceMinor = 9500), account.id))
+    }
     @Test fun optionalLocalStatementRoundTrip() = runBlocking {
         val path = System.getenv("WHFIN_STATEMENT_CHECK")
         Assume.assumeTrue("Optional private fixture is supplied outside the repository", path != null)
@@ -94,9 +110,13 @@ class CredoHistorySyncTest {
         System.getenv("WHFIN_RESTORE_CHECK")?.let { backup ->
             java.io.File(backup).inputStream().use { dev.whekin.whfin.data.backup.WhfinBackupManager(db).restore(it) }
         }
+        val previouslyMerged = db.transactionDao().allForIntegrity().count { it.mergedIntoTransactionId != null }
         val importer = StatementImporter(db)
         val first = local.inputStream().use { importer.import(it, "local.xlsx") }
-        if (System.getenv("WHFIN_RESTORE_CHECK") == null) assertFalse(first.balanceNeedsReview)
+        if (System.getenv("WHFIN_RESTORE_CHECK") == null || System.getenv("WHFIN_REQUIRE_BALANCE") == "1") assertFalse("Statement must reconcile the restored ledger", first.balanceNeedsReview)
+        System.getenv("WHFIN_EXPECT_MERGES")?.toInt()?.let { expected ->
+            assertEquals(expected, db.transactionDao().allForIntegrity().count { it.mergedIntoTransactionId != null } - previouslyMerged)
+        }
         val before = db.transactionDao().activeForAccount(first.accountId)
         suspend fun peers(rows: List<TransactionEntity>) = rows.associate { tx ->
             tx.id to tx.transferGroupId?.let { group -> db.transactionDao().byTransferGroup(group).map { it.id }.sorted() }

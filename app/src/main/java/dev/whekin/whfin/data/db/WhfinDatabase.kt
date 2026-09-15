@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * every schema change then has to arrive as a data-preserving migration with a test, because the
  * ledger on the other side is somebody's actual money.
  */
-const val WHFIN_DATABASE_VERSION = 7
+const val WHFIN_DATABASE_VERSION = 8
 
 @Database(
     entities = [
@@ -86,7 +86,7 @@ abstract class WhfinDatabase : RoomDatabase() {
             context.applicationContext,
             WhfinDatabase::class.java,
             name,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
     }
 }
 
@@ -169,5 +169,12 @@ val MIGRATION_6_7: Migration = object : Migration(6, 7) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `bank_holds` (`key` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `transactionId` INTEGER NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `occurredAt` INTEGER NOT NULL, `merchant` TEXT NOT NULL, `cardLast4` TEXT, `lastSeenAt` INTEGER NOT NULL, PRIMARY KEY(`key`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(`transactionId`) REFERENCES `transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_bank_holds_accountId` ON `bank_holds` (`accountId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_bank_holds_transactionId` ON `bank_holds` (`transactionId`)")
+    }
+}
+
+/** Counts confirmed by a full file survive later imports and portable backup restore. */
+val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE statement_imports ADD COLUMN rowMultiplicity TEXT")
     }
 }

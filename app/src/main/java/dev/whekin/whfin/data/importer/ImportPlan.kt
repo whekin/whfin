@@ -21,12 +21,14 @@ data class ImportPlan(
      * confirm. They are never deleted silently — the user decides.
      */
     val reviewCandidateIds: List<Long>,
+    val statementMerges: List<StatementMerge> = emptyList(),
 ) {
     val inserted: Int get() = entries.count { it is PlannedRow.Insert }
     val reconciled: Int get() = entries.count {
-        it is PlannedRow.Reconcile || it is PlannedRow.ReconcileDuplicate || it is PlannedRow.LinkIdentity || it is PlannedRow.Consolidate
+        it is PlannedRow.Reconcile || it is PlannedRow.ReconcileDuplicate || it is PlannedRow.LinkIdentity || it is PlannedRow.Consolidate ||
+            (it is PlannedRow.Duplicate && statementMerges.any { merge -> merge.externalKey == it.externalKey })
     }
-    val duplicates: Int get() = entries.count { it is PlannedRow.Duplicate }
+    val duplicates: Int get() = entries.count { it is PlannedRow.Duplicate && statementMerges.none { merge -> merge.externalKey == it.externalKey } }
     val totalRows: Int get() = entries.size
 
     /** True when re-running this import would leave the ledger exactly as it is. */
