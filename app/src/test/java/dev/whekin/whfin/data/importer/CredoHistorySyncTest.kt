@@ -46,6 +46,17 @@ class CredoHistorySyncTest {
     private suspend fun sync(rows: List<StatementRow>) = CredoHistorySync(db).sync(gateway(rows), session, remote, day, day)
     @Before fun setup() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), WhfinDatabase::class.java).allowMainThreadQueries().build() }
     @After fun close() = db.close()
+    @Test fun legacySettlementWithoutPeerNameDoesNotBlockBankFile() = runBlocking {
+        val transfer = row(amount = -1000).copy(operation = StatementOperation.OWN_TRANSFER, merchantRaw = null,
+            beneficiaryName = "EXAMPLE OWNER", beneficiaryAccount = "GE00CD0000000000000002", description = "Personal Transfer")
+        file(listOf(transfer))
+        val account = db.accountDao().allActive().single()
+        val before = db.transactionDao().allStatementRows(account.id).single()
+        db.transactionDao().update(before.copy(rawCounterparty = null))
+        assertEquals(0, file(listOf(transfer)).inserted)
+        assertEquals(before.id, db.transactionDao().allStatementRows(account.id).single().id)
+        assertTrue(runCatching { file(listOf(transfer.copy(beneficiaryAccount = "GE00CD0000000000000003"))) }.exceptionOrNull() is InvalidStatementException)
+    }
     @Test fun conflictingOwnerCategoriesStopConsolidationBeforeWriting() = runBlocking {
         val account = BankLedgerResolver(db).resolve(statement(emptyList())).account
         val at = day.atTime(12, 0).atZone(LedgerCalendar.zone).toInstant().toEpochMilli()
@@ -80,15 +91,25 @@ class CredoHistorySyncTest {
         val path = System.getenv("WHFIN_STATEMENT_CHECK")
         Assume.assumeTrue("Optional private fixture is supplied outside the repository", path != null)
         val local = java.io.File(requireNotNull(path))
+        System.getenv("WHFIN_RESTORE_CHECK")?.let { backup ->
+            java.io.File(backup).inputStream().use { dev.whekin.whfin.data.backup.WhfinBackupManager(db).restore(it) }
+        }
         val importer = StatementImporter(db)
         val first = local.inputStream().use { importer.import(it, "local.xlsx") }
-        assertFalse(first.balanceNeedsReview)
+        if (System.getenv("WHFIN_RESTORE_CHECK") == null) assertFalse(first.balanceNeedsReview)
         val before = db.transactionDao().activeForAccount(first.accountId)
+        suspend fun peers(rows: List<TransactionEntity>) = rows.associate { tx ->
+            tx.id to tx.transferGroupId?.let { group -> db.transactionDao().byTransferGroup(group).map { it.id }.sorted() }
+        }
+        val beforePeers = peers(before)
         val repeated = local.inputStream().use { importer.import(it, "local.xlsx") }
         assertEquals(0, repeated.inserted)
         assertEquals(0, repeated.reconciled)
-        assertFalse(repeated.balanceNeedsReview)
-        assertEquals(before, db.transactionDao().activeForAccount(first.accountId))
+        assertEquals(first.balanceNeedsReview, repeated.balanceNeedsReview)
+        val after = db.transactionDao().activeForAccount(first.accountId)
+        // Derived groups may be rebuilt with new surrogate IDs; their membership must not change.
+        assertEquals(before.map { it.copy(transferGroupId = null) }, after.map { it.copy(transferGroupId = null) })
+        assertEquals(beforePeers, peers(after))
     }
     @Test fun statementThenTransferWithFutureDateKeepsBankMovement() = runBlocking {
         val transfer = row(amount = -3000).copy(operation = StatementOperation.TRANSFER_OUT,

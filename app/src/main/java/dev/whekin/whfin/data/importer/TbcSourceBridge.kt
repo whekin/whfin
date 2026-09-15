@@ -135,7 +135,12 @@ internal open class ApiSourceBridge(private val ids: dev.whekin.whfin.data.state
             row.description.isNotBlank() &&
             row.description == (tx.note ?: tx.rawCounterparty) &&
             row.beneficiaryAccount == tx.counterpartyIban &&
-            (row.merchantRaw ?: row.beneficiaryName) == tx.rawCounterparty
+            ((row.merchantRaw ?: row.beneficiaryName) == tx.rawCounterparty ||
+                // Older SMS settlements kept the peer IBAN but omitted its display name.
+                // Missing presentation is not a contradictory bank identity. A card merchant or
+                // a different/missing peer IBAN still cannot pass this exception.
+                (row.merchantRaw == null && tx.rawCounterparty == null &&
+                    !row.beneficiaryAccount.isNullOrBlank() && row.beneficiaryAccount == tx.counterpartyIban))
 
     private fun potentialDuplicate(row: StatementRow, tx: TransactionEntity): Boolean {
         if (sameMoneyAndDay(row, tx)) return true

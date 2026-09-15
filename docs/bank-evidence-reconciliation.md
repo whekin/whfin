@@ -1,8 +1,10 @@
 # Bank evidence reconciliation
 
 One transaction is the counted movement. SMS diagnostics and bank identities are evidence for it,
-not additional money. Diagnostics retain the printed and received timestamps independently and
-their transaction link survives settlement, merging, rereading SMS and portable backup. A merge
+not additional money. On the device, diagnostics retain the printed and received timestamps
+independently and their transaction link survives settlement, merging and rereading SMS. Portable
+backups currently exclude SMS diagnostics, so a restored-backup replay cannot verify those links;
+the merged transaction rows themselves are included. A merge
 retains the retired row with `mergedIntoTransactionId`; it does not manufacture a balance adjustment.
 
 ## Credo matching
@@ -55,3 +57,16 @@ transfer case, repeated own-transfer sides, revised identical small charges, equ
 reordering, cutoff auditing and preservation of all existing importer tests. Optional local XLSX
 round-trip validation uses `WHFIN_STATEMENT_CHECK`; the private file stays outside the repository.
 Native checks cover the Credo balance warning in English/light and Russian/dark/large text.
+
+## Compatibility fix — 0.3.51
+
+A live sync exposed older settled transfers with a peer IBAN but no `rawCounterparty`. The stricter
+0.3.50 file-key check rejected the later beneficiary name even though dates, amount, description,
+running-balance key and peer IBAN agreed. Missing non-card display text is now compatible only with
+an identical nonblank peer IBAN; a different peer or a conflicting parsed card merchant is not exempted.
+This changes identity recognition, not amounts, routing or historical duplicate deletion.
+
+`WHFIN_RESTORE_CHECK` optionally restores a private backup into the isolated Room test before the
+local statement replay. This covers upgrade state, including legacy metadata, rather than only an
+empty database. Repeated imports check every financial field and transfer membership independently
+of regenerated transfer-group IDs. Real fixtures stay outside the public tree.

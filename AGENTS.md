@@ -31,6 +31,22 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Совместимость старых переводов при живом sync — 0.3.51 (63), 2026-09-15.
+  Owner-driven sync подтвердил API pages и XLSX fallback; три сохранённые выписки отклонялись
+  как неоднозначные. На изолированной копии backup воспроизведена регрессия 0.3.50: у старых
+  settled transfer отсутствовал rawCounterparty при совпадающих peer IBAN, сумме, датах,
+  description и fallback key. Отсутствующее имя теперь совместимо только при точном nonblank
+  peer IBAN и отсутствии parsed merchant; разные реквизиты по-прежнему отклоняются.
+  Денежные суммы/счета и старые statement-only дубли автоматически не исправляются.
+  Все три owner XLSX прошли импорт/повтор на копии backup; проверены денежные поля и состав
+  transfer groups, независимо от пересоздаваемых surrogate IDs. WHFIN_RESTORE_CHECK расширяет
+  optional local fixture harness. Backup не содержит SMS diagnostics: их полная сверка этим
+  replay не подтверждается, ограничение явно исправлено в docs/bank-evidence-reconciliation.md.
+  Полный app: 1093 теста, 0 failures/errors, 5 skipped; профильные 23 с private fixture прошли.
+  Release R8/lintVital/public-tree прошли; UI не менялся. Логи /tmp/whfin-live-sync-*.log.
+  Установлена на Samsung install -r с сохранением данных, версия 0.3.51/63 подтверждена.
+  Повторный живой sync после hotfix ещё не проверен.
+
 - [x] Сверка SMS/API/выписок и аудит остатка — 0.3.50 (62), 2026-09-15.
   Полная группа SMS одной карты/мерчанта/дня с точной суммой сверяется с одним списанием;
   сохраняются исходный ID, категория и обе diagnostic-связи. Конфликт категорий/долей/долгов
