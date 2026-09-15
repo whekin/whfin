@@ -35,7 +35,9 @@ with log.open("w") as output:
         message = "<#> TBC SMS code: 246810 Please, make sure you are entering it on https://tbconline.ge or in TBC mobilebank Abcd123456E"
         subprocess.run(adb + ["emu", "sms", "send", "TBCSMS", message], check=True)
     try:
-        process.wait(timeout=40)
+        # The code now submits itself, so the run continues past delivery into the connected screen;
+        # a software-rendered emulator needs room for that without being killed mid-assertion.
+        process.wait(timeout=120)
     except subprocess.TimeoutExpired:
         process.kill()
         subprocess.run(adb + ["shell", "am", "force-stop", "dev.whekin.whfin.debug.test"], check=True)

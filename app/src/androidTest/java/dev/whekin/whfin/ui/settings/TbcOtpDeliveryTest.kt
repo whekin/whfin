@@ -11,7 +11,7 @@ import dev.whekin.whfin.R
 
 /** Host injects a synthetic SMS through `adb emu sms send` while the real login route waits. */
 class TbcOtpDeliveryTest {
-    @Test fun incomingSmsFillsOtpWithoutSubmittingIt() {
+    @Test fun incomingSmsFillsOtpAndSubmitsIt() {
         org.junit.Assume.assumeTrue("Run with the host SMS injector", InstrumentationRegistry.getArguments().getString("externalSms") == "true")
         check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -30,15 +30,14 @@ class TbcOtpDeliveryTest {
             if (!device.hasObject(By.text(login))) UiScrollable(UiSelector().scrollable(true)).scrollTextIntoView(login)
             device.findObject(By.text(login)).click()
             assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.tbc_code))), 10000))
-            val label = context.getString(R.string.tbc_confirm)
             assertTrue(device.hasObject(By.desc(context.getString(R.string.tbc_otp_progress, 0))))
-            instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "TBC_OTP_QA_READY\n") })
-            assertTrue(device.wait(Until.hasObject(By.desc(context.getString(R.string.tbc_otp_progress, 6))), 30000))
             activity.onActivity { assertEquals(0, it.confirmationCalls) }
+            instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "TBC_OTP_QA_READY\n") })
+            // A code that arrived by itself goes on by itself: the owner taps nothing here.
+            assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.tbc_connected))), 30000))
             assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "tbc-otp-delivery.png")))
-            device.findObject(By.text(label)).click()
-            assertNotNull(device.wait(Until.findObject(By.text(context.getString(R.string.tbc_connected))), 10000))
             activity.onActivity { assertEquals(1, it.confirmationCalls) }
+            assertFalse(device.hasObject(By.text(context.getString(R.string.tbc_confirm))))
         }
     }
 }

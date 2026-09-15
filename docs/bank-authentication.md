@@ -72,8 +72,15 @@ isolation, reconstruction and independently written legacy Credo ciphertext.
 
 `TbcOtpDeliveryTest` drives the production TBC route with a synthetic bank transport and no-op credential/session stores. The host
 sends the verified wrapper with a synthetic code and hash from `TBCSMS` through `adb emu sms send`; the code indicator fills and the
-fake bank receives exactly that code only after the Confirm action. This exercises real emulator
+fake bank receives exactly that code without any tap. This exercises real emulator
 SMS delivery, not a direct assignment to the input. No live bank credentials or OTP were used.
+
+A code that arrives by itself is submitted by itself, in both banks. It was already agreed to once —
+by the consent dialog, or by the message reaching this phone — and asking the owner to confirm four
+digits they did not type is asking them to agree to their own agreement. A code typed by hand still
+waits for the explicit action, and a code from an authenticator app is never submitted for the owner
+because nothing delivered it here. TBC used to differ from Credo on this for no reason anyone could
+state.
 
 Run the SMS end-to-end check after installing the debug and androidTest APKs:
 `python3 scripts/test-tbc-otp-emulator.py --serial emulator-5554`. It refuses physical phones, grants

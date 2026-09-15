@@ -43,8 +43,7 @@ class TbcSavedLoginScreenTest {
         assertEquals(1, calls)
     }
 
-    @Test fun incomingSmsCodeFillsTheFieldButSubmissionRemainsExplicit() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+    @Test fun aCodeThatArrivedByItselfSubmitsItselfLikeCredo() {
         var submitted: String? = null
         compose.setContent {
             var incoming by remember { mutableStateOf<String?>("246810") }
@@ -52,10 +51,34 @@ class TbcSavedLoginScreenTest {
                 incomingOtp = incoming, onOtpConsumed = { incoming = null }, onCode = { submitted = it }) }
         }
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
-        compose.onNodeWithContentDescription(context.getString(R.string.tbc_otp_progress, 6)).assertExists()
-        assertNull(submitted)
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm)).performScrollTo().performClick()
-        assertEquals("246810", submitted)
+        compose.runOnIdle { assertEquals("246810", submitted) }
+    }
+
+    @Test fun anAppGeneratedCodeIsNeverSubmittedForTheOwner() {
+        var submitted: String? = null
+        compose.setContent {
+            WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Code, otpApp = true), true,
+                incomingOtp = "246810", onCode = { submitted = it }) }
+        }
+        compose.runOnIdle { assertNull(submitted) }
+    }
+
+    @Test fun anAppliedBalanceMovesTheAccountFromWaitingToReporting() {
+        val remote = dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")
+        val before = dev.whekin.whfin.data.importer.TbcSyncResult(
+            needsStatement = listOf(remote),
+            initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
+                remote, java.time.LocalDate.now(), java.time.LocalDate.now(), emptyList())),
+            reports = listOf(dev.whekin.whfin.data.importer.TbcSyncReport(remote.label, 7, waitingForBalance = true)))
+        val after = before.afterInitialBalance(remote, dev.whekin.whfin.data.importer.TbcInitializationResult(7, 1))
+        assertTrue(after.needsStatement.isEmpty())
+        assertTrue(after.initialHistories.isEmpty())
+        assertEquals(7, after.inserted)
+        assertEquals(1, after.matched)
+        val report = after.reports.single()
+        assertFalse(report.waitingForBalance)
+        assertEquals(7, report.inserted)
+        assertEquals(1, report.matched)
     }
 
     @Test fun zeroBalanceCanBeConfirmedForEachOfFourCurrencies() {

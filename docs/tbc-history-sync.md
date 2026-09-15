@@ -207,3 +207,13 @@ that account (`balance` on the card product, `amount` on the dashboard) instead 
 This is an offer to check, not an anchor: the response never states whether that figure is booked or
 already net of pending charges, so the note beside it says so and the owner still confirms
 explicitly. An account the bank said nothing about keeps an empty field and a disabled action.
+
+## Confirming a balance finishes the account (2026-09-15)
+
+Applying an owner-entered balance used to drop the account from `needsStatement` and nothing else.
+Its report still said it was waiting, so the row disappeared from the attention section without
+appearing among the accounts: a finished import looked like nothing had happened, and the only
+visible thing left to try was running the sync again. The result now moves that account from asking
+to reporting in one step — `afterInitialBalance` clears the wait and writes what the import actually
+did — so confirming the balance is the last thing a new account needs. The rows it imports are the
+ones already read during that sync; no second pass fetches them.

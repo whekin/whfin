@@ -30,6 +30,28 @@ data class TbcLoginState(
     val syncResult: dev.whekin.whfin.data.importer.TbcSyncResult? = null,
     val syncProgress: Pair<Int, Int>? = null,
 )
+/**
+ * What the result page says once an owner-entered balance has been applied.
+ *
+ * The account stops asking and starts reporting: it leaves the attention section and takes its place
+ * among the accounts with what the import actually did. Dropping it from both — which is what
+ * removing it from `needsStatement` alone used to do — made a finished import look like nothing had
+ * happened, and the only visible thing left to try was running the sync again.
+ */
+internal fun dev.whekin.whfin.data.importer.TbcSyncResult.afterInitialBalance(
+    remote: dev.whekin.whfin.data.tbc.TbcLedgerAccount,
+    plan: dev.whekin.whfin.data.importer.TbcInitializationResult,
+) = copy(
+    inserted = inserted + plan.inserted,
+    matched = matched + plan.reconciled,
+    needsStatement = needsStatement.filterNot { it.key == remote.key },
+    initialHistories = initialHistories.filterNot { it.remote.key == remote.key },
+    reports = reports.map {
+        if (it.label != remote.label) it
+        else it.copy(waitingForBalance = false, inserted = plan.inserted, matched = plan.reconciled)
+    },
+)
+
 class TbcLoginViewModel internal constructor(
     app: Application,
     private val factory: () -> TbcGateway,
@@ -156,9 +178,7 @@ class TbcLoginViewModel internal constructor(
         run(TbcLoginStage.Connected) {
             val app = getApplication<Application>() as dev.whekin.whfin.WhfinApp
             val plan = withContext(Dispatchers.IO) { dev.whekin.whfin.data.importer.TbcHistorySync(app.userDb).initialize(initial, amountMinor) }
-            val result = previous.copy(inserted = previous.inserted + plan.inserted, matched = previous.matched + plan.reconciled,
-                needsStatement = previous.needsStatement.filterNot { it.key == key },
-                initialHistories = previous.initialHistories.filterNot { it.remote.key == key })
+            val result = previous.afterInitialBalance(initial.remote, plan)
             mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncResult = result)
             if (result.needsStatement.isEmpty() && result.errors.isEmpty())
                 dev.whekin.whfin.data.preferences.UiPreferences(app).setLastTbcSyncAt(System.currentTimeMillis())

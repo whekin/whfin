@@ -144,8 +144,13 @@ internal fun TbcLoginScreen(
     LaunchedEffect(state.stage, incomingOtp, state.error) {
         if (state.stage != TbcLoginStage.Code || state.error == "OTP") code = ""
         if (state.stage == TbcLoginStage.Code && !state.otpApp && incomingOtp != null) {
-            if (incomingOtp.matches(Regex("[0-9]{4,8}"))) code = incomingOtp
+            val delivered = incomingOtp.takeIf { it.matches(Regex("[0-9]{4,8}")) }
+            if (delivered != null) code = delivered
             onOtpConsumed()
+            // Same rule as Credo: a code that arrived by itself was already agreed to once, by the
+            // consent dialog or by the message reaching this phone. Asking the owner to confirm
+            // four digits they did not type is asking them to agree to their own agreement.
+            if (delivered != null) { onCode(delivered); code = "" }
         }
     }
     val keyboard = LocalSoftwareKeyboardController.current
