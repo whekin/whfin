@@ -373,12 +373,28 @@ interface MerchantDao {
     )
     suspend fun usageCounts(): List<MerchantUsage>
 
+    /**
+     * Which counterparty accounts each dictionary entry has been paid into.
+     *
+     * An IBAN belongs to one payee, so this is the strongest evidence the ledger holds that two
+     * differently written names are the same counterparty.
+     */
+    @Query(
+        "SELECT DISTINCT merchantId, counterpartyIban FROM transactions " +
+            "WHERE merchantId IS NOT NULL AND counterpartyIban IS NOT NULL " +
+            "AND TRIM(counterpartyIban) != '' AND isVoided = 0"
+    )
+    suspend fun counterpartyAccounts(): List<MerchantCounterpartyAccount>
+
     @Query("DELETE FROM merchants WHERE id = :merchantId")
     suspend fun deleteMerchant(merchantId: Long)
 
     @Query("SELECT * FROM merchants WHERE categoryId IS NULL")
     suspend fun uncategorized(): List<MerchantEntity>
 }
+
+/** One dictionary entry and an account it has paid into. */
+data class MerchantCounterpartyAccount(val merchantId: Long, val counterpartyIban: String)
 
 
 @Dao

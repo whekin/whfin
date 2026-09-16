@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.data.categorization.MerchantCategorizer
+import dev.whekin.whfin.ui.settings.CounterpartyName
+import dev.whekin.whfin.ui.settings.survivingName
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -51,19 +53,150 @@ class CounterpartySpellingTest {
             MerchantEntity(normalizedKey = key, displayName = key, categoryId = categoryId),
         )
 
-    private suspend fun payment(merchantId: Long, categoryId: Long? = null): Long =
-        db.transactionDao().insert(
-            TransactionEntity(
-                accountId = accountId,
-                amountMinor = -1000,
-                currency = "GEL",
-                occurredAt = 1_700_000_000_000,
-                merchantId = merchantId,
-                categoryId = categoryId,
-                status = TxStatus.CONFIRMED,
-                source = TxSource.STATEMENT,
-            ),
-        )
+    private suspend fun payment(
+        merchantId: Long,
+        categoryId: Long? = null,
+        counterpartyIban: String? = null,
+    ): Long = db.transactionDao().insert(
+        TransactionEntity(
+            accountId = accountId,
+            amountMinor = -1000,
+            currency = "GEL",
+            occurredAt = 1_700_000_000_000,
+            merchantId = merchantId,
+            categoryId = categoryId,
+            counterpartyIban = counterpartyIban,
+            status = TxStatus.CONFIRMED,
+            source = TxSource.STATEMENT,
+        ),
+    )
+
+    /** Synthetic counterparty accounts: checksum 00, as every committed fixture must use. */
+    private val theirBank = "GE00TB0000000000000123"
+    private val theirOtherBank = "GE00BG0000000000000456"
+
+    @Test fun twoSpellingsPaidIntoOneAccountAreOneCounterparty() = runBlocking {
+        // The same landlord, abbreviated by one bank and punctuated differently on another line:
+        // no shared skeleton, no shared alphabet difference — only the account proves it.
+        val dotted = merchant("magda.k")
+        val spaced = merchant("magda k")
+        payment(dotted, counterpartyIban = theirBank)
+        repeat(3) { payment(spaced, counterpartyIban = theirBank) }
+
+        assertEquals(1, db.repairCounterpartySpellings())
+
+        assertEquals(spaced, db.merchantDao().all().single().id)
+    }
+
+    @Test fun aRetiredSpellingKeepsAnsweringForTheCounterparty() = runBlocking {
+        val dotted = merchant("magda.k")
+        val spaced = merchant("magda k")
+        payment(dotted, counterpartyIban = theirBank)
+        repeat(3) { payment(spaced, counterpartyIban = theirBank) }
+        db.repairCounterpartySpellings()
+
+        // The next statement writes the retired spelling again; it must not start a second name.
+        val resolved = MerchantCategorizer.resolve(db, "magda.k")
+
+        assertEquals(spaced, resolved?.id)
+        assertEquals(1, db.merchantDao().all().size)
+    }
+
+    @Test fun accountsJoinNamesThroughOneAnother() = runBlocking {
+        // One person with two banks pulls both of their spellings together.
+        val georgian = merchant("გიორგი ხარაძე")
+        val both = merchant("g. kharadze")
+        val other = merchant("kharadze giorgi")
+        payment(georgian, counterpartyIban = theirBank)
+        payment(both, counterpartyIban = theirBank)
+        payment(both, counterpartyIban = theirOtherBank)
+        payment(other, counterpartyIban = theirOtherBank)
+
+        assertEquals(2, db.repairCounterpartySpellings())
+
+        assertEquals(1, db.merchantDao().all().size)
+    }
+
+    @Test fun aNameStandingOverManyAccountsIsNotEvidence() = runBlocking {
+        val label = merchant("transfer")
+        val first = merchant("first payee")
+        val second = merchant("second payee")
+        listOf("1", "2", "3", "4", "5").forEach { tail ->
+            payment(label, counterpartyIban = "GE00TB000000000000000$tail")
+        }
+        payment(first, counterpartyIban = "GE00TB0000000000000001")
+        payment(second, counterpartyIban = "GE00TB0000000000000002")
+
+        assertEquals(0, db.repairCounterpartySpellings())
+
+        assertEquals(3, db.merchantDao().all().size)
+    }
+
+    @Test fun oneAccountDoesNotOverrideTwoDifferentCategories() = runBlocking {
+        val first = merchant("magda.k", rentId)
+        val second = merchant("magda k", groceriesId)
+        payment(first, counterpartyIban = theirBank)
+        payment(second, counterpartyIban = theirBank)
+
+        assertEquals(0, db.repairCounterpartySpellings())
+
+        assertEquals(2, db.merchantDao().all().size)
+    }
+
+    @Test fun anAbbreviationAndAFullNameNeedTheOwner() = runBlocking {
+        // One bank prints "Magda K", another the full name in Georgian, and the transfer names no
+        // account at all. Nothing here is proof, so the pass leaves both alone.
+        val short = merchant("magda k")
+        val full = merchant("მაგდა ხარაძე")
+        payment(short)
+        payment(full)
+
+        assertEquals(0, db.repairCounterpartySpellings())
+        assertEquals(2, db.merchantDao().all().size)
+
+        assertTrue(db.mergeCounterparties(short, full))
+
+        val left = db.merchantDao().all().single()
+        assertEquals(short, left.id)
+        // And the full name, when the next TBC statement writes it again, finds them.
+        assertEquals(short, MerchantCategorizer.resolve(db, "მაგდა ხარაძე")?.id)
+    }
+
+    /**
+     * The dialog names the surviving name before anything is written, so its rule and the merge's
+     * rule have to be the same one — checked here on all three tie-breaks in turn.
+     */
+    @Test fun theScreenPredictsTheNameThatWillSurvive() = runBlocking {
+        suspend fun check(first: Pair<String, Long?>, second: Pair<String, Long?>, uses: Pair<Int, Int>) {
+            db.merchantDao().all().forEach { db.merchantDao().deleteMerchant(it.id) }
+            val a = merchant(first.first, first.second)
+            val b = merchant(second.first, second.second)
+            repeat(uses.first) { payment(a) }
+            repeat(uses.second) { payment(b) }
+            val usage = db.merchantDao().usageCounts().associate { it.merchantId to it.transactionCount }
+            val byId = db.merchantDao().all().associateBy { it.id }
+            fun view(id: Long) = CounterpartyName(
+                merchantId = id,
+                displayName = byId.getValue(id).normalizedKey,
+                transactionCount = usage[id] ?: 0,
+                categoryName = byId.getValue(id).categoryId?.let { "Rent" },
+            )
+            val predicted = survivingName(view(a), view(b)).merchantId
+            db.mergeCounterparties(a, b)
+            assertEquals(predicted, db.merchantDao().all().single().id)
+        }
+
+        check("taught" to rentId, "busier" to null, 1 to 9)
+        check("quiet" to null, "busier" to null, 1 to 9)
+        check("first" to null, "second" to null, 3 to 3)
+    }
+
+    @Test fun joiningByHandRefusesToJoinSomethingWithItself() = runBlocking {
+        val only = merchant("magda k")
+
+        assertFalse(db.mergeCounterparties(only, only))
+        assertFalse(db.mergeCounterparties(only, only + 999))
+    }
 
     @Test fun twoAlphabetsBecomeOneCounterparty() = runBlocking {
         val latin = merchant("giorgi kharadze", rentId)

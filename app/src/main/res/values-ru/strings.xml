@@ -879,6 +879,21 @@
     <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
     <string name="category_setup_packs_only">Из прочитанной истории ничего нового не вышло. Ниже — увлечения, о которых выписка знать не может; добавьте свои.</string>
     <string name="category_setup_skip">Не сейчас</string>
+    <string name="category_duplicates_section">Имена</string>
+    <string name="category_duplicates_title">Один контрагент под двумя именами</string>
+    <string name="category_duplicates_row_body">Объединить имена, которые WHFIN не смог доказать сам</string>
+    <string name="category_duplicates_body">Всё, что можно доказать по записям — общий счёт получателя, одно имя в двух алфавитах, — уже объединено. Осталось то, что знаете только вы: один банк сокращает имя, которое другой печатает целиком, а у перевода иногда нет счёта вовсе. Выберите имя, потом второе.</string>
+    <string name="category_duplicates_pick_second">Теперь выберите второе имя этого контрагента</string>
+    <string name="category_duplicates_cancel">Сбросить</string>
+    <string name="category_duplicates_confirm_title">Объединить контрагентов?</string>
+    <string name="category_duplicates_confirm_action">Объединить</string>
+    <string name="category_duplicates_confirm_body">«%1$s» и «%2$s» станут одним контрагентом по имени «%3$s». Все операции перейдут к нему, а категорию получат только те, у которых своей нет.</string>
+    <plurals name="category_duplicates_operations">
+        <item quantity="one">%1$d операция</item>
+        <item quantity="few">%1$d операции</item>
+        <item quantity="many">%1$d операций</item>
+        <item quantity="other">%1$d операции</item>
+    </plurals>
     <string name="category_rules_section">Решения</string>
     <string name="category_rules_title">Названные получатели</string>
     <string name="category_rules_body">Что вы уже сказали WHFIN про эти счета. Другая категория переносит переводы, размеченные этим правилом; удаление снова делает получателя открытым вопросом.</string>

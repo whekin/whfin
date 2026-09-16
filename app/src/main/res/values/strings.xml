@@ -845,6 +845,19 @@
     <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
     <string name="category_setup_packs_only">Nothing new came out of the history WHFIN just read. These are interests a ledger cannot know about on its own — add the ones that are yours.</string>
     <string name="category_setup_skip">Not now</string>
+    <string name="category_duplicates_section">Names</string>
+    <string name="category_duplicates_title">One counterparty, two names</string>
+    <string name="category_duplicates_row_body">Join two names WHFIN could not prove are the same</string>
+    <string name="category_duplicates_body">Everything the ledger can prove — a shared account, one name in two alphabets — is already joined. What is left is what only you know: one bank abbreviates a name the other prints in full, and a transfer sometimes names no account at all. Pick a name, then pick the other one.</string>
+    <string name="category_duplicates_pick_second">Now pick the other name for this counterparty</string>
+    <string name="category_duplicates_cancel">Clear</string>
+    <string name="category_duplicates_confirm_title">Join these counterparties?</string>
+    <string name="category_duplicates_confirm_action">Join</string>
+    <string name="category_duplicates_confirm_body">“%1$s” and “%2$s” become one counterparty, named “%3$s”. Every operation moves to it, and only the ones with no category of their own take its category.</string>
+    <plurals name="category_duplicates_operations">
+        <item quantity="one">%1$d operation</item>
+        <item quantity="other">%1$d operations</item>
+    </plurals>
     <string name="category_rules_section">Decisions</string>
     <string name="category_rules_title">Named recipients</string>
     <string name="category_rules_body">What WHFIN was told about these accounts. Choosing another category moves the transfers this rule filed; deleting it makes the recipient an open question again.</string>

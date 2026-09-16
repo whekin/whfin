@@ -19,13 +19,9 @@ object MerchantCategorizer {
         if (key.isEmpty()) return null
 
         db.merchantDao().byKey(key)?.let { return categorizeIfSafe(db, it) }
-        // The same counterparty reaches WHFIN in two alphabets, because the name belongs to their
-        // own bank rather than to the statement. Only a cross-script match is accepted: the
-        // skeleton drops distinctions romanization cannot carry, so two Georgian keys that collapse
-        // onto each other are two names, not one name written twice.
         val skeleton = GeorgianLatin.skeleton(key)
         db.merchantDao().byAlias(skeleton)
-            ?.takeIf { GeorgianRomanization.isGeorgian(it.normalizedKey) != GeorgianRomanization.isGeorgian(key) }
+            ?.takeIf { accepts(it, key, skeleton) }
             ?.let { return categorizeIfSafe(db, it) }
 
         val category = GeorgiaMerchantPreset.categoryFor(key, db.categoryDao().all())
@@ -44,6 +40,20 @@ object MerchantCategorizer {
         }
         return categorizeIfSafe(db, inserted)
     }
+
+    /**
+     * Whether a counterparty found by skeleton really is the one this name belongs to.
+     *
+     * A spelling that differs from the counterparty's own key was recorded because something proved
+     * it theirs — a shared account, or the owner joining them by hand — so it answers whatever
+     * alphabet it arrives in. A spelling equal to their own key proves nothing by itself: the
+     * skeleton drops distinctions romanization cannot carry, so two Georgian names differing only by
+     * aspiration collapse onto it. That one is accepted only across alphabets, which is the case it
+     * exists for.
+     */
+    private fun accepts(candidate: MerchantEntity, key: String, skeleton: String): Boolean =
+        skeleton != GeorgianLatin.skeleton(candidate.normalizedKey) ||
+            GeorgianRomanization.isGeorgian(candidate.normalizedKey) != GeorgianRomanization.isGeorgian(key)
 
     private suspend fun categorizeIfSafe(db: WhfinDatabase, merchant: MerchantEntity): MerchantEntity {
         if (merchant.categoryId != null) return merchant

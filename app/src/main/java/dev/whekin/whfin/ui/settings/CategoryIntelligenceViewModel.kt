@@ -17,6 +17,7 @@ import dev.whekin.whfin.data.db.CounterpartyRuleEntity
 import dev.whekin.whfin.data.db.CounterpartyUsage
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.MerchantUsage
+import dev.whekin.whfin.data.db.mergeCounterparties
 import dev.whekin.whfin.data.db.SmsKindCount
 import dev.whekin.whfin.data.db.StatementNoteCount
 import dev.whekin.whfin.data.db.PersonEntity
@@ -56,6 +57,19 @@ data class CounterpartyRuleView(
     val isDismissed: Boolean,
 )
 
+/**
+ * One name the dictionary holds, so two of them can be named as one counterparty by hand.
+ *
+ * Every name is offered, not only the unfiled ones: a person filed under a category months ago is
+ * exactly who a newly arrived spelling of them has to join.
+ */
+data class CounterpartyName(
+    val merchantId: Long,
+    val displayName: String,
+    val transactionCount: Int,
+    val categoryName: String?,
+)
+
 data class CategoryIntelligenceState(
     val coverage: CategoryCoverage,
     val unresolved: List<UncategorizedMerchant>,
@@ -67,6 +81,8 @@ data class CategoryIntelligenceState(
     val incomeSenders: List<UncategorizedCounterparty> = emptyList(),
     val incomeSendersOnce: List<UncategorizedCounterparty> = emptyList(),
     val rules: List<CounterpartyRuleView> = emptyList(),
+    /** Every counterparty the dictionary knows, for joining two of them by hand. */
+    val names: List<CounterpartyName> = emptyList(),
     val people: List<PersonEntity> = emptyList(),
     val categories: List<CategoryEntity>,
     val incomeCategories: List<CategoryEntity> = emptyList(),
@@ -177,6 +193,16 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
                     isDismissed = rule.dismissedAt != null,
                 )
             },
+            names = earned.merchants.map { merchant ->
+                CounterpartyName(
+                    merchantId = merchant.id,
+                    displayName = merchant.displayName,
+                    transactionCount = earned.usage.firstOrNull { it.merchantId == merchant.id }
+                        ?.transactionCount ?: 0,
+                    categoryName = categories.firstOrNull { it.id == merchant.categoryId }?.name,
+                )
+            }.sortedWith(compareByDescending<CounterpartyName> { it.transactionCount }
+                .thenBy { it.displayName.lowercase() }),
             people = people,
             categories = categories.filter { it.kind == CategoryKind.EXPENSE && !it.isSystem },
             incomeCategories = categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem },
@@ -267,6 +293,17 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addPack(pack: CategoryPacks.Pack) = createCategories(CategoryPacks.definitions(pack))
+
+    /**
+     * Joins two names the owner says are one counterparty.
+     *
+     * Some spellings carry no proof at all — an abbreviation on one bank against the full name on
+     * another, a transfer that names no account — and the automatic pass is right to leave those
+     * alone. This is where they are answered, on the owner's word.
+     */
+    fun mergeCounterparties(firstId: Long, secondId: Long) {
+        mutate { db.mergeCounterparties(firstId, secondId) }
+    }
 
     fun assignCategory(merchantId: Long, categoryId: Long) {
         mutate {

@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.settings
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -18,6 +19,7 @@ import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.UncategorizedCounterparty
 import dev.whekin.whfin.data.db.UncategorizedMerchant
+import dev.whekin.whfin.ui.LocalLatinCounterparties
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -437,4 +439,54 @@ class CategoryIntelligenceScreenTest {
         val personId: Long?,
         val personName: String?,
     )
+
+    /**
+     * Joining two names is the answer for what evidence cannot settle, so the screen has to ask for
+     * both halves and say what it is about to do before it does it.
+     */
+    @Test
+    fun joiningTwoNames_asksForBothAndNamesTheOneThatStays() {
+        val taught = CounterpartyName(1, "Magda K", 36, "Rent")
+        val arrival = CounterpartyName(2, "\u10db\u10d0\u10d2\u10d3\u10d0 \u10ee\u10d0\u10e0\u10d0\u10eb\u10d4", 1, null)
+        var joined: Pair<Long, Long>? = null
+        compose.setContent {
+            // The switch defaults on, so the screen reads the Georgian name in Latin — and the
+            // dialog has to name the survivor the same way the list just showed it.
+            CompositionLocalProvider(LocalLatinCounterparties provides true) {
+              WhfinTheme {
+                CategoryIntelligenceScreen(
+                    state = CategoryIntelligenceState(
+                        coverage = CategoryCoverage(100, 64, 0),
+                        unresolved = emptyList(),
+                        names = listOf(taught, arrival),
+                        categories = listOf(transport),
+                    ),
+                    queue = CategoryQueue.Duplicates,
+                    onCheckLocalRules = {},
+                    onAssignCategory = { _, _ -> },
+                    onMergeCounterparties = { first, second -> joined = first to second },
+                )
+              }
+            }
+        }
+
+        compose.onNodeWithText("Magda K").performClick()
+        // The chosen one leaves the list, so the second tap cannot be the same row twice.
+        compose.onNodeWithText(context.getString(R.string.category_duplicates_pick_second))
+            .assertIsDisplayed()
+        compose.onNodeWithText("Magda Kharadze").performClick()
+
+        compose.onNodeWithText(
+            context.getString(
+                R.string.category_duplicates_confirm_body,
+                "Magda K",
+                "Magda Kharadze",
+                "Magda K",
+            ),
+        ).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.category_duplicates_confirm_action))
+            .performClick()
+
+        assertEquals(1L to 2L, joined)
+    }
 }

@@ -220,7 +220,19 @@ already carry the table.
 `MerchantCategorizer.resolve` asks for the exact key first, then for the skeleton, and records the
 skeleton for every merchant it creates.
 
-Only cross-script pairs are joined, on both the live path and the repair pass. Within one alphabet a
+The counterparty's **account** is the stronger proof, and the one that does most of the work. An
+IBAN belongs to one payee, so two rows paid into the same account are the same payee however
+differently they are written — which is the only thing that reaches the ways a name really varies:
+a surname first or last, a legal form or a tax number glued on, one bank abbreviating what another
+prints in full, an English translation of a Georgian company name, or whatever the sender typed into
+the transfer form. It is the same principle `counterparty_rules` already uses to answer a category by
+the recipient's account rather than by the writing of their name. Accounts join names transitively,
+which is what lets a person with two banks pull both of their spellings together, and is also why a
+name standing over more than four accounts stops being evidence: that is a label, not a person, and
+one label would marry everybody it ever paid.
+
+The skeleton is the weaker proof, for rows that carry no account at all. Only cross-script pairs are
+joined by it, on both the live path and the repair pass. Within one alphabet a
 bank is consistent, so two keys that collapse onto the same skeleton are far more likely two names
 than one name written twice: the skeleton exists to drop what romanization cannot carry — `თ` and
 `ტ` both become `t`, `კ` and `ქ` both become `k` — and dropping those inside Georgian would marry
@@ -235,7 +247,20 @@ behind it, then the lower id. Operations move to the survivor and those still wi
 inherit the survivor's, which is the rule `categorizeUnassignedForMerchant` already applies when a
 merchant becomes recognizable; a category set by hand is never overwritten.
 
-Two spellings filed under different categories are **not** joined, and deliberately raise no
-finding. They are evidence that the skeleton was too coarse here, not evidence of a contradiction,
+A spelling that retires is recorded as an alias of the survivor, so the next statement writing it
+again finds the counterparty instead of starting a second one. Such an alias answers whatever
+alphabet it arrives in, because something proved it theirs; an alias that merely repeats a
+merchant's own skeleton proves nothing by itself and is still accepted only across alphabets. A
+skeleton two surviving counterparties both answer to is recorded for neither.
+
+What no rule can prove is left to the owner. An abbreviation on one bank against the full name on
+another, with no account on either side, is not something evidence can settle, so the category
+centre offers **one counterparty, two names**: pick a name, pick the other one, and
+`mergeCounterparties` joins them on the owner's word. The screen names which of the two survives
+before anything is written, by the same rule the merge applies.
+
+Two spellings filed under different categories are **not** joined automatically, and deliberately
+raise no finding. They are evidence that the skeleton was too coarse here, not evidence of a contradiction,
 and merging them would move money between categories on a guess. Agreeing the two categories by hand
 is how the owner approves such a merge: the next pass then has nothing to weigh and joins them.
+Joining them by hand resolves the disagreement the same way, deliberately.

@@ -17,6 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Merge
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.MoreVert
@@ -82,7 +85,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
  * a single screen, whichever section came last could not be reached at all — the queue with the most
  * rows buried the ones after it. The index names each queue and its size; only one is ever open.
  */
-enum class CategoryQueue { Merchants, Transfers, Income, Rules }
+enum class CategoryQueue { Merchants, Transfers, Income, Rules, Duplicates }
 
 @Composable
 fun categoryQueueTitle(queue: CategoryQueue): String = stringResource(
@@ -91,6 +94,7 @@ fun categoryQueueTitle(queue: CategoryQueue): String = stringResource(
         CategoryQueue.Transfers -> R.string.category_intelligence_transfers_title
         CategoryQueue.Income -> R.string.category_intelligence_income_title
         CategoryQueue.Rules -> R.string.category_rules_title
+        CategoryQueue.Duplicates -> R.string.category_duplicates_title
     },
 )
 
@@ -113,6 +117,7 @@ fun CategoryIntelligenceRoute(
         onDeleteRule = viewModel::deleteRule,
         onCreateCategories = viewModel::createCategories,
         onAddPack = viewModel::addPack,
+        onMergeCounterparties = viewModel::mergeCounterparties,
     )
 }
 
@@ -129,12 +134,15 @@ fun CategoryIntelligenceScreen(
     onDeleteRule: (CounterpartyRuleView) -> Unit = {},
     onCreateCategories: (List<CategoryCatalog.Definition>) -> Unit = {},
     onAddPack: (CategoryPacks.Pack) -> Unit = {},
+    onMergeCounterparties: (Long, Long) -> Unit = { _, _ -> },
 ) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<UncategorizedMerchant?>(null) }
     var selectedCounterparty by remember { mutableStateOf<UncategorizedCounterparty?>(null) }
     var selectedSender by remember { mutableStateOf<UncategorizedCounterparty?>(null) }
     var selectedRule by remember { mutableStateOf<CounterpartyRuleView?>(null) }
+    var mergeFrom by remember { mutableStateOf<CounterpartyName?>(null) }
+    var mergePair by remember { mutableStateOf<Pair<CounterpartyName, CounterpartyName>?>(null) }
 
     if (state == null) {
         WhfinStatePane(
@@ -178,6 +186,18 @@ fun CategoryIntelligenceScreen(
                 icon = Icons.Default.SouthWest,
                 bodyRes = R.string.category_intelligence_income_body_short,
                 onSelect = { selectedSender = it },
+            )
+            CategoryQueue.Duplicates -> duplicateQueue(
+                names = state.names,
+                query = query,
+                onQueryChange = { query = it },
+                chosen = mergeFrom,
+                onChoose = { name ->
+                    val first = mergeFrom
+                    if (first == null) mergeFrom = name
+                    else if (first.merchantId != name.merchantId) mergePair = first to name
+                },
+                onClearChoice = { mergeFrom = null },
             )
             CategoryQueue.Rules -> ruleQueue(state.rules) { selectedRule = it }
         }
@@ -223,6 +243,30 @@ fun CategoryIntelligenceScreen(
                 onDismissCounterparty(counterparty.iban, name)
                 selectedCounterparty = null
             },
+        )
+    }
+
+    mergePair?.let { (first, second) ->
+        val survivor = survivingName(first, second)
+        WhfinConfirmDialog(
+            title = stringResource(R.string.category_duplicates_confirm_title),
+            body = stringResource(
+                R.string.category_duplicates_confirm_body,
+                counterpartyLabel(first.displayName),
+                counterpartyLabel(second.displayName),
+                counterpartyLabel(survivor.displayName),
+            ),
+            confirmLabel = stringResource(R.string.category_duplicates_confirm_action),
+            dismissLabel = stringResource(R.string.action_cancel),
+            // Joining is reversible only by the owner saying so again, but it destroys nothing:
+            // both names' operations stay, under one of them.
+            confirmStyle = WhfinActionStyle.Primary,
+            onConfirm = {
+                onMergeCounterparties(first.merchantId, second.merchantId)
+                mergePair = null
+                mergeFrom = null
+            },
+            onDismiss = { mergePair = null },
         )
     }
 
@@ -383,6 +427,18 @@ private fun LazyListScope.indexSection(
                 trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                 onClick = { onOpenQueue(queue) },
                 divider = queue != queues.last().first,
+            )
+        }
+    }
+    if (state.names.size > 1) {
+        item { WhfinSectionLabel(stringResource(R.string.category_duplicates_section)) }
+        item {
+            WhfinLedgerRow(
+                title = stringResource(R.string.category_duplicates_title),
+                supportingText = stringResource(R.string.category_duplicates_row_body),
+                icon = Icons.Default.Merge,
+                trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                onClick = { onOpenQueue(CategoryQueue.Duplicates) },
             )
         }
     }
@@ -567,6 +623,93 @@ private fun LazyListScope.ruleQueue(
         )
     }
 }
+
+/**
+ * Two names, said to be one counterparty.
+ *
+ * Everything the automatic pass can prove — a shared account, one name in two alphabets — it has
+ * already joined. What is left is what only the owner knows: one bank abbreviates a name the other
+ * prints in full, a transfer names no account at all. So the screen asks for exactly that and
+ * nothing more: pick a name, pick the other one.
+ */
+private fun LazyListScope.duplicateQueue(
+    names: List<CounterpartyName>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    chosen: CounterpartyName?,
+    onChoose: (CounterpartyName) -> Unit,
+    onClearChoice: () -> Unit,
+) {
+    item {
+        Text(
+            stringResource(R.string.category_duplicates_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (chosen != null) item {
+        WhfinNotice(
+            title = counterpartyLabel(chosen.displayName),
+            body = stringResource(R.string.category_duplicates_pick_second),
+            icon = Icons.Default.Merge,
+            actionLabel = stringResource(R.string.category_duplicates_cancel),
+            onAction = onClearChoice,
+        )
+    }
+    item {
+        WhfinField(
+            value = query,
+            onValueChange = onQueryChange,
+            label = null,
+            placeholder = stringResource(R.string.category_intelligence_search),
+            leadingIcon = Icons.Outlined.Search,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    val needle = query.trim()
+    val visible = names
+        .filter { chosen == null || it.merchantId != chosen.merchantId }
+        .filter { needle.isEmpty() || counterpartyMatches(it.displayName, needle) }
+        .take(MAX_NAMES)
+    if (visible.isEmpty()) item {
+        Text(
+            stringResource(R.string.category_intelligence_search_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else items(visible, key = { "name:" + it.merchantId }) { name ->
+        WhfinLedgerRow(
+            title = counterpartyLabel(name.displayName),
+            supportingText = listOfNotNull(
+                name.categoryName,
+                pluralStringResource(
+                    R.plurals.category_duplicates_operations,
+                    name.transactionCount,
+                    name.transactionCount,
+                ),
+            ).joinToString(" · "),
+            icon = Icons.Outlined.Storefront,
+            onClick = { onChoose(name) },
+            divider = name != visible.last(),
+        )
+    }
+}
+
+/**
+ * Which of the two names stays, mirroring the rule the merge itself applies.
+ *
+ * The screen has to be able to say it before anything is written, and a dialog that cannot name the
+ * outcome is not really asking. `CounterpartySpellingTest` holds the two in agreement.
+ */
+internal fun survivingName(first: CounterpartyName, second: CounterpartyName): CounterpartyName =
+    listOf(first, second).sortedWith(
+        compareByDescending<CounterpartyName> { it.categoryName != null }
+            .thenByDescending { it.transactionCount }
+            .thenBy { it.merchantId },
+    ).first()
+
+/** Enough of the dictionary to find anyone by scrolling; the rest is found by typing. */
+private const val MAX_NAMES = 60
 
 @Composable
 private fun CoverageBlock(coverage: CategoryCoverage) {
