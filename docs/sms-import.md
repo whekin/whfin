@@ -257,3 +257,25 @@ two real rides would have disappeared into the first. The merge itself now refus
 already absorbed a copy, so no caller can lose a payment that way, and a line naming a different
 merchant is not a place to fold into at all. When the lines run out the remaining messages stay
 listed, and the next sync that prints them makes them foldable.
+
+
+## A bill is paid out of money that can be spent (2026-09-17)
+
+Routing narrows the candidate accounts by what the message is about. Interest and a deposit top-up
+ask only about deposits; a utility or service bill asks only about the accounts it could have been
+paid from, which is the same statement read the other way round. Deposits are recognised by their
+bank product and never by the fund role — a demand deposit paying on each day's balance is money its
+owner keeps available, and is still not what a utility bill is paid from.
+
+Before this, a bill payment matched no branch at all and fell through to every bank ledger of its
+currency. On the owner's ledger that meant four accounts offered for one payment, two of them
+deposits: rows that could only be wrong, in a list long enough to hide the two that could be right.
+
+Emptiness is answered in the same terms as the question: when there is no spendable account of that
+currency the sheet says so, rather than falling back to offering the deposits.
+
+The stated balance still gets the first word, and now runs over the narrowed pool, so an account it
+can prove is chosen without asking at all. It needs three things at once — a balance printed in the
+message, a balance the bank itself declared on the candidate, and exactly one candidate whose
+recorded movements since that declaration land on the printed figure. When any of them is missing
+the question is asked, which is the honest outcome rather than a guess.

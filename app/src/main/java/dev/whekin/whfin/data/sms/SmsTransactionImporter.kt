@@ -761,6 +761,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 candidate.id != pairedAccount?.id &&
                     (pairedAccount?.groupId == null || candidate.groupId == pairedAccount.groupId)
             }
+            // A utility bill is paid out of money that can be spent. A deposit is the other half of
+            // the same statement the owner already made about their products, so offering one here
+            // asks them to answer it again — and the answer could only be wrong.
+            is BankSmsMessage.BillPayment -> candidates.filterNot(::isDepositLedger)
             else -> emptyList()
         }
         if (narrowed.size == 1) return AccountResolution.Found(narrowed.single())
@@ -768,13 +772,17 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             is BankSmsMessage.OutgoingTransfer,
             is BankSmsMessage.DepositTopUp,
             is BankSmsMessage.InterestAccrual,
+            is BankSmsMessage.BillPayment,
             -> narrowed
             else -> candidates
         }
         accountAtDeclaredBalance(sms, pool, atMillis)?.let { return AccountResolution.Found(it) }
-        if (sms is BankSmsMessage.DepositTopUp || sms is BankSmsMessage.InterestAccrual) {
-            // The question is about deposits, so its emptiness is about deposits too: offering every
-            // account of the currency asked the person to re-answer what they had already marked.
+        if (sms is BankSmsMessage.DepositTopUp || sms is BankSmsMessage.InterestAccrual ||
+            sms is BankSmsMessage.BillPayment
+        ) {
+            // The question named a kind of account, so its emptiness is about that kind too:
+            // offering every account of the currency asked the person to re-answer what they had
+            // already marked.
             return AccountResolution.NeedsChoice(
                 SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
                 if (narrowed.isEmpty()) SmsDiagnosticReason.NO_ACCOUNT else SmsDiagnosticReason.MULTIPLE_ACCOUNTS,

@@ -117,11 +117,16 @@ fun SmsRoutingSheet(
     // long enough to hide the two rows that could be right.
     val depositsOnly = diagnostic.kind == SmsDiagnosticKind.INTEREST ||
         diagnostic.kind == SmsDiagnosticKind.DEPOSIT_TOP_UP
+    // And the mirror of it: a bill is paid out of money that can be spent, so the deposits are the
+    // rows that could only be wrong here.
+    val spendableOnly = diagnostic.kind == SmsDiagnosticKind.BILL_PAYMENT
     val bank = dev.whekin.whfin.data.sms.BankSmsBank.fromKey(diagnostic.externalKey)
-    val matching = remember(accounts, currency, depositsOnly, bank) {
+    val matching = remember(accounts, currency, depositsOnly, spendableOnly, bank) {
         accounts.filter { option ->
             bank.accepts(option.account, option.bankProvider ?: option.groupName) &&
-                option.account.currency == currency && (!depositsOnly || isDepositLedger(option.account))
+                option.account.currency == currency &&
+                (!depositsOnly || isDepositLedger(option.account)) &&
+                (!spendableOnly || !isDepositLedger(option.account))
         }
     }
     val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
@@ -314,7 +319,11 @@ fun SmsRoutingSheet(
             WhfinNotice(
                 title = stringResource(R.string.sms_no_bank_accounts_title),
                 body = stringResource(
-                    if (depositsOnly) R.string.sms_no_matching_deposits else R.string.sms_no_matching_accounts,
+                    when {
+                        depositsOnly -> R.string.sms_no_matching_deposits
+                        spendableOnly -> R.string.sms_no_matching_spendable
+                        else -> R.string.sms_no_matching_accounts
+                    },
                     currency,
                 ),
                 kind = WhfinNoticeKind.Unavailable,
