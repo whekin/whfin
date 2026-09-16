@@ -279,6 +279,7 @@
     <string name="settings_keywords_privacy">privacy permissions data policy</string>
     <string name="settings_keywords_theme">theme dark light colors appearance wallpaper</string>
     <string name="settings_keywords_font">font typeface text size serif</string>
+    <string name="settings_keywords_latin">latin georgian alphabet names transliteration romanize</string>
     <string name="settings_keywords_keypad">keypad keyboard calculator quick expense widget</string>
     <string name="settings_keywords_widget">widget home screen button shortcut</string>
     <string name="settings_keywords_about">about version author licence</string>
@@ -322,6 +323,9 @@
     <string name="settings_system_font">Device font</string>
     <string name="settings_system_font_body">Titles in the device font</string>
     <string name="settings_system_font_toggle">Use device font</string>
+    <string name="settings_latin_counterparties">Georgian names in Latin</string>
+    <string name="settings_latin_counterparties_body">How they are read, not how they are stored</string>
+    <string name="settings_latin_counterparties_toggle">Show Georgian names in Latin letters</string>
     <string name="settings_quick_keypad">Quick expense keypad</string>
     <string name="settings_quick_keypad_body">Keypad that does the arithmetic</string>
     <string name="settings_quick_keypad_toggle">Use the WHFIN keypad for Quick expense</string>

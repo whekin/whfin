@@ -165,6 +165,19 @@ internal class UiPreferences(
             preferences[DisplayCurrencyKey]?.takeIf { it in DISPLAY_CURRENCIES } ?: PIVOT_CURRENCY
         }
 
+    /**
+     * Whether Georgian counterparty names are romanized on screen.
+     *
+     * Defaults on: WHFIN speaks Russian and English, and neither reader can sound out the alphabet
+     * half of these names arrive in — the alphabet is the counterparty's bank's choice, not a fact
+     * about the payment. Stored names never change, so the switch can only ever change a reading.
+     */
+    val latinCounterparties: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> preferences[LatinCounterpartiesKey] ?: true }
+
     val useSystemFont: Flow<Boolean> = dataStore.data
         .catch { error ->
             if (error is IOException) emit(emptyPreferences()) else throw error
@@ -244,6 +257,10 @@ internal class UiPreferences(
         }
     }
 
+    suspend fun setLatinCounterparties(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[LatinCounterpartiesKey] = enabled }
+    }
+
     suspend fun setUseSystemFont(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[UseSystemFontKey] = enabled }
     }
@@ -269,6 +286,7 @@ internal class UiPreferences(
         val AppThemeModeKey = intPreferencesKey("app_theme_mode")
         val DynamicColorsEnabledKey = booleanPreferencesKey("dynamic_colors_enabled")
         val UseSystemFontKey = booleanPreferencesKey("use_system_font")
+        val LatinCounterpartiesKey = booleanPreferencesKey("latin_counterparties")
         val QuickExpenseKeypadEnabledKey = booleanPreferencesKey("quick_expense_keypad_enabled")
         val WidgetOpenAppButtonEnabledKey = booleanPreferencesKey("widget_open_app_button_enabled")
         val LastTbcSyncAtKey = longPreferencesKey("last_tbc_sync_at")

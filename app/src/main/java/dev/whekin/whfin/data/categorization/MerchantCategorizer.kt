@@ -1,7 +1,10 @@
 package dev.whekin.whfin.data.categorization
 
+import dev.whekin.whfin.data.db.MerchantAliasEntity
 import dev.whekin.whfin.data.db.MerchantEntity
 import dev.whekin.whfin.data.db.WhfinDatabase
+import dev.whekin.whfin.data.importer.GeorgianLatin
+import dev.whekin.whfin.data.importer.GeorgianRomanization
 import dev.whekin.whfin.data.importer.MerchantNormalizer
 
 /**
@@ -15,8 +18,15 @@ object MerchantCategorizer {
         val key = MerchantNormalizer.normalize(raw)
         if (key.isEmpty()) return null
 
-        val existing = db.merchantDao().resolve(key)
-        if (existing != null) return categorizeIfSafe(db, existing)
+        db.merchantDao().byKey(key)?.let { return categorizeIfSafe(db, it) }
+        // The same counterparty reaches WHFIN in two alphabets, because the name belongs to their
+        // own bank rather than to the statement. Only a cross-script match is accepted: the
+        // skeleton drops distinctions romanization cannot carry, so two Georgian keys that collapse
+        // onto each other are two names, not one name written twice.
+        val skeleton = GeorgianLatin.skeleton(key)
+        db.merchantDao().byAlias(skeleton)
+            ?.takeIf { GeorgianRomanization.isGeorgian(it.normalizedKey) != GeorgianRomanization.isGeorgian(key) }
+            ?.let { return categorizeIfSafe(db, it) }
 
         val category = GeorgiaMerchantPreset.categoryFor(key, db.categoryDao().all())
         val id = db.merchantDao().insert(
@@ -26,8 +36,13 @@ object MerchantCategorizer {
                 categoryId = category?.id,
             ),
         )
-        val inserted = if (id > 0) db.merchantDao().byKey(key) else db.merchantDao().resolve(key)
-        return inserted?.let { categorizeIfSafe(db, it) }
+        val inserted = db.merchantDao().byKey(key) ?: return null
+        if (id > 0 && skeleton.isNotBlank()) {
+            db.merchantDao().insertAlias(
+                MerchantAliasEntity(merchantId = inserted.id, pattern = skeleton),
+            )
+        }
+        return categorizeIfSafe(db, inserted)
     }
 
     private suspend fun categorizeIfSafe(db: WhfinDatabase, merchant: MerchantEntity): MerchantEntity {

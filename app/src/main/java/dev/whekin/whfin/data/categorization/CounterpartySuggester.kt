@@ -1,5 +1,7 @@
 package dev.whekin.whfin.data.categorization
 
+import dev.whekin.whfin.data.importer.GeorgianRomanization
+
 import dev.whekin.whfin.data.db.CounterpartyProfile
 import dev.whekin.whfin.data.db.PersonEntity
 import kotlin.math.ln
@@ -78,7 +80,12 @@ object CounterpartySuggester {
     fun search(candidates: List<CounterpartyCandidate>, query: String): List<CounterpartyCandidate> {
         val needle = query.trim().normalizedForMatch()
         if (needle.isEmpty()) return candidates
-        return candidates.filter { it.name.normalizedForMatch().contains(needle) }
+        // Searched in both alphabets: the screen may be showing a Georgian name romanized, and
+        // typing what is printed has to find it.
+        return candidates.filter { candidate ->
+            candidate.name.normalizedForMatch().contains(needle) ||
+                GeorgianRomanization.romanize(candidate.name).normalizedForMatch().contains(needle)
+        }
     }
 
     private fun score(

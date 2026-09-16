@@ -293,6 +293,7 @@
     <string name="settings_keywords_privacy">приватность разрешения данные политика</string>
     <string name="settings_keywords_theme">тема тёмная светлая цвета оформление обои</string>
     <string name="settings_keywords_font">шрифт гарнитура текст размер</string>
+    <string name="settings_keywords_latin">латиница грузинский алфавит имена транслитерация</string>
     <string name="settings_keywords_keypad">клавиатура калькулятор быстрый расход виджет</string>
     <string name="settings_keywords_widget">виджет рабочий стол кнопка ярлык</string>
     <string name="settings_keywords_about">о приложении версия автор лицензии</string>
@@ -336,6 +337,9 @@
     <string name="settings_system_font">Шрифт устройства</string>
     <string name="settings_system_font_body">Заголовки шрифтом устройства</string>
     <string name="settings_system_font_toggle">Использовать шрифт устройства</string>
+    <string name="settings_latin_counterparties">Грузинские имена латиницей</string>
+    <string name="settings_latin_counterparties_body">Меняет чтение, а не запись</string>
+    <string name="settings_latin_counterparties_toggle">Показывать грузинские имена латиницей</string>
     <string name="settings_quick_keypad">Клавиатура быстрого ввода</string>
     <string name="settings_quick_keypad_body">Своя клавиатура, которая считает</string>
     <string name="settings_quick_keypad_toggle">Использовать клавиатуру WHFIN для Quick expense</string>

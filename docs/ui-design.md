@@ -903,3 +903,35 @@ owner had never named. `accountTitle` is that fallback in one place, so the two 
 Names already copied across are repaired once at startup, and only where the copy is provably wrong:
 a generated name whose currency is not the ledger's own. A generated name still standing on the
 ledger it was generated for is left alone, and so is every name a person wrote.
+
+## A name is read in the alphabet its reader has (2026-09-16)
+
+WHFIN speaks Russian and English. A large part of its counterparties arrive in Georgian, not because
+of anything about the payment but because the name belongs to the counterparty's own bank, and some
+banks here register their clients in Georgian. Half the names on the busiest screens were therefore
+in letters their only reader cannot sound out.
+
+Georgian names are romanized for display. The stored name never changes: `rawCounterparty` and the
+merchant's `displayName` stay exactly what the bank wrote, because that is the evidence the ledger is
+checked against — a row has to be findable on its statement by eye. The switch lives in Appearance,
+next to the device font, and defaults on.
+
+The table is the Georgian national romanization, the one passports and the country's other banks
+print, with the ejectives' apostrophes dropped as those banks drop them (`კ` and `ქ` both read `k`).
+It is deliberately **not** `GeorgianLatin.skeleton`: that table exists to decide whether two
+spellings are the same name and so throws away everything romanization blurs, which would print
+`მიხეილ` as `Miheil`. One asks whether two names are the same, the other how a name is said, and
+folding them together would either make comparison miss or make reading wrong. The reading table was
+checked against counterparties whose Latin spelling a second bank supplied independently, and
+reproduces every one of them character for character.
+
+Georgian has no case, so romanizing alone would print a row of lowercase among names that all carry
+capitals; each word takes a capital at its first letter rather than its first character, so a
+processor's `*` prefix is not what gets capitalized.
+
+Search always answers to both alphabets, whichever way the switch is set: the owner may type what the
+screen shows or what the statement shows, and neither should come back empty. This holds in the feed,
+in the category centre and in the counterparty picker.
+
+Romanization is transliteration, not translation. A company whose Georgian name means "cleaning
+service" reads as its Georgian words in Latin letters; nothing here claims to say what they mean.

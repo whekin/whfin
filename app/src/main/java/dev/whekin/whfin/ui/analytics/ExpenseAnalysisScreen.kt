@@ -62,6 +62,7 @@ import dev.whekin.whfin.core.ui.WhfinStatePane
 import dev.whekin.whfin.core.ui.WhfinStatusBarProtection
 import dev.whekin.whfin.core.ui.WhfinThemeTokens
 import dev.whekin.whfin.ui.CategoryIcons
+import dev.whekin.whfin.ui.counterpartyLabel
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -405,7 +406,8 @@ private fun ExpenseMerchants(
         }
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             visible.forEachIndexed { index, value ->
-                val name = value.name ?: stringResource(R.string.analytics_merchants_unnamed)
+                val name = value.name?.let { counterpartyLabel(it) }
+                    ?: stringResource(R.string.analytics_merchants_unnamed)
                 val share = if (scopeTotal <= 0L) 0.0 else value.expenseMinor.toDouble() / scopeTotal
                 WhfinLedgerRow(
                     title = name,

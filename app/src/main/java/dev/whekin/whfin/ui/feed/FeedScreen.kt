@@ -65,6 +65,7 @@ import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import dev.whekin.whfin.data.db.AllocationPurpose
+import dev.whekin.whfin.ui.counterpartyLabel
 import dev.whekin.whfin.ui.parseToMinor
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Category
@@ -376,6 +377,10 @@ fun FeedScreen(
         val matchesType = matchesFeedFilter(item, filter)
         val haystack = listOfNotNull(
             item.transferSummary, item.merchant?.displayName, item.tx.rawCounterparty,
+            // Searchable in both alphabets, whichever one the rows are printed in: the owner may
+            // type what the screen shows or what the statement shows, and neither should miss.
+            item.merchant?.displayName?.let { counterpartyLabel(it, latin = true) },
+            item.tx.rawCounterparty?.let { counterpartyLabel(it, latin = true) },
             item.tx.note, item.account?.name, item.account?.iban, item.category?.name,
             item.day.toString(),
             item.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
@@ -1136,8 +1141,8 @@ private fun TransactionDetailsContent(
         },
     )
     val title = item.transferSummary
-        ?: item.merchant?.displayName
-        ?: tx.rawCounterparty
+        ?: item.merchant?.displayName?.let { counterpartyLabel(it) }
+        ?: tx.rawCounterparty?.let { counterpartyLabel(it) }
         ?: tx.note?.takeIf { it.isNotBlank() }
         ?: item.category?.name
         ?: genericTitle
@@ -2322,7 +2327,8 @@ internal fun CategoryPickerSheet(
     var categoryQuery by rememberSaveable(item.tx.id) { mutableStateOf("") }
     val visible = categories.filter { !it.isSystem && it.kind == kind &&
         it.name.contains(categoryQuery.trim(), ignoreCase = true) }
-    val title = item.transferSummary ?: item.merchant?.displayName ?: item.tx.rawCounterparty
+    val title = item.transferSummary
+        ?: (item.merchant?.displayName ?: item.tx.rawCounterparty)?.let { counterpartyLabel(it) }
         ?: stringResource(R.string.feed_no_description)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -3073,7 +3079,7 @@ internal fun UnroutedOperationRow(
     val diagnostic = operation.diagnostic
     val grouped = diagnostic.kind == SmsDiagnosticKind.OWN_TRANSFER ||
         diagnostic.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
-    val title = diagnostic.counterparty?.let(::humanizeTitle) ?: stringResource(
+    val title = diagnostic.counterparty?.let { humanizeTitle(counterpartyLabel(it)) } ?: stringResource(
         when (diagnostic.kind) {
             SmsDiagnosticKind.CARD_PAYMENT -> R.string.sms_kind_card
             SmsDiagnosticKind.OUTGOING_TRANSFER -> R.string.sms_kind_outgoing
@@ -3209,7 +3215,8 @@ internal fun FeedRow(
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
     val title = item.transferSummary
         ?: (if (isTransfer) stringResource(R.string.feed_own_transfer) else null)
-        ?: (item.merchant?.displayName ?: tx.rawCounterparty ?: tx.note)?.let(::humanizeTitle)
+        ?: (item.merchant?.displayName ?: tx.rawCounterparty)?.let { humanizeTitle(counterpartyLabel(it)) }
+        ?: tx.note?.let(::humanizeTitle)
         ?: item.category?.let { category ->
             if (category.isSystem && category.name == dev.whekin.whfin.data.db.CategorySeeder.UNACCOUNTED) {
                 stringResource(R.string.category_unaccounted)

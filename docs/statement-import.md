@@ -194,3 +194,48 @@ isolated Room database. `TbcStatementImportInstrumentedTest` checks Android XML/
 TBC foreground API synchronization is described in [history sync](tbc-history-sync.md). It uses the
 same planner/applier after a one-time XLSX opening, records TBC_SYNC provenance, and preserves both
 mobile/file identities on one row. Missing API row balances are never manufactured.
+
+
+## One counterparty, two alphabets (2026-09-16)
+
+The alphabet a counterparty's name arrives in does not belong to the statement. It is whatever their
+own bank holds on file: Credo registers its clients in Georgian, TBC and Bank of Georgia in Latin.
+So a ledger fed by one bank still prints the same person both ways — once for their account at a
+Georgian-writing bank and once for their account at a Latin-writing one — and the two spellings
+share no character at all. Direction adds a second wobble: an incoming payment carries the sender's
+name as their bank registered it, while an outgoing one can carry what the payer's form recorded.
+
+The dictionary was keyed by exactly what the bank wrote, so it learned each spelling separately: a
+category taught on one never reached the other, the same person appeared twice under "who was paid",
+and the category queues asked about them twice.
+
+The key stays what the bank wrote. `MerchantNormalizer.normalize` is what merchant memory is keyed
+by, and rewriting it to a coarser form would orphan every category the owner has taught. Instead
+`GeorgianLatin.skeleton` — the same coarse form already used to reconcile a statement line against
+the message announcing it — is recorded in `merchant_aliases`, a table that has existed since the
+first schema and that nothing wrote until now. Its unique `pattern` index then states the invariant
+in the schema itself: one skeleton, one counterparty. No migration is involved, and portable backups
+already carry the table.
+
+`MerchantCategorizer.resolve` asks for the exact key first, then for the skeleton, and records the
+skeleton for every merchant it creates.
+
+Only cross-script pairs are joined, on both the live path and the repair pass. Within one alphabet a
+bank is consistent, so two keys that collapse onto the same skeleton are far more likely two names
+than one name written twice: the skeleton exists to drop what romanization cannot carry — `თ` and
+`ტ` both become `t`, `კ` and `ქ` both become `k` — and dropping those inside Georgian would marry
+strangers. Prefix equivalence is deliberately not applied here either: matching `ANTHROPIC` to
+`ANTHROPIC* CLAUDE.AI` is right when one row is being weighed against one candidate on one account
+on one day, under the other guards that path keeps, but as a dictionary rule it would collapse every
+name that starts alike.
+
+`repairCounterpartySpellings` joins what is already stored, once at startup. The survivor is the row
+carrying a category, because that is the owner's own teaching, then the one with more operations
+behind it, then the lower id. Operations move to the survivor and those still without a category
+inherit the survivor's, which is the rule `categorizeUnassignedForMerchant` already applies when a
+merchant becomes recognizable; a category set by hand is never overwritten.
+
+Two spellings filed under different categories are **not** joined, and deliberately raise no
+finding. They are evidence that the skeleton was too coarse here, not evidence of a contradiction,
+and merging them would move money between categories on a guess. Agreeing the two categories by hand
+is how the owner approves such a merge: the next pass then has nothing to weigh and joins them.

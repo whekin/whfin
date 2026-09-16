@@ -51,6 +51,7 @@ import dev.whekin.whfin.data.security.WHFIN_BIOMETRIC_AUTHENTICATORS
 import dev.whekin.whfin.data.security.WhfinAuthenticator
 import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAvailability
 import dev.whekin.whfin.data.sms.SmsForegroundCatchUp
+import dev.whekin.whfin.ui.LocalLatinCounterparties
 import dev.whekin.whfin.ui.MainScreen
 import dev.whekin.whfin.ui.accounts.AccountsViewModel
 import dev.whekin.whfin.ui.settings.AppLockGate
@@ -195,6 +196,7 @@ class MainActivity : FragmentActivity() {
             val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
             val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = false)
             val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
+            val latinCounterparties by uiPreferences.latinCounterparties.collectAsState(initial = true)
             val quickExpenseKeypadEnabled by uiPreferences.quickExpenseKeypadEnabled.collectAsState(initial = true)
             val widgetOpenAppButtonEnabled by uiPreferences.widgetOpenAppButtonEnabled.collectAsState(initial = true)
             val systemDark = isSystemInDarkTheme()
@@ -276,7 +278,10 @@ class MainActivity : FragmentActivity() {
                 LaunchedEffect(pendingSensitive, appLock.locked) {
                     if (pendingSensitive != null && !appLock.locked) requestSensitiveBiometric()
                 }
-                CompositionLocalProvider(LocalSensitiveActions provides sensitiveActions) {
+                CompositionLocalProvider(
+                    LocalSensitiveActions provides sensitiveActions,
+                    LocalLatinCounterparties provides latinCounterparties,
+                ) {
                     Box(Modifier.fillMaxSize()) {
                         when (
                             appStartupContent(
@@ -396,6 +401,7 @@ class MainActivity : FragmentActivity() {
                                         appThemeMode = appThemeMode,
                                         dynamicColorsEnabled = dynamicColorsEnabled,
                                         useSystemFont = useSystemFont,
+                                        latinCounterparties = latinCounterparties,
                                         quickExpenseKeypadEnabled = quickExpenseKeypadEnabled,
                                         widgetOpenAppButtonEnabled = widgetOpenAppButtonEnabled,
                                         onAppThemeModeChange = { mode ->
@@ -406,6 +412,9 @@ class MainActivity : FragmentActivity() {
                                         },
                                         onUseSystemFontChange = { enabled ->
                                             scope.launch { uiPreferences.setUseSystemFont(enabled) }
+                                        },
+                                        onLatinCounterpartiesChange = { enabled ->
+                                            scope.launch { uiPreferences.setLatinCounterparties(enabled) }
                                         },
                                         onQuickExpenseKeypadEnabledChange = { enabled ->
                                             scope.launch { uiPreferences.setQuickExpenseKeypadEnabled(enabled) }

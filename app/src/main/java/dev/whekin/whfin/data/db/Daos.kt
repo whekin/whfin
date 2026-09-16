@@ -348,11 +348,6 @@ interface MerchantDao {
     )
     suspend fun byAlias(pattern: String): MerchantEntity?
 
-    /** Резолв: сначала канон, потом алиасы. */
-    @Transaction
-    suspend fun resolve(normalized: String): MerchantEntity? =
-        byKey(normalized) ?: byAlias(normalized)
-
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(merchant: MerchantEntity): Long
 
@@ -368,9 +363,23 @@ interface MerchantDao {
     @Query("SELECT * FROM merchants ORDER BY displayName")
     fun observeAll(): Flow<List<MerchantEntity>>
 
+    @Query("SELECT * FROM merchants ORDER BY id")
+    suspend fun all(): List<MerchantEntity>
+
+    /** How many operations stand behind each dictionary entry, so a merge can keep the busier name. */
+    @Query(
+        "SELECT merchantId AS merchantId, COUNT(*) AS transactionCount FROM transactions " +
+            "WHERE merchantId IS NOT NULL AND isVoided = 0 GROUP BY merchantId"
+    )
+    suspend fun usageCounts(): List<MerchantUsage>
+
+    @Query("DELETE FROM merchants WHERE id = :merchantId")
+    suspend fun deleteMerchant(merchantId: Long)
+
     @Query("SELECT * FROM merchants WHERE categoryId IS NULL")
     suspend fun uncategorized(): List<MerchantEntity>
 }
+
 
 @Dao
 interface TransactionDao {
@@ -595,6 +604,15 @@ interface TransactionDao {
 
     @Query("UPDATE transactions SET categoryId = :categoryId WHERE merchantId = :merchantId AND categoryId IS NULL AND isVoided = 0")
     suspend fun categorizeUnassignedForMerchant(merchantId: Long, categoryId: Long)
+
+    /**
+     * Moves every operation of a retired dictionary entry onto the counterparty it turned out to be.
+     *
+     * Voided rows move too: they are the same counterparty, and leaving them pointing at a row about
+     * to be deleted would silently blank their name via the SET NULL foreign key.
+     */
+    @Query("UPDATE transactions SET merchantId = :survivorId WHERE merchantId = :retiredId")
+    suspend fun repointMerchant(retiredId: Long, survivorId: Long)
 
     /**
      * Rows whose bank operation label is still readable in their note.

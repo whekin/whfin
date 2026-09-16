@@ -45,6 +45,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
+import dev.whekin.whfin.ui.counterpartyLabel
+import dev.whekin.whfin.ui.counterpartyMatches
 import dev.whekin.whfin.core.ui.WhfinActionMenu
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
@@ -182,7 +184,7 @@ fun CategoryIntelligenceScreen(
     }
 
     selectedSender?.let { sender ->
-        val name = sender.displayName
+        val name = sender.displayName?.let { counterpartyLabel(it) }
             ?: stringResource(R.string.category_intelligence_transfer_unnamed)
         CounterpartyCategorySheet(
             counterparty = sender,
@@ -205,7 +207,7 @@ fun CategoryIntelligenceScreen(
     }
 
     selectedCounterparty?.let { counterparty ->
-        val name = counterparty.displayName
+        val name = counterparty.displayName?.let { counterpartyLabel(it) }
             ?: stringResource(R.string.category_intelligence_transfer_unnamed)
         CounterpartyCategorySheet(
             counterparty = counterparty,
@@ -448,7 +450,7 @@ private fun LazyListScope.merchantQueue(
     }
     val needle = query.trim().lowercase()
     val visible = if (needle.isEmpty()) merchants
-    else merchants.filter { it.displayName.lowercase().contains(needle) }
+    else merchants.filter { counterpartyMatches(it.displayName, needle) }
     if (visible.isEmpty()) item {
         Text(
             stringResource(R.string.category_intelligence_search_empty),
@@ -457,7 +459,7 @@ private fun LazyListScope.merchantQueue(
         )
     } else items(visible, key = { it.merchantId }) { merchant ->
         WhfinLedgerRow(
-            title = merchant.displayName,
+            title = counterpartyLabel(merchant.displayName),
             supportingText = pluralStringResource(
                 R.plurals.category_intelligence_transactions,
                 merchant.transactionCount,
@@ -518,7 +520,7 @@ private fun CounterpartyRow(
     onSelect: (UncategorizedCounterparty) -> Unit,
 ) {
     WhfinLedgerRow(
-        title = counterparty.displayName
+        title = counterparty.displayName?.let { counterpartyLabel(it) }
             ?: stringResource(R.string.category_intelligence_transfer_unnamed),
         supportingText = pluralStringResource(
             R.plurals.category_intelligence_transactions,
@@ -556,7 +558,7 @@ private fun LazyListScope.ruleQueue(
             rule.personName,
         ).joinToString(" · ")
         WhfinLedgerRow(
-            title = rule.displayName,
+            title = counterpartyLabel(rule.displayName),
             supportingText = supporting.takeIf { it.isNotEmpty() },
             icon = Icons.Default.SwapHoriz,
             trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
@@ -616,7 +618,7 @@ private fun MerchantCategorySheet(
             Modifier.padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(merchant.displayName, style = MaterialTheme.typography.titleLarge)
+            Text(counterpartyLabel(merchant.displayName), style = MaterialTheme.typography.titleLarge)
             Text(
                 pluralStringResource(
                     R.plurals.category_intelligence_apply_body,
@@ -778,7 +780,7 @@ private fun CounterpartyRuleSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    rule.displayName,
+                    counterpartyLabel(rule.displayName),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )

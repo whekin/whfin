@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import dev.whekin.whfin.data.categorization.CounterpartyCandidate
 import dev.whekin.whfin.data.categorization.CounterpartyDirection
 import dev.whekin.whfin.data.categorization.CounterpartySuggester
+import dev.whekin.whfin.ui.counterpartyLabel
 import dev.whekin.whfin.data.db.CounterpartyProfile
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
@@ -932,7 +933,7 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
         items(suggestions, key = { it.name }) { candidate ->
             val isSelected = candidate.name.equals(chosen, ignoreCase = true)
             WhfinFilterPill(
-                label = candidate.name,
+                label = counterpartyLabel(candidate.name),
                 selected = isSelected,
                 // Tapping the chosen name again clears it: naming who was paid is an offer, and an
                 // offer that cannot be taken back is a trap.
@@ -1008,7 +1009,7 @@ private fun accountIcon(type: AccountType?) = when (type) { AccountType.BANK, Ac
             items(ranked, key = { it.name }) { candidate ->
                 val category = categories.firstOrNull { it.id == candidate.categoryId }
                 WhfinLedgerRow(
-                    title = candidate.name,
+                    title = counterpartyLabel(candidate.name),
                     supportingText = category?.name,
                     icon = if (candidate.personId != null) Icons.Outlined.Person else Icons.Outlined.Storefront,
                     iconTint = category?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary,
