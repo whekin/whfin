@@ -114,6 +114,9 @@ fun AddAccountSheet(
     var manualBank by remember { mutableStateOf<String?>(null) }
     var bankProduct by remember { mutableStateOf<BankProduct?>(null) }
 
+    val openingMinor = parseToMinor(opening, allowZero = true)
+    val validOpening = opening.isBlank() || openingMinor != null
+
     val offerConnection = type == AccountType.BANK && !customBank && bankProvider != null &&
         manualBank != bankProvider && onConnectBank != null
     val choosingBank = type == AccountType.BANK && !customBank && bankProvider == null && onConnectBank != null
@@ -133,7 +136,7 @@ fun AddAccountSheet(
         primaryEnabled = if (offerConnection) true else if (choosingBank) false else if (type == AccountType.CRYPTO) {
             addressCheck is CryptoAddressValidator.Result.Valid
         } else {
-            (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank()
+            (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank() && validOpening
         },
         onPrimary = {
             if (offerConnection) {
@@ -146,7 +149,7 @@ fun AddAccountSheet(
                     type,
                     currency,
                     bankProvider,
-                    parseToMinor(opening),
+                    openingMinor,
                     bankProduct,
                 )
             }
@@ -258,7 +261,7 @@ fun AddAccountSheet(
             // zero, which is what an account nobody has counted yet honestly holds.
             WhfinField(
                 value = opening,
-                onValueChange = { opening = it.filter { char -> char.isDigit() || char == '.' || char == ',' } },
+                onValueChange = { opening = it },
                 label = stringResource(R.string.account_opening_amount),
                 supportingText = stringResource(R.string.account_opening_amount_hint),
                 keyboardType = KeyboardType.Decimal,

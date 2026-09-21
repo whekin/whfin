@@ -208,7 +208,7 @@ private fun DebtLedgerContent(
     var amount by remember { mutableStateOf("") }
     var currency by remember { mutableStateOf(accounts.firstOrNull { it.currency == "GEL" }?.currency ?: "GEL") }
     var accountId by remember { mutableStateOf<Long?>(null) }
-    val minor = parseToMinor(amount)
+    val minor = parseToMinor(amount)?.takeIf { it > 0 }
     FormSheet(
         title = stringResource(R.string.new_debt),
         onDismiss = dismiss,
@@ -298,8 +298,8 @@ private fun DebtLedgerContent(
     var accountId by remember { mutableStateOf(accounts.firstOrNull { it.currency == currency }?.id) }
     var close by remember { mutableStateOf(true) }
     var debtCredit by remember { mutableStateOf("") }
-    val actual = parseToMinor(amount)
-    val credit = parseToMinor(debtCredit)
+    val actual = parseToMinor(amount)?.takeIf { it > 0 }
+    val credit = parseToMinor(debtCredit)?.takeIf { it > 0 && it <= item.remainingMinor }
     FormSheet(
         title = stringResource(R.string.debt_repayment_from, item.person.name),
         onDismiss = dismiss,

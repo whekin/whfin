@@ -34,6 +34,9 @@ class DebtRepository(private val db: WhfinDatabase) {
 
     suspend fun open(input: NewDebt): Long = db.withTransaction {
         require(input.amountMinor > 0)
+        require(input.currency.isNotBlank())
+        input.accountId?.let { requireMovementAccount(it, input.currency) }
+        require(input.personId != null || !input.personName.isNullOrBlank())
         val personId = input.personId ?: db.personDao().insert(
             PersonEntity(name = requireNotNull(input.personName).trim(), color = 0xFF5F8068.toInt()),
         )
@@ -72,11 +75,18 @@ class DebtRepository(private val db: WhfinDatabase) {
     suspend fun settle(input: DebtSettlement) = db.withTransaction {
         val debt = requireNotNull(db.debtDao().caseById(input.debtCaseId))
         require(debt.status == DebtStatus.OPEN)
+        val hasMovement = input.accountId != null || input.actualAmountMinor != null || input.actualCurrency != null
+        if (hasMovement) {
+            require(requireNotNull(input.actualAmountMinor) > 0) { "A repayment amount must be positive" }
+            requireMovementAccount(requireNotNull(input.accountId), requireNotNull(input.actualCurrency))
+        }
         val alreadyCredited = db.debtDao().eventsForCase(debt.id)
             .filterNot { it.isVoided }
             .sumOf { it.debtValueMinor }
         val remaining = (debt.originalAmountMinor - alreadyCredited).coerceAtLeast(0)
-        val credit = if (input.close) remaining else requireNotNull(input.debtValueMinor).coerceIn(0, remaining)
+        val credit = if (input.close) remaining else requireNotNull(input.debtValueMinor).also {
+            require(it > 0 && it <= remaining) { "A partial repayment must be within the outstanding debt" }
+        }
         val txId = if (input.accountId != null && input.actualAmountMinor != null && input.actualCurrency != null) {
             val signed = if (debt.direction == DebtDirection.THEY_OWE_ME) input.actualAmountMinor else -input.actualAmountMinor
             transactionMutations.createManual(
@@ -104,6 +114,13 @@ class DebtRepository(private val db: WhfinDatabase) {
             closesCase = input.close, occurredAt = input.occurredAt, note = input.note,
         ))
         if (input.close) db.debtDao().updateCase(debt.copy(status = DebtStatus.CLOSED, closedAt = input.occurredAt))
+    }
+
+    private suspend fun requireMovementAccount(accountId: Long, currency: String) {
+        val account = requireNotNull(db.accountDao().byId(accountId)) { "No such account" }
+        require(!account.isArchived && account.currency == currency) {
+            "The movement currency must match an active account"
+        }
     }
 
     /**

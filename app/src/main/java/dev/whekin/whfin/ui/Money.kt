@@ -4,15 +4,19 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 
-/** "12.5" / "12,50" / "1 083.20" -> minor units; null если не парсится или 0. */
-fun parseToMinor(text: String): Long? {
-    val cleaned = text.replace(" ", "").replace(',', '.')
-    if (cleaned.isEmpty() || cleaned.count { it == '.' } > 1) return null
-    return cleaned.toBigDecimalOrNull()
-        ?.movePointRight(2)
-        ?.toLong()
-        ?.takeIf { it != 0L }
+/** Exact signed minor units; rejects zero, fractional minor units and overflow. */
+fun parseToMinor(text: String, allowZero: Boolean = false): Long? {
+    val cleaned = text.filterNot { it.isWhitespace() || it == '\u00A0' }.replace(',', '.')
+    if (cleaned.length !in 1..64 || !MONEY_INPUT.matches(cleaned)) return null
+    return try {
+        cleaned.toBigDecimal().movePointRight(2).longValueExact()
+            .takeIf { (allowZero || it != 0L) && it != Long.MIN_VALUE }
+    } catch (_: ArithmeticException) {
+        null
+    }
 }
+
+private val MONEY_INPUT = Regex("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
 
 /**
  * The gap between an amount and its sign, which no line break may fall into.

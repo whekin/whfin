@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
@@ -74,6 +75,20 @@ class AddAccountSheetTest {
 
     private fun type(label: Int, text: String) =
         compose.onNodeWithContentDescription(context.getString(label)).performTextInput(text)
+
+    @Test
+    fun invalidOpeningCannotBeSilentlySavedAsAnEmptyBalance() {
+        var saved: Saved? = null
+        show(AccountType.CASH, onSave = { saved = it })
+        val field = compose.onNodeWithContentDescription(context.getString(R.string.account_opening_amount))
+        field.performTextInput("1.001")
+        compose.onNodeWithText(context.getString(R.string.action_save)).assertIsNotEnabled()
+        field.performTextReplacement("0")
+        compose.onNodeWithText(context.getString(R.string.action_save)).assertIsEnabled()
+        field.performTextReplacement("-12.50")
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        assertEquals(-1250L, saved?.openingMinor)
+    }
 
     @Test
     fun cashNameIsOptionalAndDefaultsToCash() {

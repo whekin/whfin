@@ -219,8 +219,8 @@ fun AddTransactionSheet(
 
     val account = accounts.firstOrNull { it.id == accountId }
     val destination = accounts.firstOrNull { it.id == destinationId }
-    val amountMinor = parseToMinor(amountText)
-    val destinationMinor = parseToMinor(destinationAmount)
+    val amountMinor = parseToMinor(amountText)?.takeIf { it > 0 }
+    val destinationMinor = parseToMinor(destinationAmount)?.takeIf { it > 0 }
     val conversion = kind == ManualKind.TRANSFER && destination != null && destination.currency != account?.currency
     val beneficiaryValid = kind != ManualKind.EXPENSE || beneficiary?.let {
         (it.personId?.let { id -> people.any { person -> person.id == id } } ?: !it.name.isNullOrBlank()) &&
