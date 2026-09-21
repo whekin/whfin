@@ -116,6 +116,12 @@ class StatementImporter(private val db: WhfinDatabase) {
         fileName: String? = null,
         origin: StatementImportOrigin = StatementImportOrigin.FILE,
         onPhase: (Phase) -> Unit = {},
+    ): Result = dev.whekin.whfin.data.backup.LedgerRestoreState.reading {
+        importReading(input, fileName, origin, onPhase)
+    }
+
+    private suspend fun importReading(
+        input: InputStream, fileName: String?, origin: StatementImportOrigin, onPhase: (Phase) -> Unit,
     ): Result {
         onPhase(Phase.READING)
         val statement = StatementParsers.parse(StatementFile.read(input, fileName))

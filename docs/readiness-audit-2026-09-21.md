@@ -16,9 +16,16 @@ possible defects are absent.
 - Debt writes reject negative repayments, account/currency mismatch and invalid partial credits atomically.
   Four regression tests reproduced the old bugs; all now pass, with account-form and feed tests.
 
-## In progress
-- Restore coordination: investigate overlapping restores and in-flight bank/crypto writes against
-  replaced account IDs. The safety snapshot and replacement currently use separate transactions.
+- Restore now excludes in-flight bank, wallet and file-import work, rejects overlapping replacements,
+  and takes the safety snapshot in the same SQLite transaction as replacement. Old Activity state and
+  retained bank results are discarded after success. Lease/cancellation tests and real SQLite safety
+  restore tests passed; an Activity journey proves the old ViewModels are destroyed.
+- Exported MainActivity trusted a restart boolean to bypass App Lock. Internal restarts now require a
+  one-use process-local 30-second permit, only minted while foreground and unlocked. Host tests and
+  ExternalRestartLockTest on the real Activity passed.
+- Data instrumentation: 143 checks attempted, two stale expectations corrected and rerun (the bundled
+  demo is a v6 backup, and an unlabelled SMS balance without an anchor is not assigned to either leg).
+  External push delivery was skipped in the package run; it needs its dedicated synthetic sender.
 
 ## Remaining audit coverage
 

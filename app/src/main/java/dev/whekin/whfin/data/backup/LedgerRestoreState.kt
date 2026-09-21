@@ -4,30 +4,39 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/**
- * Whether a restore is currently replacing the contents of a database.
- *
- * A restore empties every table before it writes the new rows, and the screens are alive while that
- * happens: a demo workspace being installed, a backup being brought back. Those screens ask Room what
- * is there, Room truthfully answers "nothing", and Home would state a month result of zero and offer
- * to help the person get started — over their own data, mid-restore.
- *
- * Process-wide on purpose. "The database is being replaced" is a fact about the process, not about one
- * screen or one manager instance, and [WhfinBackupManager] is created ad hoc wherever a restore is
- * needed, so a flag owned by an instance would tell nobody.
- */
+class LedgerBusyException : IllegalStateException("Finish the current import or refresh before restoring the ledger.")
+
+/** Coordinates long-running reads that will write back with whole-ledger replacement. */
 object LedgerRestoreState {
-
     private val _active = MutableStateFlow(false)
-
     val active: StateFlow<Boolean> = _active.asStateFlow()
+    private var readers = 0
+
+    /** Reserve before launching asynchronous work, not after its coroutine happens to start. */
+    @Synchronized
+    fun beginRead(): AutoCloseable {
+        if (_active.value) throw LedgerBusyException()
+        readers++
+        var closed = false
+        return AutoCloseable {
+            synchronized(this) {
+                if (!closed) { closed = true; readers-- }
+            }
+        }
+    }
+
+    suspend fun <T> reading(block: suspend () -> T): T {
+        val lease = beginRead()
+        return try { block() } finally { lease.close() }
+    }
 
     internal suspend fun <T> during(block: suspend () -> T): T {
-        _active.value = true
-        return try {
-            block()
-        } finally {
-            _active.value = false
+        synchronized(this) {
+            if (_active.value || readers != 0) throw LedgerBusyException()
+            _active.value = true
+        }
+        return try { block() } finally {
+            synchronized(this) { _active.value = false }
         }
     }
 }

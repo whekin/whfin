@@ -15,6 +15,15 @@ import org.robolectric.RobolectricTestRunner
 @Config(sdk = [35])
 class MainActivityStartupTest {
     @Test
+    fun anExternalBooleanCannotBypassTheLockGate() {
+        val forged = android.content.Intent().putExtra(EXTRA_RUNTIME_MODE_RESTART, true)
+        org.junit.Assert.assertFalse(authorizedRuntimeRestart(forged))
+        val trusted = runtimeModeRestartIntent(android.content.ComponentName("test", "test.MainActivity"))
+        org.junit.Assert.assertTrue(authorizedRuntimeRestart(trusted))
+        org.junit.Assert.assertFalse(authorizedRuntimeRestart(trusted))
+    }
+
+    @Test
     fun freshInstallStartsAtWelcomeChoice() {
         assertEquals(
             AppEntry.Welcome,

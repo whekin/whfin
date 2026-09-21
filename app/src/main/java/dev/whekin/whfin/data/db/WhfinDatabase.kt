@@ -51,6 +51,10 @@ const val WHFIN_DATABASE_VERSION = 8
     exportSchema = true,
 )
 abstract class WhfinDatabase : RoomDatabase() {
+    private val _restored = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    val restored: kotlinx.coroutines.flow.StateFlow<Long> get() = _restored
+    internal fun notifyRestored() { _restored.value++ }
+
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun merchantDao(): MerchantDao

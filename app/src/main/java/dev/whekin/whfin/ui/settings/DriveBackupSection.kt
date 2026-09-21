@@ -297,6 +297,7 @@ fun DriveBackupSection(appVersion: String) {
                     DriveBackupWorker.ERROR_AUTH -> R.string.drive_error_auth
                     DriveBackupWorker.ERROR_PASSPHRASE -> R.string.drive_error_passphrase
                     DriveBackupWorker.ERROR_NETWORK -> R.string.drive_error_network
+                    "restore_busy" -> R.string.backup_restore_busy
                     ERROR_MISSING_CLIENT -> R.string.drive_error_missing_client
                     else -> R.string.drive_error_unknown
                 },
@@ -364,7 +365,7 @@ fun DriveBackupSection(appVersion: String) {
                             status = DriveUiStatus.Idle
                         } catch (error: Exception) {
                             restoreFrom = null
-                            status = DriveUiStatus.Error(DriveBackupWorker.ERROR_NETWORK)
+                            status = DriveUiStatus.Error(if (error is dev.whekin.whfin.data.backup.LedgerBusyException) "restore_busy" else DriveBackupWorker.ERROR_NETWORK)
                         } finally {
                             passphrase.fill(' ')
                         }

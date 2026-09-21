@@ -71,6 +71,10 @@ class BankSyncRuntime(private val app: WhfinApp, private val startForeground: ()
 
     fun launch(bank: String, dispatcher: CoroutineDispatcher, interrupted: () -> Unit,
         block: suspend CoroutineScope.() -> Unit): Job {
+        val lease = try { dev.whekin.whfin.data.backup.LedgerRestoreState.beginRead() }
+        catch (_: dev.whekin.whfin.data.backup.LedgerBusyException) {
+            return scope.launch { interrupted() }
+        }
         val first: Boolean
         synchronized(this) {
             first = runs.value.values.none { it.count > 0 }
@@ -93,12 +97,14 @@ class BankSyncRuntime(private val app: WhfinApp, private val startForeground: ()
         }
         synchronized(this) { jobs[job] = bank }
         job.invokeOnCompletion { cause ->
+            try {
             if (cause is CancellationException) { markInterrupted(bank); interrupted() }
             synchronized(this) {
                 runs.value[bank]?.let { run -> runs.value = runs.value + (bank to run.copy(count = (run.count - 1).coerceAtLeast(0))) }
                 jobs.remove(job)
                 saveInFlight()
             }
+            } finally { lease.close() }
         }
         job.start()
         return job
@@ -113,5 +119,15 @@ class BankSyncRuntime(private val app: WhfinApp, private val startForeground: ()
     private fun saveInFlight() {
         prefs.edit().putStringSet("in_flight", runs.value.filterValues { it.count > 0 }.keys.toSet()).apply()
     }
+    /** A restored ledger invalidates account choices and retained initial-balance reads. */
+    fun resetAfterRestore() {
+        check(!hasActiveWork())
+        credo.resetForRestoredLedger()
+        tbc.leave()
+        runs.value = emptyMap()
+        handoffs.clear()
+        saveInFlight()
+    }
+
     internal fun close() { cancel(); scope.cancel(); owner.viewModelStore.clear() }
 }

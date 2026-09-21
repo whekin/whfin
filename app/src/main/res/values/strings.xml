@@ -1694,4 +1694,6 @@
     <string name="setup_channels">SMS, push and bank connections</string>
     <string name="setup_saved_accounts">%1$d accounts saved</string>
     <string name="setup_review_remaining">Items still needing review: %1$d. You can resolve them now or return later.</string>
+    <string name="backup_restore_busy">An import, refresh or restore is already running. Wait for it to finish, then restore the backup again. No data was replaced.</string>
+    <string name="ledger_restore_in_progress">Data is being restored. Try this action again after it finishes.</string>
 </resources>

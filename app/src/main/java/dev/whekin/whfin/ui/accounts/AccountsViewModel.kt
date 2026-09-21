@@ -307,14 +307,18 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             val app = getApplication<Application>()
             try {
                 val (history, balances) = withContext(Dispatchers.IO) {
+                    dev.whekin.whfin.data.backup.LedgerRestoreState.reading {
                     runCatching { ratesRepository.refresh() }
                     runCatching { walletRepository.discoverNewAssets() }
                     // Import before reading balances so assets with history but zero holdings are read too.
                     historyRepository.refreshAll() to balanceRepository.refreshAll()
+                    }
                 }
                 _message.value = app.getString(
                     R.string.crypto_history_result, history.imported, history.failed + balances.failed,
                 ) + if (history.unsupported > 0) " " + app.getString(R.string.crypto_history_scope) else ""
+            } catch (_: dev.whekin.whfin.data.backup.LedgerBusyException) {
+                _message.value = app.getString(R.string.ledger_restore_in_progress)
             } finally {
                 _cryptoRefreshing.value = false
             }

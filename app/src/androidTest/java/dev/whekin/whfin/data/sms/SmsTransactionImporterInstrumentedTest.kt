@@ -281,7 +281,8 @@ class SmsTransactionImporterInstrumentedTest {
         assertEquals(setOf(fromId, toId), legs.map { it.accountId }.toSet())
         assertEquals(setOf(-20_000L, 20_000L), legs.map { it.amountMinor }.toSet())
         assertTrue(legs.all { it.status == TxStatus.CONFIRMED && it.source == TxSource.SMS && it.isTransfer })
-        assertEquals(133_456L, legs.single { it.accountId == fromId }.balanceAfterMinor)
+        // Neither ledger has a prior bank balance; the unlabelled SMS figure proves neither side.
+        assertEquals(null, legs.single { it.accountId == fromId }.balanceAfterMinor)
         assertEquals(null, legs.single { it.accountId == toId }.balanceAfterMinor)
         assertEquals(
             TransferGroupType.TRANSFER.name,

@@ -90,10 +90,12 @@ class WhfinBackupManager(
             val snapshot = WhfinBackupCodec.read(plain)
             // After the file has proven itself readable and before a single row is deleted: an
             // unreadable file must not cost a snapshot, and a readable one must not cost the ledger.
-            safetyBackup?.capture(database)
             database.withTransaction {
+                // No incoming SMS or other writer may land between the safety copy and replacement.
+                safetyBackup?.capture(database)
                 WhfinBackupCodec.restore(database.openHelper.writableDatabase, snapshot)
             }
+            database.notifyRestored()
             database.invalidationTracker.refreshAsync()
             snapshot.summary
             }

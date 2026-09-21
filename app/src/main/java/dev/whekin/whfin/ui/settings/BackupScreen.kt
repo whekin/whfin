@@ -70,6 +70,7 @@ internal sealed interface BackupUiState {
     data object Restoring : BackupUiState
     data class Exported(val rowCount: Int) : BackupUiState
     data class Restored(val rowCount: Int) : BackupUiState
+    data object Busy : BackupUiState
     data object Error : BackupUiState
 }
 
@@ -120,7 +121,7 @@ fun BackupRoute(appVersion: String) {
                 }
             }.fold(
                 onSuccess = { BackupUiState.Exported(it.rowCount) },
-                onFailure = { BackupUiState.Error },
+                onFailure = { if (it is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error },
             )
         }
     }
@@ -140,7 +141,7 @@ fun BackupRoute(appVersion: String) {
                     }
                 }.fold(
                     onSuccess = { BackupUiState.Exported(it.rowCount) },
-                    onFailure = { BackupUiState.Error },
+                    onFailure = { if (it is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error },
                 )
             } finally {
                 passphrase.fill('\u0000')
@@ -188,7 +189,7 @@ fun BackupRoute(appVersion: String) {
                         restorePassphraseError = true
                         uiState = BackupUiState.Idle
                     } else {
-                        uiState = BackupUiState.Error
+                        uiState = if (error is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error
                     }
                 },
             )
@@ -248,7 +249,7 @@ fun BackupRoute(appVersion: String) {
                         safetyCopy = safetyBackup.latest()
                         uiState = result.fold(
                             onSuccess = { BackupUiState.Restored(it.rowCount) },
-                            onFailure = { BackupUiState.Error },
+                            onFailure = { if (it is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error },
                         )
                     }
                 }
@@ -466,6 +467,12 @@ internal fun BackupScreen(
                 title = stringResource(R.string.backup_restored_title),
                 body = stringResource(R.string.backup_restored_body, uiState.rowCount),
                 kind = WhfinNoticeKind.Info,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            BackupUiState.Busy -> WhfinNotice(
+                title = stringResource(R.string.backup_error_title),
+                body = stringResource(R.string.backup_restore_busy),
+                kind = WhfinNoticeKind.Attention,
                 modifier = Modifier.fillMaxWidth(),
             )
             BackupUiState.Error -> WhfinNotice(

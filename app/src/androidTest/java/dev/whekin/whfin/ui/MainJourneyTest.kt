@@ -43,20 +43,21 @@ class MainJourneyTest {
     private fun passFirstRunGate(device: UiDevice, context: android.content.Context) {
         dismissForeignAnrDialog(device, context)
         val welcomeAction = By.text(context.getString(R.string.welcome_personal_action))
-        val shellTab = By.text(context.getString(R.string.tab_accounts))
+        val shellTab = By.text(context.getString(R.string.tab_feed))
         val deadline = System.currentTimeMillis() + 30_000
         while (System.currentTimeMillis() < deadline) {
-            if (device.hasObject(welcomeAction) || device.hasObject(shellTab)) break
+            if (device.hasObject(welcomeAction) || device.hasObject(shellTab) ||
+                device.hasObject(By.text(context.getString(R.string.setup_next))) ||
+                device.hasObject(By.text(context.getString(R.string.personal_setup_continue_action)))) break
             device.waitForIdle(250)
         }
-        val welcome = device.findObject(welcomeAction) ?: return
-        welcome.click()
-        // Setup is a wizard, not one screen: the bank step, then an optional step for anything
-        // outside it, then an explicit hand-off. Stopping after the first leaves the journey
-        // stranded on a screen it never asserts about, looking exactly like a missing tab.
-        setupStep(device, context, R.string.personal_setup_skip_bank_action)
-        setupStep(device, context, R.string.personal_setup_skip_optional_action)
-        setupStep(device, context, R.string.personal_setup_continue_action)
+        device.findObject(welcomeAction)?.click()
+        repeat(7) {
+            if (device.hasObject(shellTab)) return
+            val finish = device.findObject(By.text(context.getString(R.string.personal_setup_continue_action)))
+            if (finish != null) { finish.click(); return }
+            setupStep(device, context, R.string.setup_next)
+        }
     }
 
     private fun setupStep(device: UiDevice, context: android.content.Context, action: Int) {

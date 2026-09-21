@@ -742,6 +742,22 @@ class CredoSyncViewModel internal constructor(
         }
     }
 
+    /** Keep encrypted sign-in, discard every choice and result belonging to the replaced ledger. */
+    fun resetForRestoredLedger() {
+        challenge = null
+        pendingCredentials = null
+        session = null
+        syncAfterLogin = false
+        retryAccountKeys = emptySet()
+        retryStore.save(emptySet())
+        historyStore.clear()
+        failedStatements.clear()
+        loginDraft.username = ""
+        loginDraft.credential = ""
+        val before = _state.value
+        _state.value = CredoSyncUiState(savedUsername = before.savedUsername, hasSavedPassword = before.hasSavedPassword)
+    }
+
     fun disconnect() {
         if (backgroundExecution) getApplication<WhfinApp>().bankSync.cancel("Credo")
         secretStore.clear()

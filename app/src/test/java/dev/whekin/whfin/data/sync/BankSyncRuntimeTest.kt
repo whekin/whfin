@@ -22,6 +22,29 @@ class BankSyncRuntimeTest {
         app.getSharedPreferences("bank_sync_runtime", 0).edit().clear().commit()
     }
     @After fun teardown() { Dispatchers.resetMain() }
+    @Test fun restoreIsBlockedEvenBeforeBankCoroutineStarts() = runTest(dispatcher) {
+        val runtime = BankSyncRuntime(app) {}
+        val job = runtime.launch("TBC", dispatcher, {}) { awaitCancellation() }
+        assertTrue(runCatching { dev.whekin.whfin.data.backup.LedgerRestoreState.during {} }.isFailure)
+        job.cancel()
+        runCurrent()
+        dev.whekin.whfin.data.backup.LedgerRestoreState.during {}
+        runtime.close()
+    }
+
+    @Test fun restoreRejectsNewBankWorkWithoutCallingTheGateway() = runTest(dispatcher) {
+        val runtime = BankSyncRuntime(app) {}
+        var ran = false
+        var interrupted = false
+        dev.whekin.whfin.data.backup.LedgerRestoreState.during {
+            runtime.launch("TBC", dispatcher, { interrupted = true }) { ran = true }
+            runCurrent()
+            assertFalse(ran)
+            assertTrue(interrupted)
+        }
+        runtime.close()
+    }
+
     @Test fun androidServiceTimeoutCancelsTheActiveRun() = runTest(dispatcher) {
         val runtime = app.bankSync
         val job = runtime.launch("Credo", dispatcher, {}) { awaitCancellation() }

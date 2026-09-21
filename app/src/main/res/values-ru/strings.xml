@@ -1758,4 +1758,6 @@
     <string name="setup_channels">SMS, push и подключения банков</string>
     <string name="setup_saved_accounts">Сохранено счетов: %1$d</string>
     <string name="setup_review_remaining">Осталось разобрать: %1$d. Можно сделать это сейчас или вернуться позже.</string>
+    <string name="backup_restore_busy">Сейчас идёт импорт, обновление или восстановление. Дождитесь завершения и повторите восстановление. Данные не заменялись.</string>
+    <string name="ledger_restore_in_progress">Идёт восстановление данных. Повторите действие после завершения.</string>
 </resources>

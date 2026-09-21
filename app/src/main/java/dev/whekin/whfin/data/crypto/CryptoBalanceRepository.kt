@@ -33,13 +33,17 @@ class CryptoBalanceRepository(
         val isEmpty: Boolean get() = results.isEmpty()
     }
 
-    suspend fun refreshAll(): RefreshResult {
+    suspend fun refreshAll(): RefreshResult = dev.whekin.whfin.data.backup.LedgerRestoreState.reading { refreshAllReading() }
+
+    private suspend fun refreshAllReading(): RefreshResult {
         val accounts = db.accountDao().allActive().filter { it.type == AccountType.CRYPTO }
         return RefreshResult(accounts.map { refresh(it) })
     }
 
     suspend fun refresh(accountId: Long): AccountResult? =
-        db.accountDao().byId(accountId)?.takeIf { it.type == AccountType.CRYPTO }?.let { refresh(it) }
+        dev.whekin.whfin.data.backup.LedgerRestoreState.reading {
+            db.accountDao().byId(accountId)?.takeIf { it.type == AccountType.CRYPTO }?.let { refresh(it) }
+        }
 
     private suspend fun refresh(account: AccountEntity): AccountResult {
         val request = requestFor(account)

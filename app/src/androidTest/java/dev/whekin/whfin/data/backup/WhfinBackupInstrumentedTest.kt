@@ -260,7 +260,8 @@ class WhfinBackupInstrumentedTest {
         }
         val sqlite = target.openHelper.writableDatabase
 
-        assertEquals(WHFIN_DATABASE_VERSION, summary.databaseVersion)
+        // The bundled fixture is a v6 backup; the destination database is the current schema.
+        assertEquals(6, summary.databaseVersion)
         check(summary.rowCount >= 300) { "Demo fixture became too small for representative UI states." }
         assertEquals(10, sqlite.longForQuery("SELECT COUNT(*) FROM accounts"))
         check(sqlite.longForQuery("SELECT COUNT(*) FROM transactions") >= 250)

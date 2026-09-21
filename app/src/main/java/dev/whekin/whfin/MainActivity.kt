@@ -115,8 +115,18 @@ internal fun appStartupContent(
 internal const val EXTRA_RUNTIME_MODE_RESTART = "dev.whekin.whfin.RUNTIME_MODE_RESTART"
 internal const val EXTRA_OPEN_ACCOUNTS = "dev.whekin.whfin.OPEN_ACCOUNTS"
 
-internal fun runtimeModeRestartIntent(componentName: ComponentName): Intent =
-    Intent.makeRestartActivityTask(componentName).putExtra(EXTRA_RUNTIME_MODE_RESTART, true)
+private const val EXTRA_RESTART_AUTHORIZATION = "dev.whekin.whfin.RESTART_AUTHORIZATION"
+private val restartAuthorization = dev.whekin.whfin.data.security.RuntimeRestartAuthorization()
+
+internal fun runtimeModeRestartIntent(componentName: ComponentName, preserveUnlock: Boolean = true): Intent =
+    Intent.makeRestartActivityTask(componentName).apply {
+        putExtra(EXTRA_RUNTIME_MODE_RESTART, preserveUnlock)
+        if (preserveUnlock) putExtra(EXTRA_RESTART_AUTHORIZATION, restartAuthorization.issue())
+    }
+
+internal fun authorizedRuntimeRestart(intent: Intent): Boolean =
+    intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false) &&
+        restartAuthorization.consume(intent.getStringExtra(EXTRA_RESTART_AUTHORIZATION))
 
 class MainActivity : FragmentActivity() {
     private var hasSmsPermission by mutableStateOf(false)
@@ -176,7 +186,7 @@ class MainActivity : FragmentActivity() {
             personalSetupPending = personalSetupPending,
             demoMode = demoMode,
         )
-        runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
+        runtimeModeRestart = authorizedRuntimeRestart(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
@@ -186,6 +196,16 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
         setContent {
+            val observedDatabase = remember { app.db }
+            val restoreRevisionOnEntry = remember { observedDatabase.restored.value }
+            LaunchedEffect(observedDatabase) {
+                observedDatabase.restored.collect { revision ->
+                    if (revision != restoreRevisionOnEntry) {
+                        app.bankSync.resetAfterRestore()
+                        restartForRuntimeMode()
+                    }
+                }
+            }
             val appThemeMode by uiPreferences.appThemeMode.collectAsState(initial = AppThemeMode.System)
             val dynamicColorsEnabled by uiPreferences.dynamicColorsEnabled.collectAsState(initial = false)
             val useSystemFont by uiPreferences.useSystemFont.collectAsState(initial = false)
@@ -578,7 +598,8 @@ class MainActivity : FragmentActivity() {
 
     private fun restartForRuntimeMode() {
         runtimeModeRestarting = true
-        startActivity(runtimeModeRestartIntent(componentName))
+        val preserveUnlock = !appLock.locked && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        startActivity(runtimeModeRestartIntent(componentName, preserveUnlock))
     }
 
     override fun onRequestPermissionsResult(

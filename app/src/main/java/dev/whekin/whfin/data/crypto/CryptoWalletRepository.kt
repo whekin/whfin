@@ -59,7 +59,10 @@ class CryptoWalletRepository(
      * An address that is already tracked is not an error — it is a chance to pick up an asset that
      * arrived since, which is also why re-adding it can never hit the unique address×asset index.
      */
-    suspend fun addWallet(
+    suspend fun addWallet(name: String?, network: CryptoNetwork, rawAddress: String): AddResult =
+        dev.whekin.whfin.data.backup.LedgerRestoreState.reading { addWalletReading(name, network, rawAddress) }
+
+    private suspend fun addWalletReading(
         name: String?,
         network: CryptoNetwork,
         rawAddress: String,
@@ -122,7 +125,9 @@ class CryptoWalletRepository(
      * Only assets without a ledger are read here; the ones that already have one are the plain
      * refresh path, so a discovery pass never asks the same question twice.
      */
-    suspend fun discoverNewAssets(): DiscoveryResult {
+    suspend fun discoverNewAssets(): DiscoveryResult = dev.whekin.whfin.data.backup.LedgerRestoreState.reading { discoverNewAssetsReading() }
+
+    private suspend fun discoverNewAssetsReading(): DiscoveryResult {
         val created = mutableListOf<String>()
         var failed = 0
         db.cryptoDao().allAddresses().forEach { row ->

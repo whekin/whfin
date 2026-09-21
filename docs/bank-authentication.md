@@ -93,3 +93,7 @@ visual cases and two Settings scroll/search journeys passed. The observed TBC wr
 code/hash also passed real emulator SMS delivery through the production route. Release R8/lintVital,
 diff and public-tree checks passed. Version 0.3.32 (44) was installed on the owner's phone with
 `install -r`; actual fresh Samsung bank login/OTP delivery after upgrade remains owner-driven.
+
+App Lock trusts no caller-supplied restart boolean. An internal workspace/restore restart may preserve
+an unlocked foreground session only with a one-use process-local permit expiring after 30 seconds.
+External launches, replay, a fresh process and background restarts go through the normal lock gate.

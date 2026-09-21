@@ -14,7 +14,9 @@ class CryptoHistoryRepository(
 ) {
     data class Result(val imported: Int = 0, val failed: Int = 0, val unsupported: Int = 0)
 
-    suspend fun refreshAll(): Result {
+    suspend fun refreshAll(): Result = dev.whekin.whfin.data.backup.LedgerRestoreState.reading { refreshAllReading() }
+
+    private suspend fun refreshAllReading(): Result {
         var imported = 0
         var failed = 0
         var unsupported = 0
