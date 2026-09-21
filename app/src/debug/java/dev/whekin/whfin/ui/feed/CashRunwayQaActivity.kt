@@ -57,11 +57,12 @@ class CashRunwayQaActivity : ComponentActivity() {
         val available = if (weekendSample) 80_000L else if (enough) 260_000L else 115_000L
         val salary = dev.whekin.whfin.data.db.IncomeSourceEntity(
             id = 1, label = "Salary", amountMinor = 400_000, currency = "GEL", accountId = 1,
-            expectedDayFrom = 5, expectedDayTo = 10, startedOn = LocalDate.of(2026, 1, 1).toEpochDay(),
+            expectedDayFrom = 5, expectedDayTo = 5, weekendRule = dev.whekin.whfin.data.income.WeekendRule.LATER, startedOn = LocalDate.of(2026, 1, 1).toEpochDay(),
             createdAt = 0,
         )
         val runway = homeRunway(
             available, if (weekendSample) 9_000 else 7_200, listOf(salary), LocalDate.of(2026, 8, 28),
+            arrivedSourceMonths = setOf(1L to java.time.YearMonth.of(2026, 8)),
             recurringOccurrences = if (weekendSample) emptyList() else listOf(
                 RecurringOccurrence(charge, LocalDate.of(2026, 9, 3)),
                 RecurringOccurrence(charge.copy(key = "merchant:2", label = "Northwind Hosting",
@@ -90,7 +91,7 @@ class CashRunwayQaActivity : ComponentActivity() {
                                     onEnableNotifications = {},
                                     isBankLaunchable = { true },
                                     onOpenBank = { bankRequested = !bankFailure; !bankFailure },
-                                ) else HomeRunwayRow(runway) { accountsRequested = true }
+                                ) else HomeRunwayRow(runway, today = LocalDate.of(2026, 8, 28)) { accountsRequested = true }
                             }
                         }
                     }

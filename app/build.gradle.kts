@@ -40,8 +40,8 @@ android {
         applicationId = "dev.whekin.whfin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 77
-        versionName = "0.3.65"
+        versionCode = 78
+        versionName = "0.3.66"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -160,6 +160,8 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    // Compose still brings Espresso 3.5; 3.7 removes a hidden InputManager API unavailable on newer Android.
+    androidTestImplementation(libs.androidx.test.espresso)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(libs.androidx.room.testing)

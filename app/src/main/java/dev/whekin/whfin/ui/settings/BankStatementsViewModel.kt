@@ -146,7 +146,10 @@ class BankStatementsViewModel internal constructor(
                 _importState.value = StatementImportUiState.Checking(fileName, index + 1, files.size)
                 val preview = runCatching {
                     open()?.use { StatementImporter(db).preview(it, fileName) }
-                }.getOrNull()
+                }.getOrElse {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
+                    null
+                }
                 CheckedFile(fileName, open, preview)
             }
             val plan = planStatementBatch(checked) { it.preview }
@@ -192,8 +195,16 @@ class BankStatementsViewModel internal constructor(
                     fileName,
                     error = getApplication<Application>().getString(R.string.statements_unsupported),
                 )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                StatementImportUiState.FileResult(fileName, error = e.message ?: "Unknown error")
+                val message = when (e) {
+                    is dev.whekin.whfin.data.backup.LedgerBusyException -> R.string.ledger_restore_in_progress
+                    is dev.whekin.whfin.data.statement.MalformedStatementException -> R.string.statements_malformed_file
+                    is dev.whekin.whfin.data.importer.InvalidStatementException -> R.string.statements_inconsistent_file
+                    else -> R.string.statements_file_failed
+                }
+                StatementImportUiState.FileResult(fileName, error = getApplication<Application>().getString(message))
             }
         }
         _importState.value = StatementImportUiState.Success(results, plan.unchanged)

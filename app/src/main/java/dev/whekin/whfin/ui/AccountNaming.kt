@@ -24,7 +24,10 @@ import dev.whekin.whfin.data.db.BankProduct
  */
 fun ledgerOwnName(account: AccountEntity, sourceName: String?): String? {
     var name = account.name
-    if (!sourceName.isNullOrBlank()) name = name.replace(sourceName, " ", ignoreCase = true)
+    if (!sourceName.isNullOrBlank()) name = name.replace(
+        Regex("(?<![\\p{L}\\p{N}])${Regex.escape(sourceName)}(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE),
+        " ",
+    )
     name = name.replace(
         Regex("(?<!\\p{L})${Regex.escape(account.currency)}(?!\\p{L})", RegexOption.IGNORE_CASE),
         " ",

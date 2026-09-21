@@ -462,8 +462,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id")
     suspend fun allForIntegrity(): List<TransactionEntity>
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING' AND isVoided = 0")
-    suspend fun pendingCount(): Int
+    /** The same owner-action queue as Feed: a bank hold waits for settlement, not a manual answer. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING' AND source != 'BANK_HOLD' AND isVoided = 0")
+    suspend fun pendingReviewCount(): Int
 
     /** User-facing SMS operations not yet replaced by statement evidence; grouped legs count once. */
     @Query(

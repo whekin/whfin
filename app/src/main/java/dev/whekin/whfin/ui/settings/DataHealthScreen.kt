@@ -187,7 +187,7 @@ class DataHealthViewModel(app: Application) : AndroidViewModel(app) {
             val issues = checker.run().issues
             _state.value = State.Checked(issues, issues.mapNotNull { describe(it) }.toMap())
             _status.value = Status(
-                pending = db.transactionDao().pendingCount(),
+                pending = db.transactionDao().pendingReviewCount(),
                 unrouted = db.smsDiagnosticDao().observeUnrouted().first().size,
                 corrections = db.transactionDao().observeVoidedImported().first().size,
                 archivedAccounts = db.accountDao().observeArchived().first().size,

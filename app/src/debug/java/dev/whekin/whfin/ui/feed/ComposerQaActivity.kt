@@ -31,7 +31,7 @@ class ComposerQaActivity : ComponentActivity() {
                     })
                 else AddTransactionSheet(
                     accounts = listOf(AccountEntity(id = 1, name = "Cash", type = AccountType.CASH, currency = "GEL")),
-                    categories = listOf(CategoryEntity(id = 1, name = "Coffee", kind = CategoryKind.EXPENSE, icon = "Restaurant", color = 0)),
+                    categories = listOf(CategoryEntity(id = 1, name = "Coffee", kind = CategoryKind.EXPENSE, icon = "Restaurant", color = 0xFFB47748.toInt())),
                     people = listOf(PersonEntity(id = 1, name = "Mira", color = 0)),
                     onDismiss = { finish() }, onSave = { result = it; saved = it }, onSaveDebt = {})
             }

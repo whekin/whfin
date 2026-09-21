@@ -60,7 +60,7 @@ class HomeRunwayVisualTest {
     @Test fun darkEnglish() = render("en-dark", true, "en", 1f)
     @Test fun russianLargeFontCompact() = render("ru-dark-large-compact", true, "ru", 1.5f)
     @Test fun enoughUntilPayday() = render("en-enough", false, "en", 1f, enough = true)
-    @Test fun weekendPaydayUsesNormalAndDeadlineScenarios() =
+    @Test fun weekendPaydayUsesTheDeclaredWeekendRule() =
         render("en-weekend-sample", false, "en", 1f, weekendSample = true)
 
     private fun render(
@@ -101,7 +101,7 @@ class HomeRunwayVisualTest {
             val details = if (language == "ru") "Как рассчитано" else "Calculation details"
             device.findObject(By.desc(details)).click()
             if (weekendSample) {
-                assertNotNull(device.wait(Until.findObject(By.textContains("370.00")), 3_000))
+                assertNotNull(device.wait(Until.findObject(By.textContains("100.00")), 3_000))
             } else {
                 assertNotNull(device.wait(Until.findObject(By.text("Northwind Hosting")), 3_000))
             }

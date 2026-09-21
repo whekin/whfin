@@ -327,14 +327,20 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openDebt(input: NewDebt) = viewModelScope.launch {
         runCatching { debtRepository.open(input) }
-            .onSuccess { _message.value = "Debt added" }
-            .onFailure { _message.value = it.message ?: "Could not add debt" }
+            .onSuccess { _message.value = getApplication<Application>().getString(R.string.debt_added) }
+            .onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                _message.value = getApplication<Application>().getString(R.string.debt_save_failed)
+            }
     }
 
     fun settleDebt(input: DebtSettlement) = viewModelScope.launch {
         runCatching { debtRepository.settle(input) }
-            .onSuccess { _message.value = if (input.close) "Debt closed" else "Repayment added" }
-            .onFailure { _message.value = it.message ?: "Could not update debt" }
+            .onSuccess { _message.value = getApplication<Application>().getString(if (input.close) R.string.debt_closed_message else R.string.debt_repayment_added) }
+            .onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                _message.value = getApplication<Application>().getString(R.string.debt_save_failed)
+            }
     }
 
     /**
@@ -573,9 +579,10 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                 }
-                _message.value = "Bank details saved"
+                _message.value = getApplication<Application>().getString(R.string.bank_details_saved)
             } catch (e: Exception) {
-                _message.value = e.message ?: "Could not save bank details"
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _message.value = getApplication<Application>().getString(R.string.bank_details_save_failed)
             }
         }
     }

@@ -25,14 +25,16 @@ class IncomeSourcesVisualTest {
         IncomeSourcesQaActivity.fontScale = if (large) 1.5f else 1f
         IncomeSourcesQaActivity.dark = large
         IncomeSourcesQaActivity.editor = editor
-        ActivityScenario.launch<IncomeSourcesQaActivity>(Intent(context, IncomeSourcesQaActivity::class.java)).use {
+        val previousIme = device.executeShellCommand("settings get secure show_ime_with_hard_keyboard").trim()
+        device.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1")
+        try { ActivityScenario.launch<IncomeSourcesQaActivity>(Intent(context, IncomeSourcesQaActivity::class.java)).use {
             assertNotNull(device.wait(Until.findObject(By.textContains(if (editor) "Salary" else "USDT")), 10_000))
             device.waitForIdle(2000)
             val dir = File(context.getExternalFilesDir(null), "income-qa").apply { mkdirs() }
             assertTrue(device.takeScreenshot(File(dir, "$name.png")))
             device.dumpWindowHierarchy(File(dir, "$name.xml"))
             if (editor) {
-                device.findObject(By.desc(if (large) "С какой даты (ГГГГ-ММ-ДД)" else "Since (YYYY-MM-DD)")).click()
+                device.findObject(By.desc(if (large) "Что это" else "What is it")).click()
                 assertTrue(device.wait(Until.hasObject(By.pkg("com.google.android.inputmethod.latin")), 5000))
                 device.waitForIdle(2000)
                 assertNotNull(device.findObject(By.text(if (large) "Сохранить" else "Save")))
@@ -71,6 +73,9 @@ class IncomeSourcesVisualTest {
                 device.waitForIdle(2000)
                 assertTrue(device.takeScreenshot(File(dir, "$name-bridge.png")))
             }
+        } } finally {
+            if (previousIme == "null") device.executeShellCommand("settings delete secure show_ime_with_hard_keyboard")
+            else device.executeShellCommand("settings put secure show_ime_with_hard_keyboard $previousIme")
         }
     }
 }

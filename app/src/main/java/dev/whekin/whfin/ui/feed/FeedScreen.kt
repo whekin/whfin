@@ -573,7 +573,7 @@ fun FeedScreen(
             // built: what there is, how far it goes, what is already owed out of it, what still
             // needs a decision, what just happened — and only then the month, compactly.
             runway?.let { reading ->
-                item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts) }
+                item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts = onOpenAccounts) }
             }
             // The forecast block lists the same expected payments inside it. Naming them twice made
             // a prediction look like two separate facts, so the standalone row speaks only when
@@ -2405,6 +2405,7 @@ private fun HomeSectionHeader(
 @Composable
 internal fun HomeRunwayRow(
     runway: HomeRunway,
+    today: LocalDate = dev.whekin.whfin.data.LedgerCalendar.today(),
     onOpenAccounts: () -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -2453,7 +2454,7 @@ internal fun HomeRunwayRow(
         runway.daysLeft ?: 0,
         runway.daysLeft ?: 0,
     )
-    val shape = remember(runway) { runwayShape(runway, LocalDate.now()) }
+    val shape = remember(runway, today) { runwayShape(runway, today) }
     // Everything the shape already draws is struck from the sentence beneath it: the payday and the
     // day the money ends are marks on the rule now, and repeating them below is the old paragraph
     // growing back.
@@ -3436,7 +3437,7 @@ private fun FeedContentPreview() {
                             ),
                         ),
                     ),
-                    {},
+                    onOpenAccounts = {},
                 )
                 HomeRecurringRow(
                     listOf(

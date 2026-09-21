@@ -1216,7 +1216,7 @@
     <string name="analytics_month_result">Month result</string>
     <string name="analytics_year_result">Year result</string>
     <string name="analytics_net">Net</string>
-    <string name="analytics_pending">Includes %1$d pending drafts</string>
+    <string name="analytics_pending">Includes %1$d provisional transactions</string>
     <string name="analytics_pace_title">Spending pace</string>
     <string name="analytics_pace_hint">Day %1$d of %2$d</string>
     <string name="analytics_projected">Projected spend</string>
@@ -1696,4 +1696,13 @@
     <string name="setup_review_remaining">Items still needing review: %1$d. You can resolve them now or return later.</string>
     <string name="backup_restore_busy">An import, refresh or restore is already running. Wait for it to finish, then restore the backup again. No data was replaced.</string>
     <string name="ledger_restore_in_progress">Data is being restored. Try this action again after it finishes.</string>
+    <string name="debt_added">Debt added</string>
+    <string name="debt_closed_message">Debt closed</string>
+    <string name="debt_repayment_added">Repayment added</string>
+    <string name="debt_save_failed">Could not save the debt. Check the amount and the selected account.</string>
+    <string name="bank_details_saved">Bank details saved</string>
+    <string name="bank_details_save_failed">Could not save bank details. Check the account number and cards.</string>
+    <string name="statements_malformed_file">This file could not be read. Download the original bank statement again.</string>
+    <string name="statements_inconsistent_file">This statement was not saved: its balances or rows could not be reconciled. Try a fresh statement from the bank.</string>
+    <string name="statements_file_failed">Could not import this file. Check file access and available storage, then try again.</string>
 </resources>

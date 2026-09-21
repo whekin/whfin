@@ -608,7 +608,7 @@
     <string name="data_health_section">ЧТО РАСХОДИТСЯ</string>
     <string name="data_health_status_section">ГДЕ СЕЙЧАС КНИГА</string>
     <string name="data_health_status_pending">Ждёт вас</string>
-    <string name="data_health_status_pending_body">Черновиков без подтверждения: %1$d, банковских SMS без счёта: %2$d.</string>
+    <string name="data_health_status_pending_body">Черновиков без подтверждения: %1$d, сообщений банка без счёта: %2$d.</string>
     <string name="data_health_status_sync">Последняя загруженная выписка</string>
     <string name="data_health_status_sync_never">На этом устройстве ещё не загружали выписок.</string>
     <string name="data_health_status_kept">Отложено</string>
@@ -1274,7 +1274,7 @@
     <string name="analytics_month_result">Итог месяца</string>
     <string name="analytics_year_result">Итог года</string>
     <string name="analytics_net">Разница</string>
-    <string name="analytics_pending">Учтено черновиков: %1$d</string>
+    <string name="analytics_pending">Учтено предварительных операций: %1$d</string>
     <string name="analytics_pace_title">Темп расходов</string>
     <string name="analytics_pace_hint">День %1$d из %2$d</string>
     <string name="analytics_projected">Прогноз расходов</string>
@@ -1760,4 +1760,13 @@
     <string name="setup_review_remaining">Осталось разобрать: %1$d. Можно сделать это сейчас или вернуться позже.</string>
     <string name="backup_restore_busy">Сейчас идёт импорт, обновление или восстановление. Дождитесь завершения и повторите восстановление. Данные не заменялись.</string>
     <string name="ledger_restore_in_progress">Идёт восстановление данных. Повторите действие после завершения.</string>
+    <string name="debt_added">Долг добавлен</string>
+    <string name="debt_closed_message">Долг закрыт</string>
+    <string name="debt_repayment_added">Погашение записано</string>
+    <string name="debt_save_failed">Не удалось сохранить долг. Проверьте сумму и выбранный счёт.</string>
+    <string name="bank_details_saved">Реквизиты сохранены</string>
+    <string name="bank_details_save_failed">Не удалось сохранить реквизиты. Проверьте номер счёта и карты.</string>
+    <string name="statements_malformed_file">Не удалось прочитать файл. Загрузите исходную выписку из банка ещё раз.</string>
+    <string name="statements_inconsistent_file">Эта выписка не записана: остатки или строки не удалось согласовать. Попробуйте свежую выписку из банка.</string>
+    <string name="statements_file_failed">Не удалось загрузить этот файл. Проверьте доступ к нему и свободное место, затем повторите попытку.</string>
 </resources>

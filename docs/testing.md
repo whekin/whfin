@@ -199,3 +199,9 @@ RU dark at font scale 1.5. Screenshots and hierarchy XML are written to the debu
 Run through the explicit-emulator installation procedure above, selecting
 `dev.whekin.whfin.ui.setup.PersonalSetupJourneyTest`. Host tests cover stage persistence, unknown saved
 stages, choosing either bank, skipping optional work and reviewing earlier steps before completion.
+
+
+Instrumentation explicitly uses Espresso 3.7.0: Compose's transitive 3.5.0 still reflectively calls
+InputManager.getInstance and fails before dock layout assertions on newer Android. The official
+[AndroidX Test release notes](https://developer.android.com/jetpack/androidx/releases/test#espresso-3.7.0)
+record the switch to getSystemService. This dependency is androidTest-only.
