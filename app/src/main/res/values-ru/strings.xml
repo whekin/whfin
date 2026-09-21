@@ -1801,4 +1801,5 @@
     <string name="feed_waiting_bank">Ожидают банк</string>
     <string name="status_waiting_statement">Ожидает выписку</string>
     <string name="home_needs_category">Выбрать категорию: %1$d</string>
+    <string name="history_result_count">Записей: %1$d</string>
 </resources>

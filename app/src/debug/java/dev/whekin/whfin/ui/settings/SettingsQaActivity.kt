@@ -36,12 +36,25 @@ class SettingsQaActivity : ComponentActivity() {
             CompositionLocalProvider(LocalContext provides localized, LocalResources provides localized.resources,
                 LocalConfiguration provides config) {
                 val search = rememberSettingsSearchState()
-                androidx.activity.compose.BackHandler(search.page.isNotBlank() || search.query.isNotBlank()) { search.back() }
-                WhfinTheme(darkTheme = dark) {
+                androidx.activity.compose.BackHandler(search.page.isNotBlank() || search.query.isNotBlank() || search.searchVisible) { search.back() }
+                var themeMode by remember { mutableStateOf(dev.whekin.whfin.data.preferences.AppThemeMode.System) }
+                val actualDark = when (themeMode) {
+                    dev.whekin.whfin.data.preferences.AppThemeMode.System -> dark
+                    dev.whekin.whfin.data.preferences.AppThemeMode.Light -> false
+                    dev.whekin.whfin.data.preferences.AppThemeMode.Dark -> true
+                }
+                SideEffect {
+                    androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+                        isAppearanceLightStatusBars = !actualDark
+                        isAppearanceLightNavigationBars = !actualDark
+                    }
+                }
+                WhfinTheme(darkTheme = actualDark) {
                     androidx.compose.material3.Surface {
                     Box(Modifier.fillMaxSize().semantics { contentDescription = "settings-qa-ready"; testTagsAsResourceId = true }) {
-                    SecondaryPage(settingsPageTitle(search), { search.back() }, actions = { SettingsSearchAction(search) }) {
-                        SettingsContent(searchState = search,
+                    SettingsPage(search, { search.back() }) {
+                        SettingsContent(searchState = search, searchInHeader = true,
+                            appThemeMode = themeMode, onAppThemeModeChange = { themeMode = it },
                             connections = ConnectionSettingsState(accounts = dev.whekin.whfin.data.sms.BankSmsBank.entries.associateWith { bank ->
                                     if (bank == dev.whekin.whfin.data.sms.BankSmsBank.TBC) listOf("GEL", "USD", "EUR", "GBP").mapIndexed { index, currency ->
                                         dev.whekin.whfin.data.db.AccountEntity(id = index + 1L, name = "Everyday", type = dev.whekin.whfin.data.db.AccountType.BANK,

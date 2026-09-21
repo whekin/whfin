@@ -87,12 +87,14 @@ class HomeDecisionQueueJourneyTest {
                 capture("home")
                 click(res.getString(R.string.home_waiting_bank, 2))
                 assertTrue(device.wait(Until.hasObject(By.textContains("SMS coffee")), 8000))
-                assertFalse(device.hasObject(By.textContains("Needs category")))
+                assertTrue(device.wait(Until.gone(By.textContains("Needs category")), 5000))
+                assertTrue(device.hasObject(By.text(res.getString(R.string.feed_waiting_bank))))
                 capture("waiting")
                 device.pressBack()
                 click(res.getString(R.string.home_needs_category, 1))
                 assertTrue(device.wait(Until.hasObject(By.textContains("Needs category")), 8000))
-                assertFalse(device.hasObject(By.textContains("SMS coffee")))
+                assertTrue(device.wait(Until.gone(By.textContains("SMS coffee")), 5000))
+                assertTrue(device.hasObject(By.text(res.getString(R.string.home_needs_attention))))
                 capture("decisions")
             }
         } finally {

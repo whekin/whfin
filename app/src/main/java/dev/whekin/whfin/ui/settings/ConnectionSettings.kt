@@ -15,6 +15,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
@@ -83,16 +85,26 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
             }
             if (page != "add-bank") {
                 if (available.isNotEmpty()) WhfinButton(stringResource(R.string.settings_add_bank), { haptics.performHapticFeedback(WhfinHaptics.navigation); navigation.open("add-bank") }, Modifier.fillMaxWidth(), enabled = !demoMode)
-                WhfinLedgerRow(stringResource(R.string.statements_upload), onClick = actions.statements, divider = true)
+                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    WhfinLedgerRow(stringResource(R.string.statements_upload), icon = Icons.Outlined.Description,
+                        onClick = actions.statements, divider = true, trailing = { Icon(Icons.Default.ChevronRight, null) })
+                    WhfinLedgerRow(stringResource(R.string.push_mappings), icon = Icons.Outlined.CreditCard,
+                        onClick = { actions.messages(null) }, trailing = { Icon(Icons.Default.ChevronRight, null) })
+                }
                 WhfinSectionLabel(stringResource(R.string.settings_shared_permissions))
-                WhfinLedgerRow("SMS", supportingText = stringResource(if (state.smsPermission) R.string.settings_access_granted else R.string.settings_access_needed), onClick = actions.smsPermission)
-                WhfinLedgerRow(stringResource(R.string.settings_notifications), supportingText = stringResource(if (state.pushPermission) R.string.settings_access_granted else R.string.settings_access_needed), onClick = actions.pushPermission)
-                WhfinButton(stringResource(R.string.push_mappings), { actions.messages(null) }, style = WhfinActionStyle.Quiet)
+                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    WhfinLedgerRow("SMS", icon = Icons.Outlined.Sms,
+                        supportingText = stringResource(if (state.smsPermission) R.string.settings_access_granted else R.string.settings_access_needed),
+                        onClick = actions.smsPermission, divider = true, trailing = { Icon(Icons.Outlined.OpenInNew, null) })
+                    WhfinLedgerRow(stringResource(R.string.settings_notifications), icon = Icons.Outlined.Notifications,
+                        supportingText = stringResource(if (state.pushPermission) R.string.settings_access_granted else R.string.settings_access_needed),
+                        onClick = actions.pushPermission, trailing = { Icon(Icons.Outlined.OpenInNew, null) })
+                }
             }
         } else {
             Text(connectionSummary(bank, state), style = MaterialTheme.typography.titleMedium)
             WhfinButton(stringResource(if (bank in state.remembered || state.lastSync[bank] != null) R.string.settings_update_operations else R.string.settings_connect_bank),
-                { actions.sync(bank) }, Modifier.fillMaxWidth(), enabled = !demoMode)
+                { actions.sync(bank) }, Modifier.fillMaxWidth(), enabled = !demoMode, leadingIcon = Icons.Outlined.Sync)
             WhfinSectionLabel(stringResource(R.string.settings_operation_sources))
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -103,7 +115,7 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                             !state.pushConnected -> R.string.push_connecting
                             else -> R.string.settings_push_receiving
                         })
-                        BankChannelSwitch(stringResource(R.string.settings_bank_push), state.pushEnabled, true, actions.push, pushState)
+                        BankChannelSwitch(stringResource(R.string.settings_bank_push), state.pushEnabled, true, actions.push, pushState, icon = Icons.Outlined.Notifications)
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (state.lastPush != null) Text(stringResource(R.string.settings_last_notification, connectionTime(state.lastPush)), style = MaterialTheme.typography.bodySmall)
                             Text(stringResource(R.string.settings_push_brief), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -116,9 +128,10 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                             onClick = actions.journal, divider = true, trailing = { Icon(Icons.Default.ChevronRight, null) })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    BankChannelSwitch(stringResource(R.string.settings_bank_sms), state.sms[bank] == true, true, { actions.sms(bank, it) })
+                    BankChannelSwitch(stringResource(R.string.settings_bank_sms), state.sms[bank] == true, true, { actions.sms(bank, it) }, icon = Icons.Outlined.Sms)
                     if (state.sms[bank] == true && !state.smsPermission) WhfinButton(stringResource(R.string.permission_allow), actions.smsPermission, style = WhfinActionStyle.Quiet)
-                    WhfinButton(stringResource(R.string.push_mappings), { actions.messages(bank) }, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = WhfinActionStyle.Quiet)
+                    WhfinLedgerRow(stringResource(R.string.push_mappings), icon = Icons.Outlined.CreditCard,
+                        onClick = { actions.messages(bank) }, trailing = { Icon(Icons.Default.ChevronRight, null) })
                 }
             }
             WhfinSectionLabel(stringResource(R.string.settings_linked_accounts))
@@ -135,10 +148,10 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                 }
             }
             HorizontalDivider()
-            WhfinLedgerRow(stringResource(R.string.settings_bank_sign_in),
+            WhfinLedgerRow(stringResource(R.string.settings_bank_sign_in), icon = Icons.Outlined.Key,
                 supportingText = stringResource(if (bank in state.remembered) R.string.settings_sign_in_saved else R.string.settings_sign_in_not_saved),
                 onClick = { actions.login(bank) }, trailing = { Icon(Icons.Default.ChevronRight, null) })
-            WhfinLedgerRow(stringResource(R.string.settings_bank_diagnostics), onClick = {
+            WhfinLedgerRow(stringResource(R.string.settings_bank_diagnostics), icon = Icons.Outlined.ManageSearch, onClick = {
                 if (bank == BankSmsBank.TBC) actions.journal() else actions.messages(bank)
             }, trailing = { Icon(Icons.Default.ChevronRight, null) })
         }
@@ -146,9 +159,9 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
 }
 
 @Composable
-private fun BankChannelSwitch(label: String, checked: Boolean, enabled: Boolean, change: (Boolean) -> Unit, supporting: String? = null) {
+private fun BankChannelSwitch(label: String, checked: Boolean, enabled: Boolean, change: (Boolean) -> Unit, supporting: String? = null, icon: ImageVector? = null) {
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-    WhfinLedgerRow(label, supportingText = supporting, modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch) {
+    WhfinLedgerRow(label, icon = icon, supportingText = supporting, modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch) {
         haptics.performHapticFeedback(WhfinHaptics.toggle(it)); change(it)
     }.semantics { contentDescription = label }, trailing = { WhfinSwitch(checked, null, contentDescription = label) })
 }

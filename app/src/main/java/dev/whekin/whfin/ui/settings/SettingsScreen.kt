@@ -187,6 +187,7 @@ fun SettingsScreen(
         statements = onOpenStatements, journal = onOpenPush, account = onOpenBankAccount,
     )
     SettingsContent(
+        searchInHeader = true,
         connections = ConnectionSettingsState(status.bankAccounts,
             mapOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO to status.lastCredoSyncAt, dev.whekin.whfin.data.sms.BankSmsBank.TBC to status.lastTbcSyncAt),
             remembered, mapOf(dev.whekin.whfin.data.sms.BankSmsBank.CREDO to credoSms, dev.whekin.whfin.data.sms.BankSmsBank.TBC to tbcSms),
@@ -291,6 +292,7 @@ internal fun SettingsContent(
     connections: ConnectionSettingsState? = null,
     connectionActions: ConnectionSettingsActions? = null,
     searchState: SettingsSearchState = rememberSettingsSearchState(),
+    searchInHeader: Boolean = false,
 ) {
     var confirmDemoReset by rememberSaveable { mutableStateOf(false) }
     var showDemoEntry by rememberSaveable { mutableStateOf(false) }
@@ -368,38 +370,22 @@ internal fun SettingsContent(
     val searchScope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val revealMotion = dev.whekin.whfin.core.ui.WhfinMotion.standard<Float>()
-    val searchTopPadding = with(LocalDensity.current) { 12.dp.roundToPx() }
-    SideEffect { searchState.topPadding = searchTopPadding }
     LaunchedEffect(searchState.request) {
-        if (searchState.request > searchState.handledRequest) {
+        if (!searchInHeader && searchState.request > searchState.handledRequest) {
             searchState.handledRequest = searchState.request
             catalogScroll.animateScrollTo(0, animationSpec = revealMotion)
             searchState.focus.requestFocus()
             keyboard?.show()
         }
     }
-    val pullThreshold = with(LocalDensity.current) { 56.dp.toPx() }
-    val pullSearch = remember(searchState, pullThreshold) {
-        object : NestedScrollConnection {
-            var distance = 0f
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && searchState.page.isBlank() &&
-                    !searchState.searchVisible && catalogScroll.value == 0) {
-                    distance = (distance + available.y).coerceAtLeast(0f)
-                    if (distance >= pullThreshold) { distance = 0f; searchState.reveal(focusKeyboard = false) }
-                } else distance = 0f
-                return Offset.Zero
-            }
-            override suspend fun onPreFling(available: Velocity): Velocity { distance = 0f; return Velocity.Zero }
-        }
-    }
+    val pullSearch = rememberSettingsSearchPull(searchState)
     Column(
         Modifier.fillMaxSize().navigationBarsPadding().imePadding()
             .testTag("settings-catalog").nestedScroll(pullSearch).verticalScroll(catalogScroll)
             .padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if ((searchState.page.isBlank() && searchState.searchVisible) || searching) WhfinField(
+        if (!searchInHeader && ((searchState.page.isBlank() && searchState.searchVisible) || searching)) WhfinField(
             value = query,
             onValueChange = { value ->
                 searchState.query = value
@@ -409,7 +395,7 @@ internal fun SettingsContent(
             leadingIcon = Icons.Default.Search,
             placeholder = stringResource(R.string.settings_search_hint),
             modifier = Modifier.fillMaxWidth().focusRequester(searchState.focus)
-                .onSizeChanged { searchState.fieldHeight = it.height }.testTag("settings-search"),
+                .testTag("settings-search"),
         )
         if (!searching && searchState.page.isBlank()) {
             WhfinLedgerGroup(Modifier.fillMaxWidth()) {
@@ -582,14 +568,10 @@ private fun SettingsRowContent(row: SettingsRow, divider: Boolean) {
  */
 @Composable
 private fun ThemeChoice(mode: AppThemeMode, onChange: (AppThemeMode) -> Unit) {
-    dev.whekin.whfin.core.ui.WhfinSegmentedChoice(
-        options = listOf(
-            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.System, stringResource(R.string.settings_theme_system)),
-            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.Light, stringResource(R.string.settings_theme_light)),
-            dev.whekin.whfin.core.ui.WhfinChoice(AppThemeMode.Dark, stringResource(R.string.settings_theme_dark)),
-        ),
-        selected = mode,
-        onSelect = onChange,
+    dev.whekin.whfin.core.ui.WhfinThemeChoice(
+        labels = listOf(stringResource(R.string.settings_theme_system), stringResource(R.string.settings_theme_light), stringResource(R.string.settings_theme_dark)),
+        selectedIndex = AppThemeMode.entries.indexOf(mode),
+        onSelect = { onChange(AppThemeMode.entries[it]) },
     )
 }
 

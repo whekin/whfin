@@ -10,6 +10,7 @@ import java.io.File
 
 class SettingsSearchVisualTest {
     @Test fun englishLight() = render("en-light", "en", false, 1f)
+    @Test fun englishDark() = render("en-dark", "en", true, 1f)
     @Test fun russianDarkLarge() = render("ru-dark-large", "ru", true, 1.5f)
     private fun render(name: String, language: String, dark: Boolean, font: Float) {
         check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
@@ -40,11 +41,26 @@ class SettingsSearchVisualTest {
             assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             device.swipe(device.displayWidth / 2, device.displayHeight / 3, device.displayWidth / 2, device.displayHeight * 2 / 3, 35)
             assertNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000))
+            assertFalse(device.findObject(By.clazz("android.widget.EditText")).isFocused)
+            device.takeScreenshot(File(dir, "$name-pulled.png"))
+            device.swipe(device.displayWidth / 2, device.displayHeight * 2 / 3, device.displayWidth / 2, device.displayHeight / 3, 35)
+            assertTrue(device.wait(Until.gone(By.clazz("android.widget.EditText")), 5000))
+            assertTrue(device.hasObject(By.desc(hint)))
+            device.takeScreenshot(File(dir, "$name-collapsed.png"))
             device.findObject(By.text(if (language == "ru") "Приложение" else "Application")).click()
             assertNotNull(device.wait(Until.findObject(By.desc(hint)), 5000))
             device.waitForIdle(1000)
             assertTrue(device.takeScreenshot(File(dir, "$name-application.png")))
             assertEquals(height, device.findObject(By.res("secondary-topbar")).visibleBounds.height())
+            listOf(if (language == "ru") "Тёмная" else "Dark", if (language == "ru") "Светлая" else "Light", if (language == "ru") "Авто" else "System").forEachIndexed { index, label ->
+                val choiceIndex = listOf(2, 1, 0)[index]
+                val target = By.res("theme-choice-$choiceIndex")
+                device.findObject(target).click()
+                assertNotNull(device.wait(Until.findObject(target.checked(true)), 5000))
+                device.waitForIdle(1000)
+                android.os.SystemClock.sleep(300)
+                device.takeScreenshot(File(dir, "$name-theme-$index.png"))
+            }
             device.findObject(By.desc(hint)).click()
             val field = device.wait(Until.findObject(By.clazz("android.widget.EditText").focused(true)), 10000)
             assertNotNull(field)

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -96,10 +95,6 @@ fun WhfinDock(
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(Modifier.fillMaxWidth()) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = spacing.rail),
-                color = MaterialTheme.colorScheme.outlineVariant,
-            )
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val slotWidth = (
                     maxWidth - railPadding * 2 - sizes.dockAction - itemGap * destinations.size
@@ -303,24 +298,6 @@ private fun WhfinDockItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // The rule the ledger draws over the column being read. It grows out of the item the
-            // swipe is heading for and drains from the one being left, so the pair reads as one
-            // mark travelling rather than two marks blinking.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier
-                        .width(sizes.dockRule * emphasis)
-                        .height(sizes.ledgerMarker)
-                        .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = emphasis),
-                            CircleShape,
-                        ),
-                )
-            }
             Box(
                 modifier = Modifier
                     .padding(top = 3.dp)

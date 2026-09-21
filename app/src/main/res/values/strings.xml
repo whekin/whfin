@@ -1737,4 +1737,5 @@
     <string name="feed_waiting_bank">Awaiting bank</string>
     <string name="status_waiting_statement">Awaiting statement</string>
     <string name="home_needs_category">Choose category: %1$d</string>
+    <string name="history_result_count">%1$d entries</string>
 </resources>

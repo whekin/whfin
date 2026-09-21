@@ -26,7 +26,7 @@ The reusable agent workflow and full visual guidance live in [`.agents/skills/wh
 
 Permission prompts outside Settings are optional proposals, not gates. The Feed SMS notice has a 48 dp close action and persists “do not show again” in app preferences. Settings owns a separate persistent SMS-import switch: turning it off leaves the Android permission unchanged but gates the broadcast receiver before message extraction, parsing, or transaction import; turning it on requests permission only when necessary. Existing installs default on so an upgrade cannot silently disable automation.
 
-The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Home/Accounts switching keeps the dock fixed. The grounded, full-width dock aligns its top rule to the 20 dp ledger rail. Its stationary 22 dp destination glyphs cross-fade from outline to filled, while primary color and a semibold label identify the selected peer without an extra line, pill, or persistent fill. Labels remain one line at font scale 1.5. The separate center create action follows the same icon-over-label rhythm with a primary-colored `+` and short `New`/`Новая` label, but has no fill or lift. The plus uses a 2.5 dp rounded stroke so its optical weight matches the destination glyphs. It remains a button rather than a third navigation state, opens the transaction composer, and returns to Home if necessary. Add requests are consumed after delivery, so returning from Accounts cannot replay an earlier request and reopen Expense. The action remains contained inside the dock rather than obscuring ledger rows. Each transient pressed state is clipped to the same product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
+The app shell navigates between complete opaque destination scenes. A secondary destination owns its top bar and body in the same layout tree, so a recomposition cannot momentarily combine the previous screen's inset geometry with the next screen's content. Forward/Back use a 220 ms directional shared-axis transition; peer Home/Accounts switching keeps the dock fixed. The grounded, full-width dock has no top rule or selection underline. Its stationary 22 dp destination glyphs cross-fade from outline to filled, while primary color and a semibold label identify the selected peer without an extra line, pill, or persistent fill. Labels remain one line at font scale 1.5. The separate center create action is a filled disc with a `+` and no visible label; its accessible name remains New transaction. The plus uses a 2.5 dp rounded stroke so its optical weight matches the destination glyphs. It remains a button rather than a third navigation state, opens the transaction composer, and returns to Home if necessary. Add requests are consumed after delivery, so returning from Accounts cannot replay an earlier request and reopen Expense. The action remains contained inside the dock rather than obscuring ledger rows. Each transient pressed state is clipped to the same product shape. Explicit dock, open, and in-app Back actions use a subtle system-respecting navigation haptic, while shared switches use platform toggle on/off feedback. Android system Back is not given an extra app haptic because the OS already owns that gesture.
 
 ## Visual rules
 
@@ -955,3 +955,30 @@ Money-entry forms (manual operation, income, account/wallet, bank metadata, debt
 plan) close after successful persistence. A reserved submit disables repeat saves; a failed write
 keeps the fields and shows one inline retry message. Manual operation creation/edit and counterparty
 learning share a transaction, so retry cannot duplicate a payment after a partial write.
+
+
+### Visual refinement — 0.3.68
+
+The dock has no top divider or selection underline. Filled icons, label weight and colour identify
+selection; its single shared layout owner and large-font geometry stay unchanged.
+
+Home's month is one raised summary, headed by the month name. Spent and received are large paired
+figures; measured amounts and large text scales switch them to a column before they can clip. The
+forecast has its own visual hierarchy: solid actual spending, a faint projected extension and a
+recorded-average marker on one monetary scale. This is not a budget or a target. Category forecasts
+retain their recorded-average context. Tapping the whole summary still opens Analytics.
+
+History headers name the active list (including Awaiting bank and Needs a decision) and show its
+record count. The global balance no longer occupies that heading. Loading remains explicit.
+
+Appearance uses three selectable miniature previews for System, Light and Dark, with radio semantics
+and a visible selected mark. Connections groups routine history/routing actions separately from Android
+permissions and gives SMS, notifications, sign-in and diagnostics their own icons. These controls keep
+their existing callbacks and permission rules.
+
+Settings search lives in the header. A downward pull at the top of the root list continuously expands
+the search icon into a field; reversing the drag shrinks it. Release settles the current fraction.
+The heading keeps its measured height throughout. Pulling does not summon the keyboard; tapping the
+search icon does. Upward movement can collapse an empty field, while a non-empty query stays visible
+until explicitly cleared/closed. Search from a nested page and Back to search results remain global.
+The setup settings wrapper uses the same header, with system insets owned once.

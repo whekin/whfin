@@ -592,10 +592,8 @@ fun MainScreen(
                                     )
                                 }
                         }
-                    ShellScene.Settings -> SecondaryPage(
-                        title = dev.whekin.whfin.ui.settings.settingsPageTitle(settingsSearchState),
-                        onBack = { goBack(withHaptic = true) },
-                        actions = { dev.whekin.whfin.ui.settings.SettingsSearchAction(settingsSearchState) },
+                    ShellScene.Settings -> dev.whekin.whfin.ui.settings.SettingsPage(
+                        state = settingsSearchState, onBack = { goBack(withHaptic = true) },
                     ) {
                         SettingsScreen(
                             searchState = settingsSearchState,

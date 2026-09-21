@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -467,7 +468,7 @@ fun FeedScreen(
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (selectionMode) Modifier else Modifier.nestedScroll(headerScrollBehavior.nestedScrollConnection)),
+            .then(if (selectionMode || mode != FeedMode.HOME) Modifier else Modifier.nestedScroll(headerScrollBehavior.nestedScrollConnection)),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -524,14 +525,7 @@ fun FeedScreen(
                 val headline = stringResource(
                     if (mode == FeedMode.HOME) R.string.home_spendable else R.string.balance_total,
                 )
-                WhfinContextHeader(
-                    label = convertedTotalLabel(headline, total),
-                    value = if (totalAmount == null) "—" else formatDecimal(totalAmount, total.currency),
-                    valueSymbol = currencySymbol(total?.currency ?: displayCurrency),
-                    scrollBehavior = headerScrollBehavior,
-                    onValueClick = viewModel::rotateDisplayCurrency,
-                    valueClickLabel = stringResource(R.string.net_worth_rotate),
-                ) {
+                val headerActions: @Composable RowScope.() -> Unit = {
                     if (mode == FeedMode.HOME) {
                         // Analytics and the full record are destinations now, so the two icons that
                         // used to be their only doors are gone from here. What the header keeps is
@@ -565,6 +559,25 @@ fun FeedScreen(
                         )
                     }
                 }
+                if (mode == FeedMode.HOME) WhfinContextHeader(
+                    label = convertedTotalLabel(headline, total),
+                    value = if (totalAmount == null) "—" else formatDecimal(totalAmount, total.currency),
+                    valueSymbol = currencySymbol(total?.currency ?: displayCurrency),
+                    scrollBehavior = headerScrollBehavior, onValueClick = viewModel::rotateDisplayCurrency,
+                    valueClickLabel = stringResource(R.string.net_worth_rotate), actions = headerActions,
+                ) else dev.whekin.whfin.core.ui.WhfinListHeader(
+                    title = stringResource(when (filter) {
+                        FeedFilter.WAITING_BANK -> R.string.feed_waiting_bank
+                        FeedFilter.NEEDS_REVIEW -> R.string.home_needs_attention
+                        FeedFilter.EXPENSES -> R.string.feed_filter_expenses
+                        FeedFilter.INCOME -> R.string.feed_filter_income
+                        FeedFilter.TRANSFERS -> R.string.feed_filter_transfers
+                        FeedFilter.ALL -> R.string.transactions_history_title
+                    }),
+                    subtitle = if (feedLoaded) stringResource(R.string.history_result_count, timelineEntries.size)
+                        else stringResource(R.string.analytics_transactions_loading),
+                    actions = headerActions,
+                )
             }
         },
     ) { contentPadding ->
@@ -2804,141 +2817,6 @@ private fun CredoSyncReminderCard(
  * month standing apart from this month. It names the day it projects to and the full month it is
  * compared against, because a part-month total and a whole-month total are not the same measurement.
  */
-@Composable
-private fun MonthlyFlowSummary(
-    income: Long,
-    expenses: Long,
-    onClick: () -> Unit,
-    insights: List<HomeInsight> = emptyList(),
-    unconverted: List<AnalyticsCurrencyValue> = emptyList(),
-) {
-    val locale = LocalConfiguration.current.locales[0]
-    val dateFormat = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
-    val monthEnd = remember { YearMonth.now().atEndOfMonth() }
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.ui.graphics.RectangleShape,
-        color = Color.Transparent,
-    ) {
-        Column(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                WhfinSectionLabel(
-                    stringResource(R.string.feed_this_month),
-                    Modifier.weight(1f),
-                    icon = Icons.Outlined.CalendarMonth,
-                )
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.analytics_open),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            // The word already says the direction, so the number does not repeat it with a sign:
-            // "Spent −235.04" reads as negative spending. Colour and label carry it once each.
-            MonthFlowLine(
-                label = stringResource(R.string.home_month_spent),
-                amount = formatMinor(expenses, "GEL"),
-                color = MaterialTheme.colorScheme.tertiary,
-            )
-            MonthFlowLine(
-                label = stringResource(R.string.home_month_received),
-                amount = formatMinor(income, "GEL"),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            insights.forEach { insight ->
-                val projected = when (insight) {
-                    is HomeInsight.SpendingPace -> insight.projectedExpenseMinor
-                    is HomeInsight.CategoryDriver -> insight.projectedExpenseMinor
-                }
-                val typical = when (insight) {
-                    is HomeInsight.SpendingPace -> insight.typicalMonthExpenseMinor
-                    is HomeInsight.CategoryDriver -> insight.typicalMonthExpenseMinor
-                }
-                MonthFlowLine(
-                    label = when (insight) {
-                        is HomeInsight.SpendingPace -> stringResource(
-                            R.string.home_month_projected,
-                            monthEnd.format(dateFormat),
-                        )
-                        // Both readings here are forecasts; the driver has to say so on its own
-                        // line, because the row above it carries the only word that says it.
-                        is HomeInsight.CategoryDriver -> stringResource(
-                            R.string.home_month_projected_category,
-                            insight.name ?: stringResource(R.string.analytics_uncategorized),
-                        )
-                    },
-                    amount = formatMinor(projected, "GEL"),
-                    color = if (projected < typical) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.tertiary,
-                    supporting = stringResource(
-                        R.string.home_insight_typical_month,
-                        formatMinor(typical, "GEL"),
-                    ),
-                )
-            }
-            // Строка, которой в итоге нет: валютный расход без курса своего дня не превращается
-            // в ноль и не прячется — иначе сумма месяца молча меньше, чем прожитый месяц.
-            if (unconverted.isNotEmpty()) {
-                val named = unconverted.take(2).joinToString(" · ") {
-                    formatMinor(it.expenseMinor, it.currency)
-                }
-                val rest = unconverted.size - 2
-                Text(
-                    stringResource(
-                        R.string.home_month_unconverted,
-                        if (rest > 0) "$named +$rest" else named,
-                    ),
-                    Modifier.padding(top = 6.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            // Итоговая черта книги: блок месяца закрывается двойной линейкой, обычные разделители
-            // ленты остаются одинарными.
-            Spacer(Modifier.height(8.dp))
-            WhfinTotalRule()
-        }
-    }
-}
-
-/** One flat ledger line: what it is on the left, how much on the right. No container, no fill. */
-@Composable
-private fun MonthFlowLine(
-    label: String,
-    amount: String,
-    color: Color,
-    supporting: String? = null,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
-            if (supporting != null) Text(
-                supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        WhfinAmount(
-            amount,
-            symbol = currencySymbol("GEL"),
-            style = MaterialTheme.typography.titleMedium,
-            color = color,
-        )
-    }
-}
-
 /**
  * Знак вместо стрелки: направленные глифы читались двусмысленно ("вниз" одновременно значит
  * и «пришло на счёт», и «стало меньше"). Подписанная табличная сумма однозначна и тише.

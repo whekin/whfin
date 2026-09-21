@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -33,7 +35,16 @@ class SetupQaActivity : ComponentActivity() {
         setContent {
             var complete by remember { mutableStateOf(false) }
             WhfinTheme(darkTheme = dark) {
-                if (intent.getBooleanExtra("backup", false)) {
+                if (intent.getBooleanExtra("month", false)) {
+                    androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
+                        Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState())) {
+                            dev.whekin.whfin.ui.feed.MonthlyFlowSummary(230000, 72754, {},
+                                listOf(dev.whekin.whfin.ui.feed.HomeInsight.SpendingPace(99210, 205394),
+                                    dev.whekin.whfin.ui.feed.HomeInsight.CategoryDriver("Eating out", 42203, 16344)))
+                            dev.whekin.whfin.ui.feed.MonthlyFlowSummary(0, 0, {})
+                        }
+                    }
+                } else if (intent.getBooleanExtra("backup", false)) {
                     dev.whekin.whfin.ui.settings.BackupRestorePreview(
                         dev.whekin.whfin.data.backup.WhfinBackupPreview(
                             dev.whekin.whfin.data.backup.WhfinBackupSummary(java.time.Instant.parse("2026-09-21T10:00:00Z"), "QA", 8, "GEL", 400),

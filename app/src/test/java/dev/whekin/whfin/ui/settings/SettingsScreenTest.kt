@@ -685,13 +685,14 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun searchMovesWithTheListAndDoesNotReappearInTheMiddle() {
+    fun rootPullRevealsHeaderSearchWithoutOpeningKeyboard() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        lateinit var navigation: SettingsSearchState
         compose.setContent {
             WhfinTheme {
-                val search = rememberSettingsSearchState()
-                dev.whekin.whfin.ui.SecondaryPage("Settings", {}, actions = { SettingsSearchAction(search) }) {
-                SettingsContent(searchState = search,
+                val search = rememberSettingsSearchState().also { navigation = it }
+                SettingsPage(search, {}) {
+                SettingsContent(searchState = search, searchInHeader = true,
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,
@@ -713,6 +714,17 @@ class SettingsScreenTest {
 
         compose.onNodeWithTag("settings-search").assertDoesNotExist()
         compose.onNodeWithContentDescription(context.getString(R.string.settings_search_hint)).assertIsDisplayed()
+        compose.onNodeWithTag("settings-catalog").performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, 48f))
+        }
+        compose.runOnIdle {
+            org.junit.Assert.assertTrue("The header must follow the finger before release", navigation.fraction > 0f && navigation.fraction < 1f)
+        }
+        compose.onNodeWithTag("settings-catalog").performTouchInput {
+            moveBy(androidx.compose.ui.geometry.Offset(0f, -48f)); up()
+        }
+        compose.onNodeWithTag("settings-search").assertDoesNotExist()
         compose.onNodeWithTag("settings-catalog").performTouchInput { swipeDown() }
         compose.onNodeWithTag("settings-search").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertIsNotFocused()

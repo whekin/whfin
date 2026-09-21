@@ -21,6 +21,9 @@ class PersonalSetupJourneyTest {
     @Test fun balancesDark() = review("en", true, 1f)
     @Test fun balancesRussianLarge() = review("ru", true, 1.5f)
 
+    @Test fun monthLight() = extra("month", "en", false, 1f)
+    @Test fun monthDark() = extra("month", "en", true, 1f)
+    @Test fun monthRussianLarge() = extra("month", "ru", true, 1.5f)
     @Test fun backupLight() = extra("backup", "en", false, 1f)
     @Test fun backupDark() = extra("backup", "en", true, 1f)
     @Test fun backupRussianLarge() = extra("backup", "ru", true, 1.5f)
@@ -37,7 +40,7 @@ class PersonalSetupJourneyTest {
         }).resources
         val out = File(context.getExternalFilesDir(null), "setup-qa").apply { mkdirs() }
         ActivityScenario.launch<SetupQaActivity>(Intent(context, SetupQaActivity::class.java).putExtra(kind, true)).use {
-            val label = res.getString(if (kind == "backup") R.string.backup_restore_confirm_action else R.string.demo_workspace_use_personal)
+            val label = res.getString(if (kind == "backup") R.string.backup_restore_confirm_action else if (kind == "month") R.string.home_month_spent else R.string.demo_workspace_use_personal)
             assertTrue(device.wait(Until.hasObject(By.text(label)), 8000))
             if (kind == "backup") assertTrue(device.hasObject(By.textContains("284")))
             device.waitForIdle(1000)

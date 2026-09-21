@@ -149,12 +149,15 @@ fun PersonalSetupFlow(
         "debts" -> stringResource(R.string.debts_title)
         else -> stringResource(stage.title)
     }
-    PersonalSetupSecondaryPage(title, onBack = {
+    val setupBack: () -> Unit = {
         if (destination != "settings" || settings.page == settingsEntry || !settings.back()) {
             createPin = false
             back()
         }
-    }) {
+    }
+    PersonalSetupSecondaryPage(title, onBack = setupBack,
+        header = if (destination == "settings") ({ SettingsSearchHeader(settings, setupBack) }) else null,
+    ) {
         when (destination) {
             "credo" -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
                 initialRememberPassword = rememberCredo, onOpenAppLock = ::lockForCredo,

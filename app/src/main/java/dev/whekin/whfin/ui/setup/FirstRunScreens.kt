@@ -131,6 +131,7 @@ data class PersonalSetupState(
 fun PersonalSetupSecondaryPage(
     title: String,
     onBack: () -> Unit,
+    header: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -140,7 +141,7 @@ fun PersonalSetupSecondaryPage(
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(
+            if (header != null) header() else Row(
                 Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()

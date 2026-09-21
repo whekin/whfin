@@ -475,3 +475,31 @@ fun redesignedChoicesScreenshot() {
         }
     }
 }
+
+
+@PreviewTest
+@Preview(name = "appearance_light", widthDp = 400, heightDp = 200)
+@Preview(name = "appearance_large", widthDp = 360, heightDp = 310, fontScale = 1.5f)
+@Composable
+fun appearanceLightScreenshot() = WhfinTheme(darkTheme = false) {
+    Surface { WhfinThemeChoice(listOf("Авто", "Светлая", "Тёмная"), 1, {}, Modifier.padding(20.dp)) }
+}
+
+@PreviewTest
+@Preview(name = "appearance_dark", widthDp = 400, heightDp = 200, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun appearanceDarkScreenshot() = WhfinTheme(darkTheme = true) {
+    Surface { WhfinThemeChoice(listOf("System", "Light", "Dark"), 2, {}, Modifier.padding(20.dp)) }
+}
+
+@PreviewTest
+@Preview(name = "search_morph", widthDp = 400, heightDp = 240)
+@Composable
+fun searchMorphScreenshot() = WhfinTheme(darkTheme = false) {
+    Surface { Column {
+        listOf(0f, .5f, 1f).forEach { fraction ->
+            WhfinSearchHeader("Settings", "Find a setting", "Close", "Back", "", fraction,
+                androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }, {}, {}, {}, {}, {})
+        }
+    } }
+}
