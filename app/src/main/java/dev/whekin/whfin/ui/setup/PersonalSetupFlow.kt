@@ -1,66 +1,19 @@
 package dev.whekin.whfin.ui.setup
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
-import dev.whekin.whfin.data.db.AccountEntity
-import dev.whekin.whfin.data.income.WeekendRule
-import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.preferences.AppLockTimeout
+import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.security.BiometricAvailability
-import dev.whekin.whfin.ui.settings.AppLockScreen
-import dev.whekin.whfin.ui.settings.BackupRoute
-import dev.whekin.whfin.ui.settings.BankStatementsScreen
-import dev.whekin.whfin.ui.settings.CredoSyncRoute
-import dev.whekin.whfin.ui.settings.IncomeSourceSheet
-import dev.whekin.whfin.ui.settings.SmsDiagnosticsRoute
-import dev.whekin.whfin.ui.accounts.AddAccountSheet
-
-internal enum class PersonalSetupPage {
-    Bank,
-    Categories,
-    /** Legacy generic-account page retained for restored state; new setup uses Cash then Salary. */
-    Accounts,
-    Cash,
-    Salary,
-    Ready,
-    Alternative,
-    CredoSync,
-    BankSms,
-    Statements,
-    Backup,
-    AppLock,
-}
-
-internal fun personalSetupPageAfterAppLock(): PersonalSetupPage = PersonalSetupPage.CredoSync
-
-internal fun personalSetupPageAfterCash(): PersonalSetupPage = PersonalSetupPage.Salary
-
-internal fun personalSetupPageAfterSalary(): PersonalSetupPage = PersonalSetupPage.Ready
-
-/**
- * Categories come after the ambiguities and before the optional accounts.
- *
- * The order is what makes the proposals worth anything: they are read from the history the previous
- * steps just finished importing, so asking earlier would offer a preset with no evidence behind it.
- */
-internal fun personalSetupResolutionPage(state: PersonalSetupState): PersonalSetupPage? = when {
-    state.reviewCount == null -> null
-    (state.unresolvedSmsCount ?: 0) > 0 -> PersonalSetupPage.BankSms
-    (state.statementReviewCount ?: 0) > 0 -> PersonalSetupPage.Statements
-    else -> PersonalSetupPage.Categories
-}
-
-internal fun personalSetupPageAfterBankConsent(state: PersonalSetupState): PersonalSetupPage? = when {
-    !state.smsReady -> null
-    state.hasCredoImport != true -> PersonalSetupPage.CredoSync
-    else -> personalSetupResolutionPage(state)
-}
+import dev.whekin.whfin.data.sms.BankSmsBank
+import dev.whekin.whfin.ui.accounts.*
+import dev.whekin.whfin.ui.settings.*
+import dev.whekin.whfin.ui.savings.SavingsRoute
+import kotlinx.coroutines.launch
 
 @Composable
 fun PersonalSetupFlow(
@@ -80,285 +33,183 @@ fun PersonalSetupFlow(
     onAppLockPinCreated: (String, AppLockTimeout) -> Unit,
     onBiometricUnlockEnabledChange: (Boolean) -> Unit,
     onOpenBiometricSettings: () -> Unit,
-    /** Personal ledgers shown in the salary declaration's account rail. */
-    accounts: List<AccountEntity> = emptyList(),
-    onSaveCash: (String, String, Long?) -> Unit = { _, _, _ -> },
-    onSaveSalary: (String, Long, String, Long?, Int, WeekendRule, Long) -> Unit = { _, _, _, _, _, _, _ -> },
     onContinue: (initialTab: Int, openAccountAdd: Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
-    var page by rememberSaveable { mutableStateOf(PersonalSetupPage.Bank) }
-    var advanceAfterSmsPermission by rememberSaveable { mutableStateOf(false) }
-    var guidedResolutionActive by rememberSaveable { mutableStateOf(false) }
-    var statementsReturnPage by rememberSaveable { mutableStateOf(PersonalSetupPage.Alternative) }
-    var cashEditorOpen by rememberSaveable { mutableStateOf(false) }
-    var salaryEditorOpen by rememberSaveable { mutableStateOf(false) }
-    var rememberPasswordRequested by rememberSaveable { mutableStateOf(false) }
-    var appLockSetupTarget by rememberSaveable { mutableStateOf<AppLockTimeout?>(null) }
-
-    LaunchedEffect(page) {
-        cashEditorOpen = page == PersonalSetupPage.Cash
-        salaryEditorOpen = page == PersonalSetupPage.Salary
+    val context = LocalContext.current
+    val runtime = remember(context) { (context.applicationContext as dev.whekin.whfin.WhfinApp).runtimeModes }
+    var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
+    LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
+    var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
+    var smsBank by rememberSaveable { mutableStateOf<BankSmsBank?>(null) }
+    var rememberCredo by rememberSaveable { mutableStateOf(false) }
+    var createPin by rememberSaveable { mutableStateOf(false) }
+    var settingsEntry by rememberSaveable { mutableStateOf("connections") }
+    val settings = rememberSettingsSearchState()
+    val preferences = remember(context) { UiPreferences(context) }
+    val scope = rememberCoroutineScope()
+    val destination = stack.lastOrNull()
+    val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
+    fun open(page: String) { stack = stack + page }
+    fun back() { stack = stack.dropLast(1) }
+    fun openSettings(page: String) {
+        settingsEntry = page
+        settings.open(page)
+        open("settings")
     }
+    fun messages(bank: BankSmsBank?) { smsBank = bank; open("messages") }
+    fun account(id: Long) { selectedAccount = id; open("account") }
+    fun lockForCredo() { rememberCredo = true; createPin = true; open("lock") }
 
-    fun continueBankSetup() {
-        val next = personalSetupPageAfterBankConsent(state)
-        if (next != null) {
-            if (state.hasCredoImport == true) {
-                guidedResolutionActive = true
+    if (destination == null) {
+        val actions = when (stage) {
+            SetupStage.Banks -> listOf(
+                SetupAction("Credo") { open("credo") },
+                SetupAction("TBC") { open("tbc") },
+                SetupAction(stringResource(R.string.setup_channels)) { openSettings("connections") },
+                SetupAction(stringResource(R.string.app_lock_title)) { open("lock") },
+                SetupAction(stringResource(R.string.statements_title)) { open("statements") },
+                SetupAction(stringResource(R.string.personal_setup_restore_title)) { open("backup") },
+            )
+            SetupStage.Accounts -> listOf(
+                SetupAction(stringResource(R.string.tab_accounts)) { open("accounts") },
+                SetupAction(stringResource(R.string.sms_diagnostics_title)) { messages(null) },
+            )
+            SetupStage.Categories -> listOf(
+                SetupAction(stringResource(R.string.category_setup_title)) { open("suggestions") },
+                SetupAction(stringResource(R.string.categories_title)) { open("categories") },
+                SetupAction(stringResource(R.string.category_intelligence_title)) { open("intelligence") },
+            )
+            SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title)) { open("income") })
+            SetupStage.Plans -> listOf(
+                SetupAction(stringResource(R.string.savings_title)) { open("savings") },
+                SetupAction(stringResource(R.string.debts_title)) { open("debts") },
+            )
+            SetupStage.Preferences -> listOf(
+                SetupAction(stringResource(R.string.settings_application)) { openSettings("app") },
+                SetupAction(stringResource(R.string.app_lock_title)) { open("lock") },
+                SetupAction(stringResource(R.string.backup_title)) { open("backup") },
+            )
+            SetupStage.Ready -> (if (reviewCount != null && reviewCount > 0) listOf(
+                SetupAction(stringResource(R.string.data_health_title)) { open("health") },
+                SetupAction(stringResource(R.string.sms_diagnostics_title)) { messages(null) },
+            ) else emptyList()) + SetupStage.entries.filter { it != SetupStage.Ready }.map { target ->
+                SetupAction(stringResource(target.title)) { stage = target }
             }
-            page = next
-        } else {
-            advanceAfterSmsPermission = true
-            onEnableSmsMonitoring()
         }
-    }
-
-    fun continueAfterHistory() {
-        guidedResolutionActive = true
-        personalSetupResolutionPage(state)?.let { page = it }
-    }
-
-    LaunchedEffect(page, advanceAfterSmsPermission, state.smsReady) {
-        if (page == PersonalSetupPage.Bank && advanceAfterSmsPermission && state.smsReady) {
-            advanceAfterSmsPermission = false
-            personalSetupPageAfterBankConsent(state)?.let { next ->
-                if (state.hasCredoImport == true) {
-                    guidedResolutionActive = true
-                }
-                page = next
-            }
-        }
-    }
-    LaunchedEffect(
-        page,
-        guidedResolutionActive,
-        state.unresolvedSmsCount,
-        state.statementReviewCount,
-    ) {
-        if (!guidedResolutionActive) return@LaunchedEffect
-        val next = personalSetupResolutionPage(state) ?: return@LaunchedEffect
-        val shouldAdvance = when (page) {
-            PersonalSetupPage.CredoSync -> true
-            PersonalSetupPage.BankSms -> next != PersonalSetupPage.BankSms
-            PersonalSetupPage.Statements -> next == PersonalSetupPage.Categories
-            else -> false
-        }
-        if (shouldAdvance) page = next
-    }
-
-    when (page) {
-        PersonalSetupPage.Bank -> PersonalSetupScreen(
-            step = PersonalSetupStep.Bank,
-            state = state,
-            onConnectBank = ::continueBankSetup,
-            onShowAlternatives = { page = PersonalSetupPage.Alternative },
-            onImportStatement = {},
-            onCreateAccount = { onContinue(1, true) },
-            onRestoreBackup = {},
-            onSkip = { page = PersonalSetupPage.Cash },
-            onContinue = { onContinue(0, false) },
-            onBack = onExit,
-        )
-        PersonalSetupPage.Categories -> CategorySetupStep(
+        SetupStageScreen(stage, actions,
+            onBack = { if (stage.ordinal == 0) onExit() else stage = SetupStage.entries[stage.ordinal - 1] },
             onContinue = {
-                guidedResolutionActive = false
-                page = PersonalSetupPage.Cash
+                if (stage == SetupStage.Ready) onContinue(0, false)
+                else stage = SetupStage.entries[stage.ordinal + 1]
             },
-            onBack = {
-                guidedResolutionActive = false
-                page = PersonalSetupPage.Bank
-            },
+            summary = if (stage == SetupStage.Ready) state.accountCount?.let {
+                stringResource(R.string.setup_saved_accounts, it) + if (reviewCount != null && reviewCount > 0) {
+                    "\n" + stringResource(R.string.setup_review_remaining, reviewCount)
+                } else ""
+            } ?: stringResource(R.string.personal_setup_checking) else null,
         )
-        PersonalSetupPage.Accounts -> PersonalSetupScreen(
-            step = PersonalSetupStep.Accounts,
-            state = state,
-            onConnectBank = {},
-            onShowAlternatives = {},
-            onImportStatement = {},
-            onCreateAccount = { onContinue(1, true) },
-            onRestoreBackup = {},
-            onSkip = { page = PersonalSetupPage.Cash },
-            onContinue = { onContinue(0, false) },
-            onBack = { page = PersonalSetupPage.Categories },
-        )
-        PersonalSetupPage.Cash -> PersonalSetupScreen(
-            step = PersonalSetupStep.Cash,
-            state = state,
-            onConnectBank = {},
-            onShowAlternatives = {},
-            onImportStatement = {},
-            onCreateAccount = { cashEditorOpen = true },
-            onRestoreBackup = {},
-            onSkip = {
-                cashEditorOpen = false
-                page = personalSetupPageAfterCash()
-            },
-            onContinue = { onContinue(0, false) },
-            onBack = {
-                cashEditorOpen = false
-                page = PersonalSetupPage.Categories
-            },
-        )
-        PersonalSetupPage.Salary -> PersonalSetupScreen(
-            step = PersonalSetupStep.Salary,
-            state = state,
-            onConnectBank = {},
-            onShowAlternatives = {},
-            onImportStatement = {},
-            onCreateAccount = { salaryEditorOpen = true },
-            onRestoreBackup = {},
-            onSkip = {
-                salaryEditorOpen = false
-                page = personalSetupPageAfterSalary()
-            },
-            onContinue = { onContinue(0, false) },
-            onBack = {
-                salaryEditorOpen = false
-                page = PersonalSetupPage.Cash
-            },
-        )
-        PersonalSetupPage.Ready -> PersonalSetupScreen(
-            step = PersonalSetupStep.Ready,
-            state = state,
-            onConnectBank = {},
-            onShowAlternatives = {},
-            onImportStatement = {},
-            onCreateAccount = { onContinue(1, true) },
-            onRestoreBackup = {},
-            onSkip = {},
-            onContinue = { onContinue(0, false) },
-            onBack = { page = PersonalSetupPage.Salary },
-        )
-        PersonalSetupPage.Alternative -> PersonalSetupScreen(
-            step = PersonalSetupStep.Alternative,
-            state = state,
-            onConnectBank = {},
-            onShowAlternatives = {},
-            onImportStatement = {
-                statementsReturnPage = PersonalSetupPage.Alternative
-                page = PersonalSetupPage.Statements
-            },
-            onCreateAccount = {},
-            onRestoreBackup = { page = PersonalSetupPage.Backup },
-            onSkip = { page = PersonalSetupPage.Cash },
-            onContinue = {},
-            onBack = { page = PersonalSetupPage.Bank },
-        )
-        PersonalSetupPage.CredoSync -> PersonalSetupSecondaryPage(
-            title = stringResource(R.string.credo_sync_title),
-            onBack = { page = PersonalSetupPage.Bank },
-        ) {
-            CredoSyncRoute(
-                // A stored bank password needs a code to sit behind, not a screen-lock policy:
-                // the action gate asks for it at the moment the password is used.
-                canStoreCredentials = appLockHasPin,
-                initialRememberPassword = rememberPasswordRequested,
-                onOpenAppLock = {
-                    rememberPasswordRequested = true
-                    appLockSetupTarget = AppLockTimeout.Immediate
-                    page = PersonalSetupPage.AppLock
+        return
+    }
+    if (destination == "account") {
+        AccountTransactionsScreen(selectedAccount, ::back)
+        return
+    }
+    if (destination == "suggestions") {
+        CategorySetupStep(onContinue = ::back, onBack = ::back)
+        return
+    }
+    val title = when (destination) {
+        "credo" -> stringResource(R.string.credo_sync_title)
+        "tbc" -> stringResource(R.string.tbc_title)
+        "lock" -> stringResource(R.string.app_lock_title)
+        "settings" -> settingsPageTitle(settings)
+        "statements" -> stringResource(R.string.statements_title)
+        "backup" -> stringResource(R.string.backup_title)
+        "messages" -> stringResource(R.string.sms_diagnostics_title)
+        "accounts", "overview" -> stringResource(R.string.setup_accounts_title)
+        "income" -> stringResource(R.string.setup_income_title)
+        "savings" -> stringResource(R.string.savings_title)
+        "debts" -> stringResource(R.string.debts_title)
+        else -> stringResource(stage.title)
+    }
+    PersonalSetupSecondaryPage(title, onBack = {
+        if (destination != "settings" || settings.page == settingsEntry || !settings.back()) {
+            createPin = false
+            back()
+        }
+    }) {
+        when (destination) {
+            "credo" -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
+                initialRememberPassword = rememberCredo, onOpenAppLock = ::lockForCredo,
+                autoLoadFullHistory = true, onGuidedHistoryComplete = ::back, onDone = ::back)
+            "tbc" -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open("statements") })
+            "accounts" -> AccountsScreen(
+                onConnectBank = { open(if (it == "Credo") "credo" else "tbc") },
+                onOpenStatements = { open("statements") }, onOpenSavings = { open("savings") },
+                onOpenOverview = { open("overview") }, onOpenSettings = { openSettings("app") },
+                onOpenAccountTransactions = ::account,
+            )
+            "overview" -> AccountOverviewScreen()
+            "categories" -> CategoriesRoute()
+            "intelligence" -> CategoryIntelligenceRoute()
+            "income" -> IncomeSourcesRoute()
+            "people" -> PeopleRoute()
+            "savings" -> SavingsRoute()
+            "debts" -> SetupDebtsRoute(::back)
+            "statements" -> BankStatementsScreen()
+            "backup" -> BackupRoute(appVersion)
+            "privacy" -> PrivacyRoute(onOpenSystemSettings)
+            "about" -> AboutScreen(appVersion = appVersion)
+            "corrections" -> CorrectionsScreen()
+            "health" -> DataHealthRoute(onOpenCorrections = { open("corrections") }, onOpenBackup = { open("backup") },
+                onOpenTransaction = { selectedTransaction = it; open("history") })
+            "history" -> dev.whekin.whfin.ui.feed.FeedScreen(mode = dev.whekin.whfin.ui.feed.FeedMode.HISTORY,
+                showSmsOnboarding = false, onEnableSms = {}, onDismissSmsOnboarding = {},
+                openTransactionId = selectedTransaction, onOpenTransactionConsumed = { selectedTransaction = null })
+            "push" -> PushJournalRoute(false, { messages(BankSmsBank.TBC) }, diagnosticsOnly = true)
+            "messages" -> SmsDiagnosticsRoute(
+                appVersion, state.smsMonitoringEnabled, state.hasSmsPermission, state.canRequestSmsPermission,
+                hasSmsHistoryPermission, canRequestSmsHistoryPermission,
+                onEnableMonitoring = {
+                    val bank = smsBank
+                    if (bank == null) onEnableSmsMonitoring() else {
+                        scope.launch { preferences.setBankSmsEnabled(bank, true) }
+                        if (!state.hasSmsPermission) {
+                            if (state.canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings()
+                        }
+                    }
                 },
-                autoLoadFullHistory = true,
-                onGuidedHistoryComplete = ::continueAfterHistory,
-                onDone = ::continueAfterHistory,
+                onRequestReceivePermission = onRequestSmsPermission, onOpenFeed = ::back,
+                onRequestHistoryPermission = onRequestSmsHistoryPermission, onOpenSystemSettings = onOpenSystemSettings,
+                bankFilter = smsBank,
             )
-        }
-        PersonalSetupPage.BankSms -> PersonalSetupSecondaryPage(
-            title = stringResource(R.string.sms_diagnostics_title),
-            onBack = {
-                guidedResolutionActive = false
-                page = PersonalSetupPage.Bank
-            },
-        ) {
-            SmsDiagnosticsRoute(
-                appVersion = appVersion,
-                smsImportEnabled = state.smsMonitoringEnabled,
-                hasReceivePermission = state.hasSmsPermission,
-                canRequestReceivePermission = state.canRequestSmsPermission,
-                hasHistoryPermission = hasSmsHistoryPermission,
-                canRequestHistoryPermission = canRequestSmsHistoryPermission,
-                onEnableMonitoring = onEnableSmsMonitoring,
-                onRequestReceivePermission = onRequestSmsPermission,
-                onOpenFeed = { onContinue(0, false) },
-                onRequestHistoryPermission = onRequestSmsHistoryPermission,
-                onOpenSystemSettings = onOpenSystemSettings,
-                onCardLinked = {},
-            )
-        }
-        PersonalSetupPage.Statements -> PersonalSetupSecondaryPage(
-            title = stringResource(R.string.statements_title),
-            onBack = {
-                if (guidedResolutionActive) {
-                    guidedResolutionActive = false
-                    page = PersonalSetupPage.Bank
-                } else {
-                    page = statementsReturnPage
-                }
-            },
-        ) {
-            BankStatementsScreen()
-        }
-        PersonalSetupPage.Backup -> PersonalSetupSecondaryPage(
-            title = stringResource(R.string.backup_title),
-            onBack = { page = PersonalSetupPage.Alternative },
-        ) {
-            BackupRoute(appVersion = appVersion)
-        }
-        PersonalSetupPage.AppLock -> PersonalSetupSecondaryPage(
-            title = stringResource(R.string.app_lock_title),
-            onBack = {
-                appLockSetupTarget = null
-                page = personalSetupPageAfterAppLock()
-            },
-        ) {
-            AppLockScreen(
-                timeout = appLockSetupTarget ?: appLockTimeout,
-                hasPin = appLockHasPin,
-                biometricAvailability = biometricAvailability,
-                biometricEnabled = biometricUnlockEnabled,
-                onTimeoutChange = onAppLockTimeoutChange,
+            "lock" -> AppLockScreen(
+                timeout = if (createPin) AppLockTimeout.Immediate else appLockTimeout,
+                hasPin = appLockHasPin, biometricAvailability = biometricAvailability,
+                biometricEnabled = biometricUnlockEnabled, onTimeoutChange = onAppLockTimeoutChange,
                 onPinCreated = { pin, timeout ->
                     onAppLockPinCreated(pin, timeout)
-                    appLockSetupTarget = null
-                    page = personalSetupPageAfterAppLock()
+                    if (createPin) { createPin = false; back() }
                 },
                 onBiometricEnabledChange = onBiometricUnlockEnabledChange,
                 onOpenBiometricSettings = onOpenBiometricSettings,
-                autoSetupTimeout = appLockSetupTarget,
+                autoSetupTimeout = if (createPin) AppLockTimeout.Immediate else null,
             )
+            "settings" -> SetupSettingsRoute(settings, state, appVersion, appLockTimeout, appLockHasPin,
+                onRequestSmsPermission, onOpenSystemSettings, ::open, ::messages, ::account)
         }
     }
+}
 
-    if (page == PersonalSetupPage.Cash && cashEditorOpen) {
-        AddAccountSheet(
-            onDismiss = { cashEditorOpen = false },
-            onImportStatement = {},
-            initialType = AccountType.CASH,
-            cashOnly = true,
-            titleOverride = stringResource(R.string.personal_setup_cash_sheet_title),
-            onConfirm = { name, _, currency, _, openingMinor ->
-                onSaveCash(name, currency, openingMinor)
-                cashEditorOpen = false
-                page = personalSetupPageAfterCash()
-            },
-        )
-    }
-
-    if (page == PersonalSetupPage.Salary && salaryEditorOpen) {
-        IncomeSourceSheet(
-            source = null,
-            accounts = accounts,
-            onDismiss = { salaryEditorOpen = false },
-            onSave = { label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn ->
-                onSaveSalary(label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn)
-                salaryEditorOpen = false
-                page = personalSetupPageAfterSalary()
-            },
-            onEnd = null,
-            onDelete = null,
-            initialLabel = stringResource(R.string.personal_setup_salary_default_label),
-            initialCurrency = "GEL",
-        )
-    }
+@Composable
+private fun SetupDebtsRoute(onBack: () -> Unit, viewModel: AccountsViewModel = viewModel()) {
+    val state by viewModel.screenState.collectAsState()
+    val people by viewModel.people.collectAsState()
+    val ready = state as? AccountsScreenState.Ready
+    if (ready == null) dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
+    else DebtLedgerDialog(ready.debts, people, ready.accounts.map { it.account }, onBack,
+        viewModel::openDebt, viewModel::settleDebt)
 }

@@ -89,7 +89,7 @@
     <string name="feed_empty">Пока нет транзакций.\nПодключи банк или добавь первую операцию.</string>
     <string name="home_empty_title">Здесь появится картина твоих финансов</string>
     <string name="home_setup_invitation_title">Подключи банк</string>
-    <string name="home_setup_invitation_body">Банковского счёта пока нет. Настройка подключит Credo, прочитает историю и разметит то, что сможет сама.</string>
+    <string name="home_setup_invitation_body">Настройте банки, счета, категории, доходы и само приложение.</string>
     <string name="home_setup_invitation_action">Настроить</string>
     <string name="home_setup_invitation_dismiss">Больше не предлагать настройку</string>
     <string name="home_integrity_dismiss">Не сейчас</string>
@@ -1739,4 +1739,23 @@
     <string name="credo_sync_error_matching">Некоторые банковские операции соответствуют нескольким записям. Этот счёт оставлен без изменений.</string>
     <string name="credo_sync_checking_coverage">Проверяем глубину банковской истории…</string>
     <string name="credo_sync_linking_cards">Сопоставляем карты с банковскими сообщениями…</string>
+    <string name="setup_banks_title">Подключите банки</string>
+    <string name="setup_banks_body">Добавьте банки, которыми пользуетесь. Подключение загружает всю доступную историю. SMS и push включаются отдельно, по желанию.</string>
+    <string name="setup_accounts_title">Ваши счета и остатки</string>
+    <string name="setup_accounts_body">Проверьте загруженные счета, задайте имена, разделите доступные деньги и резерв. Добавьте наличные или криптокошелёк — можно несколько.</string>
+    <string name="setup_categories_title">Настройте категории</string>
+    <string name="setup_categories_body">Выберите предложения по загруженной истории, добавьте свои категории и научите WHFIN узнавать контрагентов.</string>
+    <string name="setup_income_title">Когда приходят деньги</string>
+    <string name="setup_income_body">Добавьте зарплату и другие регулярные доходы: сумму, валюту, счёт получения и ожидаемую дату выплаты.</string>
+    <string name="setup_plans_title">Накопления и долги</string>
+    <string name="setup_plans_body">Задайте темп накоплений для резервных счетов и внесите текущие долги. Уже существующий долг можно записать без движения денег.</string>
+    <string name="setup_preferences_title">Настройте WHFIN под себя</string>
+    <string name="setup_preferences_body">Выберите оформление, быстрый ввод и настройки виджета. Настройте код и биометрию, сохраните резервную копию.</string>
+    <string name="setup_finish_title">Можно начинать</string>
+    <string name="setup_finish_body">Изменения сохраняются по ходу настройки. Перед завершением можно вернуться к любому шагу; все эти инструменты доступны и в приложении.</string>
+    <string name="setup_stage_progress">Настройка · %1$d из %2$d</string>
+    <string name="setup_next">Продолжить</string>
+    <string name="setup_channels">SMS, push и подключения банков</string>
+    <string name="setup_saved_accounts">Сохранено счетов: %1$d</string>
+    <string name="setup_review_remaining">Осталось разобрать: %1$d. Можно сделать это сейчас или вернуться позже.</string>
 </resources>

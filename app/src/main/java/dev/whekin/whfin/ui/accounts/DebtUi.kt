@@ -28,6 +28,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import androidx.compose.ui.res.stringResource
 import dev.whekin.whfin.R
+import androidx.compose.ui.graphics.luminance
 import dev.whekin.whfin.core.ui.WhfinDialogSystemBars
 import dev.whekin.whfin.core.ui.WhfinIconButton
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
@@ -100,7 +101,7 @@ fun DebtLedgerDialog(
     var adding by remember { mutableStateOf(false) }
     var settling by remember { mutableStateOf<DebtCaseUi?>(null) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        WhfinDialogSystemBars()
+        WhfinDialogSystemBars(darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f)
         DemoWorkspaceFrame {
             DebtLedgerContent(
                 debts = debts,

@@ -935,3 +935,8 @@ in the category centre and in the counterparty picker.
 
 Romanization is transliteration, not translation. A company whose Georgian name means "cleaning
 service" reads as its Georgian words in Latin letters; nothing here claims to say what they mean.
+
+
+Form sheets reserve their title and primary action before measuring the scrollable fields whenever
+window height is bounded. The field-height cap alone is not enough: a two-line title at large font
+scale plus the IME can otherwise squeeze the action label. Unbounded previews retain the cap.

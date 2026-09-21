@@ -21,6 +21,11 @@ class RuntimeModeStore(context: Context) {
             check(preferences.edit().putBoolean(KEY_PERSONAL_SETUP_PENDING, value).commit())
         }
 
+    /** Non-secret progress belongs to this installation, never to a portable backup. */
+    var personalSetupStage: String?
+        get() = preferences.getString("personal_setup_stage", null)
+        set(value) { check(preferences.edit().putString("personal_setup_stage", value).commit()) }
+
     /**
      * Settles the first-run gate for an installation that already carries a ledger.
      *

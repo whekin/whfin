@@ -7,7 +7,9 @@ same-currency bank accounts. The clean Room v1 contract records a structured loc
 dropping the message.
 
 - `RECEIVE_SMS` still observes only broadcasts delivered after permission is granted.
-- Opening Credo setup enables future transaction monitoring and requests `RECEIVE_SMS` plus `READ_SMS`:
+- In first-run setup, bank sign-in and SMS monitoring are separate choices. The bank connections page
+  enables monitoring per bank and requests SMS access only after its explicit opt-in.
+- The existing normal-app Credo entry enables future transaction monitoring and requests `RECEIVE_SMS` plus `READ_SMS`:
   the latter supports a bounded foreground catch-up when an OEM omits the manifest receiver. While an
   OTP challenge is actively on screen, the exact `# SMS Code: 1234` login template
   can fill the four local code dots. The code is process-only, has no replay, is never submitted

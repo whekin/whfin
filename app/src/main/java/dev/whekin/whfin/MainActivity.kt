@@ -40,7 +40,6 @@ import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.StatementImportEntity
-import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.security.AppLockPinStore
 import dev.whekin.whfin.data.security.AppLockViewModel
 import dev.whekin.whfin.data.security.LocalSensitiveActions
@@ -53,11 +52,9 @@ import dev.whekin.whfin.data.security.biometricAvailability as checkBiometricAva
 import dev.whekin.whfin.data.sms.SmsForegroundCatchUp
 import dev.whekin.whfin.ui.LocalLatinCounterparties
 import dev.whekin.whfin.ui.MainScreen
-import dev.whekin.whfin.ui.accounts.AccountsViewModel
 import dev.whekin.whfin.ui.settings.AppLockGate
 import dev.whekin.whfin.ui.settings.SensitiveActionGate
 import dev.whekin.whfin.ui.settings.bodyResource
-import dev.whekin.whfin.ui.settings.IncomeSourcesViewModel
 import dev.whekin.whfin.ui.setup.PersonalSetupFlow
 import dev.whekin.whfin.ui.setup.PersonalSetupState
 import dev.whekin.whfin.ui.setup.WelcomeChoiceScreen
@@ -159,8 +156,6 @@ class MainActivity : FragmentActivity() {
         SmsForegroundCatchUp(applicationContext, (application as WhfinApp).userDb)
     }
     private lateinit var appLock: AppLockViewModel
-    private lateinit var setupAccounts: AccountsViewModel
-    private lateinit var setupIncomeSources: IncomeSourcesViewModel
     private lateinit var authenticator: WhfinAuthenticator
     private val sensitiveActions = SensitiveActionController(hasPin = { hasAppLockPin })
 
@@ -184,8 +179,6 @@ class MainActivity : FragmentActivity() {
         runtimeModeRestart = intent.getBooleanExtra(EXTRA_RUNTIME_MODE_RESTART, false)
         if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
         appLock = ViewModelProvider(this)[AppLockViewModel::class.java]
-        setupAccounts = ViewModelProvider(this)[AccountsViewModel::class.java]
-        setupIncomeSources = ViewModelProvider(this)[IncomeSourcesViewModel::class.java]
         authenticator = WhfinAuthenticator(this)
         hasAppLockPin = pinStore.hasPin()
         refreshSmsPermission()
@@ -326,12 +319,6 @@ class MainActivity : FragmentActivity() {
                                             accountCount = personalAccounts?.count {
                                                 it.type != AccountType.PERSON
                                             },
-                                            bankLedgerCount = personalAccounts?.count {
-                                                it.type == AccountType.BANK || it.type == AccountType.SAVINGS
-                                            },
-                                            hasCredoImport = statementImports?.any {
-                                                it.origin == StatementImportOrigin.CREDO_SYNC
-                                            },
                                             smsMonitoringEnabled = smsImportEnabled == true,
                                             hasSmsPermission = hasSmsPermission,
                                             canRequestSmsPermission = canRequestSmsPermission,
@@ -362,27 +349,6 @@ class MainActivity : FragmentActivity() {
                                             scope.launch { uiPreferences.setBiometricUnlockEnabled(enabled) }
                                         },
                                         onOpenBiometricSettings = ::openBiometricSettings,
-                                        accounts = personalAccounts.orEmpty(),
-                                        onSaveCash = { name, currency, openingMinor ->
-                                            setupAccounts.addAccount(
-                                                name = name,
-                                                type = AccountType.CASH,
-                                                currency = currency,
-                                                openingMinor = openingMinor,
-                                            )
-                                        },
-                                        onSaveSalary = { label, amountMinor, currency, accountId, dayFrom, weekendRule, startedOn ->
-                                            setupIncomeSources.save(
-                                                existing = null,
-                                                label = label,
-                                                amountMinor = amountMinor,
-                                                currency = currency,
-                                                accountId = accountId,
-                                                dayFrom = dayFrom,
-                                                weekendRule = weekendRule,
-                                                startedOn = startedOn,
-                                            )
-                                        },
                                         onContinue = { initialTab, openAccountAdd ->
                                             app.runtimeModes.personalSetupPending = false
                                             personalSetupPending = false
@@ -440,6 +406,7 @@ class MainActivity : FragmentActivity() {
                                             // would answer "connect your bank" with "your ledger is ready".
                                             // A setup entered again starts where setup starts.
                                             mainState.removeState("personal-setup")
+                                            app.runtimeModes.personalSetupStage = null
                                             app.runtimeModes.personalSetupPending = true
                                             personalSetupPending = true
                                             setupResumedFromHome = true

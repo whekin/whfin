@@ -32,8 +32,9 @@ installation; an empty Personal workspace does not make it reappear.
 _Avoid_: Onboarding carousel, feature tour, permission onboarding
 
 **Personal setup**:
-A compact first-action surface reached from the Welcome choice or when leaving the Demo workspace. It
-starts a real data source or lets the user deliberately continue to the still-empty Personal workspace.
+A resumable setup sequence reached from the Welcome choice or when leaving the Demo workspace. It
+configures banks, accounts, categories, income, savings and debts, and application preferences through
+optional stages. Working forms return to setup; only the final action enters the Personal workspace.
 _Avoid_: Second onboarding, tutorial step, empty Feed
 
 ### SMS ingestion

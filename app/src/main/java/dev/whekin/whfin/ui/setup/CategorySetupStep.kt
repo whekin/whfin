@@ -51,6 +51,12 @@ internal fun CategorySetupStep(
     viewModel: CategoryIntelligenceViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    if (state == null) {
+        PersonalSetupSecondaryPage(stringResource(R.string.category_setup_title), onBack) {
+            dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
+        }
+        return
+    }
     CategorySetupStep(
         proposals = state?.proposals.orEmpty(),
         packs = state?.packs.orEmpty(),

@@ -187,3 +187,15 @@ Screen previews cover light, dark, and font scale 1.5 for Feed, Accounts, compos
   A wiped Pixel 9 Pro API 36.1 AVD rendered the 1–4-cell picker previews and a live 3-cell widget in
   wallpaper-derived light, WHFIN light, and wallpaper-derived dark palettes. Text and the add action use
   paired Material roles rather than hand-picked foreground colors.
+
+## Complete first-run setup
+
+`PersonalSetupJourneyTest` opens the real setup routes on a disposable emulator, checks TBC sign-in
+without SMS consent, accounts, category editing, income entry, debts, appearance, Ready, and activity
+recreation before completion. It never signs into a real bank. Configurations: EN light, EN dark,
+RU dark at font scale 1.5. Screenshots and hierarchy XML are written to the debug app's external
+`setup-qa` directory. `SetupQaActivity` is debug-only, unexported, and refuses physical hardware.
+
+Run through the explicit-emulator installation procedure above, selecting
+`dev.whekin.whfin.ui.setup.PersonalSetupJourneyTest`. Host tests cover stage persistence, unknown saved
+stages, choosing either bank, skipping optional work and reviewing earlier steps before completion.

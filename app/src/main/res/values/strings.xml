@@ -86,7 +86,7 @@
     <string name="feed_empty">No transactions yet.\nConnect a bank or add your first transaction.</string>
     <string name="home_empty_title">Your financial picture will appear here</string>
     <string name="home_setup_invitation_title">Connect your bank</string>
-    <string name="home_setup_invitation_body">No bank account here yet. Setup connects Credo, reads your history and files what it can by itself.</string>
+    <string name="home_setup_invitation_body">Set up your banks, accounts, categories, income and preferences.</string>
     <string name="home_setup_invitation_action">Set up</string>
     <string name="home_setup_invitation_dismiss">Don’t offer setup again</string>
     <string name="home_integrity_dismiss">Not now</string>
@@ -1675,4 +1675,23 @@
     <string name="credo_sync_error_matching">Some bank operations match more than one existing record. This account was left unchanged.</string>
     <string name="credo_sync_checking_coverage">Checking how far the bank history goes…</string>
     <string name="credo_sync_linking_cards">Linking cards from bank messages…</string>
+    <string name="setup_banks_title">Connect your banks</string>
+    <string name="setup_banks_body">Add every bank you use. Each connection loads all available history. SMS and push are optional channels you can enable separately.</string>
+    <string name="setup_accounts_title">Your accounts and balances</string>
+    <string name="setup_accounts_body">Check imported accounts, name them, choose available money or reserve, and add cash or a crypto wallet. You can add more than one.</string>
+    <string name="setup_categories_title">Organise your transactions</string>
+    <string name="setup_categories_body">Use suggestions from the imported history, add your own categories, and teach WHFIN how to recognise counterparties.</string>
+    <string name="setup_income_title">When money comes in</string>
+    <string name="setup_income_body">Add salary and other regular income: amount, currency, receiving account and expected payday.</string>
+    <string name="setup_plans_title">Savings and debts</string>
+    <string name="setup_plans_body">Set a savings pace for your reserve accounts and record existing debts. An existing debt can be recorded without moving money.</string>
+    <string name="setup_preferences_title">Make WHFIN yours</string>
+    <string name="setup_preferences_body">Choose appearance, quick entry and widget options. Set a lock code and biometrics, and save a backup when you are ready.</string>
+    <string name="setup_finish_title">Ready to start</string>
+    <string name="setup_finish_body">Your changes are saved as you go. You can return to any step before finishing; all these tools also remain available in the app.</string>
+    <string name="setup_stage_progress">Setup · %1$d of %2$d</string>
+    <string name="setup_next">Continue</string>
+    <string name="setup_channels">SMS, push and bank connections</string>
+    <string name="setup_saved_accounts">%1$d accounts saved</string>
+    <string name="setup_review_remaining">Items still needing review: %1$d. You can resolve them now or return later.</string>
 </resources>

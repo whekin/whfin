@@ -1162,7 +1162,8 @@ fun WhfinFormSheet(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // Unbounded happens in tests and in previews, where there is no window to take a share
             // of; the old constant is the right answer there and nowhere else.
-            val scrollCap = if (constraints.hasBoundedHeight) maxHeight * SHEET_MAX_HEIGHT_FRACTION else 620.dp
+            val boundedHeight = constraints.hasBoundedHeight
+            val scrollCap = if (boundedHeight) maxHeight * SHEET_MAX_HEIGHT_FRACTION else 620.dp
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -1178,9 +1179,10 @@ fun WhfinFormSheet(
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        // A cap rather than a weight: a weight needs a bounded parent, and this one
-                        // is unbounded wherever there is no window — a short form would then have
-                        // been measured to nothing instead of to its own height.
+                        // Reserve the title and action before measuring fields. At large font sizes
+                        // a two-line title plus 72% of the window otherwise squeezes Save to a sliver
+                        // when the IME opens. Unbounded previews still need the explicit cap.
+                        .then(if (boundedHeight) Modifier.weight(1f, fill = false) else Modifier)
                         .heightIn(max = scrollCap)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp, vertical = 8.dp),
