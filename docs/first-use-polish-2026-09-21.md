@@ -51,3 +51,13 @@ Screens: `/tmp/whfin-polish-0.3.67-setup`, `/tmp/whfin-polish-0.3.67-home`.
 The phone was neither updated nor cleared. Live bank login/OTP, real Drive recovery and device transfer
 remain unverified. Initial bank sync still loads full available history; a current-balances-only start
 is not implemented. The broader preceding audit is in `readiness-audit-2026-09-21.md`.
+
+
+## Phone installation — 2026-09-22
+
+At the owner's explicit request, the Samsung phone was updated from 0.3.64 (76) to 0.3.67 (79)
+using `install -r --no-incremental`. Old and new signing certificates match. The installed APK SHA-256
+matches the release hash above. The original first-install timestamp and READ_SMS, RECEIVE_SMS and
+POST_NOTIFICATIONS grants remain unchanged. No AndroidRuntime/WHFIN errors appeared after installation.
+The app was not deliberately foregrounded; the personal database was not read or cleared.
+The earlier “phone not updated” statements describe the pre-installation verification stage.
