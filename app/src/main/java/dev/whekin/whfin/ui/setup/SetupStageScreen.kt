@@ -30,7 +30,7 @@ internal enum class SetupStage(val title: Int, val body: Int) {
 internal fun setupStageFromSaved(value: String?): SetupStage =
     SetupStage.entries.firstOrNull { it.name == value } ?: SetupStage.Banks
 
-internal data class SetupAction(val label: String, val onClick: () -> Unit)
+internal data class SetupAction(val label: String, val supportingText: String? = null, val onClick: () -> Unit)
 
 /** Optional work stays inside setup; only the final action completes the first run. */
 @Composable
@@ -40,23 +40,26 @@ internal fun SetupStageScreen(
     onBack: () -> Unit,
     onContinue: () -> Unit,
     summary: String? = null,
+    continueLabel: String? = null,
+    content: (@Composable () -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 WhfinBackButton(stringResource(R.string.action_back), onBack)
                 WhfinSectionLabel(stringResource(R.string.setup_stage_progress, stage.ordinal + 1, SetupStage.entries.size))
                 Text(stringResource(stage.title), style = MaterialTheme.typography.headlineLarge)
-                Text(stringResource(stage.body), style = MaterialTheme.typography.bodyLarge,
+                if (stage != SetupStage.Ready) Text(stringResource(stage.body), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (summary != null) Text(summary, style = MaterialTheme.typography.bodyMedium)
+                content?.invoke()
                 if (actions.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     actions.forEachIndexed { index, action ->
-                        WhfinLedgerRow(title = action.label, onClick = action.onClick,
+                        WhfinLedgerRow(title = action.label, supportingText = action.supportingText, onClick = action.onClick,
                             divider = index < actions.lastIndex,
                             trailing = { Icon(Icons.Default.ChevronRight, null) })
                     }
@@ -65,7 +68,7 @@ internal fun SetupStageScreen(
             Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 WhfinButton(
-                    stringResource(if (stage == SetupStage.Ready) R.string.personal_setup_continue_action else R.string.setup_next),
+                    continueLabel ?: stringResource(if (stage == SetupStage.Ready) R.string.personal_setup_continue_action else R.string.setup_next),
                     onContinue, Modifier.fillMaxWidth(),
                 )
             }

@@ -82,6 +82,7 @@ fun DriveBackupSection(appVersion: String) {
     var setupPassphrase by remember { mutableStateOf(false) }
     var copies by remember { mutableStateOf<List<DriveBackupFile>?>(null) }
     var restoreFrom by remember { mutableStateOf<DriveBackupFile?>(null) }
+    var preparedRestore by remember { mutableStateOf<dev.whekin.whfin.data.backup.PreparedWhfinRestore?>(null) }
     var restorePassphraseError by remember { mutableStateOf(false) }
 
     fun refreshFromStore() {
@@ -339,30 +340,35 @@ fun DriveBackupSection(appVersion: String) {
     restoreFrom?.let { file ->
         BackupPassphraseSheet(
             title = stringResource(R.string.backup_restore_passphrase_title),
-            body = stringResource(R.string.backup_restore_confirm_body),
-            primaryLabel = stringResource(R.string.backup_restore_confirm_action),
+            body = stringResource(R.string.backup_restore_passphrase_body),
+            primaryLabel = stringResource(R.string.action_continue),
+            busy = status == DriveUiStatus.Working,
             requireConfirmation = false,
             errorText = if (restorePassphraseError) stringResource(R.string.backup_wrong_passphrase) else null,
             onDismiss = {
                 restoreFrom = null
                 restorePassphraseError = false
             },
-            onSubmit = { passphrase ->
+            onSubmit = submit@ { passphrase ->
+                if (status == DriveUiStatus.Working) { passphrase.fill('\u0000'); return@submit }
                 val token = pendingToken
                 if (token == null) {
+                    passphrase.fill('\u0000')
                     restoreFrom = null
                     status = DriveUiStatus.Error(DriveBackupWorker.ERROR_AUTH)
                 } else {
+                    status = DriveUiStatus.Working
                     scope.launch {
-                        status = DriveUiStatus.Working
                         try {
-                            val summary = manager.restore(token, file.id, passphrase)
+                            val prepared = manager.prepareRestore(token, file.id, passphrase)
                             restoreFrom = null
                             restorePassphraseError = false
-                            status = DriveUiStatus.Restored(summary.rowCount)
+                            preparedRestore = prepared
+                            status = DriveUiStatus.Idle
                         } catch (error: WhfinBackupPassphraseException) {
                             restorePassphraseError = true
                             status = DriveUiStatus.Idle
+                        } catch (error: kotlinx.coroutines.CancellationException) { throw error
                         } catch (error: Exception) {
                             restoreFrom = null
                             status = DriveUiStatus.Error(if (error is dev.whekin.whfin.data.backup.LedgerBusyException) "restore_busy" else DriveBackupWorker.ERROR_NETWORK)
@@ -374,6 +380,25 @@ fun DriveBackupSection(appVersion: String) {
             },
         )
     }
+    preparedRestore?.let { prepared ->
+        BackupRestorePreview(prepared.preview,
+            onDismiss = { preparedRestore = null },
+            onConfirm = confirm@ {
+                val selected = preparedRestore ?: return@confirm
+                preparedRestore = null
+                sensitive.require(SensitiveAction.BackupRestore) {
+                    status = DriveUiStatus.Working
+                    scope.launch {
+                        try { status = DriveUiStatus.Restored(manager.restore(selected).rowCount) }
+                        catch (error: kotlinx.coroutines.CancellationException) { throw error }
+                        catch (error: Exception) {
+                            status = DriveUiStatus.Error(if (error is dev.whekin.whfin.data.backup.LedgerBusyException) "restore_busy" else DriveBackupWorker.ERROR_NETWORK)
+                        }
+                    }
+                }
+            })
+    }
+
 }
 
 @Composable

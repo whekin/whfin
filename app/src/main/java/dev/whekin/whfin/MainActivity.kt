@@ -201,6 +201,8 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(observedDatabase) {
                 observedDatabase.restored.collect { revision ->
                     if (revision != restoreRevisionOnEntry) {
+                        app.runtimeModes.restoreCompleted = true
+                        app.runtimeModes.personalSetupChecks = emptySet()
                         app.bankSync.resetAfterRestore()
                         restartForRuntimeMode()
                     }
@@ -296,14 +298,21 @@ class MainActivity : FragmentActivity() {
                     LocalLatinCounterparties provides latinCounterparties,
                 ) {
                     Box(Modifier.fillMaxSize()) {
-                        when (
-                            appStartupContent(
-                                savedTimeout = savedTimeout,
-                                hasPin = hasAppLockPin,
-                                sessionLocked = appLock.locked,
-                                runtimeModeRestart = runtimeModeRestart,
-                            )
-                        ) {
+                        val startupContent = appStartupContent(
+                            savedTimeout = savedTimeout,
+                            hasPin = hasAppLockPin,
+                            sessionLocked = appLock.locked,
+                            runtimeModeRestart = runtimeModeRestart,
+                        )
+                        if (startupContent == AppStartupContent.Main) LaunchedEffect(Unit) {
+                            if (app.runtimeModes.restoreCompleted) {
+                                app.runtimeModes.restoreCompleted = false
+                                android.widget.Toast.makeText(
+                                    this@MainActivity, R.string.backup_restored_title, android.widget.Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                        when (startupContent) {
                             AppStartupContent.Loading -> Surface(
                                 Modifier.fillMaxSize(),
                                 color = MaterialTheme.colorScheme.background,

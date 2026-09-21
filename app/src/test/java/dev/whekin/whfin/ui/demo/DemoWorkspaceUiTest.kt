@@ -3,6 +3,7 @@ package dev.whekin.whfin.ui.demo
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.whekin.whfin.ui.theme.WhfinTheme
@@ -36,7 +37,8 @@ class DemoWorkspaceUiTest {
         }
 
         // Above every screen: which data this is, and the way out. Both facts stay.
-        compose.onNodeWithText("Demo · Synthetic data").assertIsDisplayed()
+        compose.onNodeWithText("Demo").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Demo · Synthetic data").assertExists()
         compose.onNodeWithText("Use my data").assertIsDisplayed().performClick()
         assertTrue(exited)
     }

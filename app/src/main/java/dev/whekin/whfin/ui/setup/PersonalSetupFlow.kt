@@ -40,6 +40,7 @@ fun PersonalSetupFlow(
     val runtime = remember(context) { (context.applicationContext as dev.whekin.whfin.WhfinApp).runtimeModes }
     var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
+    var showSteps by rememberSaveable { mutableStateOf(false) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
@@ -63,41 +64,54 @@ fun PersonalSetupFlow(
     fun account(id: Long) { selectedAccount = id; open("account") }
     fun lockForCredo() { rememberCredo = true; createPin = true; open("lock") }
 
+    val overviewModel: SetupOverviewViewModel = viewModel()
+    val overviewState by overviewModel.state.collectAsState()
+    val overview = (overviewState as? SetupOverviewState.Ready)?.value
+
     if (destination == null) {
+        @Composable fun saved(count: Int?) = count?.let { stringResource(R.string.setup_count_saved, it) }
+        @Composable fun bankStatus(bank: BankSmsBank): String? = overview?.let {
+            when {
+                bank in it.bankImports -> stringResource(R.string.setup_history_loaded)
+                it.bankAccounts.getValue(bank) > 0 -> stringResource(R.string.setup_count_accounts, it.bankAccounts.getValue(bank))
+                else -> stringResource(R.string.setup_not_added)
+            }
+        }
         val actions = when (stage) {
             SetupStage.Banks -> listOf(
-                SetupAction("Credo") { open("credo") },
-                SetupAction("TBC") { open("tbc") },
+                SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open("credo") },
+                SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open("tbc") },
                 SetupAction(stringResource(R.string.setup_channels)) { openSettings("connections") },
-                SetupAction(stringResource(R.string.app_lock_title)) { open("lock") },
+                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
                 SetupAction(stringResource(R.string.statements_title)) { open("statements") },
                 SetupAction(stringResource(R.string.personal_setup_restore_title)) { open("backup") },
             )
             SetupStage.Accounts -> listOf(
-                SetupAction(stringResource(R.string.tab_accounts)) { open("accounts") },
-                SetupAction(stringResource(R.string.sms_diagnostics_title)) { messages(null) },
+                SetupAction(stringResource(R.string.tab_accounts), overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open("accounts") },
+                SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             )
             SetupStage.Categories -> listOf(
                 SetupAction(stringResource(R.string.category_setup_title)) { open("suggestions") },
-                SetupAction(stringResource(R.string.categories_title)) { open("categories") },
-                SetupAction(stringResource(R.string.category_intelligence_title)) { open("intelligence") },
+                SetupAction(stringResource(R.string.categories_title), saved(overview?.categories)) { open("categories") },
+                SetupAction(stringResource(R.string.category_intelligence_title), overview?.uncategorized?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_category, it) }) { open("intelligence") },
             )
-            SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title)) { open("income") })
+            SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title), saved(overview?.incomes)) { open("income") })
             SetupStage.Plans -> listOf(
-                SetupAction(stringResource(R.string.savings_title)) { open("savings") },
-                SetupAction(stringResource(R.string.debts_title)) { open("debts") },
+                SetupAction(stringResource(R.string.savings_title), saved(overview?.savingsPlans)) { open("savings") },
+                SetupAction(stringResource(R.string.debts_title), saved(overview?.debts)) { open("debts") },
             )
             SetupStage.Preferences -> listOf(
                 SetupAction(stringResource(R.string.settings_application)) { openSettings("app") },
-                SetupAction(stringResource(R.string.app_lock_title)) { open("lock") },
+                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
                 SetupAction(stringResource(R.string.backup_title)) { open("backup") },
             )
             SetupStage.Ready -> (if (reviewCount != null && reviewCount > 0) listOf(
                 SetupAction(stringResource(R.string.data_health_title)) { open("health") },
-                SetupAction(stringResource(R.string.sms_diagnostics_title)) { messages(null) },
-            ) else emptyList()) + SetupStage.entries.filter { it != SetupStage.Ready }.map { target ->
-                SetupAction(stringResource(target.title)) { stage = target }
-            }
+                SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
+            ) else emptyList()) + listOf(SetupAction(stringResource(R.string.setup_edit_steps)) { showSteps = !showSteps }) +
+                (if (showSteps) SetupStage.entries.filter { it != SetupStage.Ready }.map { target ->
+                SetupAction(stringResource(target.title)) { stage = target; showSteps = false }
+            } else emptyList())
         }
         SetupStageScreen(stage, actions,
             onBack = { if (stage.ordinal == 0) onExit() else stage = SetupStage.entries[stage.ordinal - 1] },
@@ -105,11 +119,11 @@ fun PersonalSetupFlow(
                 if (stage == SetupStage.Ready) onContinue(0, false)
                 else stage = SetupStage.entries[stage.ordinal + 1]
             },
-            summary = if (stage == SetupStage.Ready) state.accountCount?.let {
-                stringResource(R.string.setup_saved_accounts, it) + if (reviewCount != null && reviewCount > 0) {
-                    "\n" + stringResource(R.string.setup_review_remaining, reviewCount)
-                } else ""
-            } ?: stringResource(R.string.personal_setup_checking) else null,
+            continueLabel = if (stage == SetupStage.Ready && overview?.allChecked == false)
+                stringResource(R.string.setup_continue_unchecked) else null,
+            content = if (stage == SetupStage.Ready) ({
+                SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
+            }) else null,
         )
         return
     }
@@ -208,8 +222,9 @@ fun PersonalSetupFlow(
 private fun SetupDebtsRoute(onBack: () -> Unit, viewModel: AccountsViewModel = viewModel()) {
     val state by viewModel.screenState.collectAsState()
     val people by viewModel.people.collectAsState()
+    val formState by viewModel.formSaveState.collectAsState()
     val ready = state as? AccountsScreenState.Ready
     if (ready == null) dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
     else DebtLedgerDialog(ready.debts, people, ready.accounts.map { it.account }, onBack,
-        viewModel::openDebt, viewModel::settleDebt)
+        viewModel::openDebt, viewModel::settleDebt, formState)
 }

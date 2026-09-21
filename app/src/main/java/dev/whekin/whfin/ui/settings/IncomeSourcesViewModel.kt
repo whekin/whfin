@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.settings
 
+import dev.whekin.whfin.ui.FormSaver
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -52,6 +53,8 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
     private val sources = IncomeSourceRepository(db)
     private val ownTransfers = OwnTransferRepository(db)
     private val zone = LedgerCalendar.zone
+    private val formSaver = FormSaver(viewModelScope)
+    val formSaveState = formSaver.state
     private val reading = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
     private val readFailed = MutableStateFlow(false)
@@ -130,7 +133,7 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
         existing: IncomeSourceEntity?, label: String, amountMinor: Long, currency: String,
         accountId: Long?, dayFrom: Int, weekendRule: WeekendRule,
         startedOn: Long = existing?.startedOn ?: LocalDate.now(zone).withDayOfMonth(1).toEpochDay(),
-    ) = mutate {
+    ) = formSaver.save {
         sources.save(IncomeSourceEntity(
             id = existing?.id ?: 0, label = label.trim(), amountMinor = amountMinor,
             currency = currency.trim().uppercase(), accountId = accountId,
@@ -149,10 +152,10 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
         mutate { ownTransfers.link(listOf(transfer.withdrawal.id, transfer.credit.id)) }
     fun unlink(transfer: CryptoBankTransfer) =
         mutate { ownTransfers.unlink(requireNotNull(transfer.withdrawal.transferGroupId)) }
-    fun end(source: IncomeSourceEntity) = mutate {
+    fun end(source: IncomeSourceEntity) = formSaver.save {
         db.incomeSourceDao().upsert(source.copy(endedOn = maxOf(source.startedOn, LocalDate.now(zone).toEpochDay())))
     }
-    fun delete(source: IncomeSourceEntity) = mutate { db.incomeSourceDao().delete(source.id) }
+    fun delete(source: IncomeSourceEntity) = formSaver.save { db.incomeSourceDao().delete(source.id) }
 
     private fun mutate(block: suspend () -> Unit) {
         viewModelScope.launch {

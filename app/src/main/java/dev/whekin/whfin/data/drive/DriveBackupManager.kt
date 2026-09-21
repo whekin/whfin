@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.drive
 
 import android.content.Context
+import dev.whekin.whfin.data.backup.PreparedWhfinRestore
 import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.backup.WhfinBackupManager
 import dev.whekin.whfin.data.backup.WhfinBackupMetadata
@@ -64,10 +65,15 @@ class DriveBackupManager(
         withContext(Dispatchers.IO) { client.list(accessToken) }
 
     suspend fun restore(accessToken: String, fileId: String, passphrase: CharArray): WhfinBackupSummary =
+        restore(prepareRestore(accessToken, fileId, passphrase))
+
+    suspend fun prepareRestore(accessToken: String, fileId: String, passphrase: CharArray): PreparedWhfinRestore =
         withContext(Dispatchers.IO) {
             val envelope = client.download(accessToken, fileId)
-            backups.restore(ByteArrayInputStream(envelope), passphrase)
+            backups.prepareRestore(ByteArrayInputStream(envelope), passphrase)
         }
+
+    suspend fun restore(prepared: PreparedWhfinRestore): WhfinBackupSummary = backups.restore(prepared)
 
     private fun rotate(accessToken: String) {
         val obsolete = client.list(accessToken)

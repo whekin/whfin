@@ -22,8 +22,8 @@ class ReviewAllTest {
     @Test
     fun `the needs-review filter holds exactly what Home listed`() {
         val pending = item(1, TxStatus.PENDING)
-        val confirmed = item(2, TxStatus.CONFIRMED)
-        val manual = item(3, TxStatus.MANUAL)
+        val confirmed = item(2, TxStatus.CONFIRMED).let { it.copy(tx = it.tx.copy(categoryId = 9)) }
+        val manual = item(3, TxStatus.MANUAL).let { it.copy(tx = it.tx.copy(categoryId = 9)) }
 
         val listedOnHome = homeAttention(listOf(pending, confirmed, manual), emptyList())
             .mapNotNull { (it as? FeedTimelineEntry.Transaction)?.item?.tx?.id }
@@ -37,12 +37,12 @@ class ReviewAllTest {
     }
 
     @Test
-    fun `an unrouted message counts as something to answer`() {
+    fun `an uncategorised expense needs the owner even after the bank confirmed it`() {
         // It cannot be confirmed — it needs an account first — but Home lists it under the same
         // heading, so a filter that dropped it would hand over a shorter list than the one the
         // reader pressed from.
         assertTrue(matchesFeedFilter(item(1, TxStatus.PENDING), FeedFilter.NEEDS_REVIEW))
-        assertFalse(matchesFeedFilter(item(2, TxStatus.CONFIRMED), FeedFilter.NEEDS_REVIEW))
+        assertTrue(matchesFeedFilter(item(2, TxStatus.CONFIRMED), FeedFilter.NEEDS_REVIEW))
     }
 
     @Test
@@ -54,6 +54,18 @@ class ReviewAllTest {
         assertFalse(matchesFeedFilter(income, FeedFilter.EXPENSES))
         assertTrue(matchesFeedFilter(income, FeedFilter.INCOME))
         assertTrue(matchesFeedFilter(expense, FeedFilter.ALL))
+    }
+
+    @Test fun `categorised bank messages wait on bank without asking owner to confirm them`() {
+        val sms = item(1, TxStatus.PENDING).let { it.copy(tx = it.tx.copy(categoryId = 4)) }
+        val hold = sms.copy(tx = sms.tx.copy(id = 2, source = TxSource.BANK_HOLD, categoryId = null))
+        assertTrue(homeAttention(listOf(sms, hold), emptyList()).isEmpty())
+        listOf(sms, hold).forEach {
+            assertFalse(matchesFeedFilter(it, FeedFilter.NEEDS_REVIEW))
+            assertTrue(matchesFeedFilter(it, FeedFilter.WAITING_BANK))
+        }
+        assertTrue(waitingForBank(sms.copy(tx = sms.tx.copy(status = TxStatus.CONFIRMED))))
+        assertFalse(waitingForBank(sms.copy(tx = sms.tx.copy(status = TxStatus.CONFIRMED, source = TxSource.STATEMENT))))
     }
 
     private fun item(id: Long, status: TxStatus, amountMinor: Long = -1_000) = FeedItem(

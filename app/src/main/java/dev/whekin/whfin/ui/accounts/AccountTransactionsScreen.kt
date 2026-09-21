@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.OnFormSaved
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -293,8 +294,10 @@ internal fun AccountTransactionsScreen(
             onCreateCategory = feedViewModel::createCategory,
         )
     }
+    val formState by feedViewModel.formSaveState.collectAsState()
     editTransactionFor?.let { item ->
         AddTransactionSheet(
+            formState = formState,
             accounts = accounts,
             categories = categoriesByUsage,
             people = people,
@@ -304,7 +307,6 @@ internal fun AccountTransactionsScreen(
             onSaveDebt = {},
             onUpdate = { original, value ->
                 feedViewModel.updateManual(original, value)
-                editTransactionFor = null
             },
             onCreateCategory = feedViewModel::createCategory,
             onCreateCashCurrency = feedViewModel::createCashCurrency,
@@ -362,18 +364,20 @@ internal fun AccountTransactionsScreen(
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         SnackbarHost(adjustmentSnackbar, Modifier.navigationBarsPadding())
     }
+    val accountFormState by accountsViewModel.formSaveState.collectAsState()
+    OnFormSaved(accountFormState) { editAccount = false }
     selectedRow?.let { item ->
         // A bank account is its IBAN across every currency under it, so editing it is the one
         // account sheet rather than a per-currency form.
         val editsWholeAccount = item.account.type == AccountType.BANK ||
             item.account.type == AccountType.SAVINGS
         if (editAccount && !editsWholeAccount) EditAccountSheet(
+            formState = accountFormState,
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editAccount = false },
             onConfirm = { name, currency, address, fundRole ->
                 accountsViewModel.editAccount(item.account, name, currency, address, fundRole)
-                editAccount = false
             },
         )
         if (adjustBalance) BalanceAdjustmentRoute(item, { adjustBalance = false }, { id ->
@@ -387,6 +391,7 @@ internal fun AccountTransactionsScreen(
             }
         })
         if (editAccount && editsWholeAccount) BankMappingSheet(
+            formState = accountFormState,
             account = item.account,
             existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = containerRows.flatMap { it.virtualCardMasks }.distinct(),
@@ -404,7 +409,6 @@ internal fun AccountTransactionsScreen(
                     virtualCards,
                     primaryCard,
                 )
-                editAccount = false
             },
         )
         // Deleting one asset row of a wallet would come back with the next discovery pass, so a

@@ -71,6 +71,46 @@ class WhfinEncryptedBackupManagerTest {
         db.close()
     }
 
+    @Test fun drivePreviewDownloadsOnceAndDoesNotWriteBeforeConfirmation() = runBlocking {
+        val output = ByteArrayOutputStream()
+        manager.exportEncrypted(output, metadata, "battery staple".toCharArray())
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        var reads = 0
+        server.createContext("/drive/v3/files/copy") { exchange ->
+            reads++
+            val bytes = output.toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+        try {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val drive = dev.whekin.whfin.data.drive.DriveBackupManager(context, db,
+                dev.whekin.whfin.data.drive.DriveBackupClient("http://127.0.0.1:${server.address.port}"))
+            val prepared = drive.prepareRestore("synthetic-token", "copy", "battery staple".toCharArray())
+            assertEquals(1, prepared.preview.transactionCount)
+            assertEquals(-1234L, db.transactionDao().byId(txId)?.amountMinor)
+            db.transactionDao().delete(txId)
+            drive.restore(prepared)
+            assertEquals(-1234L, db.transactionDao().byId(txId)?.amountMinor)
+            assertEquals(1, reads)
+        } finally { server.stop(0) }
+    }
+
+    @Test fun previewDoesNotWriteAndRestoreUsesExactlyThePreparedRows() = runBlocking {
+        val output = ByteArrayOutputStream()
+        manager.exportEncrypted(output, metadata, "battery staple".toCharArray())
+        val prepared = manager.prepareRestore(ByteArrayInputStream(output.toByteArray()), "battery staple".toCharArray())
+        assertEquals(1, prepared.preview.accountCount)
+        assertEquals(1, prepared.preview.transactionCount)
+        assertEquals(1_700_000_000_000, prepared.preview.historyFrom)
+        assertEquals(-1234L, db.transactionDao().byId(txId)?.amountMinor)
+        db.transactionDao().delete(txId)
+        // No URI or password is needed again: the confirmed snapshot owns the exact reviewed content.
+        manager.restore(prepared)
+        assertEquals(-1234L, db.transactionDao().byId(txId)?.amountMinor)
+    }
+
     @Test
     fun encryptedRoundtripRestoresEveryRow() = runBlocking {
         val output = ByteArrayOutputStream()

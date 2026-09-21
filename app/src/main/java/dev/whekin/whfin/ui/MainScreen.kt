@@ -361,6 +361,7 @@ fun MainScreen(
     // "Review all" is a request, not a state: applied once when the record opens, so a later visit
     // keeps whatever filter the reader last chose.
     var historyReviewKey by rememberSaveable { mutableIntStateOf(0) }
+    var historyWaitingKey by rememberSaveable { mutableIntStateOf(0) }
     /** A row the reader asked to see by id — from a Data health finding, not from the ledger. */
     var openTransactionId by rememberSaveable { mutableStateOf<Long?>(null) }
     var secondaryDestination by rememberSaveable { mutableStateOf<SecondaryDestination?>(null) }
@@ -538,6 +539,7 @@ fun MainScreen(
                                         onDismissSetupInvitation = onDismissSetupInvitation,
                                         onOpenAnalytics = { root = RootDestination.Analytics },
                                         onOpenHistory = { root = RootDestination.Transactions },
+                                        onWaitingBank = { historyWaitingKey += 1; root = RootDestination.Transactions },
                                         onReviewAll = {
                                             historyReviewKey += 1
                                             root = RootDestination.Transactions
@@ -560,6 +562,8 @@ fun MainScreen(
                                         onEnableSms = {},
                                         onDismissSmsOnboarding = {},
                                         reviewRequestKey = historyReviewKey,
+                                        waitingRequestKey = historyWaitingKey,
+                                        onWaitingRequestConsumed = { historyWaitingKey = 0 },
                                         onReviewRequestConsumed = { historyReviewKey = 0 },
                                         openTransactionId = openTransactionId,
                                         onOpenTransactionConsumed = { openTransactionId = null },
@@ -890,13 +894,15 @@ private fun ShellComposer(viewModel: FeedViewModel, onDismiss: () -> Unit) {
             suggester?.rankCategories(list, amountMinor?.let { -kotlin.math.abs(it) }, currency) ?: list
         }
     }
+    val formState by viewModel.formSaveState.collectAsState()
     AddTransactionSheet(
+        formState = formState,
         accounts = accounts,
         categories = categories,
         people = people,
         onDismiss = onDismiss,
-        onSave = { manual -> viewModel.addManual(manual); onDismiss() },
-        onSaveDebt = { debt -> viewModel.addDebt(debt); onDismiss() },
+        onSave = { manual -> viewModel.addManual(manual) },
+        onSaveDebt = { debt -> viewModel.addDebt(debt) },
         onCreateCategory = viewModel::createCategory,
         onCreateCashCurrency = viewModel::createCashCurrency,
         rankCategories = rankCategories,

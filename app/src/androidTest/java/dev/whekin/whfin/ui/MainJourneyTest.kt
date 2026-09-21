@@ -55,6 +55,7 @@ class MainJourneyTest {
         repeat(7) {
             if (device.hasObject(shellTab)) return
             val finish = device.findObject(By.text(context.getString(R.string.personal_setup_continue_action)))
+                ?: device.findObject(By.text(context.getString(R.string.setup_continue_unchecked)))
             if (finish != null) { finish.click(); return }
             setupStep(device, context, R.string.setup_next)
         }

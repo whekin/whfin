@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,6 +47,8 @@ import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFormSheet
+import dev.whekin.whfin.data.backup.PreparedWhfinRestore
+import dev.whekin.whfin.data.backup.WhfinBackupPreview
 import dev.whekin.whfin.data.backup.RestoreSafetyBackup
 import dev.whekin.whfin.data.backup.WhfinBackupManager
 import dev.whekin.whfin.data.backup.WhfinBackupMetadata
@@ -67,6 +68,7 @@ import kotlinx.coroutines.withContext
 internal sealed interface BackupUiState {
     data object Idle : BackupUiState
     data object Exporting : BackupUiState
+    data object Inspecting : BackupUiState
     data object Restoring : BackupUiState
     data class Exported(val rowCount: Int) : BackupUiState
     data class Restored(val rowCount: Int) : BackupUiState
@@ -74,7 +76,7 @@ internal sealed interface BackupUiState {
     data object Error : BackupUiState
 }
 
-internal data class PendingRestore(val uri: Uri, val encrypted: Boolean)
+internal data class PendingRestore(val preview: WhfinBackupPreview)
 
 @Composable
 fun BackupRoute(appVersion: String) {
@@ -91,6 +93,7 @@ fun BackupRoute(appVersion: String) {
     val scope = (context as ComponentActivity).lifecycleScope
     var uiState by remember { mutableStateOf<BackupUiState>(BackupUiState.Idle) }
     var pendingRestore by remember { mutableStateOf<PendingRestore?>(null) }
+    var preparedRestore by remember { mutableStateOf<PreparedWhfinRestore?>(null) }
     var exportPassphraseSheet by remember { mutableStateOf(false) }
     // Живёт только между вводом passphrase и завершением записи файла.
     var exportPassphrase by remember { mutableStateOf<CharArray?>(null) }
@@ -153,46 +156,49 @@ fun BackupRoute(appVersion: String) {
         }
     }
 
-    val chooseBackup = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri != null) scope.launch {
-            val encrypted = runCatching {
-                withContext(Dispatchers.IO) {
-                    resolver.openInputStream(uri)?.use { manager.isEncrypted(it) } ?: false
+    fun prepare(uri: Uri, passphrase: CharArray?) {
+        if (uiState == BackupUiState.Inspecting) { passphrase?.fill('\u0000'); return }
+        uiState = BackupUiState.Inspecting
+        scope.launch {
+            try {
+                val prepared = withContext(Dispatchers.IO) {
+                    resolver.openInputStream(uri)?.use { manager.prepareRestore(it, passphrase) }
+                        ?: error("Could not open backup")
                 }
-            }.getOrDefault(false)
-            pendingRestore = PendingRestore(uri, encrypted)
+                preparedRestore = prepared
+                pendingRestore = PendingRestore(prepared.preview)
+                restorePassphraseFor = null
+                restorePassphraseError = false
+                uiState = BackupUiState.Idle
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (error: Exception) {
+                if (error is WhfinBackupPassphraseException) {
+                    restorePassphraseFor = uri
+                    restorePassphraseError = passphrase != null
+                    uiState = BackupUiState.Idle
+                } else {
+                    restorePassphraseFor = null
+                    uiState = BackupUiState.Error
+                }
+            } finally { passphrase?.fill('\u0000') }
         }
     }
 
-    fun restore(uri: Uri, passphrase: CharArray?) {
+    val chooseBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) prepare(uri, null)
+    }
+
+    fun restore(prepared: PreparedWhfinRestore) {
+        uiState = BackupUiState.Restoring
         scope.launch {
-            uiState = BackupUiState.Restoring
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    resolver.openInputStream(uri)?.use { input -> manager.restore(input, passphrase) }
-                        ?: error("Could not open the selected backup file.")
-                }
+            try {
+                val result = manager.restore(prepared)
+                safetyCopy = safetyBackup.latest()
+                uiState = BackupUiState.Restored(result.rowCount)
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (error: Exception) {
+                uiState = if (error is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error
             }
-            passphrase?.fill('\u0000')
-            result.fold(
-                onSuccess = {
-                    restorePassphraseFor = null
-                    restorePassphraseError = false
-                    safetyCopy = safetyBackup.latest()
-                    uiState = BackupUiState.Restored(it.rowCount)
-                },
-                onFailure = { error ->
-                    if (error is WhfinBackupPassphraseException && restorePassphraseFor != null) {
-                        // Пароль не подошёл: остаёмся в диалоге с ошибкой, состояние не трогаем.
-                        restorePassphraseError = true
-                        uiState = BackupUiState.Idle
-                    } else {
-                        uiState = if (error is dev.whekin.whfin.data.backup.LedgerBusyException) BackupUiState.Busy else BackupUiState.Error
-                    }
-                },
-            )
         }
     }
 
@@ -210,19 +216,13 @@ fun BackupRoute(appVersion: String) {
         },
         onRestore = { chooseBackup.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
         onConfirmRestore = {
-            pendingRestore?.let { pending ->
+            preparedRestore?.let { prepared ->
                 pendingRestore = null
-                sensitive.require(SensitiveAction.BackupRestore) {
-                    if (pending.encrypted) {
-                        restorePassphraseError = false
-                        restorePassphraseFor = pending.uri
-                    } else {
-                        restore(pending.uri, passphrase = null)
-                    }
-                }
+                preparedRestore = null
+                sensitive.require(SensitiveAction.BackupRestore) { restore(prepared) }
             }
         },
-        onDismissRestore = { pendingRestore = null },
+        onDismissRestore = { pendingRestore = null; preparedRestore = null },
         safetyCopyTakenAt = safetyCopy?.takenAt,
         onUndoRestore = { sensitive.require(SensitiveAction.BackupRestore) { confirmUndo = true } },
     )
@@ -280,14 +280,15 @@ fun BackupRoute(appVersion: String) {
         BackupPassphraseSheet(
             title = stringResource(R.string.backup_restore_passphrase_title),
             body = stringResource(R.string.backup_restore_passphrase_body),
-            primaryLabel = stringResource(R.string.backup_restore_start),
+            primaryLabel = stringResource(R.string.action_continue),
+            busy = uiState == BackupUiState.Inspecting,
             requireConfirmation = false,
             errorText = if (restorePassphraseError) stringResource(R.string.backup_wrong_passphrase) else null,
             onDismiss = {
                 restorePassphraseFor = null
                 restorePassphraseError = false
             },
-            onSubmit = { passphrase -> restore(uri, passphrase) },
+            onSubmit = { passphrase -> prepare(uri, passphrase) },
         )
     }
 }
@@ -301,6 +302,7 @@ internal fun BackupPassphraseSheet(
     errorText: String?,
     onDismiss: () -> Unit,
     onSubmit: (CharArray) -> Unit,
+    busy: Boolean = false,
 ) {
     var passphrase by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
@@ -309,9 +311,9 @@ internal fun BackupPassphraseSheet(
     val valid = passphrase.length >= 6 && (!requireConfirmation || passphrase == repeat)
     WhfinFormSheet(
         title = title,
-        onDismiss = onDismiss,
+        onDismiss = { if (!busy) onDismiss() },
         primaryLabel = primaryLabel,
-        primaryEnabled = valid,
+        primaryEnabled = !busy && valid,
         onPrimary = { onSubmit(passphrase.toCharArray()) },
     ) {
         Text(
@@ -361,7 +363,7 @@ internal fun BackupScreen(
     safetyCopyTakenAt: Instant? = null,
     onUndoRestore: () -> Unit = {},
 ) {
-    val working = uiState == BackupUiState.Exporting || uiState == BackupUiState.Restoring
+    val working = uiState == BackupUiState.Exporting || uiState == BackupUiState.Restoring || uiState == BackupUiState.Inspecting
     Column(
         Modifier
             .fillMaxSize()
@@ -445,6 +447,7 @@ internal fun BackupScreen(
 
         when (uiState) {
             BackupUiState.Idle -> Unit
+            BackupUiState.Inspecting -> Text(stringResource(R.string.backup_reading))
             BackupUiState.Exporting -> WhfinNotice(
                 title = stringResource(R.string.backup_exporting_title),
                 body = stringResource(R.string.backup_exporting_body),
@@ -484,30 +487,10 @@ internal fun BackupScreen(
         }
     }
 
-    if (pendingRestore != null) AlertDialog(
-        onDismissRequest = onDismissRestore,
-        title = { Text(stringResource(R.string.backup_restore_confirm_title)) },
-        text = {
-            Text(
-                stringResource(R.string.backup_restore_confirm_body) +
-                    if (pendingRestore.encrypted) "\n\n" + stringResource(R.string.backup_restore_encrypted_hint) else "",
-            )
-        },
-        confirmButton = {
-            WhfinButton(
-                label = stringResource(R.string.backup_restore_confirm_action),
-                onClick = onConfirmRestore,
-                style = WhfinActionStyle.Destructive,
-            )
-        },
-        dismissButton = {
-            WhfinButton(
-                label = stringResource(R.string.action_cancel),
-                onClick = onDismissRestore,
-                style = WhfinActionStyle.Quiet,
-            )
-        },
-    )
+    pendingRestore?.let { pending ->
+        BackupRestorePreview(pending.preview, onConfirmRestore, onDismissRestore)
+    }
+
 }
 
 @Preview(name = "Backup light", widthDp = 400, heightDp = 800, showBackground = true)
@@ -529,4 +512,24 @@ private fun BackupScreenPreview() {
             )
         }
     }
+}
+
+@Composable
+internal fun BackupRestorePreview(preview: WhfinBackupPreview, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
+    val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+    val created = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale)
+        .format(preview.summary.exportedAt.atZone(ZoneId.systemDefault()))
+    val range = if (preview.historyFrom != null && preview.historyTo != null) {
+        date.format(Instant.ofEpochMilli(preview.historyFrom).atZone(ZoneId.systemDefault())) + " – " +
+            date.format(Instant.ofEpochMilli(preview.historyTo).atZone(ZoneId.systemDefault()))
+    } else stringResource(R.string.backup_no_history)
+    WhfinConfirmDialog(
+        title = stringResource(R.string.backup_restore_confirm_title),
+        body = stringResource(R.string.backup_preview_contents, created, preview.accountCount, preview.transactionCount, range) +
+            "\n\n" + stringResource(R.string.backup_preview_replaces),
+        confirmLabel = stringResource(R.string.backup_restore_confirm_action),
+        dismissLabel = stringResource(R.string.action_cancel),
+        onConfirm = onConfirm, onDismiss = onDismiss,
+    )
 }

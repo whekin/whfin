@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.ui.FormSaver
 import dev.whekin.whfin.data.mutation.canDeleteLocally
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -310,6 +311,8 @@ private fun linkAutoConversions(items: List<FeedItem>, zone: ZoneId): List<FeedI
 }
 
 class FeedViewModel(app: Application) : AndroidViewModel(app) {
+    private val formSaver = FormSaver(viewModelScope)
+    val formSaveState = formSaver.state
 
     private val db = (app as WhfinApp).db
     private val debtRepository = dev.whekin.whfin.data.debt.DebtRepository(db)
@@ -665,26 +668,28 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addManual(tx: ManualTransaction) {
-        mutate {
-            // Сегодняшняя запись получает текущее время, вчерашняя — полдень,
-            // чтобы не прыгать в начало дня в ленте
-            val time = if (tx.day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
-            val merchant = resolveCounterparty(tx.counterparty)
-            transactionMutations.createManual(
-                ManualMutation(
-                    accountId = tx.accountId,
-                    amountMinor = tx.amountMinor,
-                    destinationAccountId = tx.destinationAccountId,
-                    destinationAmountMinor = tx.destinationAmountMinor,
-                    categoryId = tx.categoryId,
-                    note = tx.note,
-                    occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli(),
-                    merchantId = merchant?.id,
-                    rawCounterparty = tx.counterparty?.trim()?.takeIf(String::isNotEmpty),
-                ),
-                beneficiary = tx.beneficiary,
-            )
-            learnCounterparty(merchant, tx.categoryId)
+        formSaver.save {
+            db.withTransaction {
+                // Сегодняшняя запись получает текущее время, вчерашняя — полдень,
+                // чтобы не прыгать в начало дня в ленте
+                val time = if (tx.day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
+                val merchant = resolveCounterparty(tx.counterparty)
+                transactionMutations.createManual(
+                    ManualMutation(
+                        accountId = tx.accountId,
+                        amountMinor = tx.amountMinor,
+                        destinationAccountId = tx.destinationAccountId,
+                        destinationAmountMinor = tx.destinationAmountMinor,
+                        categoryId = tx.categoryId,
+                        note = tx.note,
+                        occurredAt = tx.day.atTime(time).atZone(zone).toInstant().toEpochMilli(),
+                        merchantId = merchant?.id,
+                        rawCounterparty = tx.counterparty?.trim()?.takeIf(String::isNotEmpty),
+                    ),
+                    beneficiary = tx.beneficiary,
+                )
+                learnCounterparty(merchant, tx.categoryId)
+            }
         }
     }
 
@@ -711,7 +716,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addDebt(debt: dev.whekin.whfin.data.debt.NewDebt) {
-        mutate { debtRepository.open(debt) }
+        formSaver.save { debtRepository.open(debt) }
     }
 
     fun resolveUnrouted(
@@ -808,25 +813,27 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateManual(item: FeedItem, value: ManualTransaction) {
         if (item.tx.source != TxSource.MANUAL) return
-        mutate {
-            val oldTime = Instant.ofEpochMilli(item.tx.occurredAt).atZone(zone).toLocalTime()
-            val occurredAt = value.day.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
-            val merchant = resolveCounterparty(value.counterparty)
-            transactionMutations.updateManual(
-                item.tx.id,
-                ManualMutation(
-                    accountId = value.accountId,
-                    amountMinor = value.amountMinor,
-                    destinationAccountId = value.destinationAccountId,
-                    destinationAmountMinor = value.destinationAmountMinor,
-                    categoryId = value.categoryId,
-                    note = value.note,
-                    occurredAt = occurredAt,
-                    merchantId = merchant?.id,
-                    rawCounterparty = value.counterparty?.trim()?.takeIf(String::isNotEmpty),
-                ),
-            )
-            learnCounterparty(merchant, value.categoryId)
+        formSaver.save {
+            db.withTransaction {
+                val oldTime = Instant.ofEpochMilli(item.tx.occurredAt).atZone(zone).toLocalTime()
+                val occurredAt = value.day.atTime(oldTime).atZone(zone).toInstant().toEpochMilli()
+                val merchant = resolveCounterparty(value.counterparty)
+                transactionMutations.updateManual(
+                    item.tx.id,
+                    ManualMutation(
+                        accountId = value.accountId,
+                        amountMinor = value.amountMinor,
+                        destinationAccountId = value.destinationAccountId,
+                        destinationAmountMinor = value.destinationAmountMinor,
+                        categoryId = value.categoryId,
+                        note = value.note,
+                        occurredAt = occurredAt,
+                        merchantId = merchant?.id,
+                        rawCounterparty = value.counterparty?.trim()?.takeIf(String::isNotEmpty),
+                    ),
+                )
+                learnCounterparty(merchant, value.categoryId)
+            }
         }
     }
 

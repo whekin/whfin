@@ -129,6 +129,7 @@ fun WhfinWorkspaceStrip(
     icon: ImageVector? = null,
     enabled: Boolean = true,
     problem: String? = null,
+    compact: Boolean = false,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -156,7 +157,8 @@ fun WhfinWorkspaceStrip(
                 // completely; silently losing "data" makes the remaining label meaningless.
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (problem == null) "$title · $supportingText" else title,
+                        if (problem == null && !compact) "$title · $supportingText" else title,
+                        modifier = if (compact) Modifier.semantics { contentDescription = "$title · $supportingText" } else Modifier,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = Int.MAX_VALUE,
                     )

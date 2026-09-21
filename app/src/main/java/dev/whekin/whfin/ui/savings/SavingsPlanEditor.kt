@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.savings
 
+import dev.whekin.whfin.ui.FormSaveState
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -34,12 +35,13 @@ import java.time.ZoneOffset
 internal fun SavingsPlanEditor(
     plan: SavingsPlanEntity?, currency: String, balanceMinor: Long,
     onDismiss: () -> Unit, onSave: (Long, Long?, LocalDate?) -> Unit, onClear: (() -> Unit)?,
+    formState: FormSaveState = FormSaveState(),
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = { if (!formState.busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         WhfinDialogSystemBars(darkTheme = MaterialTheme.colorScheme.background.luminance() < .5f)
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             DemoWorkspaceFrame {
-                SavingsPlanEditorContent(plan, currency, balanceMinor, LocalDate.now(), onDismiss, onSave, onClear)
+                SavingsPlanEditorContent(plan, currency, balanceMinor, LocalDate.now(), onDismiss, onSave, onClear, formState)
             }
         }
     }
@@ -50,6 +52,7 @@ internal fun SavingsPlanEditor(
 internal fun SavingsPlanEditorContent(
     plan: SavingsPlanEntity?, currency: String, balanceMinor: Long, today: LocalDate,
     onDismiss: () -> Unit, onSave: (Long, Long?, LocalDate?) -> Unit, onClear: (() -> Unit)?,
+    formState: FormSaveState = FormSaveState(),
 ) {
     var monthlyText by rememberSaveable(plan?.id) { mutableStateOf(plan?.monthlyTargetMinor?.moneyInput().orEmpty()) }
     var goalText by rememberSaveable(plan?.id) { mutableStateOf(plan?.goalMinor?.moneyInput().orEmpty()) }
@@ -60,7 +63,7 @@ internal fun SavingsPlanEditorContent(
     val targetDate = goalDay?.let(LocalDate::ofEpochDay)
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
-    val close = { if (calendar) calendar = false else onDismiss() }
+    val close = { if (formState.busy) Unit else if (calendar) calendar = false else onDismiss() }
     val gesture = rememberWhfinBackGesture(enabled = true, onBack = close)
 
     Box(Modifier.fillMaxSize().whfinPredictiveBack(gesture)) {
@@ -91,10 +94,11 @@ internal fun SavingsPlanEditorContent(
         } else key("editor") {
             WhfinFullScreenForm(
                 title = stringResource(R.string.savings_plan_edit), closeDescription = stringResource(R.string.action_cancel),
-                onClose = onDismiss, primaryLabel = stringResource(R.string.action_save),
-                primaryEnabled = monthly != null && (goalText.isBlank() || goal != null),
+                onClose = { if (!formState.busy) onDismiss() }, primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+                primaryEnabled = !formState.busy && monthly != null && (goalText.isBlank() || goal != null),
                 onPrimary = { onSave(requireNotNull(monthly), goal, targetDate.takeIf { goal != null }) },
             ) {
+                if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
                 WhfinField(monthlyText, { monthlyText = it.take(14) }, stringResource(R.string.savings_plan_monthly_amount),
                     suffix = currencySymbol(currency), keyboardType = KeyboardType.Decimal, modifier = Modifier.testTag("savings-monthly-input"))
                 WhfinField(goalText, { goalText = it.take(14) }, stringResource(R.string.savings_plan_goal_amount),
@@ -116,7 +120,7 @@ internal fun SavingsPlanEditorContent(
                 )
                 Text(stringResource(R.string.savings_plan_effective), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                onClear?.let { WhfinButton(stringResource(R.string.savings_plan_pause), it, style = WhfinActionStyle.Secondary) }
+                onClear?.let { WhfinButton(stringResource(R.string.savings_plan_pause), it, enabled = !formState.busy, style = WhfinActionStyle.Secondary) }
             }
         }
     }

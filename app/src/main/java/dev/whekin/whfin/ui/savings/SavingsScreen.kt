@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.savings
 
+import dev.whekin.whfin.ui.OnFormSaved
+import dev.whekin.whfin.ui.FormSaveState
 import dev.whekin.whfin.ui.bank.SupportedBankApp
 import dev.whekin.whfin.ui.bank.launchBank
 
@@ -83,7 +85,9 @@ fun SavingsRoute(viewModel: SavingsViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val demoWorkspace = isDemoWorkspaceActive()
+    val formState by viewModel.formSaveState.collectAsState()
     SavingsScreen(
+        formState = formState,
         data = state?.let { if (demoWorkspace) it.copy(bankApps = emptyList()) else it },
         onSavePlan = viewModel::savePlan,
         onClearPlan = viewModel::clearPlan,
@@ -99,6 +103,7 @@ internal fun SavingsScreen(
     onClearPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit = {},
     onOpenBank: (SupportedBankApp) -> Boolean = { false },
+    formState: FormSaveState = FormSaveState(),
 ) {
     var editingPlan by rememberSaveable { mutableStateOf(false) }
     if (data == null) {
@@ -121,19 +126,19 @@ internal fun SavingsScreen(
 
     SavingsContent(data = data, onEditPlan = { editingPlan = true }, onSelectCurrency = onSelectCurrency, onOpenBank = onOpenBank)
 
+    OnFormSaved(formState) { editingPlan = false }
     if (editingPlan) SavingsPlanEditor(
+        formState = formState,
         plan = data.currentPlan,
         currency = data.currency,
         balanceMinor = data.currentReserveMinor,
         onDismiss = { editingPlan = false },
         onSave = { monthly, goal, goalBy ->
             onSavePlan(monthly, goal, goalBy)
-            editingPlan = false
         },
         onClear = data.currentPlan?.let {
             {
                 onClearPlan()
-                editingPlan = false
             }
         },
     )

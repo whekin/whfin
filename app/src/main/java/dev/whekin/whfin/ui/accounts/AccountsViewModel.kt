@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.FormSaver
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -129,6 +130,8 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
     private val debtRepository = DebtRepository(db)
     private val transactionMutations = TransactionMutationModule(db)
+    private val formSaver = FormSaver(viewModelScope)
+    val formSaveState = formSaver.state
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
@@ -325,21 +328,23 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openDebt(input: NewDebt) = viewModelScope.launch {
+    fun openDebt(input: NewDebt) = formSaver.save {
         runCatching { debtRepository.open(input) }
             .onSuccess { _message.value = getApplication<Application>().getString(R.string.debt_added) }
             .onFailure {
                 if (it is kotlinx.coroutines.CancellationException) throw it
                 _message.value = getApplication<Application>().getString(R.string.debt_save_failed)
+                throw it
             }
     }
 
-    fun settleDebt(input: DebtSettlement) = viewModelScope.launch {
+    fun settleDebt(input: DebtSettlement) = formSaver.save {
         runCatching { debtRepository.settle(input) }
             .onSuccess { _message.value = getApplication<Application>().getString(if (input.close) R.string.debt_closed_message else R.string.debt_repayment_added) }
             .onFailure {
                 if (it is kotlinx.coroutines.CancellationException) throw it
                 _message.value = getApplication<Application>().getString(R.string.debt_save_failed)
+                throw it
             }
     }
 
@@ -347,34 +352,29 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
      * A watch-only wallet is added by address alone: which assets it holds is a question for the
      * chain, not for the person, so the ledgers appear from the reading.
      */
-    fun addCryptoWallet(name: String?, network: CryptoNetwork, address: String) {
-        if (_cryptoRefreshing.value || getApplication<WhfinApp>().isDemoMode) return
-        viewModelScope.launch {
-            _cryptoRefreshing.value = true
-            val app = getApplication<Application>()
-            val result = withContext(Dispatchers.IO) {
-                // A wallet without prices reads as a bare token count, so quotes come along.
-                runCatching { ratesRepository.refreshIfStale() }
-                runCatching { walletRepository.addWallet(name, network, address) }
+    fun addCryptoWallet(name: String?, network: CryptoNetwork, address: String) = formSaver.save {
+        check(!_cryptoRefreshing.value && !getApplication<WhfinApp>().isDemoMode)
+        _cryptoRefreshing.value = true
+        val outcome = try {
+            withContext(Dispatchers.IO) {
+                // Quotes are optional; cancellation is not a failed quote.
+                try { ratesRepository.refreshIfStale() }
+                catch (error: kotlinx.coroutines.CancellationException) { throw error }
+                catch (_: Exception) { }
+                walletRepository.addWallet(name, network, address)
             }
-            _cryptoRefreshing.value = false
-            _message.value = result.fold(
-                onSuccess = { outcome ->
-                    when (outcome) {
-                        is CryptoWalletRepository.AddResult.InvalidAddress -> when (outcome.problem) {
-                            CryptoAddressValidator.Problem.CHECKSUM ->
-                                app.getString(R.string.account_address_checksum)
-                            else -> app.getString(R.string.account_address_invalid, network.displayName)
-                        }
-                        CryptoWalletRepository.AddResult.UnsupportedNetwork ->
-                            app.getString(R.string.account_asset_unsupported)
-                        is CryptoWalletRepository.AddResult.Tracked -> walletAddedMessage(outcome)
-                    }
-                },
-                onFailure = { app.getString(R.string.crypto_wallet_add_failed) },
-            )
-            if (result.getOrNull() is CryptoWalletRepository.AddResult.Tracked) refreshCryptoBalances()
+        } finally { _cryptoRefreshing.value = false }
+        val app = getApplication<Application>()
+        _message.value = when (outcome) {
+            is CryptoWalletRepository.AddResult.InvalidAddress -> when (outcome.problem) {
+                CryptoAddressValidator.Problem.CHECKSUM -> app.getString(R.string.account_address_checksum)
+                else -> app.getString(R.string.account_address_invalid, network.displayName)
+            }
+            CryptoWalletRepository.AddResult.UnsupportedNetwork -> app.getString(R.string.account_asset_unsupported)
+            is CryptoWalletRepository.AddResult.Tracked -> walletAddedMessage(outcome)
         }
+        check(outcome is CryptoWalletRepository.AddResult.Tracked) { "Wallet was not added" }
+        refreshCryptoBalances()
     }
 
     /**
@@ -418,7 +418,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         openingMinor: Long? = null,
         bankProduct: BankProduct? = null,
     ) {
-        viewModelScope.launch {
+        formSaver.save {
             db.withTransaction {
                 val normalizedCurrency = currency.trim().uppercase()
                 val normalizedName = if (type == AccountType.CASH) name.trim().ifBlank { "Cash" } else name.trim()
@@ -439,7 +439,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                         )
                         openingMinor?.let { desired ->
                             val current = db.transactionDao().sumByAccount(existingCash.id)
-                            val delta = desired - current
+                            val delta = Math.subtractExact(desired, current)
                             if (delta == 0L) return@let
                             transactionMutations.createOpeningBalance(
                                 accountId = existingCash.id,
@@ -482,7 +482,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         address: String?,
         fundRole: FundRole,
     ) {
-        viewModelScope.launch {
+        formSaver.save {
             val normalizedName = name.trim().ifBlank { if (account.type == AccountType.CASH) "Cash" else account.name }
             val groupId = account.groupId
             val iban = account.iban
@@ -501,7 +501,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                         db.accountDao().update(account.copy(name = normalizedName))
                     }
                 }
-                return@launch
+                return@save
             }
             // A bank/IBAN is the user-facing container. Name and fund role are the owner's
             // profile fields; bank product belongs exclusively to Bank details and must survive
@@ -537,7 +537,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         virtualCards: List<String>,
         primaryLast4: String?,
     ) {
-        viewModelScope.launch {
+        formSaver.save {
             try {
                 require(accounts.isNotEmpty())
                 val normalizedName = name.trim().ifBlank { accounts.first().name }
@@ -583,6 +583,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 _message.value = getApplication<Application>().getString(R.string.bank_details_save_failed)
+                throw e
             }
         }
     }

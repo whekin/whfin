@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.feed
 
+import dev.whekin.whfin.ui.OnFormSaved
+import dev.whekin.whfin.ui.FormSaveState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -160,7 +162,9 @@ fun AddTransactionSheet(
     rankCategories: CategoryRanker = { list, _, _ -> list },
     /** Everyone the ledger already knows, unranked; the form ranks them against its own state. */
     counterparties: List<CounterpartyProfile> = emptyList(),
+    formState: FormSaveState = FormSaveState(),
 ) {
+    OnFormSaved(formState, onDismiss)
     val sources = remember(accounts) { accountSources(accounts) }
     val initial = remember(accounts) { defaultManualAccount(accounts) }
     val editingKind = when {
@@ -231,7 +235,7 @@ fun AddTransactionSheet(
         && (kind != ManualKind.DEBT || debtPersonId != null || debtPersonName.isNotBlank())
     val dirty = amountText.isNotBlank() || destinationAmount.isNotBlank() || categoryId != null || note.isNotBlank() ||
         day != LocalDate.now() || kind != initialKind || counterparty.isNotBlank() || beneficiary != null
-    val requestClose = { if (dirty) confirmDiscard = true else onDismiss() }
+    val requestClose = { if (formState.busy) Unit else if (dirty) confirmDiscard = true else onDismiss() }
     val requestDialogDismiss = {
         when {
             showBeneficiary -> showBeneficiary = false
@@ -242,7 +246,7 @@ fun AddTransactionSheet(
     }
 
     fun save() {
-        if (!valid) return
+        if (!valid || formState.busy) return
         val savedAmountMinor = amountMinor
         if (kind == ManualKind.DEBT) {
             val time = if (day == LocalDate.now()) LocalTime.now() else LocalTime.NOON
@@ -413,12 +417,15 @@ fun AddTransactionSheet(
                     }
                 }
                 Surface(shadowElevation = 3.dp, color = MaterialTheme.colorScheme.background) {
+                    Column {
+                    if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 20.dp))
                     WhfinButton(
-                        label = stringResource(if (editing == null) R.string.action_save else R.string.action_save_changes),
+                        label = stringResource(if (formState.busy) R.string.form_saving else if (editing == null) R.string.action_save else R.string.action_save_changes),
                         onClick = ::save,
-                        enabled = valid,
+                        enabled = valid && !formState.busy,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                     )
+                    }
                 }
                 }
             }

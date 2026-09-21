@@ -51,7 +51,7 @@ never prevents adding another.
 5. **Savings and debts**: savings pace and goals for reserves, existing debts including declarations
    without a new money movement.
 6. **Preferences**: appearance, quick entry and widget choices, PIN/biometrics and portable backup.
-7. **Ready**: recorded account count and direct return to any setup stage; no invented completion marks
+7. **Ready**: per-currency balance review and a collapsed return to any setup stage; no invented completion marks
    for banks or permissions. Skipped features remain accessible in the normal application.
 
 The current stage is stored with installation-local runtime flags and excluded from backup. Activity
@@ -146,3 +146,21 @@ Its hierarchy is:
 
 Every UI slice requires light/dark, RU/EN, font scale 1.5, compact-height, disposable-emulator behavior,
 and data-preserving `install -r` only on the physical OnePlus.
+
+
+## Compact setup and balance review — 0.3.67
+
+Stage rows report saved facts (account/income/plan counts, imported history, configured PIN). A bank
+ledger alone is not called a successful connection. Routine explanations are one sentence; the final
+review omits the introductory paragraph and keeps the step list collapsed.
+
+The final review reads related data in one Room transaction, with explicit loading and failure states.
+Each currency ledger has its current total and dated bank evidence. The comparison uses the latest
+imported closing balance at that day's cutoff, excludes bank holds, and never infers discrepancies
+from ordering within a bank day. A user-created opening is not independent bank evidence. Crypto
+uses the last observed on-chain balance and observation time, not the sum of imported transfers.
+
+“Checked by me” is an explicit owner action in the expanded account row. A fingerprint of financial
+rows and evidence invalidates that mark when amounts or provenance change; categorising the same
+payment does not. Marks live in runtime flags outside backups and are cleared on restore. Unchecked
+balances can be skipped explicitly; this never certifies a connection or silently changes money.

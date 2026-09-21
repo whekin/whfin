@@ -34,6 +34,27 @@ data class WhfinBackupSummary(
     val rowCount: Int,
 )
 
+data class WhfinBackupPreview(
+    val summary: WhfinBackupSummary,
+    val accountCount: Int,
+    val transactionCount: Int,
+    val historyFrom: Long?,
+    val historyTo: Long?,
+)
+
+class PreparedWhfinRestore internal constructor(internal val snapshot: BackupSnapshot) {
+    val preview: WhfinBackupPreview = run {
+        val accounts = snapshot.rowsByTable.getValue("accounts").filter {
+            (it["type"] as? BackupValue.Text)?.value != "PERSON"
+        }
+        val transactions = snapshot.rowsByTable.getValue("transactions").filter {
+            (it["isVoided"] as? BackupValue.Integer)?.value != 1L
+        }
+        val dates = transactions.mapNotNull { (it["occurredAt"] as? BackupValue.Integer)?.value }
+        WhfinBackupPreview(snapshot.summary, accounts.size, transactions.size, dates.minOrNull(), dates.maxOrNull())
+    }
+}
+
 class WhfinBackupException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
@@ -73,33 +94,32 @@ class WhfinBackupManager(
         WhfinEncryptedBackupEnvelope.detect(input).second
     }
 
-    suspend fun restore(input: InputStream, passphrase: CharArray? = null): WhfinBackupSummary =
+    /** Parse and validate once; confirmation restores this exact snapshot, even if the URI changes. */
+    suspend fun prepareRestore(input: InputStream, passphrase: CharArray? = null): PreparedWhfinRestore =
         withContext(Dispatchers.IO) {
-            // Screens stay alive while the tables are emptied and refilled, so they are told that an
-            // empty answer from Room means "being replaced" rather than "nothing recorded".
-            LedgerRestoreState.during {
             val (stream, encrypted) = WhfinEncryptedBackupEnvelope.detect(input)
             val plain = if (encrypted) {
-                if (passphrase == null) {
-                    throw WhfinBackupPassphraseException("This backup is encrypted; a passphrase is required.")
-                }
+                if (passphrase == null) throw WhfinBackupPassphraseException("A passphrase is required.")
                 WhfinEncryptedBackupEnvelope.decrypt(stream, passphrase)
-            } else {
-                stream
-            }
-            val snapshot = WhfinBackupCodec.read(plain)
-            // After the file has proven itself readable and before a single row is deleted: an
-            // unreadable file must not cost a snapshot, and a readable one must not cost the ledger.
+            } else stream
+            PreparedWhfinRestore(WhfinBackupCodec.read(plain))
+        }
+
+    suspend fun restore(input: InputStream, passphrase: CharArray? = null): WhfinBackupSummary =
+        restore(prepareRestore(input, passphrase))
+
+    suspend fun restore(prepared: PreparedWhfinRestore): WhfinBackupSummary = withContext(Dispatchers.IO) {
+        LedgerRestoreState.during {
             database.withTransaction {
-                // No incoming SMS or other writer may land between the safety copy and replacement.
                 safetyBackup?.capture(database)
-                WhfinBackupCodec.restore(database.openHelper.writableDatabase, snapshot)
+                WhfinBackupCodec.restore(database.openHelper.writableDatabase, prepared.snapshot)
             }
             database.notifyRestored()
             database.invalidationTracker.refreshAsync()
-            snapshot.summary
-            }
+            prepared.snapshot.summary
         }
+    }
+
 }
 
 internal data class BackupTable(

@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
+import dev.whekin.whfin.ui.OnFormSaved
+import dev.whekin.whfin.ui.FormSaveState
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -71,9 +73,11 @@ import dev.whekin.whfin.data.LedgerCalendar
 fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.refreshFromChain() }
+    val formState by viewModel.formSaveState.collectAsState()
     IncomeSourcesScreen(
         state = state,
         onSave = viewModel::save,
+        formState = formState,
         onEnd = viewModel::end,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refreshFromChain,
@@ -95,6 +99,7 @@ fun IncomeSourcesScreen(
     onUnlink: (CryptoBankTransfer) -> Unit = {},
     onConfirmPayment: (IncomeSourceEntity, TransactionEntity) -> Unit = { _, _ -> },
     onForgetPayment: (TransactionEntity) -> Unit = {},
+    formState: FormSaveState = FormSaveState(),
 ) {
     var editing by remember { mutableStateOf<IncomeSourceEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -283,9 +288,11 @@ fun IncomeSourcesScreen(
         }
     }
 
+    OnFormSaved(formState) { creating = false; editing = null }
     if (creating || editing != null) {
         IncomeSourceSheet(
             source = editing,
+            formState = formState,
             accounts = state.accounts,
             onDismiss = {
                 creating = false
@@ -293,19 +300,15 @@ fun IncomeSourcesScreen(
             },
             onSave = { label, amount, currency, accountId, from, to, startedOn ->
                 onSave(editing, label, amount, currency, accountId, from, to, startedOn)
-                creating = false
-                editing = null
             },
             onEnd = editing?.takeIf { it.endedOn == null }?.let { source ->
                 {
                     onEnd(source)
-                    editing = null
                 }
             },
             onDelete = editing?.let { source ->
                 {
                     onDelete(source)
-                    editing = null
                 }
             },
         )
@@ -358,10 +361,11 @@ fun IncomeSourceSheet(
     onDelete: (() -> Unit)?,
     initialLabel: String = "",
     initialCurrency: String = "USD",
+    formState: FormSaveState = FormSaveState(),
 ) {
     var label by remember { mutableStateOf(source?.label ?: initialLabel) }
     var amount by remember {
-        mutableStateOf(source?.let { (it.amountMinor / 100.0).toString() }.orEmpty())
+        mutableStateOf(source?.let { java.math.BigDecimal(it.amountMinor).movePointLeft(2).toPlainString() }.orEmpty())
     }
     var currency by remember { mutableStateOf(source?.currency ?: initialCurrency) }
     var accountId by remember { mutableStateOf(source?.accountId) }
@@ -376,9 +380,9 @@ fun IncomeSourceSheet(
         title = stringResource(
             if (source == null) R.string.income_sources_add else R.string.income_sources_edit,
         ),
-        onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = label.isNotBlank() && minor != null && minor > 0 && currency.isNotBlank() &&
+        onDismiss = { if (!formState.busy) onDismiss() },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        primaryEnabled = !formState.busy && label.isNotBlank() && minor != null && minor > 0 && currency.isNotBlank() &&
             startDate != null && (source?.endedOn == null || startDate.toEpochDay() <= source.endedOn) &&
             (source?.accountId == null || accountId == source.accountId || startDate.toEpochDay() > source.startedOn) &&
             dayFrom.toIntOrNull() in 1..31,
@@ -394,6 +398,7 @@ fun IncomeSourceSheet(
             )
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         WhfinField(
             value = label,
             onValueChange = { label = it.take(32) },
@@ -493,6 +498,7 @@ fun IncomeSourceSheet(
             WhfinButton(
                 label = stringResource(R.string.income_sources_end),
                 onClick = it,
+                enabled = !formState.busy,
                 style = WhfinActionStyle.Secondary,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -501,6 +507,7 @@ fun IncomeSourceSheet(
             WhfinButton(
                 label = stringResource(R.string.income_sources_delete),
                 onClick = it,
+                enabled = !formState.busy,
                 style = WhfinActionStyle.DestructiveSecondary,
                 modifier = Modifier.fillMaxWidth(),
             )

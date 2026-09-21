@@ -255,6 +255,7 @@ fun FeedScreen(
     onOpenHistory: () -> Unit = {},
     /** "Review all" opens the same set Home just listed, not the whole ledger. */
     onReviewAll: () -> Unit = {},
+    onWaitingBank: () -> Unit = {},
     onOpenDataHealth: () -> Unit = {},
     onOpenCredoSync: () -> Unit = {},
     onOpenTbcSync: () -> Unit = {},
@@ -267,6 +268,8 @@ fun FeedScreen(
     onAddRequestConsumed: () -> Unit = {},
     /** One-shot: open the record with the "needs a decision" filter already applied. */
     reviewRequestKey: Int = 0,
+    waitingRequestKey: Int = 0,
+    onWaitingRequestConsumed: () -> Unit = {},
     onReviewRequestConsumed: () -> Unit = {},
     /** One-shot: open this row's details, wherever it sits in the ledger. */
     openTransactionId: Long? = null,
@@ -341,6 +344,9 @@ fun FeedScreen(
             onReviewRequestConsumed()
         }
     }
+    LaunchedEffect(waitingRequestKey) {
+        if (waitingRequestKey != 0) { filter = FeedFilter.WAITING_BANK; onWaitingRequestConsumed() }
+    }
     LaunchedEffect(openTransactionId) {
         openTransactionId?.let { id ->
             // Read by id rather than searched for in the loaded window: a finding can point at a
@@ -406,6 +412,7 @@ fun FeedScreen(
             // counts it as one. A filter that dropped it would send "Review all" to a shorter list
             // than the one it was pressed from.
             FeedFilter.NEEDS_REVIEW -> true
+            FeedFilter.WAITING_BANK -> false
         }
         val haystack = listOfNotNull(
             diagnostic.counterparty,
@@ -585,6 +592,13 @@ fun FeedScreen(
             if (debtsOwed.isNotEmpty()) item(key = "debts-owed") {
                 HomeDebtsOwedRow(debtsOwed, onOpenAccounts)
             }
+            val waitingCount = items.filter(::waitingForBank).distinctBy { it.tx.transferGroupId?.let { group -> "group:$group" } ?: "tx:${it.tx.id}" }.size
+            if (waitingCount > 0) item(key = "waiting-bank") {
+                WhfinLedgerRow(title = stringResource(R.string.home_waiting_bank, waitingCount),
+                    titleColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onWaitingBank, trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForward, null) })
+            }
+
             val lowCardBalances = physicalCardBalances.filter {
                 physicalCardBalanceStatus(it.balanceMinor) != PhysicalCardBalanceStatus.Enough
             }
@@ -646,25 +660,14 @@ fun FeedScreen(
                 )
             }
 
-            if (attention.isNotEmpty()) {
-                items(attention.take(3), key = {
-                    when (it) {
-                        is FeedTimelineEntry.Transaction -> "home-pending-${it.item.tx.id}"
-                        is FeedTimelineEntry.Unrouted -> "home-unrouted-${it.operation.diagnostic.id}"
-                    }
-                }) { entry ->
-                    when (entry) {
-                        is FeedTimelineEntry.Transaction -> FeedRow(
-                            item = entry.item,
-                            onClick = { details = entry.item },
-                            onConfirmPending = { confirmPending(entry.item) },
-                        )
-                        is FeedTimelineEntry.Unrouted -> UnroutedOperationRow(
-                            operation = entry.operation,
-                            onClick = { routingFor = entry.operation },
-                        )
-                    }
-                }
+            val categoryCount = attention.count { it is FeedTimelineEntry.Transaction }
+            if (categoryCount > 0) item(key = "needs-category") {
+                WhfinLedgerRow(title = stringResource(R.string.home_needs_category, categoryCount),
+                    onClick = onReviewAll, trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForward, null) })
+            }
+            items(attention.filterIsInstance<FeedTimelineEntry.Unrouted>().take(3),
+                key = { "home-unrouted-${it.operation.diagnostic.id}" }) { entry ->
+                UnroutedOperationRow(operation = entry.operation, onClick = { routingFor = entry.operation })
             }
 
             if (recent.items.isNotEmpty()) {
@@ -876,17 +879,18 @@ fun FeedScreen(
         }
     }
 
+    val formState by viewModel.formSaveState.collectAsState()
     if (showAdd) {
         AddTransactionSheet(
+            formState = formState,
             accounts = accounts,
             categories = categoriesByUsage,
             people = people,
             onDismiss = { showAdd = false },
             onSave = { manual ->
                 viewModel.addManual(manual)
-                showAdd = false
             },
-            onSaveDebt = { debt -> viewModel.addDebt(debt); showAdd = false },
+            onSaveDebt = { debt -> viewModel.addDebt(debt) },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
@@ -896,6 +900,7 @@ fun FeedScreen(
 
     editFor?.let { item ->
         AddTransactionSheet(
+            formState = formState,
             accounts = accounts,
             categories = categoriesByUsage,
             people = people,
@@ -903,7 +908,7 @@ fun FeedScreen(
             onDismiss = { editFor = null },
             onSave = {},
             onSaveDebt = {},
-            onUpdate = { original, value -> viewModel.updateManual(original, value); editFor = null },
+            onUpdate = { original, value -> viewModel.updateManual(original, value) },
             onCreateCategory = viewModel::createCategory,
             onCreateCashCurrency = viewModel::createCashCurrency,
             rankCategories = rankCategories,
@@ -1285,6 +1290,8 @@ private fun TransactionDetailsContent(
                     label = stringResource(R.string.tx_detail_status),
                     value = if (tx.source == TxSource.BANK_HOLD) stringResource(R.string.bank_hold_status) else if (tx.source == TxSource.SMS && !pending) {
                         stringResource(R.string.status_sms)
+                    } else if (tx.source == TxSource.SMS && pending) {
+                        stringResource(R.string.status_waiting_statement)
                     } else {
                         tx.status.label()
                     },
@@ -1894,21 +1901,22 @@ internal fun HomeIntegrityNotice(
 internal fun integrityNoticeTitle(codes: List<String>): Int? =
     codes.takeIf { it.isNotEmpty() }?.map(::integrityFamilyLabel)?.distinct()?.singleOrNull()
 
-internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW }
+internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW, WAITING_BANK }
 
 /**
  * Which rows a filter keeps.
  *
  * Named rather than inlined because one of them has to agree with something outside this screen:
  * `NEEDS_REVIEW` is where "Review all" on Home leads, so it has to hold exactly what
- * [homeAttention] just listed — pending drafts and unrouted messages both.
+ * [homeAttention] just listed — uncategorised expenses and unrouted messages.
  */
 internal fun matchesFeedFilter(item: FeedItem, filter: FeedFilter): Boolean = when (filter) {
     FeedFilter.ALL -> true
     FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
     FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
     FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
-    FeedFilter.NEEDS_REVIEW -> item.tx.status == TxStatus.PENDING && item.tx.source != TxSource.BANK_HOLD
+    FeedFilter.NEEDS_REVIEW -> needsOwnerDecision(item)
+    FeedFilter.WAITING_BANK -> waitingForBank(item)
 }
 private enum class FeedSort { NEWEST, OLDEST, AMOUNT }
 
@@ -1956,7 +1964,7 @@ private fun FeedFilterSheet(
             FeedFilter.EXPENSES -> categories.filter { it.kind == CategoryKind.EXPENSE }
             FeedFilter.INCOME -> categories.filter { it.kind == CategoryKind.INCOME }
             FeedFilter.TRANSFERS -> emptyList()
-            FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> categories
+            FeedFilter.WAITING_BANK, FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> categories
         }
     }
     val quickCategories = remember(eligibleCategories, draftCategories) {
@@ -2036,6 +2044,7 @@ private fun FeedFilterSheet(
                     FeedFilter.INCOME to R.string.feed_filter_income,
                     FeedFilter.TRANSFERS to R.string.feed_filter_transfers,
                     FeedFilter.NEEDS_REVIEW to R.string.home_needs_attention,
+                    FeedFilter.WAITING_BANK to R.string.feed_waiting_bank,
                 )
                 WhfinChoiceRail(
                     // The sheet may open on a filter the app applied rather than the reader, and a
@@ -2052,6 +2061,7 @@ private fun FeedFilterSheet(
                             FeedFilter.INCOME -> Icons.Default.ArrowDownward
                             FeedFilter.TRANSFERS -> Icons.Default.SwapHoriz
                             FeedFilter.NEEDS_REVIEW -> Icons.Outlined.PendingActions
+                            FeedFilter.WAITING_BANK -> Icons.Outlined.History
                         },
                         onClick = {
                             draftFilter = value
@@ -2063,7 +2073,7 @@ private fun FeedFilterSheet(
                                     categories.any { it.id == id && it.kind == CategoryKind.INCOME }
                                 }
                                 FeedFilter.TRANSFERS -> emptySet()
-                                FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> draftCategories
+                                FeedFilter.WAITING_BANK, FeedFilter.NEEDS_REVIEW, FeedFilter.ALL -> draftCategories
                             }
                         },
                     )
@@ -3352,7 +3362,7 @@ internal fun FeedRow(
                             .offset(x = (-6).dp),
                     ) {
                         Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
-                        Text(stringResource(if (tx.source == TxSource.BANK_HOLD) R.string.bank_hold_status else R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                        Text(stringResource(if (tx.source == TxSource.BANK_HOLD) R.string.bank_hold_status else if (tx.source == TxSource.SMS) R.string.status_waiting_statement else R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
                         if (confirm != null) Icon(
                             Icons.Default.Check,
                             contentDescription = null,

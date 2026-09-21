@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.FormSaveState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -101,6 +102,7 @@ fun AddAccountSheet(
     cashOnly: Boolean = false,
     titleOverride: String? = null,
     onConnectBank: ((String) -> Unit)? = null,
+    formState: FormSaveState = FormSaveState(),
 ) {
     var name by remember { mutableStateOf("") }
     var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }
@@ -129,11 +131,11 @@ fun AddAccountSheet(
 
     FormSheet(
         title = titleOverride ?: stringResource(R.string.accounts_add),
-        onDismiss = onDismiss,
+        onDismiss = { if (!formState.busy) onDismiss() },
         primaryLabel = stringResource(
-            if (offerConnection) R.string.bank_connect_action else if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
+            if (formState.busy) R.string.form_saving else if (offerConnection) R.string.bank_connect_action else if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
         ),
-        primaryEnabled = if (offerConnection) true else if (choosingBank) false else if (type == AccountType.CRYPTO) {
+        primaryEnabled = if (formState.busy) false else if (offerConnection) true else if (choosingBank) false else if (type == AccountType.CRYPTO) {
             addressCheck is CryptoAddressValidator.Result.Valid
         } else {
             (type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank() && validOpening
@@ -155,6 +157,7 @@ fun AddAccountSheet(
             }
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         if (!cashOnly) TypeSelector(
             selected = type,
             onSelect = {
@@ -333,6 +336,7 @@ fun EditAccountSheet(
         address: String?,
         fundRole: FundRole,
     ) -> Unit,
+    formState: FormSaveState = FormSaveState(),
 ) {
     var name by remember { mutableStateOf(account.name) }
     var currency by remember { mutableStateOf(account.currency) }
@@ -341,9 +345,9 @@ fun EditAccountSheet(
 
     FormSheet(
         title = stringResource(R.string.account_edit),
-        onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = (account.type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank(),
+        onDismiss = { if (!formState.busy) onDismiss() },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        primaryEnabled = !formState.busy && (account.type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank(),
         onPrimary = {
             onConfirm(
                 name,
@@ -353,6 +357,7 @@ fun EditAccountSheet(
             )
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         WhfinField(
             value = name,
             onValueChange = { name = it },
@@ -522,6 +527,7 @@ fun BankMappingSheet(
     currencies: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
+    formState: FormSaveState = FormSaveState(),
 ) {
     // A name the import wrote is not an answer the owner gave, so the field starts empty and the
     // ledgers keep being named by their bank, number and product until there is something to say.
@@ -550,9 +556,9 @@ fun BankMappingSheet(
 
     FormSheet(
         title = stringResource(R.string.account_settings_title),
-        onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = true,
+        onDismiss = { if (!formState.busy) onDismiss() },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        primaryEnabled = !formState.busy,
         onPrimary = {
             onConfirm(
                 name,
@@ -565,6 +571,7 @@ fun BankMappingSheet(
             )
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         // One sentence of context, and the ledgers it is a claim about. A form whose every control
         // carried the same weight read as a pile of settings; the scope belongs at the top, once.
         Row(

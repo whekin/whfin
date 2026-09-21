@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.*
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.preferences.AppLockTimeout
@@ -32,7 +33,19 @@ class SetupQaActivity : ComponentActivity() {
         setContent {
             var complete by remember { mutableStateOf(false) }
             WhfinTheme(darkTheme = dark) {
-                if (complete) Box(Modifier.fillMaxSize().systemBarsPadding(), contentAlignment = Alignment.Center) { Text("Setup finished") } else PersonalSetupFlow(
+                if (intent.getBooleanExtra("backup", false)) {
+                    dev.whekin.whfin.ui.settings.BackupRestorePreview(
+                        dev.whekin.whfin.data.backup.WhfinBackupPreview(
+                            dev.whekin.whfin.data.backup.WhfinBackupSummary(java.time.Instant.parse("2026-09-21T10:00:00Z"), "QA", 8, "GEL", 400),
+                            5, 284, 1_700_000_000_000, 1_790_000_000_000), {}, ::finish)
+                } else if (intent.getBooleanExtra("demo", false)) {
+                    dev.whekin.whfin.ui.demo.DemoWorkspaceProvider(true, false, null, {}) {
+                        androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
+                            dev.whekin.whfin.ui.demo.DemoWorkspaceFrame { Text("WHFIN", Modifier.padding(20.dp)) }
+                        }
+                    }
+                } else if (intent.getBooleanExtra("review", false)) SetupReviewSample()
+                else if (complete) Box(Modifier.fillMaxSize().systemBarsPadding(), contentAlignment = Alignment.Center) { Text("Setup finished") } else PersonalSetupFlow(
                     state = PersonalSetupState(accountCount = 0,
                         unresolvedSmsCount = 0, statementReviewCount = 0),
                     appVersion = "QA", appLockTimeout = AppLockTimeout.Disabled, appLockHasPin = false,

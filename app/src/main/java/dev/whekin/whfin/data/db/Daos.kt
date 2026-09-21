@@ -153,6 +153,8 @@ interface SavingsPlanDao {
 
 @Dao
 interface FinancialGroupDao {
+    @Query("SELECT * FROM financial_groups") suspend fun all(): List<FinancialGroupEntity>
+
     @Query("SELECT * FROM financial_groups WHERE isArchived = 0 ORDER BY sortOrder, id")
     fun observeActive(): Flow<List<FinancialGroupEntity>>
 
@@ -281,6 +283,8 @@ interface ExchangeRateDao {
 
 @Dao
 interface CryptoDao {
+    @Query("SELECT * FROM crypto_balances") suspend fun allBalances(): List<CryptoBalanceEntity>
+
     @Insert suspend fun insertAddress(item: WalletAddressEntity): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAsset(item: CryptoAssetEntity): Long
     @Query("SELECT * FROM crypto_assets WHERE chainId = :chainId AND contractAddress IS :contract LIMIT 1")
@@ -462,7 +466,7 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id")
     suspend fun allForIntegrity(): List<TransactionEntity>
 
-    /** The same owner-action queue as Feed: a bank hold waits for settlement, not a manual answer. */
+    /** Legacy pending drafts for integrity diagnostics; bank holds are never manual confirmations. */
     @Query("SELECT COUNT(*) FROM transactions WHERE status = 'PENDING' AND source != 'BANK_HOLD' AND isVoided = 0")
     suspend fun pendingReviewCount(): Int
 
@@ -1132,6 +1136,8 @@ interface DebtDao {
 
 @Dao
 interface StatementImportDao {
+    @Query("SELECT * FROM statement_imports") suspend fun all(): List<StatementImportEntity>
+
     @Query("UPDATE statement_imports SET openingBalanceMinor = :amount, closingBalanceMinor = :amount WHERE id = :id AND origin = 'USER_OPENING'")
     suspend fun replaceUserOpening(id: Long, amount: Long): Int
 

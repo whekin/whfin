@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.OnFormSaved
+import dev.whekin.whfin.ui.FormSaveState
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -97,6 +99,7 @@ fun DebtsSummary(debts: List<DebtCaseUi>, onClick: () -> Unit) {
 fun DebtLedgerDialog(
     debts: List<DebtCaseUi>, people: List<PersonEntity>, accounts: List<AccountEntity>, onDismiss: () -> Unit,
     onOpen: (NewDebt) -> Unit, onSettle: (DebtSettlement) -> Unit,
+    formState: FormSaveState = FormSaveState(),
 ) {
     var adding by remember { mutableStateOf(false) }
     var settling by remember { mutableStateOf<DebtCaseUi?>(null) }
@@ -111,8 +114,9 @@ fun DebtLedgerDialog(
             )
         }
     }
-    if (adding) NewDebtDialog(people, accounts, { adding = false }) { onOpen(it); adding = false }
-    settling?.let { item -> SettlementDialog(item, accounts, { settling = null }) { onSettle(it); settling = null } }
+    OnFormSaved(formState) { adding = false; settling = null }
+    if (adding) NewDebtDialog(people, accounts, { adding = false }, formState, onOpen)
+    settling?.let { item -> SettlementDialog(item, accounts, { settling = null }, formState, onSettle) }
 }
 
 @Composable
@@ -201,7 +205,7 @@ private fun DebtLedgerContent(
     }
 }
 
-@Composable private fun NewDebtDialog(people: List<PersonEntity>, accounts: List<AccountEntity>, dismiss: () -> Unit, save: (NewDebt) -> Unit) {
+@Composable private fun NewDebtDialog(people: List<PersonEntity>, accounts: List<AccountEntity>, dismiss: () -> Unit, formState: FormSaveState = FormSaveState(), save: (NewDebt) -> Unit) {
     var direction by remember { mutableStateOf(DebtDirection.THEY_OWE_ME) }
     var personId by remember { mutableStateOf(people.firstOrNull()?.id) }
     var personName by remember { mutableStateOf("") }
@@ -211,13 +215,14 @@ private fun DebtLedgerContent(
     val minor = parseToMinor(amount)?.takeIf { it > 0 }
     FormSheet(
         title = stringResource(R.string.new_debt),
-        onDismiss = dismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = minor != null && (personId != null || personName.isNotBlank()),
+        onDismiss = { if (!formState.busy) dismiss() },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        primaryEnabled = !formState.busy && minor != null && (personId != null || personName.isNotBlank()),
         onPrimary = {
             save(NewDebt(personId, personName.takeIf { personId == null }, direction, minor!!, currency, accountId, LedgerCalendar.startOfDay(LedgerCalendar.today())))
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         WhfinChoiceRail {
             item {
                 WhfinFilterPill(
@@ -291,7 +296,7 @@ private fun DebtLedgerContent(
     }
 }
 
-@Composable private fun SettlementDialog(item: DebtCaseUi, accounts: List<AccountEntity>, dismiss: () -> Unit, save: (DebtSettlement) -> Unit) {
+@Composable private fun SettlementDialog(item: DebtCaseUi, accounts: List<AccountEntity>, dismiss: () -> Unit, formState: FormSaveState = FormSaveState(), save: (DebtSettlement) -> Unit) {
     var movement by remember { mutableStateOf(true) }
     var amount by remember { mutableStateOf("") }
     var currency by remember { mutableStateOf(item.debt.currency) }
@@ -302,13 +307,14 @@ private fun DebtLedgerContent(
     val credit = parseToMinor(debtCredit)?.takeIf { it > 0 && it <= item.remainingMinor }
     FormSheet(
         title = stringResource(R.string.debt_repayment_from, item.person.name),
-        onDismiss = dismiss,
-        primaryLabel = stringResource(if (close) R.string.debt_close_action else R.string.debt_repayment_action),
-        primaryEnabled = (!movement || actual != null && accountId != null) && (close || credit != null),
+        onDismiss = { if (!formState.busy) dismiss() },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else if (close) R.string.debt_close_action else R.string.debt_repayment_action),
+        primaryEnabled = !formState.busy && (!movement || actual != null && accountId != null) && (close || credit != null),
         onPrimary = {
             save(DebtSettlement(item.debt.id, actual.takeIf { movement }, currency.takeIf { movement }, accountId.takeIf { movement }, credit.takeIf { !close }, close, System.currentTimeMillis()))
         },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.debt_outstanding, formatMinor(item.remainingMinor, item.debt.currency)))
             WhfinChoiceRail {

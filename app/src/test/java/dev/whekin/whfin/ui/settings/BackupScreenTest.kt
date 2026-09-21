@@ -50,6 +50,10 @@ class BackupScreenTest {
         }
     }
 
+    private fun preview() = PendingRestore(dev.whekin.whfin.data.backup.WhfinBackupPreview(
+        dev.whekin.whfin.data.backup.WhfinBackupSummary(java.time.Instant.parse("2026-09-21T10:00:00Z"), "test", 8, "GEL", 42),
+        3, 12, 1_700_000_000_000, 1_710_000_000_000))
+
     @Test
     fun idle_exposesExportAndRestoreActions() {
         var encrypted = false
@@ -76,7 +80,7 @@ class BackupScreenTest {
         var dismissed = false
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         screen(
-            pendingRestore = PendingRestore(Uri.parse("content://backup"), encrypted = false),
+            pendingRestore = preview(),
             onConfirmRestore = { confirmed = true },
             onDismissRestore = { dismissed = true },
         )
@@ -89,12 +93,12 @@ class BackupScreenTest {
     }
 
     @Test
-    fun restoreConfirmation_mentionsPassphraseForEncryptedFile() {
+    fun restoreConfirmation_showsReplacementScope() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        screen(pendingRestore = PendingRestore(Uri.parse("content://backup"), encrypted = true))
+        screen(pendingRestore = preview())
 
         compose.onNodeWithText(
-            context.getString(R.string.backup_restore_encrypted_hint),
+            context.getString(R.string.backup_preview_replaces),
             substring = true,
         ).assertIsDisplayed()
     }

@@ -21,6 +21,14 @@ class RuntimeModeStore(context: Context) {
             check(preferences.edit().putBoolean(KEY_PERSONAL_SETUP_PENDING, value).commit())
         }
 
+    var restoreCompleted: Boolean
+        get() = preferences.getBoolean("restore_completed", false)
+        set(value) { check(preferences.edit().putBoolean("restore_completed", value).commit()) }
+
+    var personalSetupChecks: Set<String>
+        get() = preferences.getStringSet("personal_setup_checks", emptySet()).orEmpty().toSet()
+        set(value) { check(preferences.edit().putStringSet("personal_setup_checks", value.toSet()).commit()) }
+
     /** Non-secret progress belongs to this installation, never to a portable backup. */
     var personalSetupStage: String?
         get() = preferences.getString("personal_setup_stage", null)

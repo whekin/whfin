@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.savings
 
+import dev.whekin.whfin.ui.FormSaver
 import dev.whekin.whfin.ui.bank.SupportedBankApp
 import dev.whekin.whfin.ui.bank.bankAppsForReserve
 
@@ -124,6 +125,8 @@ private fun List<SavingsPlanEntity>.planFor(month: YearMonth): SavingsPlanEntity
 }
 
 class SavingsViewModel(app: Application) : AndroidViewModel(app) {
+    private val formSaver = FormSaver(viewModelScope)
+    val formSaveState = formSaver.state
     private val db = (app as WhfinApp).db
     private val repository = SavingsPlanRepository(db)
     private val zone = LedgerCalendar.zone
@@ -171,7 +174,7 @@ class SavingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun savePlan(monthlyTargetMinor: Long, goalMinor: Long?, goalBy: LocalDate?) {
         val currency = state.value?.currency ?: return
-        viewModelScope.launch {
+        formSaver.save {
             repository.set(
                 SavingsPlanDraft(
                     currency = currency,
@@ -185,7 +188,7 @@ class SavingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearPlan() {
         val currency = state.value?.currency ?: return
-        viewModelScope.launch { repository.clear(currency) }
+        formSaver.save { repository.clear(currency) }
     }
 
     fun selectCurrency(currency: String) { selectedCurrency.value = currency }

@@ -1,5 +1,6 @@
 package dev.whekin.whfin.ui.accounts
 
+import dev.whekin.whfin.ui.OnFormSaved
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -182,9 +183,11 @@ fun AccountsScreen(
     val cashHeading = stringResource(R.string.account_type_cash)
     val snackbar = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
+    val formState by viewModel.formSaveState.collectAsState()
     var groupDetailsFor by remember { mutableStateOf<AccountGroupSelection?>(null) }
     var bankDetailsFor by remember { mutableStateOf<List<AccountWithBalance>?>(null) }
     var editAccountFor by remember { mutableStateOf<AccountWithBalance?>(null) }
+    OnFormSaved(formState) { showAdd = false; editAccountFor = null; bankDetailsFor = null }
     var showImportStatus by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     LaunchedEffect(addRequestKey) {
@@ -427,7 +430,7 @@ fun AccountsScreen(
 
     if (showDebts) DebtLedgerDialog(
         debts = debts, people = people, accounts = accounts.map { it.account },
-        onDismiss = { showDebts = false }, onOpen = viewModel::openDebt, onSettle = viewModel::settleDebt,
+        onDismiss = { showDebts = false }, onOpen = viewModel::openDebt, onSettle = viewModel::settleDebt, formState = formState,
     )
 
     LaunchedEffect(message) {
@@ -439,6 +442,7 @@ fun AccountsScreen(
 
     if (showAdd) {
         AddAccountSheet(
+            formState = formState,
             onConnectBank = { bank -> showAdd = false; onConnectBank(bank) },
             onDismiss = { showAdd = false },
             onImportStatement = {
@@ -447,15 +451,12 @@ fun AccountsScreen(
             },
             onConfirm = { name, type, currency, bankProvider, openingMinor ->
                 viewModel.addAccount(name, type, currency, bankProvider, openingMinor)
-                showAdd = false
             },
             onConfirmWithProduct = { name, type, currency, bankProvider, openingMinor, bankProduct ->
                 viewModel.addAccount(name, type, currency, bankProvider, openingMinor, bankProduct)
-                showAdd = false
             },
             onConfirmWallet = { name, network, address ->
                 viewModel.addCryptoWallet(name, network, address)
-                showAdd = false
             },
         )
     }
@@ -493,6 +494,7 @@ fun AccountsScreen(
     bankDetailsFor?.let { rows ->
         val representative = rows.firstOrNull { it.account.currency == "GEL" } ?: rows.first()
         BankMappingSheet(
+            formState = formState,
             account = representative.account,
             existingCards = rows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = rows.flatMap { it.virtualCardMasks }.distinct(),
@@ -510,19 +512,18 @@ fun AccountsScreen(
                     virtualCards,
                     primaryCard,
                 )
-                bankDetailsFor = null
             },
         )
     }
 
     editAccountFor?.let { item ->
         EditAccountSheet(
+            formState = formState,
             account = item.account,
             initialAddress = item.address,
             onDismiss = { editAccountFor = null },
             onConfirm = { name, currency, address, fundRole ->
                 viewModel.editAccount(item.account, name, currency, address, fundRole)
-                editAccountFor = null
             },
         )
     }

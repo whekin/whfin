@@ -58,7 +58,12 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 
 ## Context headers and balance overview
 
-Home and Accounts are the two primary dock destinations. Home is deliberately finite: the current-month result comes first, followed by at most three unresolved SMS/pending operations and then up to five confirmed rows from today (or three recent rows when today is empty). Statistics and complete Transaction history are explicit one-tap secondary destinations in the Home header; the history retains search, filtering, sorting, selection and the full ledger. Settings remains discoverable from Accounts. This keeps the app centred on understanding and acting on finances without turning its landing screen into an infinite transaction log.
+Home, History, Accounts and Analytics are the four peer destinations. Home leads with available money
+and stays finite. Decisions are unresolved account routing and uncategorised expenses; categories
+use one compact count/action instead of repeating recent rows. Bank SMS and card holds awaiting
+statement evidence have their own count and history filter. Waiting on the bank is never presented as
+an owner confirmation task. Transfers count once in the waiting summary. Recent activity remains a
+short list, and Settings lives in Home's header.
 
 Home may add at most two explanatory insights between review work and recent activity. They are derived
 from the same full-range calculation as Statistics: a month-end spending pace and the strongest projected
@@ -139,12 +144,10 @@ summary rows do not add trailing pencil icons that disturb the value column; the
 chevron after the value, because a row with no affordance at all was read as a static database record. The
 sheet uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
 
-Confirming a pending draft is the most repeated decision in the two-layer SMS/statement model, so it leads on
-its own full-width line rather than a trip through the status sheet. It is the only filled action in the sheet
-and appears only while the transaction is actually pending; the status row still opens the full picker for the
-remaining transitions. A routed bank message names its provenance in that row instead of a status nobody has
-to act on — but only while it is not pending, because a pending row is a question whoever wrote it, and
-printing `SMS` there left the sheet saying one thing while the row it opened from said `Pending`.
+Legacy pending rows retain an explicit confirmation action in their receipt, but no longer become
+Home's decision queue merely because of that status. SMS awaiting statement evidence and bank holds
+are labelled as waiting. Routed SMS remains active ledger evidence (ADR-0002); the owner need not
+confirm each bank message. Selecting a category and routing a message are actual owner decisions.
 
 Every entry point into the sheet offers the same answers. The feed, an account's own ledger and the analytics
 drill-down open the same composable, so an action wired at one call site and not another is invisible from
@@ -940,3 +943,15 @@ service" reads as its Georgian words in Latin letters; nothing here claims to sa
 Form sheets reserve their title and primary action before measuring the scrollable fields whenever
 window height is bounded. The field-height cap alone is not enough: a two-line title at large font
 scale plus the IME can otherwise squeeze the action label. Unbounded previews retain the cap.
+
+
+### Compact first use and save feedback — 0.3.67
+
+Routine setup text is one short sentence. Detailed bank evidence and the list of earlier setup stages
+are collapsed until requested. The Demo workspace strip shows “Demo” and its exit action; synthetic
+data remains in its accessibility description rather than wrapping into a permanent paragraph.
+
+Money-entry forms (manual operation, income, account/wallet, bank metadata, debt/settlement and savings
+plan) close after successful persistence. A reserved submit disables repeat saves; a failed write
+keeps the fields and shows one inline retry message. Manual operation creation/edit and counterparty
+learning share a transaction, so retry cannot duplicate a payment after a partial write.

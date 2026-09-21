@@ -130,18 +130,21 @@ private fun pivotValueMinor(transaction: TransactionEntity): Long? =
 
 private fun pivotValueMinor(item: FeedItem): Long? = pivotValueMinor(item.tx)
 
-/**
- * Rows waiting on a decision: a draft the person has not confirmed and a message with no account.
- *
- * The two are one queue because they ask the same thing of the reader — look at this and say what it
- * is — even though only one of them is in the ledger.
- */
+/** A category is the owner's decision; a bank posting is not. */
+internal fun needsOwnerDecision(item: FeedItem): Boolean =
+    !item.tx.isVoided && item.tx.amountMinor < 0 && item.tx.categoryId == null &&
+        !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt &&
+        item.tx.source !in setOf(TxSource.BANK_HOLD, TxSource.ADJUSTMENT)
+
+internal fun waitingForBank(item: FeedItem): Boolean =
+    !item.tx.isVoided && item.tx.source in setOf(TxSource.SMS, TxSource.BANK_HOLD)
+
 internal fun homeAttention(
     items: List<FeedItem>,
     unrouted: List<UnroutedOperation>,
 ): List<FeedTimelineEntry> = (
     unrouted.map(FeedTimelineEntry::Unrouted) +
-        items.filter { it.tx.status == TxStatus.PENDING }.map(FeedTimelineEntry::Transaction)
+        items.filter(::needsOwnerDecision).map(FeedTimelineEntry::Transaction)
     ).sortedByDescending(FeedTimelineEntry::occurredAt)
 
 /**
