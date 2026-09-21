@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import androidx.room.Embedded
 import androidx.room.Relation
 import kotlinx.coroutines.flow.Flow
@@ -1008,7 +1009,8 @@ interface IncomeSourceDao {
     @Query("SELECT * FROM income_sources WHERE endedOn IS NULL ORDER BY startedOn DESC")
     suspend fun active(): List<IncomeSourceEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // REPLACE deletes the parent and cascades its confirmed payments. Update in place instead.
+    @Upsert
     suspend fun upsert(source: IncomeSourceEntity): Long
 
     @Query("DELETE FROM income_sources WHERE id = :id")

@@ -23,7 +23,8 @@ class IncomeSourceRepository(private val db: WhfinDatabase) {
             db.incomeSourceDao().upsert(previous.copy(endedOn = source.startedOn - 1))
             db.incomeSourceDao().upsert(source.copy(id = 0))
         } else {
-            db.incomeSourceDao().upsert(source)
+            val inserted = db.incomeSourceDao().upsert(source)
+            if (source.id == 0L) inserted else source.id
         }
     }
 

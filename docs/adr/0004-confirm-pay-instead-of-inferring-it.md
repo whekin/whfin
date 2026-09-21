@@ -15,3 +15,7 @@ account is offered back as a visible question, so every counted sum traces to an
 Withdrawing the confirmation is deleting the row; payments recognised only through the learned sender
 go with it, rather than being contradicted by a second answer. Nothing about the transaction changes
 either way.
+
+Editing or ending an income declaration updates it in place. SQLite REPLACE is forbidden here:
+it deletes the parent and cascades the owner's confirmations. Starting a new receiving-account era
+retains all confirmations on the old era. Regression: IncomeSourceRepositoryTest.
