@@ -1661,7 +1661,6 @@
     <string name="push_mapping">Нужна привязка карты к счёту</string>
     <string name="push_ignored">Информационное уведомление</string>
     <string name="push_unknown">Не распознано — пример сохранён</string>
-    <string name="push_mappings">Карты и счета</string>
     <string name="push_on">Включено · локальный журнал</string>
     <string name="push_listener_label">WHFIN: уведомления TBC</string>
     <string name="settings_connections">Подключения</string>

@@ -102,8 +102,10 @@ internal fun ExpenseAnalysisContent(
     onShowAllTrend: () -> Unit,
     onShowCategoryTrend: (Long?) -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
-    val listState = rememberLazyListState()
+    val chartPosition = rememberAnalyticsChartPosition(listState, model, "expense-trend",
+        4 + if ((model.state as? AnalyticsUiState.Content)?.data?.merchantValues?.isNotEmpty() == true) 1 else 0)
     val scope = rememberCoroutineScope()
     AnalyticsScaffold(
         model = model,
@@ -116,9 +118,9 @@ internal fun ExpenseAnalysisContent(
         ),
         emptyBody = stringResource(R.string.analytics_expenses_empty_body),
         onBack = onBack,
-        onPreviousPeriod = onPreviousPeriod,
-        onNextPeriod = onNextPeriod,
-        onScaleChange = onScaleChange,
+        onPreviousPeriod = { chartPosition.change(model.period, model.period.previous(), action = onPreviousPeriod) },
+        onNextPeriod = { chartPosition.change(model.period, model.period.next(), action = onNextPeriod) },
+        onScaleChange = { scale -> chartPosition.change(model.period, model.period.withScale(scale)) { onScaleChange(scale) } },
         listState = listState,
         listTestTag = "expense-analysis-list",
     ) { data ->
@@ -162,7 +164,7 @@ internal fun ExpenseAnalysisContent(
             ) {
                 PeriodTrend(
                     data = data,
-                    onSelectMonth = onSelectMonth,
+                    onSelectMonth = { month -> chartPosition.change(model.period, AnalyticsPeriod.month(month), chartAction = true) { onSelectMonth(month) } },
                     onShowAllTrend = onShowAllTrend,
                     onOpenTransactions = onOpenTransactions,
                 )
@@ -218,6 +220,18 @@ private fun ExpenseCategories(
     onCategoryClick: (Long?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (data.categoryValues.isEmpty()) {
+        val awaitingRate = data.otherCurrencyExpenses.any { it.expenseMinor > 0 }
+        WhfinStatePane(if (awaitingRate) WhfinPaneState.Unavailable else WhfinPaneState.Empty,
+            stringResource(when {
+                awaitingRate -> R.string.analytics_other_currencies
+                data.period.scale == AnalyticsScale.MONTH -> R.string.analytics_expenses_empty_title
+                else -> R.string.analytics_expenses_empty_title_year
+            }),
+            stringResource(if (awaitingRate) R.string.analytics_other_currencies_hint else R.string.analytics_expenses_empty_body),
+            modifier.fillMaxWidth())
+        return
+    }
     val fallbackColors = listOf(
         WhfinThemeTokens.colors.bottle,
         WhfinThemeTokens.colors.clay,

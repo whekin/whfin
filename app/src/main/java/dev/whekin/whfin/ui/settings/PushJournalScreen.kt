@@ -152,7 +152,7 @@ internal fun PushJournalContent(enabled: Boolean, access: Boolean, connected: Bo
                 else -> R.string.push_active
             }))
             WhfinButton(stringResource(R.string.push_permission), onPermissionRequest, Modifier.fillMaxWidth(), style = WhfinActionStyle.Secondary)
-            WhfinButton(stringResource(R.string.push_mappings), onOpenMessages, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+            WhfinButton(stringResource(R.string.sms_diagnostics_title), onOpenMessages, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
             if (problem) Text(stringResource(R.string.push_error), color = MaterialTheme.colorScheme.error)
         }

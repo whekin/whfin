@@ -1597,7 +1597,6 @@
     <string name="push_mapping">Card-to-account mapping needed</string>
     <string name="push_ignored">Informational notification</string>
     <string name="push_unknown">Not recognized — example saved</string>
-    <string name="push_mappings">Cards and accounts</string>
     <string name="push_on">Enabled · local journal</string>
     <string name="push_listener_label">WHFIN: TBC notifications</string>
     <string name="settings_connections">Connections</string>

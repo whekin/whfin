@@ -4,10 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
-import dev.whekin.whfin.data.db.CategoryEntity
-import dev.whekin.whfin.data.db.MerchantEntity
-import dev.whekin.whfin.data.db.TransactionAllocationEntity
-import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.rates.NbgHistoricalRateProvider
 import dev.whekin.whfin.data.rates.TransactionValuationRepository
 import java.time.Instant
@@ -22,6 +18,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,17 +43,7 @@ internal data class AnalyticsUiModel(
     val state: AnalyticsUiState,
 )
 
-private data class AnalyticsInputs(
-    val transactions: List<TransactionEntity>,
-    val categories: List<CategoryEntity>,
-    val allocations: List<TransactionAllocationEntity>,
-    val merchants: List<MerchantEntity>,
-)
-
-private data class AnalyticsControls(
-    val period: AnalyticsPeriod,
-    val trendFilter: AnalyticsTrendFilter,
-)
+private data class AnalyticsCalculation(val period: AnalyticsPeriod, val state: AnalyticsUiState)
 
 private data class AnalyticsWindow(
     val period: AnalyticsPeriod,
@@ -92,49 +79,30 @@ internal class AnalyticsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private val transactions: Flow<List<TransactionEntity>> = window.flatMapLatest { value ->
-        // The selected period needs its baselines; the chart always needs the complete named year.
-        val chartStart = YearMonth.of(value.period.year, 1)
-        val chartEnd = YearMonth.of(value.period.year, 12)
-        val rangeStart = minOf(value.period.start.minusMonths(12), chartStart)
-        val rangeEnd = maxOf(value.period.end, chartEnd).plusMonths(1)
-        db.transactionDao().observeRange(
-            rangeStart.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
-            rangeEnd.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
-        )
-    }
+    // Each query window owns its calculation. Neither a previous window's rows nor its header
+    // can be combined with the newly selected month while Room is answering.
+    private val calculated: Flow<AnalyticsCalculation> = window.flatMapLatest { value ->
+        val period = value.period
+        val rangeStart = minOf(period.start.minusMonths(12), YearMonth.of(period.year, 1))
+        val rangeEnd = maxOf(period.end, YearMonth.of(period.year, 12)).plusMonths(1)
+        combine(
+            db.transactionDao().observeRange(
+                rangeStart.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
+                rangeEnd.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            ),
+            db.categoryDao().observeAll(),
+            db.transactionAllocationDao().observeAll(),
+            db.merchantDao().observeAll(),
+            trendFilter,
+        ) { transactions, categories, allocations, merchants, filter ->
+            val data = calculateAnalytics(transactions, categories, allocations, period, filter,
+                zoneId = zoneId, merchants = merchants)
+            AnalyticsCalculation(period, if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty)
+        }.catch { emit(AnalyticsCalculation(period, AnalyticsUiState.Error)) }
+    }.flowOn(Dispatchers.Default)
 
-    private val inputs = combine(
-        transactions,
-        db.categoryDao().observeAll(),
-        db.transactionAllocationDao().observeAll(),
-        db.merchantDao().observeAll(),
-    ) { transactions, categories, allocations, merchants ->
-        AnalyticsInputs(transactions, categories, allocations, merchants)
-    }
-
-    private val controls = combine(window, trendFilter) { value, filter ->
-        AnalyticsControls(value.period, filter)
-    }
-
-    private val calculated: Flow<AnalyticsUiState> = combine(inputs, controls) { input, control ->
-        calculateAnalytics(
-            transactions = input.transactions,
-            categories = input.categories,
-            allocations = input.allocations,
-            period = control.period,
-            trendFilter = control.trendFilter,
-            zoneId = zoneId,
-            merchants = input.merchants,
-        )
-    }.map<AnalyticsData, AnalyticsUiState> { data ->
-        if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty
-    }.catch {
-        emit(AnalyticsUiState.Error)
-    }
-
-    val uiState = combine(window, earliestMonth, calculated) { value, earliest, state ->
-        model(value.period, earliest, state)
+    val uiState = combine(earliestMonth, calculated) { earliest, calculation ->
+        model(calculation.period, earliest, calculation.state)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),

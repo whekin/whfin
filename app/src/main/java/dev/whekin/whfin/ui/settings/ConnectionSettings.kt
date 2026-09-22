@@ -88,7 +88,7 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                 WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     WhfinLedgerRow(stringResource(R.string.statements_upload), icon = Icons.Outlined.Description,
                         onClick = actions.statements, divider = true, trailing = { Icon(Icons.Default.ChevronRight, null) })
-                    WhfinLedgerRow(stringResource(R.string.push_mappings), icon = Icons.Outlined.CreditCard,
+                    WhfinLedgerRow(stringResource(R.string.sms_diagnostics_title), icon = Icons.Outlined.Sms,
                         onClick = { actions.messages(null) }, trailing = { Icon(Icons.Default.ChevronRight, null) })
                 }
                 WhfinSectionLabel(stringResource(R.string.settings_shared_permissions))
@@ -130,7 +130,7 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                     }
                     BankChannelSwitch(stringResource(R.string.settings_bank_sms), state.sms[bank] == true, true, { actions.sms(bank, it) }, icon = Icons.Outlined.Sms)
                     if (state.sms[bank] == true && !state.smsPermission) WhfinButton(stringResource(R.string.permission_allow), actions.smsPermission, style = WhfinActionStyle.Quiet)
-                    WhfinLedgerRow(stringResource(R.string.push_mappings), icon = Icons.Outlined.CreditCard,
+                    WhfinLedgerRow(stringResource(R.string.sms_diagnostics_title), icon = Icons.Outlined.Sms,
                         onClick = { actions.messages(bank) }, trailing = { Icon(Icons.Default.ChevronRight, null) })
                 }
             }

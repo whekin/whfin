@@ -308,17 +308,19 @@ internal fun AnalyticsContent(
     onShowAllTrend: () -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
-    val listState = rememberLazyListState()
+    val chartPosition = rememberAnalyticsChartPosition(listState, model, "trend",
+        5 + if ((model.state as? AnalyticsUiState.Content)?.data?.pace != null) 1 else 0)
     AnalyticsScaffold(
         model = model,
         title = stringResource(R.string.analytics_title),
         emptyTitle = stringResource(R.string.analytics_empty_title),
         emptyBody = stringResource(R.string.analytics_empty_body),
         onBack = onBack,
-        onPreviousPeriod = onPreviousPeriod,
-        onNextPeriod = onNextPeriod,
-        onScaleChange = onScaleChange,
+        onPreviousPeriod = { chartPosition.change(model.period, model.period.previous(), action = onPreviousPeriod) },
+        onNextPeriod = { chartPosition.change(model.period, model.period.next(), action = onNextPeriod) },
+        onScaleChange = { scale -> chartPosition.change(model.period, model.period.withScale(scale)) { onScaleChange(scale) } },
         listState = listState,
         listTestTag = "analytics-list",
     ) { data ->
@@ -359,7 +361,7 @@ internal fun AnalyticsContent(
             ) {
                 PeriodTrend(
                     data = data,
-                    onSelectMonth = onSelectMonth,
+                    onSelectMonth = { month -> chartPosition.change(model.period, AnalyticsPeriod.month(month), chartAction = true) { onSelectMonth(month) } },
                     onShowAllTrend = onShowAllTrend,
                     onOpenTransactions = onOpenTransactions,
                 )
@@ -902,7 +904,16 @@ private const val MAIN_CAUSES = 3
  */
 @Composable
 private fun SpendingLink(data: AnalyticsData, onOpenExpenses: () -> Unit) {
-    if (data.categoryValues.isEmpty()) return
+    if (data.categoryValues.isEmpty()) {
+        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+            WhfinLedgerRow(stringResource(when {
+                data.otherCurrencyExpenses.any { it.expenseMinor > 0 } -> R.string.analytics_other_currencies
+                data.period.scale == AnalyticsScale.MONTH -> R.string.analytics_expenses_empty_title
+                else -> R.string.analytics_expenses_empty_title_year
+            }), modifier = Modifier.testTag("analytics-empty-spending"))
+        }
+        return
+    }
     WhfinLedgerGroup(Modifier.fillMaxWidth()) {
         WhfinLedgerRow(
             title = stringResource(R.string.analytics_open_spending),

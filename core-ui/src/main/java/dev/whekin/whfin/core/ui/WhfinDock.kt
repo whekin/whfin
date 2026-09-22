@@ -1,6 +1,9 @@
 package dev.whekin.whfin.core.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -193,8 +196,8 @@ private fun WhfinDockAction(
 ) {
     val sizes = WhfinThemeTokens.sizes
     Surface(
-        onClick = onClick,
         modifier = Modifier
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = onClick)
             .width(sizes.dockAction)
             .heightIn(min = sizes.dockHeight)
             .testTag("dock-add")
@@ -276,15 +279,12 @@ private fun WhfinDockItem(
     }
 
     Surface(
-        onClick = {
-            if (!selected) haptics.performHapticFeedback(WhfinHaptics.navigation)
-            onClick()
-        },
         modifier = taggedModifier
             .heightIn(min = sizes.dockHeight)
-            .semantics {
-                role = Role.Tab
-                this.selected = selected
+            .selectable(selected = selected, role = Role.Tab,
+                interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                if (!selected) haptics.performHapticFeedback(WhfinHaptics.navigation)
+                onClick()
             },
         shape = MaterialTheme.shapes.medium,
         color = Color.Transparent,

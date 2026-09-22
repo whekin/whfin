@@ -8,7 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -24,7 +27,10 @@ import java.util.Locale
  * is genuinely zero, a month that came in under the ordinary level — and a branch that only exists
  * in code has not been seen.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 class AnalyticsQaActivity : ComponentActivity() {
+    lateinit var listState: androidx.compose.foundation.lazy.LazyListState
+        private set
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dark = intent.getBooleanExtra("dark", false)
@@ -45,15 +51,14 @@ class AnalyticsQaActivity : ComponentActivity() {
         val context = createConfigurationContext(configuration)
         val today = if (running) AnalyticsScenario.insideSelectedMonth
         else AnalyticsScenario.afterSelectedMonth
-        val data = AnalyticsScenario.analytics(shape, today = today)
-        val state = if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty
-        val model = AnalyticsUiModel(
-            period = AnalyticsPeriod.month(AnalyticsScenario.selectedMonth),
-            canSelectPrevious = true,
-            canSelectNext = true,
-            state = state,
-        )
         setContent {
+            val list = androidx.compose.foundation.lazy.rememberLazyListState()
+            SideEffect { listState = list }
+            var selected by remember { mutableStateOf(AnalyticsPeriod.month(AnalyticsScenario.selectedMonth)) }
+            val data = remember(selected) { AnalyticsScenario.analytics(shape, today = today, period = selected) }
+            val model = AnalyticsUiModel(selected, true, selected.next().start <= java.time.YearMonth.from(today),
+                if (data.hasAnyTransactions) AnalyticsUiState.Content(data) else AnalyticsUiState.Empty)
+            val interactive = intent.getBooleanExtra("interactive", false)
             CompositionLocalProvider(
                 LocalContext provides context,
                 LocalConfiguration provides configuration,
@@ -63,24 +68,24 @@ class AnalyticsQaActivity : ComponentActivity() {
                 ),
             ) {
                 WhfinTheme(darkTheme = dark) {
-                    Surface(color = MaterialTheme.colorScheme.background) {
+                    Surface(modifier = Modifier.semantics { testTagsAsResourceId = true }, color = MaterialTheme.colorScheme.background) {
                         if (expenses) ExpenseAnalysisContent(
-                            model = model,
+                            model = model, listState = list,
                             onBack = {},
-                            onPreviousPeriod = {},
-                            onNextPeriod = {},
-                            onScaleChange = {},
-                            onSelectMonth = {},
+                            onPreviousPeriod = { if (interactive) selected = selected.previous() },
+                            onNextPeriod = { if (interactive) selected = selected.next() },
+                            onScaleChange = { if (interactive) selected = selected.withScale(it) },
+                            onSelectMonth = { if (interactive) selected = AnalyticsPeriod.month(it) },
                             onShowAllTrend = {},
                             onShowCategoryTrend = {},
                             onOpenTransactions = {},
                         ) else AnalyticsContent(
-                            model = model,
+                            model = model, listState = list,
                             onBack = null,
-                            onPreviousPeriod = {},
-                            onNextPeriod = {},
-                            onScaleChange = {},
-                            onSelectMonth = {},
+                            onPreviousPeriod = { if (interactive) selected = selected.previous() },
+                            onNextPeriod = { if (interactive) selected = selected.next() },
+                            onScaleChange = { if (interactive) selected = selected.withScale(it) },
+                            onSelectMonth = { if (interactive) selected = AnalyticsPeriod.month(it) },
                             onShowAllTrend = {},
                             onOpenExpenses = {},
                             onOpenTransactions = {},
