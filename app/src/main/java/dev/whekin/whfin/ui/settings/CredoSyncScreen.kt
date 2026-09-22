@@ -140,6 +140,7 @@ fun CredoSyncRoute(
      * leaving afterwards should not require finding the Back arrow again.
      */
     onDone: (() -> Unit)? = null,
+    onContinueDuringSync: (() -> Unit)? = null,
     viewModel: CredoSyncViewModel = (LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp).bankSync.credo,
 ) {
     val state by viewModel.state.collectAsState()
@@ -334,6 +335,7 @@ fun CredoSyncRoute(
         },
         showCredentialManagement = showCredentialManagement,
         onDone = onDone,
+        onContinueDuringSync = onContinueDuringSync,
     )
 }
 
@@ -358,6 +360,7 @@ fun CredoSyncScreen(
     onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
     showCredentialManagement: Boolean = false,
     onDone: (() -> Unit)? = null,
+    onContinueDuringSync: (() -> Unit)? = null,
 ) {
     val usableSavedPassword = canStoreCredentials && state.hasSavedPassword
     // A direct preview/test gets a composition-local draft. The real route passes a ViewModel-owned
@@ -500,6 +503,7 @@ fun CredoSyncScreen(
                 onSaveOriginalStatement = onSaveOriginalStatement,
                 showCredentialManagement = showCredentialManagement,
                 onDone = onDone,
+                onContinueDuringSync = onContinueDuringSync,
             )
         }
     }
@@ -703,6 +707,7 @@ private fun ConnectedContent(
     onSaveOriginalStatement: (String, String) -> Unit,
     showCredentialManagement: Boolean,
     onDone: (() -> Unit)? = null,
+    onContinueDuringSync: (() -> Unit)? = null,
 ) {
     val syncing = state.stage == CredoSyncStage.Syncing
     WhfinSectionLabel(stringResource(R.string.credo_sync_saved_profile_title))
@@ -730,6 +735,11 @@ private fun ConnectedContent(
             },
             icon = Icons.Default.CloudSync,
             modifier = Modifier.fillMaxWidth(),
+        )
+        if (onContinueDuringSync != null) WhfinButton(
+            stringResource(R.string.setup_continue_during_sync), onContinueDuringSync,
+            Modifier.fillMaxWidth(), style = WhfinActionStyle.Secondary,
+            leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
         )
     }
     // A first connection holds nothing to be incremental about. Offering the last year first made

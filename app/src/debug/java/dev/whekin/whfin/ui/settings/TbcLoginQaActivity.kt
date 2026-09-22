@@ -82,7 +82,8 @@ class TbcLoginQaActivity : ComponentActivity() {
                             onRemember = { state = state.copy(remember = it) },
                             onRestore = { state = state.copy(stage = TbcLoginStage.Connected) },
                             onForget = { state = state.copy(hasSaved = false, remember = false, stage = TbcLoginStage.Login) },
-                            onConfirmBalance = { _, _ -> state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) })
+                            onConfirmBalance = { _, _ -> state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) },
+                            onDone = ::finish)
                     }
                     }
                 }

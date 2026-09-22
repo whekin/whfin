@@ -164,3 +164,13 @@ uses the last observed on-chain balance and observation time, not the sum of imp
 rows and evidence invalidates that mark when amounts or provenance change; categorising the same
 payment does not. Marks live in runtime flags outside backups and are cleared on restore. Unchecked
 balances can be skipped explicitly; this never certifies a connection or silently changes money.
+
+## First personal-setup feedback — 2026-09-23
+
+The full initial Credo history walk continues in the application while the owner advances through
+setup. The connected TBC page offers an explicit Done action. Bank sign-in and per-bank SMS monitoring
+are separate decisions shown together on the bank step, with a door to the older-SMS check.
+The account step presents cash amount entry directly and names the imported-account facts to verify:
+card type, primary card, bank product, and Available/Reserve fund role. Cash remains optional.
+The SMS dry-run still summarizes counts; [the feedback report](onboarding-feedback-2026-09-23.md)
+records the per-message preview and parser examples that remain to be resolved.

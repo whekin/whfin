@@ -71,6 +71,7 @@ class TbcLoginVisualTest {
                 val details = if (language == "ru") "Подробности загрузки" else "Read details"
                 scrollTo(device, details).click()
                 assertNotNull(device.wait(Until.findObject(By.textContains(if (language == "ru") "пустую первую страницу" else "empty first page")), 5000))
+                assertNotNull(scrollTo(device, if (language == "ru") "Готово" else "Done"))
             }
             if (saved) assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             if (journey) {

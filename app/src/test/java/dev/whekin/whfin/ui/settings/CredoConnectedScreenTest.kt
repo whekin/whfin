@@ -46,6 +46,7 @@ class CredoConnectedScreenTest {
         onSync: () -> Unit = {},
         onLoadHistory: () -> Unit = {},
         onSaveOriginalStatement: (String, String) -> Unit = { _, _ -> },
+        onContinueDuringSync: (() -> Unit)? = null,
     ) {
         compose.setContent {
             WhfinTheme {
@@ -61,9 +62,19 @@ class CredoConnectedScreenTest {
                     onDisconnect = {},
                     onDismissError = {},
                     onSaveOriginalStatement = onSaveOriginalStatement,
+                    onContinueDuringSync = onContinueDuringSync,
                 )
             }
         }
+    }
+
+    @Test fun guidedHistoryAllowsMovingOnWhileBackgroundWorkContinues() {
+        var continued = false
+        show(CredoSyncUiState(stage = CredoSyncStage.Syncing, accounts = accounts,
+            currentAccount = 1, currentAccountTotal = 2), onContinueDuringSync = { continued = true })
+        compose.onNodeWithText(context.getString(R.string.setup_continue_during_sync))
+            .performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(true, continued) }
     }
 
     @Test

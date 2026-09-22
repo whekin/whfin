@@ -17,6 +17,14 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class TbcSavedLoginScreenTest {
     @get:Rule val compose = createComposeRule()
+    @Test fun connectedBankCanReturnToPersonalSetupWithoutBackGesture() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var completed = false
+        compose.setContent { WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected), true,
+            onDone = { completed = true }) } }
+        compose.onNodeWithText(context.getString(R.string.action_done)).performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(completed) }
+    }
     @Test fun savedSessionDoesNotAskForPasswordAgain() {
         compose.setContent { WhfinTheme { TbcLoginScreen(TbcLoginState(hasSaved = true), true) } }
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)

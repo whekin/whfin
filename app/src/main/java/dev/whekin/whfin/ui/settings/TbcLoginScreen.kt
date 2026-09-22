@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,7 +35,7 @@ import dev.whekin.whfin.data.tbc.TbcAccount
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
-fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}, routineSyncRequestKey: Int = 0, onRoutineSyncConsumed: () -> Unit = {}, viewModelOverride: TbcLoginViewModel? = null) {
+fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}, routineSyncRequestKey: Int = 0, onRoutineSyncConsumed: () -> Unit = {}, viewModelOverride: TbcLoginViewModel? = null, onDone: (() -> Unit)? = null) {
     if (demoMode) {
         Text(stringResource(R.string.demo_mode_live_import_unavailable), Modifier.padding(20.dp))
         return
@@ -115,7 +116,7 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
         onRefresh = vm::syncTransactions, onForget = vm::forget,
         onCancel = { otpKey++; preparation?.cancel(); preparing = false; otpInbox.endChallenge(); incomingOtp = null; vm.leave() },
         onOpenStatements = onOpenStatements, onConfirmBalance = vm::confirmBalance,
-        incomingOtp = incomingOtp, onOtpConsumed = { incomingOtp = null })
+        incomingOtp = incomingOtp, onOtpConsumed = { incomingOtp = null }, onDone = onDone)
 
 }
 
@@ -134,6 +135,7 @@ internal fun TbcLoginScreen(
     onConfirmBalance: (String, Long) -> Unit = { _, _ -> },
     incomingOtp: String? = null,
     onOtpConsumed: () -> Unit = {},
+    onDone: (() -> Unit)? = null,
 ) {
     // Deliberately not rememberSaveable: neither secret belongs in instance state.
     var username by remember { mutableStateOf("") }
@@ -208,7 +210,7 @@ internal fun TbcLoginScreen(
             }
             TbcLoginStage.Code -> Unit // Dedicated keypad surface above.
             TbcLoginStage.Connected -> TbcConnectedContent(state, onRefresh, onForget, onOpenStatements,
-                onConfirmBalance, { keyboard?.hide() })
+                onConfirmBalance, { keyboard?.hide() }, onDone)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -230,6 +232,7 @@ private fun ColumnScope.TbcConnectedContent(
     onOpenStatements: () -> Unit,
     onConfirmBalance: (String, Long) -> Unit,
     onHideKeyboard: () -> Unit,
+    onDone: (() -> Unit)?,
 ) {
     val result = state.syncResult
     val waiting = result?.needsStatement.orEmpty()
@@ -246,6 +249,11 @@ private fun ColumnScope.TbcConnectedContent(
     if (result != null && (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || waiting.isEmpty()))
         Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (onDone != null) WhfinButton(
+        stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth(),
+        style = WhfinActionStyle.Secondary,
+        leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+    )
 
     if (waiting.isNotEmpty() || unreported.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

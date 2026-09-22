@@ -11,6 +11,7 @@ import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.sms.BankSmsBank
 import dev.whekin.whfin.ui.accounts.*
+import dev.whekin.whfin.ui.OnFormSaved
 import dev.whekin.whfin.ui.settings.*
 import dev.whekin.whfin.ui.savings.SavingsRoute
 import kotlinx.coroutines.launch
@@ -41,6 +42,7 @@ fun PersonalSetupFlow(
     var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
     var showSteps by rememberSaveable { mutableStateOf(false) }
+    var showCashSheet by rememberSaveable { mutableStateOf(false) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
@@ -50,6 +52,8 @@ fun PersonalSetupFlow(
     var settingsEntry by rememberSaveable { mutableStateOf("connections") }
     val settings = rememberSettingsSearchState()
     val preferences = remember(context) { UiPreferences(context) }
+    val credoSmsEnabled by remember(preferences) { preferences.bankSmsEnabled(BankSmsBank.CREDO) }.collectAsState(initial = false)
+    val tbcSmsEnabled by remember(preferences) { preferences.bankSmsEnabled(BankSmsBank.TBC) }.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
     val destination = stack.lastOrNull()
     val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
@@ -77,17 +81,28 @@ fun PersonalSetupFlow(
                 else -> stringResource(R.string.setup_not_added)
             }
         }
+        @Composable fun smsStatus(enabled: Boolean): String = stringResource(when {
+            !enabled -> R.string.setup_sms_off
+            !state.hasSmsPermission -> R.string.setup_sms_permission_needed
+            else -> R.string.setup_sms_on
+        })
         val actions = when (stage) {
             SetupStage.Banks -> listOf(
                 SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open("credo") },
                 SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open("tbc") },
+                SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), smsStatus(credoSmsEnabled)) { messages(BankSmsBank.CREDO) },
+                SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), smsStatus(tbcSmsEnabled)) { messages(BankSmsBank.TBC) },
+                SetupAction(stringResource(R.string.setup_sms_history)) { messages(null) },
                 SetupAction(stringResource(R.string.setup_channels)) { openSettings("connections") },
                 SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
                 SetupAction(stringResource(R.string.statements_title)) { open("statements") },
                 SetupAction(stringResource(R.string.personal_setup_restore_title)) { open("backup") },
             )
             SetupStage.Accounts -> listOf(
-                SetupAction(stringResource(R.string.tab_accounts), overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open("accounts") },
+                SetupAction(stringResource(R.string.personal_setup_cash_add_action),
+                    stringResource(R.string.setup_cash_action_body)) { showCashSheet = true },
+                SetupAction(stringResource(R.string.setup_review_accounts),
+                    overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open("accounts") },
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             )
             SetupStage.Categories -> listOf(
@@ -125,6 +140,21 @@ fun PersonalSetupFlow(
                 SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
             }) else null,
         )
+        if (showCashSheet) {
+            val accountsModel: AccountsViewModel = viewModel()
+            val formState by accountsModel.formSaveState.collectAsState()
+            OnFormSaved(formState) { showCashSheet = false }
+            AddAccountSheet(
+                onDismiss = { showCashSheet = false },
+                onImportStatement = {},
+                onConfirm = { name, type, currency, provider, opening ->
+                    accountsModel.addAccount(name, type, currency, provider, opening)
+                },
+                cashOnly = true,
+                titleOverride = stringResource(R.string.personal_setup_cash_sheet_title),
+                formState = formState,
+            )
+        }
         return
     }
     if (destination == "account") {
@@ -161,8 +191,9 @@ fun PersonalSetupFlow(
         when (destination) {
             "credo" -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
                 initialRememberPassword = rememberCredo, onOpenAppLock = ::lockForCredo,
-                autoLoadFullHistory = true, onGuidedHistoryComplete = ::back, onDone = ::back)
-            "tbc" -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open("statements") })
+                autoLoadFullHistory = true, onGuidedHistoryComplete = ::back, onDone = ::back,
+                onContinueDuringSync = ::back)
+            "tbc" -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open("statements") }, onDone = ::back)
             "accounts" -> AccountsScreen(
                 onConnectBank = { open(if (it == "Credo") "credo" else "tbc") },
                 onOpenStatements = { open("statements") }, onOpenSavings = { open("savings") },
