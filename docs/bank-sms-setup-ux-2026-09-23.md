@@ -25,8 +25,19 @@ The settings swipe test first failed on the absent focus and then passed with th
 host suite passed: 1214 tests, 0 failures/errors, 5 skipped. Disposable emulator routes passed
 in EN light and RU dark/font 1.5, including a compact-height RU SMS step. Synthetic Bank SMS used
 20 recent events; before the change a full swipe still showed only the journal, afterwards Cards and
-accounts appeared before it. Release R8 and lintVital passed. Screenshots and layout were visually inspected. The physical Samsung
-was not installed, instrumented or changed.
+accounts appeared before it. Release R8 and lintVital passed. Screenshots and layout were visually inspected.
+No instrumentation ran on the physical Samsung.
+
+## Samsung installation — 2026-09-23
+
+At the owner's request, the signed 0.3.69 (81) release replaced the existing package with `install -r`.
+The phone already reported 0.3.69 (81), but its prior APK hash differed. Both APKs used the same release
+certificate (`af6009…fae92`). After installation, the installed `base.apk` SHA-256 matched the built
+release (`6b6d7e52…14cf6`). The original install time (2026-08-16) and granted READ_SMS, RECEIVE_SMS,
+and POST_NOTIFICATIONS permissions remained. No AndroidRuntime crash appeared. WHFIN logged the existing
+`duplicate_statement_row` finding for the previously identified 1 GEL Silknet duplicate; this update
+does not alter that saved row. WHFIN was not manually opened over the notification shade, no device
+instrumentation or data clearing was performed, and the 23 September backup remained in Downloads.
 
 ## Remaining boundary
 
