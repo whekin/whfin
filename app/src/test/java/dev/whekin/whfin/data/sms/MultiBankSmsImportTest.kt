@@ -105,4 +105,26 @@ class MultiBankSmsImportTest {
         assertEquals(SmsDiagnosticOutcome.NEEDS_CARD_MAPPING, tbc.outcome)
         assertNull(tbc.transactionId)
     }
+    @Test fun tbcMobileRechargeUsesOnlyTheTbcSpendableLedger() = runBlocking {
+        bank("Credo", "GE00CD0000000000000001")
+        val tbcAccount = bank("TBC", SyntheticTbcWorkbook.IBAN)
+        val sms = "Mobile Balance Recharge\n40.00GEL\nExample mobile account\nID:000000000\n12/09/2026"
+
+        val result = SmsTransactionImporter(db, BankSmsBank.TBC).import(sms)
+
+        assertEquals(SmsDiagnosticOutcome.IMPORTED, result.outcome)
+        val transaction = requireNotNull(db.transactionDao().byId(requireNotNull(result.transactionId)))
+        assertEquals(tbcAccount.id, transaction.accountId)
+        assertEquals(-4000L, transaction.amountMinor)
+        assertEquals("Example mobile account", transaction.rawCounterparty)
+    }
+    @Test fun refusedTbcTransferNoticeDoesNotInventARefundAmount() = runBlocking {
+        val tbcAccount = bank("TBC", SyntheticTbcWorkbook.IBAN)
+        val notice = "2.00 GEL you sent to 500000000 and the fee has been returned to your account as the recipient did not accept the payment."
+
+        val result = SmsTransactionImporter(db, BankSmsBank.TBC).import(notice)
+
+        assertEquals(SmsDiagnosticOutcome.IGNORED, result.outcome)
+        assertTrue(db.transactionDao().allForIntegrity().none { it.accountId == tbcAccount.id })
+    }
 }

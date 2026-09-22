@@ -12,7 +12,7 @@
   prompts a review of physical/virtual cards, the primary card, bank product and fund role. Continue
   remains available without entering cash.
 
-## Follow-up grounded in the owner's examples
+## Phone evidence and follow-up
 
 The 90-day SMS dry-run currently previews **counts only** before writing. The next interaction should
 show proposed operations grouped by outcome and allow the owner to inspect a message before confirming
@@ -21,16 +21,30 @@ must stay visible as parser diagnostics and must never change a balance. An expl
 decision could collapse a known irrelevant format without deleting its evidence. That decision needs
 a reversible, bank-scoped rule so later parser improvements can revisit other unrecognized messages.
 
-The reported `Canceled operation` and fee-return formats need redacted exact SMS text before changing
-the parser. The existing Credo cancellation parser accepts a payment body with amount, card, merchant and
-timestamp; the importer can also refuse a cancellation when no unambiguous original payment is found.
-Those are different failure modes. Likewise, **waiting for bank statement** can be an intentional
-reconciliation state, not an import failure. Inspect the diagnostic reason and the related statement
-period before changing that behavior.
+The owner supplied read-only access to the connected Samsung on 2026-09-23. The original Credo payment
+and `Canceled operation` messages arrived one second apart on 8 August. A synthetic replay of that exact
+shape cancels correctly, and the portable backup has no active ledger row for either message. A saved
+device-local diagnostic can still be stale; diagnostics are deliberately absent from portable backup.
 
-The single Data health finding needs its code and affected row before repair. The checker includes
-duplicate SMS/statement rows as well as broken ledger invariants; their remedies differ. No personal
-database was read or changed for this report.
+TBC's 13 September notice says a 2 GEL transfer was not accepted and its unspecified fee was returned.
+The portable ledger already has the 2 GEL debit and credit from bank history. The SMS must not invent a
+third movement. It now classifies as an ignored declined-transfer notice rather than a parser failure.
+TBC's `Mobile Balance Recharge` message of 12 September contains a 40 GEL payment, provider and date;
+it was previously ignored. The parser now treats it as a bill, keeping the provider for categorization
+and statement matching.
+
+The one Data health finding is a 1 GEL Silknet bill on 24 August: the SMS remained active beside a
+statement row for the same bill. The statement file covers 15 August–15 September. The statement has
+two 1 GEL rows on adjacent days, and the old SMS path discarded the provider name, so amount-only
+matching refused to choose. A later explicit account choice bypassed the statement-coverage guard and
+wrote the duplicate. Matching now narrows same-amount bill candidates by a cross-script provider name,
+and manual routing respects statement coverage. The existing Data health duplicate-folding action can
+repair the already saved row; a synthetic regression confirmed this specific old unnamed-SMS shape.
+No repair or installation was performed on the phone.
+
+**Waiting for bank statement** remains a deliberate reconciliation state. Its individual diagnostics
+cannot be identified from a portable backup because `sms_diagnostics` is device-local; the owner-facing
+list or a diagnostic export is needed to review those exact rows.
 
 ## Verification and limits
 

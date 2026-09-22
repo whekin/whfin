@@ -91,6 +91,15 @@ class DuplicateFoldingTest {
         assertEquals(1, active().size)
     }
 
+    @Test fun oldUnnamedSilknetMessageCanFoldIntoNamedStatement() = runBlocking {
+        val message = ride(TxSource.SMS, merchant = null)
+        val statement = ride(TxSource.STATEMENT, merchant = "სილქნეტი - ინტერნეტი")
+
+        assertEquals(1, folding.fold(listOf(message)))
+        assertEquals(statement, db.transactionDao().byId(message)?.mergedIntoTransactionId)
+        assertEquals(1, active().size)
+    }
+
     @Test fun aLineThatAlreadyAbsorbedACopyRefusesTheNextOne() = runBlocking {
         val first = ride(TxSource.SMS, minute = 0)
         val second = ride(TxSource.SMS, minute = 1)

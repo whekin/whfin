@@ -143,6 +143,19 @@ ledger in place, then calls the normal importer resolution path and remembers a 
 If a matching confirmed statement row already exists, resolution records `ATTACHED` and points the
 diagnostic at that row instead of creating a duplicate.
 
+## Bill evidence after the first personal setup — 2026-09-23
+
+A TBC `Mobile Balance Recharge` message with amount, provider and date is a bill. The provider is kept
+in its diagnostic and ledger row, as for a Credo utility bill. A notice that a recipient declined a
+transfer and the unspecified fee was returned is informational: TBC history supplies the booked debit
+and credit, while the SMS supplies no separate amount to add.
+
+When two same-amount bill rows lie on nearby statement days, a provider named by the SMS may narrow
+them through the shared Georgian/Latin merchant comparison. If it does not make a single candidate,
+the row waits. Choosing an account for a queued message settles routing only; it cannot create another
+transaction inside a period that account's statement already covers. The 24 August Silknet duplicate
+that exposed the bypass remains in the owner's database until the existing Data health repair is run.
+
 ## The statement answers first
 
 A message only becomes a question after the imported statements have been asked. `SmsStatementEvidence`

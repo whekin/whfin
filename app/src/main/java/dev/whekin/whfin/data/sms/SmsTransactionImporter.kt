@@ -233,6 +233,11 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 transactionId = match.transaction.id,
             )
         }
+        // Choosing the ledger answers routing, not whether a covered statement omitted this
+        // operation. Keep that bank-evidence boundary when the owner resolves a queued message.
+        if (isCoveredByStatement(account.id, diagnostic.occurredAt)) {
+            return unwritten(diagnostic, persist = true)
+        }
 
         val sms = diagnostic.toParsedSms()
             ?: return updateFailure(diagnostic, SmsDiagnosticReason.PARSE_FAILURE)
@@ -1013,6 +1018,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         val rawCounterparty = when (sms) {
             is BankSmsMessage.CardPayment -> sms.merchantRaw
             is BankSmsMessage.IncomingTransfer -> sms.senderName
+            is BankSmsMessage.BillPayment -> sms.serviceRaw
             else -> null
         }
         val merchant = rawCounterparty?.let { resolveMerchant(it) }
@@ -1241,6 +1247,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         counterparty = when (sms) {
             is BankSmsMessage.CardPayment -> sms.merchantRaw
             is BankSmsMessage.IncomingTransfer -> sms.senderName
+            is BankSmsMessage.BillPayment -> sms.serviceRaw
             else -> null
         },
         fromIban = (sms as? BankSmsMessage.OwnTransfer)?.fromIban,

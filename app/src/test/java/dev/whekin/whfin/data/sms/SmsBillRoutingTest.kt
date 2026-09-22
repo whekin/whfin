@@ -12,6 +12,13 @@ import dev.whekin.whfin.data.db.FundRole
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.WhfinDatabase
+import dev.whekin.whfin.data.db.TransactionEntity
+import dev.whekin.whfin.data.db.TxSource
+import dev.whekin.whfin.data.db.TxStatus
+import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
+import dev.whekin.whfin.data.LedgerCalendar
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -121,6 +128,67 @@ class SmsBillRoutingTest {
 
         assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
         assertEquals(SmsDiagnosticReason.NO_ACCOUNT, result.reason)
+    }
+
+    @Test fun silknetBillAttachesToItsStatementAmongTwoSameAmountDays() = runBlocking {
+        val everyday = current("1")
+        current("4")
+        val day = LocalDate.of(2026, 8, 24)
+        val at = day.atTime(15, 24).atZone(LedgerCalendar.zone).toInstant().toEpochMilli()
+        val silknet = db.transactionDao().insert(TransactionEntity(
+            accountId = everyday, amountMinor = -100, currency = "GEL",
+            occurredAt = day.atStartOfDay(LedgerCalendar.zone).toInstant().toEpochMilli(),
+            rawCounterparty = "სილქნეტი - ინტერნეტი", source = TxSource.STATEMENT,
+            status = TxStatus.CONFIRMED,
+        ))
+        db.transactionDao().insert(TransactionEntity(
+            accountId = everyday, amountMinor = -100, currency = "GEL",
+            occurredAt = day.plusDays(1).atStartOfDay(LedgerCalendar.zone).toInstant().toEpochMilli(),
+            rawCounterparty = "OTHER PROVIDER", source = TxSource.STATEMENT,
+            status = TxStatus.CONFIRMED,
+        ))
+        db.statementImportDao().insert(StatementImportEntity(
+            accountId = everyday, sourceId = null, fileName = "statement.xlsx",
+            origin = StatementImportOrigin.CREDO_SYNC,
+            periodFrom = day.minusDays(10).toEpochDay(), periodTo = day.plusDays(10).toEpochDay(),
+            openingBalanceMinor = 0, closingBalanceMinor = -200, totalRows = 2,
+            inserted = 2, duplicates = 0, reconciled = 0, reviewCount = 0, importedAt = at - 60_000,
+        ))
+        val sms = """
+            Service/utility payment
+            Amount: 1.00 GEL;
+            Service: Silknet, ID: 000000000
+            Balance: 263.39 GEL
+            Date: äDateñ;
+        """.trimIndent()
+
+        val result = importer.import(sms, at)
+
+        assertEquals(SmsDiagnosticOutcome.ATTACHED, result.outcome)
+        assertEquals(silknet, result.transactionId)
+        assertEquals(2, db.transactionDao().allForIntegrity().size)
+    }
+
+    @Test fun choosingAccountCannotCreateABillInsideAStatementCoveredPeriod() = runBlocking {
+        val everyday = current("1")
+        current("4")
+        val day = LocalDate.of(2026, 8, 24)
+        val receivedAt = day.atTime(15, 24).atZone(LedgerCalendar.zone).toInstant().toEpochMilli()
+        db.statementImportDao().insert(StatementImportEntity(
+            accountId = everyday, sourceId = null, fileName = "statement.xlsx",
+            origin = StatementImportOrigin.CREDO_SYNC,
+            periodFrom = day.minusDays(10).toEpochDay(), periodTo = day.plusDays(10).toEpochDay(),
+            openingBalanceMinor = 0, closingBalanceMinor = 0, totalRows = 0,
+            inserted = 0, duplicates = 0, reconciled = 0, reviewCount = 0, importedAt = receivedAt - 60_000,
+        ))
+        val unresolved = importer.import(bill(), receivedAt)
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, unresolved.outcome)
+
+        val resolved = importer.resolveDiagnostic(requireNotNull(unresolved.diagnosticId), everyday)
+
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, resolved.outcome)
+        assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, resolved.reason)
+        assertEquals(0, db.transactionDao().allForIntegrity().size)
     }
 
     private fun bill(amount: String = "45.60", balance: String = "210.15") = """

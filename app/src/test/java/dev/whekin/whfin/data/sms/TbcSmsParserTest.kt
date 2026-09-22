@@ -41,6 +41,19 @@ class TbcSmsParserTest {
         assertEquals(25000L, bill.amountMinor)
         assertEquals("Example Energy", bill.serviceRaw)
     }
+    @Test fun mobileBalanceRechargeFromBankSmsIsABill() {
+        val sms = parsed("""
+            Mobile Balance Recharge
+            40.00GEL
+            Silknet account
+            ID:000000000
+            12/09/2026
+        """.trimIndent()) as BankSmsMessage.BillPayment
+        assertEquals(4000L, sms.amountMinor)
+        assertEquals("GEL", sms.currency)
+        assertEquals("Silknet account", sms.serviceRaw)
+        assertEquals(LocalDateTime.of(2026, 9, 12, 0, 0), sms.timestamp)
+    }
     @Test fun groupedThousandsRemainOneAmount() {
         assertEquals(123450L, parsed("1 234.50 GEL (*0001) EXAMPLE SHOP 08/09/26 20:00").amountMinor)
     }

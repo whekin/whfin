@@ -119,6 +119,21 @@ class SmsCancellationImporterTest {
         assertEquals(SmsDiagnosticOutcome.CANCELED, olderPaymentVisitedLaterByDescendingInboxScan.outcome)
     }
 
+    @Test
+    fun `bank cancellation one second after card payment matches merchant with spaced location`() = runBlocking {
+        val payment = PAYMENT.replace("12.34", "1.00")
+            .replace("EXAMPLE MARKET>Tbilisi", "Vip Pay*YANDEX.GO >Tbilisi")
+        val cancellation = CANCELLATION.replace("12.34", "1.00")
+            .replace("EXAMPLE MARKET>Tbilisi", "Vip Pay*YANDEX.GO >Tbilisi")
+            .replace("20:48:05", "20:48:06")
+
+        val imported = importer.import(payment, RECEIVED_AT)
+        val canceled = importer.import(cancellation, RECEIVED_AT + 1_000)
+
+        assertEquals(SmsDiagnosticOutcome.CANCELED, canceled.outcome)
+        assertEquals(imported.transactionId, canceled.transactionId)
+    }
+
     private companion object {
         const val RECEIVED_AT = 1_775_000_000_000
         val PAYMENT = """

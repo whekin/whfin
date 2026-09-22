@@ -22,11 +22,18 @@ object TbcSmsParser {
         if (Regex("(?i)(?:\\bcode\\s*:|\\bPIN\\s+code\\b|\\bSMS\\s+code\\b)").containsMatchIn(text)) {
             return Classification.Ignored(IgnoreReason.OTP, bankCandidate = false)
         }
+        // The recipient declined a transfer and the bank returned an unspecified fee. This notice
+        // cannot supply a new ledger amount; the booked transfer/reversal comes from bank history.
+        if (money.find(text)?.range?.first == 0 &&
+            text.contains("the fee has been returned", ignoreCase = true) &&
+            text.contains("recipient did not accept", ignoreCase = true)) {
+            return Classification.Ignored(IgnoreReason.REJECTED, bankCandidate = true)
+        }
         // This is a different country's deposit message, present in the upstream Georgia directory.
         if (text.contains("было переведено")) return Classification.Ignored(IgnoreReason.UNRELATED, false)
         val values = money.findAll(text).toList()
         if (values.isEmpty()) return Classification.Ignored(IgnoreReason.UNRELATED, false)
-        val financial = Regex("(?i)^(?:\\d|Reversal|Ukugatareba|Cash Deposit|Deposit|Money Transfer|Card transaction|Sabarate operacia|Payment|Gadaxda|Transfer between|Conversion|Your money transfer)|^(?:საბარათე|ჩარიცხვა|კონვერტაცია)").containsMatchIn(text)
+        val financial = Regex("(?i)^(?:\\d|Reversal|Ukugatareba|Cash Deposit|Deposit|Money Transfer|Mobile Balance Recharge|Card transaction|Sabarate operacia|Payment|Gadaxda|Transfer between|Conversion|Your money transfer)|^(?:საბარათე|ჩარიცხვა|კონვერტაცია)").containsMatchIn(text)
         if (!financial) return Classification.Ignored(IgnoreReason.UNRELATED, false)
         return try {
             val first = values.first()
@@ -53,6 +60,11 @@ object TbcSmsParser {
                 text.startsWith("Deposit", true) || text.startsWith("ჩარიცხვა") ->
                     IncomingTransfer(amount, currency, merchant?.takeIf(String::isNotBlank), digits?.groupValues?.get(1), null, balanceCurrency ?: currency, timestamp)
                 text.startsWith("Money Transfer", true) -> OutgoingTransfer(amount, currency, null, currency, timestamp)
+                text.startsWith("Mobile Balance Recharge", true) -> {
+                    val service = text.substring(first.range.last + 1).substringBefore("ID:")
+                        .substringBefore(dateMatch.value).trim()
+                    BillPayment(amount, currency, service.takeIf(String::isNotBlank), null, currency, timestamp)
+                }
                 text.startsWith("Payment", true) || text.startsWith("Gadaxda", true) -> {
                     val tail = text.substring(first.range.last + 1).trim()
                     val service = tail.substringBefore("ID:").substringBefore("Creation date").trim()

@@ -83,7 +83,7 @@ internal class SmsStatementEvidence(
             return null
         }
 
-        val candidates = candidatesFor(diagnostic, ledgerCurrency, restrictTo).filter { (_, transaction) ->
+        val amountCandidates = candidatesFor(diagnostic, ledgerCurrency, restrictTo).filter { (_, transaction) ->
             val signMatches = if (incoming) transaction.amountMinor > 0 else transaction.amountMinor < 0
             val amountMatches = !sameCurrency || abs(transaction.amountMinor) == abs(amountMinor)
             val merchantMatches = merchant == null ||
@@ -96,6 +96,14 @@ internal class SmsStatementEvidence(
                 else -> sameCurrency
             }
         }
+        // Utility messages can name the provider while statements spell it in another alphabet.
+        // When equal amounts occur on nearby days, that name can distinguish the actual bill;
+        // without a provider match, retain the existing amount-only uniqueness rule.
+        val candidates = if (diagnostic.kind == SmsDiagnosticKind.BILL_PAYMENT && merchant != null) {
+            amountCandidates.filter { (_, transaction) ->
+                MerchantNormalizer.equivalent(transaction.rawCounterparty, merchant)
+            }.ifEmpty { amountCandidates }
+        } else amountCandidates
 
         val exact = when (diagnostic.kind) {
             // Same money at the same merchant. An amount alone repeats too often to name a card's ledger.
