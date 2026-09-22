@@ -136,6 +136,11 @@ internal fun homeRunway(
     )
 }
 
+/** A passed payday is no longer a future horizon; only a near cash limit earns a Home card. */
+internal fun visibleRunway(runway: HomeRunway?): HomeRunway? = runway?.takeUnless {
+    it.nextIncome?.passed == true && (it.daysLeft == null || it.daysLeft > QUIET_ABOVE_DAYS)
+}
+
 /** How far forward bills are worth listing: to the payday ahead, else the quiet window. */
 internal fun paydayHorizon(
     payday: NextPayday?,

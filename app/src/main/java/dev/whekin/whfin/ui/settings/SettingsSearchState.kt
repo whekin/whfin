@@ -133,7 +133,10 @@ internal fun rememberSettingsSearchPull(state: SettingsSearchState): androidx.co
                 return androidx.compose.ui.geometry.Offset.Zero
             }
             override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-                if (state.dragging) { state.searchVisible = state.fraction >= .5f; state.dragging = false }
+                if (state.dragging) {
+                    if (state.fraction >= .5f) state.reveal(focusKeyboard = true)
+                    else { state.searchVisible = false; state.dragging = false }
+                }
                 return androidx.compose.ui.unit.Velocity.Zero
             }
         }

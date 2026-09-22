@@ -161,6 +161,15 @@ class HomeRunwayTest {
         assertNull(runwayShape(runway, LocalDate.of(2026, 8, 12)))
     }
 
+    @Test fun `past payday without a near cash horizon shows no empty runway card`() {
+        assertNull(visibleRunway(homeRunway(
+            spendablePivotMinor = 2_000_000,
+            ordinaryDailyMinor = 10_000,
+            incomeSources = listOf(source(day = 5)),
+            today = LocalDate.of(2026, 8, 12),
+        )))
+    }
+
     /** Bills do not stop arriving because a payday is late, so they stay inside the horizon. */
     @Test
     fun `bills still count while a late payday is waited on`() {

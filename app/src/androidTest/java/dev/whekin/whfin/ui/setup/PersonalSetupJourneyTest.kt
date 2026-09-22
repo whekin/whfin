@@ -17,6 +17,34 @@ class PersonalSetupJourneyTest {
     @Test fun englishDark() = journey("en", true, 1f)
     @Test fun russianLarge() = journey("ru", true, 1.5f)
 
+    @Test fun bankSmsCompactRussianLarge() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
+        val oldSize = Regex("Override size: (\\d+x\\d+)")
+            .find(device.executeShellCommand("wm size"))?.groupValues?.get(1)
+        SetupQaActivity.language = "ru"; SetupQaActivity.dark = true; SetupQaActivity.fontScale = 1.5f
+        device.executeShellCommand("wm size 1200x1920")
+        try {
+            ActivityScenario.launch<SetupQaActivity>(Intent(context, SetupQaActivity::class.java)).use {
+                assertNotNull(device.wait(Until.findObject(By.text("Подключите банки")), 8_000))
+                device.findObject(By.text("Продолжить")).click()
+                assertNotNull(device.wait(Until.findObject(By.text("Проверьте сообщения банков")), 5_000))
+                assertNotNull(device.findObject(By.text("SMS Credo")))
+                val continueButton = device.findObject(By.text("Продолжить"))
+                assertNotNull(continueButton)
+                assertTrue(continueButton.visibleBounds.height() > 40)
+                val output = File(context.getExternalFilesDir(null), "setup-qa").apply { mkdirs() }
+                device.waitForIdle(1_000)
+                android.os.SystemClock.sleep(350)
+                assertTrue(device.takeScreenshot(File(output, "ru-bank-sms-compact.png")))
+            }
+        } finally {
+            device.executeShellCommand("wm size ${oldSize ?: "reset"}")
+        }
+    }
+
     @Test fun balancesLight() = review("en", false, 1f)
     @Test fun balancesDark() = review("en", true, 1f)
     @Test fun balancesRussianLarge() = review("ru", true, 1.5f)
@@ -94,6 +122,7 @@ class PersonalSetupJourneyTest {
         }
         fun capture(name: String) {
             device.waitForIdle(1000)
+            android.os.SystemClock.sleep(350)
             device.takeScreenshot(File(output, "$language-$dark-$scale-$name.png"))
             device.dumpWindowHierarchy(File(output, "$language-$dark-$scale-$name.xml"))
         }
@@ -107,6 +136,12 @@ class PersonalSetupJourneyTest {
             capture("tbc")
             device.pressBack()
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.setup_banks_title))), 5000))
+            click(text(R.string.setup_next))
+            assertTrue(device.wait(Until.hasObject(By.text(text(R.string.setup_sms_title))), 5000))
+            capture("bank-sms")
+            click(text(R.string.setup_sms_review))
+            assertTrue(device.wait(Until.hasObject(By.text(text(R.string.sms_diagnostics_title))), 5000))
+            device.pressBack()
             click(text(R.string.setup_next))
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.personal_setup_cash_add_action))), 5000))
             capture("account-decisions")

@@ -36,22 +36,25 @@ fixture has been installed successfully.
 
 ## Personal setup
 
-Personal setup is a resumable seven-stage wizard. Each stage offers its working forms, keeps
+Personal setup is a resumable eight-stage wizard. Each stage offers its working forms, keeps
 changes immediately, and allows continuing without configuring optional features. Only the final
 `Start` action completes setup. Closing a form returns to its caller inside setup; connecting one bank
 never prevents adding another.
 
-1. **Banks**: Credo and TBC sign-in, independent per-bank SMS/push opt-ins, lock code for remembered
-   credentials, statement files and backup restore. Bank sign-in does not require SMS monitoring consent.
-   The initial sync still reads all available history; a current-balances-only import is not implemented.
-2. **Accounts**: imported bank ledgers, cash and watch-only crypto wallets, names, currencies, available
+1. **Banks**: Credo and TBC sign-in, lock code for remembered credentials, statement files and backup
+   restore. Bank sign-in does not require SMS monitoring consent. The initial sync still reads all
+   available history; a current-balances-only import is not implemented.
+2. **Bank SMS**: separate Credo/TBC opt-ins, optional TBC push, an automatic card-link check after
+   bank history finishes, and a review of unresolved messages. With existing SMS permission, entering
+   Bank SMS previews the past 90 days; importing those operations still requires confirmation.
+3. **Accounts**: imported bank ledgers, cash and watch-only crypto wallets, names, currencies, available
    money versus reserve, opening balances and card mappings. Multiple accounts can be added.
-3. **Categories**: evidence-based suggestions, editable categories and remembered counterparty rules.
-4. **Income**: any number of regular income sources with currency, receiving account and expected payday.
-5. **Savings and debts**: savings pace and goals for reserves, existing debts including declarations
+4. **Categories**: evidence-based suggestions, editable categories and remembered counterparty rules.
+5. **Income**: any number of regular income sources with currency, receiving account and expected payday.
+6. **Savings and debts**: savings pace and goals for reserves, existing debts including declarations
    without a new money movement.
-6. **Preferences**: appearance, quick entry and widget choices, PIN/biometrics and portable backup.
-7. **Ready**: per-currency balance review and a collapsed return to any setup stage; no invented completion marks
+7. **Preferences**: appearance, quick entry and widget choices, PIN/biometrics and portable backup.
+8. **Ready**: per-currency balance review and a collapsed return to any setup stage; no invented completion marks
    for banks or permissions. Skipped features remain accessible in the normal application.
 
 The current stage is stored with installation-local runtime flags and excluded from backup. Activity
@@ -128,10 +131,11 @@ Its hierarchy is:
 
 1. monitoring status and one dominant next action;
 2. `Needs attention` for unresolved card/account routing;
-3. recent processing activity;
-4. `Cards and accounts`, collapsed or visually secondary when healthy;
-5. optional `Check recent SMS`;
-6. parser details and safe failure sharing inside an individual result or troubleshooting area.
+3. `Cards and accounts`, before the journal so routes stay findable;
+4. messages waiting for bank evidence, without a false owner decision;
+5. recent processing activity, three rows by default with an explicit expansion;
+6. optional `Check recent SMS`;
+7. parser details and safe failure sharing inside an individual result or troubleshooting area.
 
 ## Implementation order
 
@@ -169,7 +173,7 @@ balances can be skipped explicitly; this never certifies a connection or silentl
 
 The full initial Credo history walk continues in the application while the owner advances through
 setup. The connected TBC page offers an explicit Done action. Bank sign-in and per-bank SMS monitoring
-are separate decisions shown together on the bank step, with a door to the older-SMS check.
+are separate decisions on consecutive setup steps, with a door to the older-SMS check.
 The account step presents cash amount entry directly and names the imported-account facts to verify:
 card type, primary card, bank product, and Available/Reserve fund role. Cash remains optional.
 The SMS dry-run still summarizes counts; [the feedback report](onboarding-feedback-2026-09-23.md)

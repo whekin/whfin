@@ -86,6 +86,24 @@ class SmsDiagnosticsScreenTest {
         compose.onNodeWithText(context.getString(R.string.sms_diagnostics_empty_title)).assertDoesNotExist()
     }
 
+    @Test fun statementCoveredBillWithoutACardDoesNotOfferAnAccountChoiceThatChangesNothing() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(id = 61, externalKey = "sms|covered-bill",
+            kind = SmsDiagnosticKind.BILL_PAYMENT, outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+            reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, receivedAt = 1_000,
+            amountMinor = 100, currency = "GEL", counterparty = "Example internet", updatedAt = 1_000)
+        compose.setContent { WhfinTheme { SmsDiagnosticsScreen(
+            loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData(diagnostics = listOf(diagnostic))),
+            scanState = SmsScanState.Idle, messageState = SmsMessageState.Hidden,
+            smsImportEnabled = true, hasReceivePermission = true,
+            hasHistoryPermission = true, canRequestHistoryPermission = true,
+            onScanHistory = {}, onConfirmHistoryImport = {}, onCancelHistoryImport = {},
+            onResolve = { _, _, _ -> error("Covered bill should not ask for a ledger") },
+            onAddCardMapping = { _, _, _ -> }, onViewMessage = {}, onDismissMessage = {}) } }
+        compose.onNodeWithText(context.getString(R.string.sms_outcome_waiting_for_statement)).assertExists()
+        compose.onNodeWithContentDescription(context.getString(R.string.sms_link_action)).assertDoesNotExist()
+    }
+
     @Test
     fun historyPermission_isExplicitAndDoesNotImportBeforePreview() {
         var requested = false

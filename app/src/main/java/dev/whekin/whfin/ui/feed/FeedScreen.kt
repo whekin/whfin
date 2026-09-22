@@ -592,13 +592,14 @@ fun FeedScreen(
             // Home reads as one answer to "how am I doing for money", in the order the answer is
             // built: what there is, how far it goes, what is already owed out of it, what still
             // needs a decision, what just happened — and only then the month, compactly.
-            runway?.let { reading ->
+            val visibleRunway = visibleRunway(runway)
+            visibleRunway?.let { reading ->
                 item(key = "runway") { HomeRunwayRow(reading, onOpenAccounts = onOpenAccounts) }
             }
             // The forecast block lists the same expected payments inside it. Naming them twice made
             // a prediction look like two separate facts, so the standalone row speaks only when
             // nothing above it has already spoken for them.
-            val billsNamedByRunway = runway?.recurringOccurrences?.isNotEmpty() == true
+            val billsNamedByRunway = visibleRunway?.recurringOccurrences?.isNotEmpty() == true
             if (showsRecurringSeparately(recurringDue.isNotEmpty(), billsNamedByRunway)) item(key = "recurring") {
                 HomeRecurringRow(recurringDue)
             }
@@ -2443,7 +2444,7 @@ internal fun HomeRunwayRow(
         R.string.home_runway_burn,
         formatMinor(runway.dailyBurnMinor, "GEL"),
     )
-    val payday = runway.nextIncome?.let { incomeTimingLabel(it, dateFormat) }
+    val payday = runway.nextIncome?.takeUnless { it.passed }?.let { incomeTimingLabel(it, dateFormat) }
     val primaryOccurrences = runway.recurringOccurrences.filter { occurrence ->
         runway.nextIncome?.let { occurrence.dueDate <= it.expected } ?: true
     }
@@ -2461,23 +2462,21 @@ internal fun HomeRunwayRow(
     }
     val obligations = listOfNotNull(firstOccurrence, moreOccurrences).joinToString(" · ")
         .takeIf(String::isNotEmpty)
+    val shape = remember(runway, today) { runwayShape(runway, today) }
+    val expandable = shape != null || primaryOccurrences.isNotEmpty() || runway.expectedExpenseMinor != null
     val title = runway.shortfallMinor?.let { shortfall ->
         stringResource(
             R.string.home_runway_shortfall,
             formatMinor(shortfall, "GEL"),
             runway.nextIncome?.expected?.format(dateFormat).orEmpty(),
         )
-    } ?: runway.nextIncome?.let { income ->
-        // A payday that already passed carries no promise: the next one is unknown until this one
-        // lands, so the card waits instead of claiming the money reaches a date.
-        if (income.passed) stringResource(R.string.income_awaiting_short)
-        else stringResource(R.string.home_runway_enough, income.expected.format(dateFormat))
+    } ?: runway.nextIncome?.takeUnless { it.passed }?.let { income ->
+        stringResource(R.string.home_runway_enough, income.expected.format(dateFormat))
     } ?: pluralStringResource(
         R.plurals.home_runway_days,
         runway.daysLeft ?: 0,
         runway.daysLeft ?: 0,
     )
-    val shape = remember(runway, today) { runwayShape(runway, today) }
     // Everything the shape already draws is struck from the sentence beneath it: the payday and the
     // day the money ends are marks on the rule now, and repeating them below is the old paragraph
     // growing back.
@@ -2498,12 +2497,13 @@ internal fun HomeRunwayRow(
             markerColor = if (runway.shortOfIncome) accent else null,
             trailing = {
                 Icon(
-                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = stringResource(R.string.home_runway_calculation),
+                    if (!expandable) Icons.AutoMirrored.Filled.KeyboardArrowRight
+                    else if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (expandable) stringResource(R.string.home_runway_calculation) else null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
-            onClick = { expanded = !expanded },
+            onClick = if (expandable) ({ expanded = !expanded }) else onOpenAccounts,
         ) else Column(
             Modifier
                 .fillMaxWidth()
@@ -2570,7 +2570,7 @@ internal fun HomeRunwayRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (expanded) {
+        if (expanded && expandable) {
             // The rule above marks the dates; when it is drawn, the sentence naming the whole
             // payday window — the ordinary day, the weekend it moved off, the outer bound — waits
             // here rather than crowding the card everybody reads at a glance.
@@ -2600,10 +2600,6 @@ internal fun HomeRunwayRow(
                     supportingMaxLines = Int.MAX_VALUE,
                 )
             }
-            Text(stringResource(R.string.home_runway_method),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = onOpenAccounts, modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text(stringResource(R.string.tab_accounts))
             }

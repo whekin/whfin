@@ -572,10 +572,10 @@ payday label, and the title still names the date.
 
 What the drawing says is struck from the sentence beneath it: the collapsed card keeps only the daily
 rate and the next bills, and the payday sentence — the ordinary day and the weekend it moved off —
-waits inside the calculation. Without a payday still ahead there is no window to divide: no declared
-source, or an estimate already behind us, and the card keeps its original sentence. In that second
-case the sentence is that it is waiting for the payment, because the next payday is not known until
-this one lands.
+waits inside the calculation. Without a payday still ahead there is no window to divide. If the
+estimate has passed, the card names the near cash horizon in days instead of using a payment-status
+sentence; with no near horizon it stays off Home. The expanded card names relevant bills but no longer
+prints a paragraph about calculation rules. A simple days-only card opens Accounts directly.
 
 ## Who was paid: the rung between a category and a payment (2026-09-01)
 
@@ -978,8 +978,8 @@ their existing callbacks and permission rules.
 
 Settings search lives in the header. A downward pull at the top of the root list continuously expands
 the search icon into a field; reversing the drag shrinks it. Release settles the current fraction.
-The heading keeps its measured height throughout. Pulling does not summon the keyboard; tapping the
-search icon does. Upward movement can collapse an empty field, while a non-empty query stays visible
+The heading keeps its measured height throughout. Completing the pull focuses the field and opens the
+keyboard, as tapping the search icon does. Upward movement can collapse an empty field, while a non-empty query stays visible
 until explicitly cleared/closed. Search from a nested page and Back to search results remain global.
 The setup settings wrapper uses the same header, with system insets owned once.
 

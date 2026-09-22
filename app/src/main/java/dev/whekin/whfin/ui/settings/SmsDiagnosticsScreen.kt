@@ -110,11 +110,9 @@ fun SmsDiagnosticsRoute(
     onOpenFeed: () -> Unit,
     onRequestHistoryPermission: () -> Unit,
     onOpenSystemSettings: () -> Unit,
-    /**
-     * Called when the user finishes linking a card. During setup this step exists to be finished,
-     * so the flow moves on by itself instead of leaving a Back press as the only way out.
-     */
+    /** Caller may react to a linked card; setup keeps the page open for remaining messages. */
     onCardLinked: () -> Unit = {},
+    autoScanHistory: Boolean = false,
     bankFilter: dev.whekin.whfin.data.sms.BankSmsBank? = null,
     viewModel: SmsDiagnosticsViewModel = viewModel(),
 ) {
@@ -129,12 +127,19 @@ fun SmsDiagnosticsRoute(
     }
     val shareChooserTitle = stringResource(R.string.sms_share_chooser_title)
     var scanAfterPermission by rememberSaveable { mutableStateOf(false) }
+    var autoScanned by rememberSaveable(bankFilter) { mutableStateOf(false) }
     var messageAfterPermissionId by rememberSaveable { mutableLongStateOf(0L) }
     var shareAfterPermissionId by rememberSaveable { mutableLongStateOf(0L) }
 
     LaunchedEffect(hasHistoryPermission, scanAfterPermission) {
         if (hasHistoryPermission && scanAfterPermission) {
             scanAfterPermission = false
+            viewModel.scanHistory(bankFilter)
+        }
+    }
+    LaunchedEffect(autoScanHistory, hasHistoryPermission, autoScanned, bankFilter) {
+        if (autoScanHistory && hasHistoryPermission && !autoScanned) {
+            autoScanned = true
             viewModel.scanHistory(bankFilter)
         }
     }
@@ -248,6 +253,7 @@ internal fun SmsDiagnosticsScreen(
 ) {
     var selectedDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
     var ignoredExpanded by rememberSaveable { mutableStateOf(false) }
+    var recentExpanded by rememberSaveable { mutableStateOf(false) }
     var showAddCard by rememberSaveable { mutableStateOf(false) }
     var shareDiagnosticId by rememberSaveable { mutableLongStateOf(0L) }
     var shareText by rememberSaveable { mutableStateOf("") }
@@ -354,6 +360,15 @@ internal fun SmsDiagnosticsScreen(
                         )
                     }
                 }
+                item("card-mappings-label") {
+                    WhfinSectionLabel(stringResource(R.string.sms_card_mappings_title))
+                }
+                item("card-mappings") {
+                    CardMappings(
+                        mappings = loadState.data.cardMappings,
+                        onAdd = { showAddCard = true },
+                    )
+                }
                 if (waiting.isNotEmpty()) {
                     item("waiting-label") {
                         WhfinSectionLabel(stringResource(R.string.sms_diagnostics_waiting_statement))
@@ -377,7 +392,7 @@ internal fun SmsDiagnosticsScreen(
                     item("recent-label") { WhfinSectionLabel(stringResource(R.string.sms_diagnostics_recent)) }
                     item("recent-group") {
                         DiagnosticGroup(
-                            items = recent.take(20),
+                            items = recent.take(if (recentExpanded) 20 else 3),
                             onResolve = { selectedDiagnosticId = it.id },
                             onOpenFeed = onOpenFeed,
                             onViewMessage = onViewMessage,
@@ -387,6 +402,13 @@ internal fun SmsDiagnosticsScreen(
                                 shareText = SmsProblemReport.redacted(appVersion, diagnostic)
                                 shareIncludesOriginal = false
                             },
+                        )
+                    }
+                    if (recent.size > 3) item("recent-expand") {
+                        WhfinButton(
+                            stringResource(if (recentExpanded) R.string.sms_recent_show_less else R.string.sms_recent_show_more),
+                            { recentExpanded = !recentExpanded },
+                            Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet,
                         )
                     }
                 }
@@ -428,17 +450,6 @@ internal fun SmsDiagnosticsScreen(
                         )
                     }
                 }
-            }
-        }
-        if (content != null) {
-            item("card-mappings-label") {
-                WhfinSectionLabel(stringResource(R.string.sms_card_mappings_title))
-            }
-            item("card-mappings") {
-                CardMappings(
-                    mappings = content.cardMappings,
-                    onAdd = { showAddCard = true },
-                )
             }
         }
         item("history-label") {
@@ -901,7 +912,8 @@ private fun DiagnosticGroup(
                     item.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT
             ) &&
                 item.kind != SmsDiagnosticKind.OWN_TRANSFER &&
-                item.kind != SmsDiagnosticKind.CURRENCY_EXCHANGE
+                item.kind != SmsDiagnosticKind.CURRENCY_EXCHANGE &&
+                (!item.awaitsStatement() || item.cardLast4 != null || item.depositNumber != null)
             val grouped = item.kind == SmsDiagnosticKind.OWN_TRANSFER ||
                 item.kind == SmsDiagnosticKind.CURRENCY_EXCHANGE
             DiagnosticRow(
@@ -946,19 +958,10 @@ private fun DiagnosticRow(
     val time = remember(item.receivedAt) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(item.receivedAt))
     }
-    // A message held back by the coverage rule is not the same question as an ambiguous one, and
-    // looked identical: "choose an account" invites exactly the second row the rule just prevented.
-    val heldByStatement = item.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
     WhfinLedgerRow(
         title = stringResource(presentation.title),
-        supportingText = buildString {
-            append(stringResource(R.string.sms_diagnostic_detail, details, time))
-            if (heldByStatement) {
-                append('\n')
-                append(stringResource(R.string.sms_reason_statement_covers))
-            }
-        },
-        supportingMaxLines = if (heldByStatement) 5 else 3,
+        supportingText = stringResource(R.string.sms_diagnostic_detail, details, time),
+        supportingMaxLines = 3,
         icon = presentation.icon,
         iconTint = presentation.color(),
         markerColor = if (item.needsUserAction()) presentation.color() else null,

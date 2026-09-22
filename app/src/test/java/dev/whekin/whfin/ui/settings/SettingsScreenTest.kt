@@ -685,7 +685,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun rootPullRevealsHeaderSearchWithoutOpeningKeyboard() {
+    fun rootPullRevealsHeaderSearchAndRequestsFocus() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         lateinit var navigation: SettingsSearchState
         compose.setContent {
@@ -727,7 +727,7 @@ class SettingsScreenTest {
         compose.onNodeWithTag("settings-search").assertDoesNotExist()
         compose.onNodeWithTag("settings-catalog").performTouchInput { swipeDown() }
         compose.onNodeWithTag("settings-search").assertIsDisplayed()
-        compose.onNode(hasSetTextAction()).assertIsNotFocused()
+        compose.onNode(hasSetTextAction()).assertIsFocused()
 
     }
 

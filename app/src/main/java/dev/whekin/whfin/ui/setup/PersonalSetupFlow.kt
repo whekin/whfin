@@ -10,11 +10,23 @@ import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.UiPreferences
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.sms.BankSmsBank
+import dev.whekin.whfin.data.sms.SmsInboxCardLinker
 import dev.whekin.whfin.ui.accounts.*
 import dev.whekin.whfin.ui.OnFormSaved
 import dev.whekin.whfin.ui.settings.*
 import dev.whekin.whfin.ui.savings.SavingsRoute
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private sealed interface SetupCardLinkState {
+    data object NotStarted : SetupCardLinkState
+    data object WaitingForBank : SetupCardLinkState
+    data object Checking : SetupCardLinkState
+    data class Checked(val linked: Int) : SetupCardLinkState
+    data object Failed : SetupCardLinkState
+}
 
 @Composable
 fun PersonalSetupFlow(
@@ -38,11 +50,15 @@ fun PersonalSetupFlow(
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
-    val runtime = remember(context) { (context.applicationContext as dev.whekin.whfin.WhfinApp).runtimeModes }
+    val app = remember(context) { context.applicationContext as dev.whekin.whfin.WhfinApp }
+    val runtime = remember(app) { app.runtimeModes }
+    val bankSyncStatuses by app.bankSync.statuses.collectAsState()
+    val bankWorkActive = bankSyncStatuses.any { it.active }
     var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
     var showSteps by rememberSaveable { mutableStateOf(false) }
     var showCashSheet by rememberSaveable { mutableStateOf(false) }
+    var cardLinkState by remember { mutableStateOf<SetupCardLinkState>(SetupCardLinkState.NotStarted) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
@@ -57,6 +73,26 @@ fun PersonalSetupFlow(
     val scope = rememberCoroutineScope()
     val destination = stack.lastOrNull()
     val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
+    LaunchedEffect(stage, hasSmsHistoryPermission, destination, bankWorkActive) {
+        if (stage != SetupStage.Sms || !hasSmsHistoryPermission) {
+            cardLinkState = SetupCardLinkState.NotStarted
+            return@LaunchedEffect
+        }
+        if (destination != null) return@LaunchedEffect
+        if (bankWorkActive) {
+            cardLinkState = SetupCardLinkState.WaitingForBank
+            return@LaunchedEffect
+        }
+        cardLinkState = SetupCardLinkState.Checking
+        cardLinkState = try {
+            val result = withContext(Dispatchers.IO) { SmsInboxCardLinker.run(app, app.userDb) }
+            SetupCardLinkState.Checked(result.cardsLinked)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            SetupCardLinkState.Failed
+        }
+    }
     fun open(page: String) { stack = stack + page }
     fun back() { stack = stack.dropLast(1) }
     fun openSettings(page: String) {
@@ -86,17 +122,30 @@ fun PersonalSetupFlow(
             !state.hasSmsPermission -> R.string.setup_sms_permission_needed
             else -> R.string.setup_sms_on
         })
+        val smsReviewStatus = overview?.unrouted?.takeIf { it > 0 }
+            ?.let { stringResource(R.string.setup_needs_account, it) }
+            ?: when {
+                !hasSmsHistoryPermission -> stringResource(R.string.setup_sms_access_hint)
+                cardLinkState == SetupCardLinkState.WaitingForBank -> stringResource(R.string.setup_sms_waiting_for_bank)
+                cardLinkState == SetupCardLinkState.Checking -> stringResource(R.string.setup_sms_checking_cards)
+                cardLinkState is SetupCardLinkState.Checked -> stringResource(R.string.setup_sms_cards_checked,
+                    (cardLinkState as SetupCardLinkState.Checked).linked)
+                cardLinkState == SetupCardLinkState.Failed -> stringResource(R.string.setup_sms_check_failed)
+                else -> null
+            }
         val actions = when (stage) {
             SetupStage.Banks -> listOf(
                 SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open("credo") },
                 SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open("tbc") },
-                SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), smsStatus(credoSmsEnabled)) { messages(BankSmsBank.CREDO) },
-                SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), smsStatus(tbcSmsEnabled)) { messages(BankSmsBank.TBC) },
-                SetupAction(stringResource(R.string.setup_sms_history)) { messages(null) },
-                SetupAction(stringResource(R.string.setup_channels)) { openSettings("connections") },
                 SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
                 SetupAction(stringResource(R.string.statements_title)) { open("statements") },
                 SetupAction(stringResource(R.string.personal_setup_restore_title)) { open("backup") },
+            )
+            SetupStage.Sms -> listOf(
+                SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), smsStatus(credoSmsEnabled)) { messages(BankSmsBank.CREDO) },
+                SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), smsStatus(tbcSmsEnabled)) { messages(BankSmsBank.TBC) },
+                SetupAction(stringResource(R.string.setup_sms_review), smsReviewStatus) { messages(null) },
+                SetupAction(stringResource(R.string.setup_tbc_push)) { openSettings("bank:TBC") },
             )
             SetupStage.Accounts -> listOf(
                 SetupAction(stringResource(R.string.personal_setup_cash_add_action),
@@ -232,6 +281,7 @@ fun PersonalSetupFlow(
                 },
                 onRequestReceivePermission = onRequestSmsPermission, onOpenFeed = ::back,
                 onRequestHistoryPermission = onRequestSmsHistoryPermission, onOpenSystemSettings = onOpenSystemSettings,
+                autoScanHistory = stage == SetupStage.Sms,
                 bankFilter = smsBank,
             )
             "lock" -> AppLockScreen(

@@ -43,6 +43,7 @@ class CashRunwayQaActivity : ComponentActivity() {
         val fontScale = intent.getFloatExtra("fontScale", 1f)
         val enough = intent.getBooleanExtra("enough", false)
         val weekendSample = intent.getBooleanExtra("weekendSample", false)
+        val pastPayday = intent.getBooleanExtra("pastPayday", false)
         val cardNotice = intent.getBooleanExtra("cardNotice", false)
         val demo = intent.getBooleanExtra("demo", false)
         val bankFailure = intent.getBooleanExtra("bankFailure", false)
@@ -54,16 +55,17 @@ class CashRunwayQaActivity : ComponentActivity() {
         val context = createConfigurationContext(configuration)
         val charge = RecurringCharge("merchant:1", if (language == "ru") "Аренда квартиры" else "Rent",
             120_000, 3, LocalDate.of(2026, 8, 3))
-        val available = if (weekendSample) 80_000L else if (enough) 260_000L else 115_000L
+        val available = if (pastPayday) 40_000L else if (weekendSample) 80_000L else if (enough) 260_000L else 115_000L
+        val today = if (pastPayday) LocalDate.of(2026, 8, 12) else LocalDate.of(2026, 8, 28)
         val salary = dev.whekin.whfin.data.db.IncomeSourceEntity(
             id = 1, label = "Salary", amountMinor = 400_000, currency = "GEL", accountId = 1,
             expectedDayFrom = 5, expectedDayTo = 5, weekendRule = dev.whekin.whfin.data.income.WeekendRule.LATER, startedOn = LocalDate.of(2026, 1, 1).toEpochDay(),
             createdAt = 0,
         )
         val runway = homeRunway(
-            available, if (weekendSample) 9_000 else 7_200, listOf(salary), LocalDate.of(2026, 8, 28),
-            arrivedSourceMonths = setOf(1L to java.time.YearMonth.of(2026, 8)),
-            recurringOccurrences = if (weekendSample) emptyList() else listOf(
+            available, if (pastPayday) 10_000 else if (weekendSample) 9_000 else 7_200, listOf(salary), today,
+            arrivedSourceMonths = if (pastPayday) emptySet() else setOf(1L to java.time.YearMonth.of(2026, 8)),
+            recurringOccurrences = if (pastPayday || weekendSample) emptyList() else listOf(
                 RecurringOccurrence(charge, LocalDate.of(2026, 9, 3)),
                 RecurringOccurrence(charge.copy(key = "merchant:2", label = "Northwind Hosting",
                     typicalMinor = 3_900), LocalDate.of(2026, 9, 7)),
@@ -81,7 +83,7 @@ class CashRunwayQaActivity : ComponentActivity() {
                             if (accountsRequested) Text("Accounts callback received") else if (bankRequested) Text("Bank callback received") else {
                                 WhfinContextHeader(context.getString(R.string.home_spendable),
                                     dev.whekin.whfin.ui.formatMinor(
-                                        if (weekendSample) 80_000 else if (enough) 260_000 else 115_000,
+                                        available,
                                         "GEL",
                                     )) {}
                                 if (cardNotice) HomePhysicalCardBalance(
@@ -91,7 +93,7 @@ class CashRunwayQaActivity : ComponentActivity() {
                                     onEnableNotifications = {},
                                     isBankLaunchable = { true },
                                     onOpenBank = { bankRequested = !bankFailure; !bankFailure },
-                                ) else HomeRunwayRow(runway, today = LocalDate.of(2026, 8, 28)) { accountsRequested = true }
+                                ) else HomeRunwayRow(runway, today = today) { accountsRequested = true }
                             }
                         }
                     }

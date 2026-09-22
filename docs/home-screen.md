@@ -90,7 +90,8 @@ day it does; a weekend shift may cross into the previous or the following month,
 kept as it falls.
 
 The main row answers `Should last until D` or `May be X short by D`. Once the estimate has passed
-with the money still outstanding, the row says it is waiting for the payment instead: no negative
+with the money still outstanding, the Home cash card names a near days-left reading if there is one;
+otherwise it stays hidden. The income source continues to say it is waiting. There are no negative
 days, no accusation, and no jump to next month, because the next payday is not known until this one
 lands. Nothing is forecast past a date already behind us, and the timeline draws nothing — a passed
 estimate cannot anchor a rule. Bills keep arriving during that wait, so their horizon falls back to

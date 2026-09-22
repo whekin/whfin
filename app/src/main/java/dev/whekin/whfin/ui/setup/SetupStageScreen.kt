@@ -19,6 +19,7 @@ import dev.whekin.whfin.ui.theme.WhfinTheme
 
 internal enum class SetupStage(val title: Int, val body: Int) {
     Banks(R.string.setup_banks_title, R.string.setup_banks_body),
+    Sms(R.string.setup_sms_title, R.string.setup_sms_body),
     Accounts(R.string.setup_accounts_title, R.string.setup_accounts_body),
     Categories(R.string.setup_categories_title, R.string.setup_categories_body),
     Income(R.string.setup_income_title, R.string.setup_income_body),
@@ -83,4 +84,16 @@ internal fun SetupStageScreen(
 private fun SetupStagePreview() = WhfinTheme {
     SetupStageScreen(SetupStage.Banks, listOf(SetupAction("Credo") {}, SetupAction("TBC") {},
         SetupAction(stringResource(R.string.setup_channels)) {}), {}, {})
+}
+
+@Preview(name = "Bank SMS step light", widthDp = 400, heightDp = 850)
+@Preview(name = "Bank SMS step dark", widthDp = 400, heightDp = 850, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Bank SMS step RU large compact", widthDp = 360, heightDp = 560, locale = "ru", fontScale = 1.5f)
+@Composable
+private fun SetupSmsPreview() = WhfinTheme {
+    SetupStageScreen(SetupStage.Sms, listOf(
+        SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), stringResource(R.string.setup_sms_on)) {},
+        SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), stringResource(R.string.setup_sms_off)) {},
+        SetupAction(stringResource(R.string.setup_sms_review), stringResource(R.string.setup_sms_cards_checked, 1)) {},
+    ), {}, {})
 }

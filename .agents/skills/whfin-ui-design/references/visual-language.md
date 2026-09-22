@@ -213,8 +213,8 @@ The root is five compact rows: Connections, Bookkeeping, Application, Data and s
 Connections uses one row per configured bank. A common provider page combines history sync, channels,
 accounts, sign-in and secondary diagnostics. Keep raw push logs out of routine configuration.
 Search reaches leaf settings globally and Back restores the originating query. Nested settings pages
-always show the top-bar search action. Search starts hidden behind the top-bar icon. An explicit tap reveals and focuses it; a deliberate
-downward pull at the root reveals it without autofocus. Once revealed, search is the first item
+always show the top-bar search action. Search starts hidden behind the top-bar icon. An explicit tap or a completed
+downward pull at the root reveals and focuses it with the keyboard. Once revealed, search is the first item
 in the catalogue's single scroll container. Once it leaves view, show a search
 icon at the right of the top bar, reserving its space even when hidden so the title never reflows.
 Tapping the icon returns to and focuses the field. Do not add an independent enterAlways header that

@@ -67,6 +67,20 @@ class HomeRunwayRowTest {
         compose.onNodeWithContentDescription("Calculation details").performClick()
         compose.onNodeWithText("usual date 5 Sep · with weekends 4 Sep", substring = true).assertExists()
         compose.onNodeWithText("~1,200.00 ₾ · expected 3 Sep").assertExists()
-        compose.onNodeWithText("Future one-off purchases are not predicted.", substring = true).assertExists()
+        compose.onNodeWithText("Future one-off purchases are not predicted.", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun passedPaydayLeavesTheCashReadingRatherThanAnUnclearPaymentBanner() {
+        var openedAccounts = false
+        compose.setContent { WhfinTheme {
+            HomeRunwayRow(HomeRunway(daysLeft = 4, dailyBurnMinor = 10_000,
+                nextIncome = NextPayday(LocalDate.of(2026, 8, 5), LocalDate.of(2026, 8, 5),
+                    weekendAdjusted = false, passed = true), shortOfIncome = false),
+                onOpenAccounts = { openedAccounts = true })
+        } }
+        compose.onNodeWithText("Lasts 4 days").assertExists()
+        compose.onNodeWithText("Waiting for the payment").assertDoesNotExist()
+        compose.onNodeWithText("Lasts 4 days").performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(openedAccounts) }
     }
 }

@@ -62,6 +62,25 @@ class HomeRunwayVisualTest {
     @Test fun enoughUntilPayday() = render("en-enough", false, "en", 1f, enough = true)
     @Test fun weekendPaydayUsesTheDeclaredWeekendRule() =
         render("en-weekend-sample", false, "en", 1f, weekendSample = true)
+    @Test fun pastPaydayEnglish() = renderPastPayday("en", false, 1f)
+    @Test fun pastPaydayRussianLarge() = renderPastPayday("ru", true, 1.5f)
+
+    private fun renderPastPayday(language: String, dark: Boolean, font: Float) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val device = UiDevice.getInstance(instrumentation)
+        check(Build.HARDWARE in setOf("ranchu", "goldfish"))
+        ActivityScenario.launch<CashRunwayQaActivity>(Intent(context, CashRunwayQaActivity::class.java)
+            .putExtra("pastPayday", true).putExtra("language", language)
+            .putExtra("dark", dark).putExtra("fontScale", font)).use {
+            assertNotNull(device.wait(Until.findObject(By.textContains(
+                if (language == "ru") "Хватит на 4 дня" else "Lasts 4 days")), 10_000))
+            assertFalse(device.hasObject(By.text(if (language == "ru") "Ожидаем зарплату" else "Waiting for the payment")))
+            save(device, "$language-past-payday-collapsed")
+            device.findObject(By.textContains(if (language == "ru") "Хватит на 4 дня" else "Lasts 4 days")).click()
+            assertNotNull(device.wait(Until.findObject(By.text("Accounts callback received")), 3_000))
+        }
+    }
 
     private fun render(
         name: String,
