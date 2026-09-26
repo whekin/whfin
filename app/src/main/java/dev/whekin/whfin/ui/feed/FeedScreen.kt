@@ -317,8 +317,6 @@ fun FeedScreen(
         }
     }
     val smsRoutingAccounts by viewModel.smsRoutingAccounts.collectAsState()
-    // Confirming a draft is reversible from the transaction details, so it needs no ceremony here.
-    val confirmPending: (FeedItem) -> Unit = { viewModel.updateStatus(it, TxStatus.CONFIRMED) }
     var details by remember { mutableStateOf<FeedItem?>(null) }
     var routingFor by remember { mutableStateOf<UnroutedOperation?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -771,7 +769,6 @@ fun FeedScreen(
                         selected = item.tx.id in selectedIds,
                         onClick = { if (selectionMode) toggleSelection(item) else details = item },
                         onLongClick = { toggleSelection(item) },
-                        onConfirmPending = { confirmPending(item) }.takeUnless { selectionMode },
                     )
                 }
             } else {
@@ -792,7 +789,6 @@ fun FeedScreen(
                                 if (selectionMode) toggleSelection(entry.item) else details = entry.item
                             },
                             onLongClick = { toggleSelection(entry.item) },
-                            onConfirmPending = { confirmPending(entry.item) }.takeUnless { selectionMode },
                         )
                         is FeedTimelineEntry.Unrouted -> UnroutedOperationRow(
                             operation = entry.operation,
@@ -1295,21 +1291,16 @@ private fun TransactionDetailsContent(
         item(key = "transaction-summary") {
             Column(Modifier.fillMaxWidth()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                // A routed bank message is not a draft the owner has to review, so its row names
-                // where it came from rather than a status nobody has to act on. A row that IS still
-                // pending is a question either way: printing "SMS" there left this sheet saying one
-                // thing while the row it opened from said "Pending", and took away the answer.
-                val pending = tx.status == TxStatus.PENDING
+                // Bank evidence stays unverified until a statement replaces it. A legacy pending
+                // SMS may also be marked reviewed below, but that does not verify the bank posting.
                 DetailEditableRow(
                     label = stringResource(R.string.tx_detail_status),
-                    value = if (tx.source == TxSource.BANK_HOLD) stringResource(R.string.bank_hold_status) else if (tx.source == TxSource.SMS && !pending) {
-                        stringResource(R.string.status_sms)
-                    } else if (tx.source == TxSource.SMS && pending) {
+                    value = if (tx.source == TxSource.BANK_HOLD) stringResource(R.string.bank_hold_status) else if (tx.source == TxSource.SMS) {
                         stringResource(R.string.status_waiting_statement)
                     } else {
                         tx.status.label()
                     },
-                    onClick = onChangeStatus.takeIf { tx.source != TxSource.BANK_HOLD && (pending || tx.source != TxSource.SMS) },
+                    onClick = onChangeStatus.takeIf { tx.source != TxSource.BANK_HOLD && tx.source != TxSource.SMS },
                 )
                 if (item.isDebt) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1349,7 +1340,7 @@ private fun TransactionDetailsContent(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (confirmPending != null) DetailQuickAction(
                     Icons.Default.CheckCircle,
-                    stringResource(R.string.transaction_confirm),
+                    stringResource(if (tx.source == TxSource.SMS) R.string.transaction_mark_reviewed else R.string.transaction_confirm),
                     confirmPending,
                     filled = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -1668,7 +1659,7 @@ private fun DetailQuickAction(
         border = if (filled) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
+            Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally),
         ) {
@@ -3094,7 +3085,6 @@ internal fun FeedRow(
     onClick: () -> Unit,
     selected: Boolean = false,
     onLongClick: () -> Unit = {},
-    onConfirmPending: (() -> Unit)? = null,
 ) {
     val tx = item.tx
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
@@ -3169,7 +3159,7 @@ internal fun FeedRow(
                     title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    maxLines = if (item.transferSummary != null) 2 else 1,
+                    maxLines = if (item.transferSummary != null || LocalDensity.current.fontScale >= 1.3f) 2 else 1,
                 )
                 Text(
                     subtitle,
@@ -3219,30 +3209,15 @@ internal fun FeedRow(
                         )
                     }
                 }
-                if (tx.status == TxStatus.PENDING) {
-                    // Confirming a draft is the most repeated gesture there is, so the marker that
-                    // says it is a draft is also the control that clears it — one tap, in the feed.
-                    val confirm = onConfirmPending.takeUnless { tx.source == TxSource.BANK_HOLD }
+                if (tx.source == TxSource.SMS || tx.status == TxStatus.PENDING) {
+                    // SMS provenance waits for a statement even after an owner reviews a legacy
+                    // pending row. Opening the receipt is the path to the separate review action.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = if (confirm == null) Modifier else Modifier
-                            .clip(MaterialTheme.shapes.small)
-                            .clickable(
-                                onClickLabel = stringResource(R.string.transaction_confirm),
-                                onClick = confirm,
-                            )
-                            .padding(vertical = 4.dp, horizontal = 6.dp)
-                            .offset(x = (-6).dp),
                     ) {
                         Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
                         Text(stringResource(if (tx.source == TxSource.BANK_HOLD) R.string.bank_hold_status else if (tx.source == TxSource.SMS) R.string.status_waiting_statement else R.string.status_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
-                        if (confirm != null) Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(14.dp),
-                        )
                     }
                 }
             }

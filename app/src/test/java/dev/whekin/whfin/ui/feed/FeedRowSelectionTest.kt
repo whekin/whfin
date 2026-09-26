@@ -7,6 +7,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
@@ -50,6 +52,20 @@ class FeedRowSelectionTest {
         compose.onNodeWithTag("feed-row-42").performSemanticsAction(SemanticsActions.OnLongClick)
         compose.runOnIdle { assertTrue(longPressed) }
         compose.onNodeWithContentDescription(context.getString(R.string.transactions_selected)).assertExists()
+    }
+
+    @Test
+    fun reviewedSmsStillSaysItAwaitsTheStatement() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val pending = sampleItem()
+        compose.setContent {
+            WhfinTheme {
+                FeedRow(item = pending.copy(tx = pending.tx.copy(status = TxStatus.CONFIRMED)), onClick = {})
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.status_waiting_statement)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.transaction_confirm)).assertDoesNotExist()
     }
 
     private fun sampleItem() = FeedItem(

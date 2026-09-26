@@ -10,6 +10,7 @@ import dev.whekin.whfin.MainActivity
 import dev.whekin.whfin.R
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,6 +36,33 @@ class MainJourneyTest {
         }
     }
 
+    @Test
+    fun selectedRootSurvivesActivityRecreation() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val context = instrumentation.targetContext
+        fun analyticsContentVisible(): Boolean =
+            device.wait(Until.hasObject(By.text(context.getString(R.string.analytics_empty_title))), 5_000) ||
+                device.wait(Until.hasObject(By.text(context.getString(R.string.analytics_month_result))), 5_000)
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            passFirstRunGate(device, context)
+            val accountsTab = device.wait(Until.findObject(By.text(context.getString(R.string.tab_accounts))), 30_000)
+            assertNotNull(accountsTab)
+            accountsTab.click()
+            val accountTitle = By.text(context.getString(R.string.accounts_net_worth))
+            assertNotNull(device.wait(Until.findObject(accountTitle), 10_000))
+            scenario.recreate()
+            assertNotNull("Accounts must stay selected after recreation", device.wait(Until.findObject(accountTitle), 10_000))
+
+            val analyticsTab = device.findObject(By.text(context.getString(R.string.tab_analytics)))
+            assertNotNull(analyticsTab)
+            analyticsTab.click()
+            assertTrue(analyticsContentVisible())
+            scenario.recreate()
+            assertTrue("Analytics must stay selected after recreation", analyticsContentVisible())
+        }
+    }
+
     /**
      * A clean install opens on the Welcome choice, an upgraded one goes straight to the shell.
      * The journey has to survive both, so wait for whichever surface appears first instead of
@@ -52,7 +80,7 @@ class MainJourneyTest {
             device.waitForIdle(250)
         }
         device.findObject(welcomeAction)?.click()
-        repeat(7) {
+        repeat(8) {
             if (device.hasObject(shellTab)) return
             val finish = device.findObject(By.text(context.getString(R.string.personal_setup_continue_action)))
                 ?: device.findObject(By.text(context.getString(R.string.setup_continue_unchecked)))

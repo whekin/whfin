@@ -1170,6 +1170,7 @@
     <string name="transaction_edit">Изменить операцию</string>
     <string name="transaction_actions">ДЕЙСТВИЯ</string>
     <string name="transaction_confirm">Подтвердить</string>
+    <string name="transaction_mark_reviewed">Отметить просмотренной</string>
     <string name="transaction_manual_hint">Сумма, счёт, дата и заметка</string>
     <string name="transaction_delete_body">Ручная операция будет удалена без возможности восстановления.</string>
     <string name="transaction_delete_transfer_body">Обе стороны ручного перевода будут удалены без возможности восстановления.</string>

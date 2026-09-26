@@ -76,7 +76,7 @@ class TransactionDetailsSheetTest {
     @Test
     fun smsTransactionShowsProvenanceWithoutAStatusTask() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val sms = context.getString(R.string.status_sms)
+        val sms = context.getString(R.string.status_waiting_statement)
         compose.setContent {
             WhfinTheme {
                 TransactionDetailsSheet(
@@ -241,12 +241,10 @@ class TransactionDetailsSheetTest {
     }
 
     @Test
-    fun pendingDraftNamesItsStatusEvenWhenABankMessageWroteIt() {
-        // The row in the list said "Pending" and this sheet said "SMS": one state, two words, and
-        // the sheet withheld the answer to the question the word "Pending" was asking.
+    fun pendingSmsKeepsBankEvidenceSeparateFromOwnerReview() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val sms = context.getString(R.string.status_sms)
-        val confirm = context.getString(R.string.transaction_confirm)
+        val sms = context.getString(R.string.status_waiting_statement)
+        val markReviewed = context.getString(R.string.transaction_mark_reviewed)
         var confirmed = false
         compose.setContent {
             WhfinTheme {
@@ -280,8 +278,9 @@ class TransactionDetailsSheetTest {
             }
         }
 
-        compose.onNode(hasText(sms)).assertDoesNotExist()
-        compose.onNode(hasText(confirm)).performClick()
+        compose.onNode(hasText(sms)).assertIsDisplayed()
+        compose.onNode(hasText(sms) and hasClickAction()).assertDoesNotExist()
+        compose.onNode(hasText(markReviewed)).performClick()
         assertEquals(true, confirmed)
     }
 
@@ -340,7 +339,7 @@ class TransactionDetailsSheetTest {
         }
 
         listOf(
-            R.string.transaction_confirm,
+            R.string.transaction_mark_reviewed,
             R.string.own_transfer_action,
             R.string.debt_action_short,
             R.string.split_action_short,

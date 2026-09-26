@@ -153,6 +153,7 @@ class MainActivity : FragmentActivity() {
     // that is already there, and must not strand the pending flag that reopens setup on every launch.
     private var setupResumedFromHome by mutableStateOf(false)
     private var mainInitialTab by mutableIntStateOf(0)
+    private var mainEntryRequestKey by mutableIntStateOf(0)
     private var mainOpenAccountAdd by mutableStateOf(false)
     private var runtimeModeRestarting = false
     private var resumed = false
@@ -383,6 +384,7 @@ class MainActivity : FragmentActivity() {
                                             personalSetupPending = false
                                             setupResumedFromHome = false
                                             mainInitialTab = initialTab
+                                            mainEntryRequestKey++
                                             mainOpenAccountAdd = openAccountAdd
                                             appEntry = AppEntry.Main
                                         },
@@ -392,6 +394,7 @@ class MainActivity : FragmentActivity() {
                                 AppEntry.Main -> mainState.SaveableStateProvider("main") {
                                     MainScreen(
                                         initialTab = mainInitialTab,
+                                        entryRequestKey = mainEntryRequestKey,
                                         initialAccountAddRequest = mainOpenAccountAdd,
                                         appThemeMode = appThemeMode,
                                         dynamicColorsEnabled = dynamicColorsEnabled,
@@ -666,7 +669,10 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) mainInitialTab = 1
+        if (intent.getBooleanExtra(EXTRA_OPEN_ACCOUNTS, false)) {
+            mainInitialTab = 1
+            mainEntryRequestKey++
+        }
     }
 
     private fun requestSmsHistoryPermission() {

@@ -285,6 +285,7 @@ internal fun popSecondaryDestination(
 @Composable
 fun MainScreen(
     initialTab: Int = 0,
+    entryRequestKey: Int = 0,
     initialAccountAddRequest: Boolean = false,
     appThemeMode: AppThemeMode,
     dynamicColorsEnabled: Boolean,
@@ -338,7 +339,11 @@ fun MainScreen(
     fun rootFor(entryTab: Int) =
         if (entryTab == 0) RootDestination.Home else RootDestination.Accounts
     var root by rememberSaveable { mutableStateOf(rootFor(initialTab)) }
-    LaunchedEffect(initialTab) { root = rootFor(initialTab) }
+    // Restoring a saved root must not replay the original launch intent. Only a new request from
+    // setup or onNewIntent may replace the destination the reader left open.
+    LaunchedEffect(entryRequestKey) {
+        if (entryRequestKey > 0) root = rootFor(initialTab)
+    }
     // The rule under the dock travels rather than blinking, so the dock is told a position and this
     // is the only thing that still animates between destinations. The pager is gone: two of the
     // four roots answer horizontal drags of their own — analytics moves through time that way —

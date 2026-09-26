@@ -1112,6 +1112,7 @@
     <string name="transaction_edit">Edit transaction</string>
     <string name="transaction_actions">ACTIONS</string>
     <string name="transaction_confirm">Confirm</string>
+    <string name="transaction_mark_reviewed">Mark reviewed</string>
     <string name="transaction_manual_hint">Amount, account, date and note</string>
     <string name="transaction_delete_body">This manual transaction will be permanently deleted.</string>
     <string name="transaction_delete_transfer_body">Both sides of this manual transfer will be permanently deleted.</string>
