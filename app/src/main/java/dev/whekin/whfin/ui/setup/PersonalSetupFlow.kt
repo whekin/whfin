@@ -73,7 +73,7 @@ fun PersonalSetupFlow(
     val credoSmsEnabled by remember(preferences) { preferences.bankSmsEnabled(BankSmsBank.CREDO) }.collectAsState(initial = false)
     val tbcSmsEnabled by remember(preferences) { preferences.bankSmsEnabled(BankSmsBank.TBC) }.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
-    val destination = stack.lastOrNull()
+    val destination = SetupPage.fromSaved(stack.lastOrNull())
     val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
     LaunchedEffect(stage, hasSmsHistoryPermission, destination, bankWorkActive, cardLinkRetryKey) {
         if (bankWorkActive) {
@@ -100,16 +100,16 @@ fun PersonalSetupFlow(
             SetupCardLinkState.Failed
         }
     }
-    fun open(page: String) { stack = stack + page }
+    fun open(page: SetupPage) { stack = stack + page.savedKey }
     fun back() { stack = stack.dropLast(1) }
     fun openSettings(page: String) {
         settingsEntry = page
         settings.open(page)
-        open("settings")
+        open(SetupPage.Settings)
     }
-    fun messages(bank: BankSmsBank?) { smsBank = bank; open("messages") }
-    fun account(id: Long) { selectedAccount = id; open("account") }
-    fun lockForCredo() { rememberCredo = true; createPin = true; open("lock") }
+    fun messages(bank: BankSmsBank?) { smsBank = bank; open(SetupPage.Messages) }
+    fun account(id: Long) { selectedAccount = id; open(SetupPage.Account) }
+    fun lockForCredo() { rememberCredo = true; createPin = true; open(SetupPage.Lock) }
 
     val overviewModel: SetupOverviewViewModel = viewModel()
     val overviewState by overviewModel.state.collectAsState()
@@ -142,11 +142,11 @@ fun PersonalSetupFlow(
             }
         val actions = when (stage) {
             SetupStage.Banks -> listOf(
-                SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open("credo") },
-                SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open("tbc") },
-                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
-                SetupAction(stringResource(R.string.statements_title)) { open("statements") },
-                SetupAction(stringResource(R.string.personal_setup_restore_title)) { open("backup") },
+                SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open(SetupPage.Credo) },
+                SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open(SetupPage.Tbc) },
+                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open(SetupPage.Lock) },
+                SetupAction(stringResource(R.string.statements_title)) { open(SetupPage.Statements) },
+                SetupAction(stringResource(R.string.personal_setup_restore_title)) { open(SetupPage.Backup) },
             )
             SetupStage.Sms -> listOf(
                 SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), smsStatus(credoSmsEnabled)) { messages(BankSmsBank.CREDO) },
@@ -163,26 +163,26 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.personal_setup_cash_add_action),
                     stringResource(R.string.setup_cash_action_body)) { showCashSheet = true },
                 SetupAction(stringResource(R.string.setup_review_accounts),
-                    overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open("accounts") },
+                    overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open(SetupPage.Accounts) },
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             )
             SetupStage.Categories -> listOf(
-                SetupAction(stringResource(R.string.category_setup_title)) { open("suggestions") },
-                SetupAction(stringResource(R.string.categories_title), saved(overview?.categories)) { open("categories") },
-                SetupAction(stringResource(R.string.category_intelligence_title), overview?.uncategorized?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_category, it) }) { open("intelligence") },
+                SetupAction(stringResource(R.string.category_setup_title)) { open(SetupPage.Suggestions) },
+                SetupAction(stringResource(R.string.categories_title), saved(overview?.categories)) { open(SetupPage.Categories) },
+                SetupAction(stringResource(R.string.category_intelligence_title), overview?.uncategorized?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_category, it) }) { open(SetupPage.Intelligence) },
             )
-            SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title), saved(overview?.incomes)) { open("income") })
+            SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title), saved(overview?.incomes)) { open(SetupPage.Income) })
             SetupStage.Plans -> listOf(
-                SetupAction(stringResource(R.string.savings_title), saved(overview?.savingsPlans)) { open("savings") },
-                SetupAction(stringResource(R.string.debts_title), saved(overview?.debts)) { open("debts") },
+                SetupAction(stringResource(R.string.savings_title), saved(overview?.savingsPlans)) { open(SetupPage.Savings) },
+                SetupAction(stringResource(R.string.debts_title), saved(overview?.debts)) { open(SetupPage.Debts) },
             )
             SetupStage.Preferences -> listOf(
                 SetupAction(stringResource(R.string.settings_application)) { openSettings("app") },
-                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open("lock") },
-                SetupAction(stringResource(R.string.backup_title)) { open("backup") },
+                SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open(SetupPage.Lock) },
+                SetupAction(stringResource(R.string.backup_title)) { open(SetupPage.Backup) },
             )
             SetupStage.Ready -> (if (reviewCount != null && reviewCount > 0) listOf(
-                SetupAction(stringResource(R.string.data_health_title)) { open("health") },
+                SetupAction(stringResource(R.string.data_health_title)) { open(SetupPage.Health) },
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             ) else emptyList()) + listOf(SetupAction(stringResource(R.string.setup_edit_steps)) { showSteps = !showSteps }) +
                 (if (showSteps) SetupStage.entries.filter { it != SetupStage.Ready }.map { target ->
@@ -218,68 +218,77 @@ fun PersonalSetupFlow(
         }
         return
     }
-    if (destination == "account") {
+    if (destination == SetupPage.Account) {
         AccountTransactionsScreen(selectedAccount, ::back)
         return
     }
-    if (destination == "suggestions") {
+    if (destination == SetupPage.Suggestions) {
         CategorySetupStep(onContinue = ::back, onBack = ::back)
         return
     }
     val title = when (destination) {
-        "credo" -> stringResource(R.string.credo_sync_title)
-        "tbc" -> stringResource(R.string.tbc_title)
-        "lock" -> stringResource(R.string.app_lock_title)
-        "settings" -> settingsPageTitle(settings)
-        "statements" -> stringResource(R.string.statements_title)
-        "backup" -> stringResource(R.string.backup_title)
-        "messages" -> stringResource(R.string.sms_diagnostics_title)
-        "accounts", "overview" -> stringResource(R.string.setup_accounts_title)
-        "income" -> stringResource(R.string.setup_income_title)
-        "savings" -> stringResource(R.string.savings_title)
-        "debts" -> stringResource(R.string.debts_title)
-        else -> stringResource(stage.title)
+        SetupPage.Account, SetupPage.Accounts, SetupPage.Overview -> stringResource(R.string.setup_accounts_title)
+        SetupPage.Suggestions -> stringResource(R.string.category_setup_title)
+        SetupPage.Credo -> stringResource(R.string.credo_sync_title)
+        SetupPage.Tbc -> stringResource(R.string.tbc_title)
+        SetupPage.Lock -> stringResource(R.string.app_lock_title)
+        SetupPage.Settings -> settingsPageTitle(settings)
+        SetupPage.Statements -> stringResource(R.string.statements_title)
+        SetupPage.Backup -> stringResource(R.string.backup_title)
+        SetupPage.Messages -> stringResource(R.string.sms_diagnostics_title)
+        SetupPage.Income -> stringResource(R.string.setup_income_title)
+        SetupPage.Savings -> stringResource(R.string.savings_title)
+        SetupPage.Debts -> stringResource(R.string.debts_title)
+        SetupPage.Categories -> stringResource(R.string.categories_title)
+        SetupPage.Intelligence -> stringResource(R.string.category_intelligence_title)
+        SetupPage.People -> stringResource(R.string.people_title)
+        SetupPage.Privacy -> stringResource(R.string.privacy_title)
+        SetupPage.About -> stringResource(R.string.about_title)
+        SetupPage.Corrections -> stringResource(R.string.corrections_title)
+        SetupPage.Health -> stringResource(R.string.data_health_title)
+        SetupPage.History -> stringResource(R.string.transactions_history_title)
+        SetupPage.Push -> stringResource(R.string.push_title)
     }
     val setupBack: () -> Unit = {
-        if (destination != "settings" || settings.page == settingsEntry || !settings.back()) {
+        if (destination != SetupPage.Settings || settings.page == settingsEntry || !settings.back()) {
             createPin = false
             back()
         }
     }
     PersonalSetupSecondaryPage(title, onBack = setupBack,
-        header = if (destination == "settings") ({ SettingsSearchHeader(settings, setupBack) }) else null,
+        header = if (destination == SetupPage.Settings) ({ SettingsSearchHeader(settings, setupBack) }) else null,
     ) {
         when (destination) {
-            "credo" -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
+            SetupPage.Credo -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
                 initialRememberPassword = rememberCredo, onOpenAppLock = ::lockForCredo,
                 autoLoadFullHistory = true, onGuidedHistoryComplete = ::back, onDone = ::back,
                 onContinueDuringSync = ::back)
-            "tbc" -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open("statements") }, onDone = ::back)
-            "accounts" -> AccountsScreen(
-                onConnectBank = { open(if (it == "Credo") "credo" else "tbc") },
-                onOpenStatements = { open("statements") }, onOpenSavings = { open("savings") },
-                onOpenOverview = { open("overview") }, onOpenSettings = { openSettings("app") },
+            SetupPage.Tbc -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open(SetupPage.Statements) }, onDone = ::back)
+            SetupPage.Accounts -> AccountsScreen(
+                onConnectBank = { open(if (it == "Credo") SetupPage.Credo else SetupPage.Tbc) },
+                onOpenStatements = { open(SetupPage.Statements) }, onOpenSavings = { open(SetupPage.Savings) },
+                onOpenOverview = { open(SetupPage.Overview) }, onOpenSettings = { openSettings("app") },
                 onOpenAccountTransactions = ::account,
             )
-            "overview" -> AccountOverviewScreen()
-            "categories" -> CategoriesRoute()
-            "intelligence" -> CategoryIntelligenceRoute()
-            "income" -> IncomeSourcesRoute()
-            "people" -> PeopleRoute()
-            "savings" -> SavingsRoute()
-            "debts" -> SetupDebtsRoute(::back)
-            "statements" -> BankStatementsScreen()
-            "backup" -> BackupRoute(appVersion)
-            "privacy" -> PrivacyRoute(onOpenSystemSettings)
-            "about" -> AboutScreen(appVersion = appVersion)
-            "corrections" -> CorrectionsScreen()
-            "health" -> DataHealthRoute(onOpenCorrections = { open("corrections") }, onOpenBackup = { open("backup") },
-                onOpenTransaction = { selectedTransaction = it; open("history") })
-            "history" -> dev.whekin.whfin.ui.feed.FeedScreen(mode = dev.whekin.whfin.ui.feed.FeedMode.HISTORY,
+            SetupPage.Overview -> AccountOverviewScreen()
+            SetupPage.Categories -> CategoriesRoute()
+            SetupPage.Intelligence -> CategoryIntelligenceRoute()
+            SetupPage.Income -> IncomeSourcesRoute()
+            SetupPage.People -> PeopleRoute()
+            SetupPage.Savings -> SavingsRoute()
+            SetupPage.Debts -> SetupDebtsRoute(::back)
+            SetupPage.Statements -> BankStatementsScreen()
+            SetupPage.Backup -> BackupRoute(appVersion)
+            SetupPage.Privacy -> PrivacyRoute(onOpenSystemSettings)
+            SetupPage.About -> AboutScreen(appVersion = appVersion)
+            SetupPage.Corrections -> CorrectionsScreen()
+            SetupPage.Health -> DataHealthRoute(onOpenCorrections = { open(SetupPage.Corrections) }, onOpenBackup = { open(SetupPage.Backup) },
+                onOpenTransaction = { selectedTransaction = it; open(SetupPage.History) })
+            SetupPage.History -> dev.whekin.whfin.ui.feed.FeedScreen(mode = dev.whekin.whfin.ui.feed.FeedMode.HISTORY,
                 showSmsOnboarding = false, onEnableSms = {}, onDismissSmsOnboarding = {},
                 openTransactionId = selectedTransaction, onOpenTransactionConsumed = { selectedTransaction = null })
-            "push" -> PushJournalRoute(false, { messages(BankSmsBank.TBC) }, diagnosticsOnly = true)
-            "messages" -> SmsDiagnosticsRoute(
+            SetupPage.Push -> PushJournalRoute(false, { messages(BankSmsBank.TBC) }, diagnosticsOnly = true)
+            SetupPage.Messages -> SmsDiagnosticsRoute(
                 appVersion, state.smsMonitoringEnabled, state.hasSmsPermission, state.canRequestSmsPermission,
                 hasSmsHistoryPermission, canRequestSmsHistoryPermission,
                 onEnableMonitoring = {
@@ -296,7 +305,7 @@ fun PersonalSetupFlow(
                 autoScanHistory = stage == SetupStage.Sms,
                 bankFilter = smsBank,
             )
-            "lock" -> AppLockScreen(
+            SetupPage.Lock -> AppLockScreen(
                 timeout = if (createPin) AppLockTimeout.Immediate else appLockTimeout,
                 hasPin = appLockHasPin, biometricAvailability = biometricAvailability,
                 biometricEnabled = biometricUnlockEnabled, onTimeoutChange = onAppLockTimeoutChange,
@@ -308,7 +317,7 @@ fun PersonalSetupFlow(
                 onOpenBiometricSettings = onOpenBiometricSettings,
                 autoSetupTimeout = if (createPin) AppLockTimeout.Immediate else null,
             )
-            "settings" -> SetupSettingsRoute(settings, state, appVersion, appLockTimeout, appLockHasPin,
+            SetupPage.Settings -> SetupSettingsRoute(settings, state, appVersion, appLockTimeout, appLockHasPin,
                 onRequestSmsPermission, onOpenSystemSettings, ::open, ::messages, ::account)
         }
     }

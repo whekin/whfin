@@ -125,9 +125,22 @@ private val AnalyticsTransactionsRequestSaver = listSaver<AnalyticsTransactionsR
  * remember rather than see. The create action lives between them in the dock and is not one of
  * them: it makes a row, it is not a place.
  */
-internal enum class RootDestination { Home, Transactions, Accounts, Analytics }
+internal enum class RootDestination(val scene: ShellScene) {
+    Home(ShellScene.Home), Transactions(ShellScene.Transactions),
+    Accounts(ShellScene.Accounts), Analytics(ShellScene.Analytics),
+}
 
-internal enum class SecondaryDestination { Settings, CredoSync, TbcLogin, PushJournal, Statements, SmsDiagnostics, AccountOverview, Savings, AccountTransactions, AnalyticsExpenses, AppLock, Backup, Corrections, DataHealth, Privacy, About, Categories, CategoryIntelligence, IncomeSources, People }
+internal enum class SecondaryDestination(val scene: ShellScene) {
+    Settings(ShellScene.Settings), CredoSync(ShellScene.CredoSync),
+    TbcLogin(ShellScene.TbcLogin), PushJournal(ShellScene.PushJournal),
+    Statements(ShellScene.Statements), SmsDiagnostics(ShellScene.SmsDiagnostics),
+    AccountOverview(ShellScene.AccountOverview), Savings(ShellScene.Savings),
+    AccountTransactions(ShellScene.AccountTransactions), AnalyticsExpenses(ShellScene.AnalyticsExpenses),
+    AppLock(ShellScene.AppLock), Backup(ShellScene.Backup), Corrections(ShellScene.Corrections),
+    DataHealth(ShellScene.DataHealth), Privacy(ShellScene.Privacy), About(ShellScene.About),
+    Categories(ShellScene.Categories), CategoryIntelligence(ShellScene.CategoryIntelligence),
+    IncomeSources(ShellScene.IncomeSources), People(ShellScene.People),
+}
 
 internal enum class ShellScene(val depth: Int) {
     Home(0),
@@ -179,42 +192,12 @@ internal fun shellTargetFor(
         ShellScene.AnalyticsTransactions,
         analytics = analyticsTransactions,
     )
-    secondaryDestination == null -> ShellTarget(
-        when (root) {
-            RootDestination.Home -> ShellScene.Home
-            RootDestination.Transactions -> ShellScene.Transactions
-            RootDestination.Accounts -> ShellScene.Accounts
-            RootDestination.Analytics -> ShellScene.Analytics
-        },
-    )
+    secondaryDestination == null -> ShellTarget(root.scene)
     secondaryDestination == SecondaryDestination.AccountTransactions -> ShellTarget(
         ShellScene.AccountTransactions,
         accountId = accountTransactionsId,
     )
-    else -> ShellTarget(
-        when (secondaryDestination) {
-            SecondaryDestination.Settings -> ShellScene.Settings
-            SecondaryDestination.CredoSync -> ShellScene.CredoSync
-            SecondaryDestination.TbcLogin -> ShellScene.TbcLogin
-            SecondaryDestination.PushJournal -> ShellScene.PushJournal
-            SecondaryDestination.Statements -> ShellScene.Statements
-            SecondaryDestination.SmsDiagnostics -> ShellScene.SmsDiagnostics
-            SecondaryDestination.AccountOverview -> ShellScene.AccountOverview
-            SecondaryDestination.Savings -> ShellScene.Savings
-            SecondaryDestination.AnalyticsExpenses -> ShellScene.AnalyticsExpenses
-            SecondaryDestination.AppLock -> ShellScene.AppLock
-            SecondaryDestination.Backup -> ShellScene.Backup
-            SecondaryDestination.Corrections -> ShellScene.Corrections
-            SecondaryDestination.DataHealth -> ShellScene.DataHealth
-            SecondaryDestination.Privacy -> ShellScene.Privacy
-            SecondaryDestination.About -> ShellScene.About
-            SecondaryDestination.Categories -> ShellScene.Categories
-            SecondaryDestination.CategoryIntelligence -> ShellScene.CategoryIntelligence
-            SecondaryDestination.IncomeSources -> ShellScene.IncomeSources
-            SecondaryDestination.People -> ShellScene.People
-            SecondaryDestination.AccountTransactions -> ShellScene.AccountTransactions
-        },
-    )
+    else -> ShellTarget(secondaryDestination.scene)
 }
 
 /**

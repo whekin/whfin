@@ -45,6 +45,47 @@ class SettingsScreenTest {
     val compose = createComposeRule()
 
     @Test
+    fun bankChannelSearchOpensTheProviderAndBackRestoresTheQuery() {
+        lateinit var navigation: SettingsSearchState
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    searchState = rememberSettingsSearchState().also { navigation = it },
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        listOf(
+            Triple("Credo SMS", "settings-row-credo-sms", "bank:CREDO"),
+            Triple("TBC SMS", "settings-row-tbc-sms", "bank:TBC"),
+            Triple("TBC push", "settings-row-tbc-push", "bank:TBC"),
+        ).forEach { (query, row, page) ->
+            compose.runOnIdle { navigation.query = query; navigation.searchVisible = true }
+            compose.onNodeWithTag(row).performScrollTo().performClick()
+            compose.runOnIdle {
+                assertEquals(page, navigation.page)
+                assertEquals("", navigation.query)
+                assertTrue(navigation.back())
+                assertEquals(query, navigation.query)
+            }
+        }
+    }
+
+    @Test
     fun dataHealthDoesNotClaimACompletedCheckBeforeOneRuns() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val status = mutableStateOf(SettingsStatus())

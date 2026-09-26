@@ -26,4 +26,12 @@ class PersonalSetupNavigationTest {
         assertEquals(SetupStage.Banks, setupStageFromSaved(null))
         assertEquals(SetupStage.Banks, setupStageFromSaved("Cash"))
     }
+
+    @Test fun `saved nested pages from previous versions still resolve`() {
+        assertEquals(SetupPage.Messages, SetupPage.fromSaved("messages"))
+        assertEquals(SetupPage.Accounts, SetupPage.fromSaved("accounts"))
+        assertEquals(SetupPage.History, SetupPage.fromSaved("history"))
+        assertEquals(SetupPage.Settings, SetupPage.fromSaved("settings"))
+        assertNull(SetupPage.fromSaved("removed-page"))
+    }
 }
