@@ -50,7 +50,8 @@ internal fun deriveHomeInsights(data: AnalyticsData): List<HomeInsight> {
         .asSequence()
         .map { change -> change to projectCategory(change, pace.daysElapsed, pace.daysTotal) }
         .firstOrNull { (change, projected) ->
-            isMeaningfulChange(projected, change.typicalWholeExpenseMinor)
+            // Zero is a fact so far, not a promise that the month will end at zero.
+            projected > 0L && isMeaningfulChange(projected, change.typicalWholeExpenseMinor)
         }
         ?.let { (change, projected) ->
             result += HomeInsight.CategoryDriver(

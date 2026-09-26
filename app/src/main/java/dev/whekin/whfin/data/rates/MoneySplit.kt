@@ -26,7 +26,7 @@ internal data class AccountReading(
  * how much there is reads [total], so the words can disagree with each other only if the arithmetic
  * does.
  *
- * The parts add up on purpose: [available] + [reserve] + [heldBack] + watch-only chains = [total].
+ * The parts add up on purpose: [available] + [reserve] + [heldBack] + [watchOnly] = [total].
  * That is what lets a screen explain a residual instead of leaving one.
  */
 internal data class MoneySplit(
@@ -39,6 +39,8 @@ internal data class MoneySplit(
     val reserve: ConvertedTotal,
     /** Money the owner calls available that a bank term still holds: inside [total], outside [available]. */
     val heldBack: ConvertedTotal,
+    /** Chain balances the app observes but cannot spend. */
+    val watchOnly: ConvertedTotal,
     /** [available] in the pivot currency, so a daily rate divides it without a second conversion. */
     val availablePivotMinor: Long?,
 )
@@ -81,6 +83,7 @@ internal fun moneySplit(
         available = convertReadings(spendable, rates, display),
         reserve = convertReadings(onHand.filter { it.account.fundRole == FundRole.RESERVE }, rates, display),
         heldBack = convertReadings(onHand.filter { isHeldByTerm(it.account) }, rates, display),
+        watchOnly = convertReadings(readings.filter { it.account.type == AccountType.CRYPTO }, rates, display),
         availablePivotMinor = convertReadings(spendable, rates, PIVOT_CURRENCY).amount
             ?.movePointRight(2)
             ?.toLong(),

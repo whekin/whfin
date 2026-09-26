@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.Locale
 import android.util.Log
 import dev.whekin.whfin.data.db.AccountEntity
@@ -22,6 +24,7 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.demo.DemoDataInstaller
 import dev.whekin.whfin.data.demo.RuntimeModeStore
 import dev.whekin.whfin.data.integrity.DataIntegrityChecker
+import dev.whekin.whfin.data.integrity.IntegrityCheckState
 import dev.whekin.whfin.data.sms.CredoOtpInbox
 import dev.whekin.whfin.data.notifications.PhysicalCardBalanceMonitor
 import dev.whekin.whfin.data.integrity.IntegrityIssue
@@ -44,6 +47,8 @@ class WhfinApp : Application() {
         get() = runtimeModes.demoMode
 
     private val _integrityIssues = MutableStateFlow(0)
+    private val integrityCheckMutex = Mutex()
+    private val _integrityCheckState = MutableStateFlow<IntegrityCheckState>(IntegrityCheckState.NotChecked)
     private val _integritySignature = MutableStateFlow<String?>(null)
     private val _integrityCodes = MutableStateFlow<List<String>>(emptyList())
 
@@ -54,6 +59,7 @@ class WhfinApp : Application() {
      * not on every screen. Screens read the answer; they never sit on the ledger recomputing it.
      */
     val integrityIssues: StateFlow<Int> = _integrityIssues.asStateFlow()
+    internal val integrityCheckState: StateFlow<IntegrityCheckState> = _integrityCheckState.asStateFlow()
 
     /**
      * What the last check found, as one comparable string.
@@ -92,14 +98,25 @@ class WhfinApp : Application() {
         }
     }
 
-    suspend fun refreshIntegrity() {
-        val report = DataIntegrityChecker(userDb).run()
-        if (report.issues.isNotEmpty()) {
-            Log.e("WHFIN", "Ledger integrity issues: ${report.issues.joinToString { it.code }}")
+    suspend fun refreshIntegrity() = integrityCheckMutex.withLock {
+        val previous = _integrityCheckState.value
+        _integrityCheckState.value = IntegrityCheckState.Checking
+        try {
+            val report = DataIntegrityChecker(userDb).run()
+            if (report.issues.isNotEmpty()) {
+                Log.e("WHFIN", "Ledger integrity issues: ${report.issues.joinToString { it.code }}")
+            }
+            _integrityIssues.value = report.issues.size
+            _integritySignature.value = integritySignature(report.issues)
+            _integrityCodes.value = report.issues.map { it.code }.distinct().sorted()
+            _integrityCheckState.value = IntegrityCheckState.Complete(report.issues.size, System.currentTimeMillis())
+        } catch (cancelled: CancellationException) {
+            _integrityCheckState.value = previous
+            throw cancelled
+        } catch (failure: Exception) {
+            _integrityCheckState.value = IntegrityCheckState.Failed
+            throw failure
         }
-        _integrityIssues.value = report.issues.size
-        _integritySignature.value = integritySignature(report.issues)
-        _integrityCodes.value = report.issues.map { it.code }.distinct().sorted()
     }
 
     suspend fun setDemoMode(enabled: Boolean) {

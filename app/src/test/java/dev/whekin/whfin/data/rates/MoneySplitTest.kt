@@ -57,13 +57,12 @@ class MoneySplitTest {
         )
 
         val split = moneySplit(readings, rates, "GEL")
-        val chain = convertReadings(readings.filter { it.account.type == AccountType.CRYPTO }, rates, "GEL")
-
         assertEquals(
             split.total.amount,
-            listOf(split.available, split.reserve, split.heldBack, chain)
+            listOf(split.available, split.reserve, split.heldBack, split.watchOnly)
                 .fold(BigDecimal.ZERO) { sum, part -> sum.add(part.amount) },
         )
+        assertEquals(BigDecimal("135.00"), split.watchOnly.amount)
     }
 
     @Test

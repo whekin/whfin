@@ -85,6 +85,7 @@ import android.content.res.Configuration
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
+import dev.whekin.whfin.data.integrity.IntegrityCheckState
 import dev.whekin.whfin.ui.demo.DemoEntrySheet
 
 @Composable
@@ -769,14 +770,16 @@ private fun buildSettingsSections(
             SettingsRow(
                 id = "data-health",
                 title = stringResource(R.string.data_health_title),
-                summary = if (status.integrityIssues > 0) {
-                    pluralStringResource(
-                        R.plurals.settings_data_health_issues,
-                        status.integrityIssues,
-                        status.integrityIssues,
-                    )
-                } else {
-                    stringResource(R.string.settings_data_health_clean)
+                summary = when (val check = status.integrityCheck) {
+                    IntegrityCheckState.NotChecked -> stringResource(R.string.settings_data_health_not_checked)
+                    IntegrityCheckState.Checking -> stringResource(R.string.settings_data_health_checking)
+                    IntegrityCheckState.Failed -> stringResource(R.string.settings_data_health_failed)
+                    is IntegrityCheckState.Complete -> if (check.issueCount > 0) {
+                        pluralStringResource(R.plurals.settings_data_health_issues,
+                            check.issueCount, check.issueCount)
+                    } else {
+                        stringResource(R.string.settings_data_health_clean, relativeDay(check.checkedAt))
+                    }
                 },
                 keywords = stringResource(R.string.settings_keywords_data_health),
                 inside = settingsInside(R.string.settings_inside_data_health),
@@ -925,7 +928,7 @@ private fun relativeDay(millis: Long): String {
         DateUtils.getRelativeTimeSpanString(
             millis,
             System.currentTimeMillis(),
-            DateUtils.HOUR_IN_MILLIS,
+            DateUtils.DAY_IN_MILLIS,
         ).toString()
     }
 }

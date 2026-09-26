@@ -59,6 +59,8 @@ fun PersonalSetupFlow(
     var showSteps by rememberSaveable { mutableStateOf(false) }
     var showCashSheet by rememberSaveable { mutableStateOf(false) }
     var cardLinkState by remember { mutableStateOf<SetupCardLinkState>(SetupCardLinkState.NotStarted) }
+    var cardsAttempted by remember { mutableStateOf(false) }
+    var cardLinkRetryKey by remember { mutableIntStateOf(0) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
@@ -73,23 +75,28 @@ fun PersonalSetupFlow(
     val scope = rememberCoroutineScope()
     val destination = stack.lastOrNull()
     val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
-    LaunchedEffect(stage, hasSmsHistoryPermission, destination, bankWorkActive) {
-        if (stage != SetupStage.Sms || !hasSmsHistoryPermission) {
+    LaunchedEffect(stage, hasSmsHistoryPermission, destination, bankWorkActive, cardLinkRetryKey) {
+        if (bankWorkActive) {
+            cardsAttempted = false
+            if (stage == SetupStage.Sms) cardLinkState = SetupCardLinkState.WaitingForBank
+            return@LaunchedEffect
+        }
+        if (stage != SetupStage.Sms) return@LaunchedEffect
+        if (!hasSmsHistoryPermission) {
+            cardsAttempted = false
             cardLinkState = SetupCardLinkState.NotStarted
             return@LaunchedEffect
         }
-        if (destination != null) return@LaunchedEffect
-        if (bankWorkActive) {
-            cardLinkState = SetupCardLinkState.WaitingForBank
-            return@LaunchedEffect
-        }
+        if (destination != null || cardsAttempted) return@LaunchedEffect
         cardLinkState = SetupCardLinkState.Checking
         cardLinkState = try {
             val result = withContext(Dispatchers.IO) { SmsInboxCardLinker.run(app, app.userDb) }
+            cardsAttempted = true
             SetupCardLinkState.Checked(result.cardsLinked)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
+            cardsAttempted = true
             SetupCardLinkState.Failed
         }
     }
@@ -146,7 +153,12 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), smsStatus(tbcSmsEnabled)) { messages(BankSmsBank.TBC) },
                 SetupAction(stringResource(R.string.setup_sms_review), smsReviewStatus) { messages(null) },
                 SetupAction(stringResource(R.string.setup_tbc_push)) { openSettings("bank:TBC") },
-            )
+            ) + if (cardLinkState == SetupCardLinkState.Failed) listOf(
+                SetupAction(stringResource(R.string.setup_sms_retry_cards)) {
+                    cardsAttempted = false
+                    cardLinkRetryKey++
+                },
+            ) else emptyList()
             SetupStage.Accounts -> listOf(
                 SetupAction(stringResource(R.string.personal_setup_cash_add_action),
                     stringResource(R.string.setup_cash_action_body)) { showCashSheet = true },

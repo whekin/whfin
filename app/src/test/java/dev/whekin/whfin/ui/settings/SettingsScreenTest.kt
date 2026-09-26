@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -26,6 +27,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.core.ui.WhfinHaptics
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.AppThemeMode
+import dev.whekin.whfin.data.integrity.IntegrityCheckState
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,6 +43,42 @@ import org.robolectric.annotation.Config
 class SettingsScreenTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @Test
+    fun dataHealthDoesNotClaimACompletedCheckBeforeOneRuns() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val status = mutableStateOf(SettingsStatus())
+        compose.setContent {
+            WhfinTheme {
+                SettingsContent(
+                    searchState = rememberSettingsSearchState().apply { page = "data" },
+                    status = status.value,
+                    smsImportEnabled = false,
+                    hasSmsPermission = true,
+                    canRequestSmsPermission = true,
+                    onSmsImportEnabledChange = {},
+                    onRequestSmsPermission = {},
+                    onOpenSystemSettings = {},
+                    onOpenStatements = {},
+                    onOpenSmsDiagnostics = {},
+                    appLockTimeout = AppLockTimeout.Disabled,
+                    onOpenAppLock = {},
+                    onOpenBackup = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
+                    appVersion = "Version 0.1.0 (1)",
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.settings_data_health_not_checked))
+            .performScrollTo().assertIsDisplayed()
+        compose.runOnIdle {
+            status.value = SettingsStatus(integrityCheck = IntegrityCheckState.Complete(0, System.currentTimeMillis()))
+        }
+        compose.onNodeWithText("Last check found no issues", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.settings_data_health_not_checked)).assertDoesNotExist()
+    }
 
     @Test
     fun categoryIntelligence_isAVisibleSettingsDestination() {
@@ -660,7 +698,7 @@ class SettingsScreenTest {
             WhfinTheme {
                 SettingsContent(
                     searchState = rememberSettingsSearchState().apply { page = "bank:CREDO" },
-                    status = SettingsStatus(integrityIssues = 2),
+                    status = SettingsStatus(integrityCheck = IntegrityCheckState.Complete(2, 1L)),
                     smsImportEnabled = false,
                     hasSmsPermission = true,
                     canRequestSmsPermission = true,

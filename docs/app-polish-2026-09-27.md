@@ -28,3 +28,39 @@ RU/dark/font 1.5 и RU/dark/font 1.5 при `wm size 1200x1920`. После на
 `/tmp/whfin-pass1-final-ru-history.png`, `/tmp/whfin-pass1-final-ru-detail.png`,
 `/tmp/whfin-pass1-ru-compact-detail.png`, `/tmp/whfin-pass1-external-accounts.png`.
 Живые SMS и банковская сверка не запускались.
+
+## Этап 2 — достоверные сводки и первый пустой экран
+
+- Пустая Главная теперь даёт одну точку старта с понятным действием. Нулевой
+  месячный блок и повторное приглашение исчезают до первой записи.
+- Home больше не выдаёт отсутствие трат в категории за прогноз нуля к концу
+  месяца. В демо вместо `Travel, projected 0.00` появилась содержательная
+  положительная категория; исходное сравнение остаётся в Аналитике.
+- На Accounts общий итог теперь объясняет отдельно сумму watch-only кошельков.
+  В демо эта строка ровно закрывает разницу между общим итогом и доступным/
+  резервным остатком; не делает крипту «доступной».
+- Settings различает ещё не выполненную, текущую, успешную и неудачную проверку
+  данных. Нулевое значение не считается доказательством чистоты до завершения.
+  Одновременные запросы проверки выполняются последовательно.
+  Строка Drive получает обновления SharedPreferences при ручном сохранении и
+  завершении фонового воркера, пока Settings открыт.
+- Мастер не перечитывает 90 дней SMS при обычном возврате со вложенной страницы.
+  Новый банковский прогон и изменение разрешения разрешают новую проверку;
+  ошибка предлагает отдельный повтор. Живую SMS-историю этим этапом не читали.
+- Сокращены EN/RU тексты шага счетов, пустой Главной, настройки копий и
+  исправления импортированной операции. Русское обращение в пустом состоянии
+  приведено к «вы».
+
+Проверка: `:app:assembleDebug`; целевые host-тесты `DriveBackupStoreTest`,
+`SettingsScreenTest`, `HomeInsightsTest`, `HomeBoardTest`, `MoneySplitTest`,
+`PersonalSetupFlowTest` прошли. `PersonalSetupJourneyTest#russianLarge`
+прошёл на Pixel_9_Pro AVD. На эмуляторе просмотрены EN/light пустой Home,
+заполненные Home/Accounts и Settings; RU/dark/font 1.5 Accounts, Data and
+security, шаг счетов, а также компактная высота `1200x1920` для Settings.
+После визуальной проверки удалены двойной символ валюты и подпись `0 hours ago`.
+Кадры: `/tmp/whfin-pass2-final-empty-home.png`, `/tmp/whfin-pass2-home.png`,
+`/tmp/whfin-pass2-final-accounts.png`, `/tmp/whfin-pass2-final-settings-data.png`,
+`/tmp/whfin-pass2-ru-accounts.png`, `/tmp/whfin-pass2-ru-settings-data.png`,
+`/tmp/whfin-pass2-ru-compact-data.png`,
+`/tmp/whfin-pass2-final-ru-setup-accounts.png`. Живая авторизация/загрузка
+Google Drive, личные SMS и физический телефон не использовались.

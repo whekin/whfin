@@ -1,6 +1,7 @@
 package dev.whekin.whfin.data.drive
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -9,6 +10,12 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+internal data class DriveBackupStatus(val enabled: Boolean, val lastSuccessAt: Long)
 
 /**
  * Локальное состояние Drive-бэкапа + passphrase для автоматической загрузки.
@@ -19,6 +26,17 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class DriveBackupStore(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    /** Settings follows both manual saves and background Worker completion while it is open. */
+    internal fun observeStatus(): Flow<DriveBackupStatus> = callbackFlow {
+        fun snapshot() = DriveBackupStatus(enabled, lastSuccessAt)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == ENABLED || key == LAST_SUCCESS_AT) trySend(snapshot())
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        trySend(snapshot())
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     var enabled: Boolean
         get() = preferences.getBoolean(ENABLED, false)

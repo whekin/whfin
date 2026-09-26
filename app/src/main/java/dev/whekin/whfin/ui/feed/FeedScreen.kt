@@ -586,6 +586,17 @@ fun FeedScreen(
         if (mode == FeedMode.HOME && !selectionMode) {
             if (!feedLoaded) {
                 item(key = "skeleton") { HomeSkeleton() }
+            } else if (homeNothingRecorded(feedLoaded, items, unroutedOperations, recurringDue, debtsOwed) &&
+                integrityIssues == 0 && physicalCardBalances.isEmpty()) {
+                item(key = "empty") {
+                    WhfinStatePane(
+                        state = WhfinPaneState.Empty,
+                        title = stringResource(R.string.home_empty_title),
+                        body = stringResource(R.string.home_empty_body),
+                        actionLabel = stringResource(if (showSetupInvitation) R.string.home_setup_invitation_action else R.string.add_transaction),
+                        onAction = if (showSetupInvitation) onResumeSetup else ({ showAdd = true }),
+                    )
+                }
             } else {
             // Home reads as one answer to "how am I doing for money", in the order the answer is
             // built: what there is, how far it goes, what is already owed out of it, what still
@@ -706,15 +717,6 @@ fun FeedScreen(
                     insights = homeInsights,
                     unconverted = homeAnalytics?.otherCurrencyExpenses.orEmpty(),
                 )
-            }
-            if (homeNothingRecorded(feedLoaded, items, unroutedOperations, recurringDue, debtsOwed)) {
-                item(key = "empty") {
-                    WhfinStatePane(
-                        state = WhfinPaneState.Empty,
-                        title = stringResource(R.string.home_empty_title),
-                        body = stringResource(R.string.feed_empty),
-                    )
-                }
             }
             }
         } else if (mode == FeedMode.HISTORY) {

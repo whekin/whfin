@@ -579,6 +579,9 @@ private fun AccountsSummary(
             split?.heldBack?.amount?.takeIf { it.signum() != 0 }?.let {
                 stringResource(R.string.accounts_held_by_term, formatDecimal(it, split.heldBack.currency))
             },
+            split?.watchOnly?.amount?.takeIf { it.signum() != 0 }?.let {
+                stringResource(R.string.accounts_watch_only, formatDecimal(it, split.watchOnly.currency))
+            },
         )
         if (notes.isNotEmpty()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

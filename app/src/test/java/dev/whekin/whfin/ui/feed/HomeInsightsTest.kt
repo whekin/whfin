@@ -49,6 +49,16 @@ class HomeInsightsTest {
         assertTrue(deriveHomeInsights(data).isEmpty())
     }
 
+    @Test
+    fun `no category spending so far is not projected as a promise of zero`() {
+        val data = analyticsData(
+            pace = AnalyticsPace(20, 30, 100_000, 100_000),
+            categoryChanges = listOf(change(0, 20_000, "Travel")),
+        )
+
+        assertTrue(deriveHomeInsights(data).isEmpty())
+    }
+
     private fun analyticsData(
         pace: AnalyticsPace,
         categoryChanges: List<AnalyticsCategoryChange>,

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.drive.DriveBackupStore
+import dev.whekin.whfin.data.integrity.IntegrityCheckState
 import dev.whekin.whfin.data.preferences.UiPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,7 @@ internal data class SettingsStatus(
     val lastStatementImportAt: Long? = null,
     val driveBackupEnabled: Boolean = false,
     val lastDriveBackupAt: Long? = null,
-    val integrityIssues: Int = 0,
+    val integrityCheck: IntegrityCheckState = IntegrityCheckState.NotChecked,
     val lastTbcSyncAt: Long? = null,
     val bankAccounts: Map<dev.whekin.whfin.data.sms.BankSmsBank, List<dev.whekin.whfin.data.db.AccountEntity>>? = null,
 )
@@ -46,16 +47,17 @@ internal class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         preferences.lastCredoSyncAt,
         db.statementImportDao().observeLatestCredoImportAt(),
         db.statementImportDao().observeAll(),
-        whfin.integrityIssues,
-    ) { lastSync, latestCredoImport, imports, issues ->
+        whfin.integrityCheckState,
+        drive.observeStatus(),
+    ) { lastSync, latestCredoImport, imports, integrityCheck, driveStatus ->
         SettingsStatus(
             // The same freshness baseline Home uses, so the two screens cannot disagree about when
             // the bank was last read.
             lastCredoSyncAt = listOfNotNull(lastSync, latestCredoImport).maxOrNull(),
             lastStatementImportAt = imports.maxOfOrNull { it.importedAt },
-            driveBackupEnabled = drive.enabled,
-            lastDriveBackupAt = drive.lastSuccessAt.takeIf { it > 0L },
-            integrityIssues = issues,
+            driveBackupEnabled = driveStatus.enabled,
+            lastDriveBackupAt = driveStatus.lastSuccessAt.takeIf { it > 0L },
+            integrityCheck = integrityCheck,
         )
     }
     val status = combine(base, preferences.lastTbcSyncAt, db.accountDao().observeActive(), db.financialGroupDao().observeActive()) { value, tbc, accounts, groups ->
