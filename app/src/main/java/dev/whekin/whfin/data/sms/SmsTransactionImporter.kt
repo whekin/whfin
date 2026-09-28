@@ -643,7 +643,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 // unmatched evidence for later reconciliation without asking for a false choice.
                 if (sms is BankSmsMessage.OutgoingTransfer &&
                     resolution.reason == SmsDiagnosticReason.MULTIPLE_ACCOUNTS &&
-                    allPossibleTransferLedgersCovered(sms, unrouted.occurredAt)
+                    allPossibleTransferLedgersCovered(sms.balanceCurrency ?: sms.currency, unrouted.occurredAt)
                 ) return unwritten(unrouted, persist)
                 val id = if (persist) persistDiagnostic(unrouted) else null
                 SmsImportResult(resolution.outcome, id, reason = resolution.reason)
@@ -1121,13 +1121,33 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         }
     }
 
-    private suspend fun allPossibleTransferLedgersCovered(
-        sms: BankSmsMessage.OutgoingTransfer,
-        occurredAt: Long?,
-    ): Boolean {
-        val currency = sms.balanceCurrency ?: sms.currency
+    private suspend fun allPossibleTransferLedgersCovered(currency: String, occurredAt: Long?): Boolean {
         val candidates = db.accountDao().bankAccountsByCurrency(currency).filter { bank.accepts(db, it) }
         return candidates.size > 1 && candidates.all { isCoveredByStatement(it.id, occurredAt) }
+    }
+
+    /** Reclassifies earlier questions after bank history arrives, without re-reading SMS or writing money. */
+    suspend fun deferCoveredUnroutedTransfers(): Int = BankSmsBank.entries.sumOf { candidateBank ->
+        SmsTransactionImporter(db, candidateBank).deferBankCoveredUnroutedTransfers()
+    }
+
+    private suspend fun deferBankCoveredUnroutedTransfers(): Int = db.withTransaction {
+        var changed = 0
+        db.smsDiagnosticDao().unrouted().forEach { diagnostic ->
+            if (BankSmsBank.fromKey(diagnostic.externalKey) != bank ||
+                diagnostic.kind != SmsDiagnosticKind.OUTGOING_TRANSFER ||
+                diagnostic.reason != SmsDiagnosticReason.MULTIPLE_ACCOUNTS
+            ) return@forEach
+            val currency = diagnostic.balanceCurrency ?: diagnostic.currency ?: return@forEach
+            if (allPossibleTransferLedgersCovered(currency, diagnostic.occurredAt)) {
+                db.smsDiagnosticDao().update(diagnostic.copy(
+                    reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+                    updatedAt = System.currentTimeMillis(),
+                ))
+                changed++
+            }
+        }
+        changed
     }
 
     /** Recorded, visible, and deliberately not in the ledger. */

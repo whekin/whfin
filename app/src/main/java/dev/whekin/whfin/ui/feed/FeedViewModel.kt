@@ -657,6 +657,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     init {
         // The headline is the same on both screens, so it must not depend on visiting Accounts first.
         viewModelScope.launch { withContext(Dispatchers.IO) { ratesRepository.refreshIfStale() } }
+        // Older builds asked for an account even when every candidate was already covered by bank
+        // history. This local metadata repair runs when Home opens; it never re-reads SMS or posts money.
+        viewModelScope.launch { withContext(Dispatchers.IO) {
+            runCatching { smsImporter.deferCoveredUnroutedTransfers() }
+        } }
     }
 
     fun rotateDisplayCurrency() {

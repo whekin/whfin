@@ -8,6 +8,8 @@ import dev.whekin.whfin.data.db.AccountType
 import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.data.db.SmsDiagnosticEntity
+import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.data.db.StatementImportEntity
 import dev.whekin.whfin.data.db.StatementImportOrigin
@@ -17,6 +19,7 @@ import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import dev.whekin.whfin.data.LedgerCalendar
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -117,6 +120,23 @@ class SmsBalanceRoutingImporterTest {
         val result = importer.preview(TRANSFER, RECEIVED_AT)
 
         assertEquals(SmsDiagnosticReason.MULTIPLE_ACCOUNTS, result.reason)
+    }
+
+    @Test fun earlierAmbiguousTransferIsReclassifiedAfterAllBankStatementsArrive() = runBlocking {
+        cover(everydayId)
+        cover(secondId)
+        val occurredAt = LocalDate.of(2026, 4, 5).atStartOfDay(LedgerCalendar.zone).toInstant().toEpochMilli()
+        val id = db.smsDiagnosticDao().insert(SmsDiagnosticEntity(
+            externalKey = "sms|legacy-question", kind = SmsDiagnosticKind.OUTGOING_TRANSFER,
+            outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT, reason = SmsDiagnosticReason.MULTIPLE_ACCOUNTS,
+            receivedAt = occurredAt, occurredAt = occurredAt,
+            amountMinor = 10_000, currency = "GEL", balanceCurrency = "GEL", updatedAt = occurredAt,
+        ))
+
+        assertEquals(1, importer.deferCoveredUnroutedTransfers())
+        assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, db.smsDiagnosticDao().byId(id)?.reason)
+        assertEquals(0, importer.deferCoveredUnroutedTransfers())
+        assertEquals(0, db.transactionDao().allForIntegrity().size)
     }
 
     @Test fun aUniqueDestinationBalanceCanResolveAnOtherwiseAmbiguousConversion() = runBlocking {
