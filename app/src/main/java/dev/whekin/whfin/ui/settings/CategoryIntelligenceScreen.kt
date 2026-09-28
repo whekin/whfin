@@ -35,10 +35,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,9 +104,17 @@ fun categoryQueueTitle(queue: CategoryQueue): String = stringResource(
 fun CategoryIntelligenceRoute(
     queue: CategoryQueue? = null,
     onOpenQueue: (CategoryQueue) -> Unit = {},
+    onProposalsShown: (List<dev.whekin.whfin.data.categorization.CategoryProposals.Proposal>) -> Unit = {},
     viewModel: CategoryIntelligenceViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var firstSnapshotSeen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state, queue) {
+        if (queue == null && !firstSnapshotSeen && state != null) {
+            onProposalsShown(state?.proposals.orEmpty())
+            firstSnapshotSeen = true
+        }
+    }
     val isRussian = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
     CategoryIntelligenceScreen(
         state = state,

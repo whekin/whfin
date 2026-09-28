@@ -9,7 +9,6 @@ import dev.whekin.whfin.data.categorization.CategoryCatalog
 import dev.whekin.whfin.data.categorization.CategoryMaintenance
 import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.categorization.CategoryProposals
-import dev.whekin.whfin.data.categorization.OperationCategories
 import dev.whekin.whfin.data.db.CategoryCoverage
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
@@ -23,7 +22,6 @@ import dev.whekin.whfin.data.db.StatementNoteCount
 import dev.whekin.whfin.data.db.PersonEntity
 import dev.whekin.whfin.data.db.UncategorizedCounterparty
 import dev.whekin.whfin.data.db.UncategorizedMerchant
-import dev.whekin.whfin.data.statement.StatementParsers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -212,7 +210,7 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
                 // merchant use also includes transactions the owner already categorized elsewhere.
                 usageByMerchantId = spending.merchants.associate { it.merchantId to it.transactionCount },
                 existing = categories,
-                operationEvidence = operationEvidence(earned.operationNotes, earned.messageKinds),
+                operationEvidence = CategoryProposals.operationEvidence(earned.operationNotes, earned.messageKinds),
             ),
             packs = CategoryPacks.all.filter { pack ->
                 // A pack whose categories all exist has nothing left to offer.
@@ -401,32 +399,6 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
             rule.categoryId?.let { db.transactionDao().clearCategoryForCounterparty(rule.iban, it) }
             db.counterpartyRuleDao().delete(rule.id)
         }
-    }
-
-    /**
-     * Rows the bank already classified, counted per category they would go to.
-     *
-     * The label is read back through the same adapter that wrote it, so no bank's vocabulary reaches
-     * this layer, and the count is what makes the offer judgeable rather than something to trust.
-     */
-    private fun operationEvidence(
-        notes: List<StatementNoteCount>,
-        messageKinds: List<SmsKindCount>,
-    ): Map<Pair<String, CategoryKind>, Int> {
-        val evidence = mutableMapOf<Pair<String, CategoryKind>, Int>()
-        notes.forEach { row ->
-            val operation = StatementParsers.operationFor(row.note) ?: return@forEach
-            val target = OperationCategories.targetOf(operation) ?: return@forEach
-            evidence[target] = (evidence[target] ?: 0) + row.transactionCount
-        }
-        // The same operation heard as a message counts the same. A deposit that never reaches a
-        // statement is the case where these are the only rows there are.
-        messageKinds.forEach { row ->
-            val operation = OperationCategories.operationOf(row.kind) ?: return@forEach
-            val target = OperationCategories.targetOf(operation) ?: return@forEach
-            evidence[target] = (evidence[target] ?: 0) + row.transactionCount
-        }
-        return evidence
     }
 
     private fun mutate(block: suspend () -> Unit) {

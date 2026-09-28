@@ -167,6 +167,9 @@ fun FeedScreen(
     showSetupInvitation: Boolean = false,
     onResumeSetup: () -> Unit = {},
     onDismissSetupInvitation: () -> Unit = {},
+    deferredCategoryCount: Int = 0,
+    onReviewDeferredCategories: () -> Unit = {},
+    onDismissDeferredCategories: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     /** "Review all" opens the same set Home just listed, not the whole ledger. */
@@ -502,7 +505,7 @@ fun FeedScreen(
             if (!feedLoaded) {
                 item(key = "skeleton") { HomeSkeleton() }
             } else if (homeNothingRecorded(feedLoaded, items, unroutedOperations, recurringDue, debtsOwed) &&
-                integrityIssues == 0 && physicalCardBalances.isEmpty()) {
+                integrityIssues == 0 && physicalCardBalances.isEmpty() && deferredCategoryCount == 0) {
                 item(key = "empty") {
                     WhfinStatePane(
                         state = WhfinPaneState.Empty,
@@ -601,6 +604,15 @@ fun FeedScreen(
             items(attention.filterIsInstance<FeedTimelineEntry.Unrouted>().take(3),
                 key = { "home-unrouted-${it.operation.diagnostic.id}" }) { entry ->
                 UnroutedOperationRow(operation = entry.operation, onClick = { routingFor = entry.operation })
+            }
+
+            if (deferredCategoryCount > 0) item(key = "deferred-category-review") {
+                DeferredCategoryNotice(
+                    count = deferredCategoryCount,
+                    onReview = onReviewDeferredCategories,
+                    onSetAside = onDismissDeferredCategories,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
             }
 
             if (recent.items.isNotEmpty()) {
@@ -1026,6 +1038,21 @@ internal fun HomeIntegrityNotice(
         secondaryActionLabel = stringResource(R.string.home_integrity_dismiss),
         onSecondaryAction = onSetAside,
         modifier = modifier.fillMaxWidth().testTag("home-integrity"),
+    )
+}
+
+@Composable
+internal fun DeferredCategoryNotice(count: Int, onReview: () -> Unit, onSetAside: () -> Unit,
+    modifier: Modifier = Modifier) {
+    WhfinNotice(
+        title = stringResource(R.string.home_category_review_title),
+        body = stringResource(R.string.home_category_review_body, count),
+        icon = Icons.Default.TaskAlt,
+        actionLabel = stringResource(R.string.home_category_review_action),
+        onAction = onReview,
+        secondaryActionLabel = stringResource(R.string.home_category_review_later),
+        onSecondaryAction = onSetAside,
+        modifier = modifier.fillMaxWidth().testTag("home-category-review"),
     )
 }
 

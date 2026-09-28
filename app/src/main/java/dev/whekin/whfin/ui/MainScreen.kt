@@ -378,8 +378,11 @@ fun MainScreen(
     val scene = target.scene
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
-    val bankSync = (context.applicationContext as dev.whekin.whfin.WhfinApp).bankSync
+    val app = remember(context) { context.applicationContext as dev.whekin.whfin.WhfinApp }
+    val bankSync = app.bankSync
     val bankStatuses by bankSync.statuses.collectAsState()
+    val deferredCategoryReview = remember(app) { app.deferredCategoryReview }
+    val deferredCategories = if (demoMode) null else deferredCategoryReview.pending.collectAsState().value
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(bankStatuses, demoMode) {
         if (!demoMode) for (status in bankStatuses) {
@@ -525,6 +528,15 @@ fun MainScreen(
                                         showSetupInvitation = showSetupInvitation,
                                         onResumeSetup = onResumeSetup,
                                         onDismissSetupInvitation = onDismissSetupInvitation,
+                                        deferredCategoryCount = if (dev.whekin.whfin.data.categorization.deferredCategoryReviewVisible(
+                                                deferredCategories, bankStatuses)) deferredCategories.orEmpty().size else 0,
+                                        onReviewDeferredCategories = {
+                                            categoryQueue = null
+                                            open(SecondaryDestination.CategoryIntelligence)
+                                        },
+                                        onDismissDeferredCategories = {
+                                            deferredCategoryReview.markSeen(deferredCategories.orEmpty())
+                                        },
                                         onOpenAnalytics = { root = RootDestination.Analytics },
                                         onOpenHistory = { root = RootDestination.Transactions },
                                         onWaitingBank = { historyWaitingKey += 1; root = RootDestination.Transactions },
@@ -785,6 +797,7 @@ fun MainScreen(
                     ) {
                         CategoryIntelligenceRoute(
                             queue = categoryQueue,
+                            onProposalsShown = deferredCategoryReview::markSeen,
                             onOpenQueue = {
                                 haptics.performHapticFeedback(WhfinHaptics.navigation)
                                 categoryQueue = it

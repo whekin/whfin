@@ -1578,6 +1578,12 @@
     <string name="setup_categories_body">Add useful categories now. You can categorize past expenses later.</string>
     <string name="setup_category_suggestions">Suggestions from your spending</string>
     <string name="setup_category_waiting_bank">Bank history is incomplete; suggestions may change</string>
+    <string name="setup_category_new_review">Review new category suggestions</string>
+    <string name="setup_category_new_count">New category types: %1$d</string>
+    <string name="home_category_review_title">New category suggestions</string>
+    <string name="home_category_review_body">New types from imported spending: %1$d. Add only what fits.</string>
+    <string name="home_category_review_action">Review</string>
+    <string name="home_category_review_later">Later</string>
     <string name="setup_category_edit">Edit categories</string>
     <string name="setup_category_unfiled">Categorize past expenses</string>
     <string name="setup_income_title">When money comes in</string>

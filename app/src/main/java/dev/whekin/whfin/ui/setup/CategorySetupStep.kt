@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
@@ -63,6 +64,14 @@ internal fun CategorySetupStep(
 ) {
     val state by viewModel.state.collectAsState()
     val isRussian = LocalConfiguration.current.locales[0].language == "ru"
+    val app = LocalContext.current.applicationContext as dev.whekin.whfin.WhfinApp
+    var firstSnapshotSeen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        if (!firstSnapshotSeen && state != null) {
+            app.deferredCategoryReview.markSeen(state?.proposals.orEmpty())
+            firstSnapshotSeen = true
+        }
+    }
     if (state == null) {
         PersonalSetupSecondaryPage(stringResource(R.string.category_setup_title), onBack) {
             dev.whekin.whfin.core.ui.WhfinLoadingIndicator()

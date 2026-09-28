@@ -74,6 +74,12 @@ that still needs action. Category suggestions are based on unfiled transactions;
 packs can be selected and added in one action. While a bank read is unfinished, the category step
 states that more suggestions may arrive.
 
+Leaving Categories arms an installation-local reminder. Only category types actually offered on
+the first visible snapshot are considered seen; types added by a later bank read appear as an
+optional Ready action and then a Home card once active work settles. Review or Later quiets the
+current types, and newly earned types may appear later. The reminder never makes category choice
+mandatory and is cleared on ledger restore.
+
 The current stage is stored with installation-local runtime flags and excluded from backup. Activity
 recreation also restores the nested caller stack; a fresh process can resume at the saved stage without
 persisting credentials, codes or a bank session. Re-entering setup from Home starts at Banks.

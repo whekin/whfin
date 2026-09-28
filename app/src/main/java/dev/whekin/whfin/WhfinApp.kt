@@ -31,6 +31,10 @@ import dev.whekin.whfin.data.integrity.IntegrityIssue
 
 class WhfinApp : Application() {
     val bankSync by lazy { dev.whekin.whfin.data.sync.BankSyncRuntime(this) }
+    val deferredCategoryReview by lazy {
+        dev.whekin.whfin.data.categorization.DeferredCategoryReview(this,
+            dev.whekin.whfin.data.categorization.CategoryProposals.observe(userDb), appScope)
+    }
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val credoOtpInbox = CredoOtpInbox()

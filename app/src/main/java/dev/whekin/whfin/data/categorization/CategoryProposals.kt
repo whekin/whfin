@@ -3,6 +3,14 @@ package dev.whekin.whfin.data.categorization
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.data.db.MerchantEntity
+import dev.whekin.whfin.data.db.SmsKindCount
+import dev.whekin.whfin.data.db.StatementNoteCount
+import dev.whekin.whfin.data.db.WhfinDatabase
+import dev.whekin.whfin.data.statement.StatementParsers
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 
 /**
  * Categories a ledger has already earned.
@@ -22,6 +30,36 @@ object CategoryProposals {
         /** Transactions whose merchant a local rule already maps to this category. */
         val transactionCount: Int,
     )
+
+    /** The same proposal evidence feeds the setup step, Settings, and the deferred Home reminder. */
+    fun observe(db: WhfinDatabase): Flow<List<Proposal>> = combine(
+        db.merchantDao().observeAll(),
+        db.transactionDao().observeUncategorizedMerchants(),
+        db.categoryDao().observeAll(),
+        db.transactionDao().observeUncategorizedStatementNotes(),
+        db.smsDiagnosticDao().observeUncategorizedKinds(),
+    ) { merchants, unfiled, categories, notes, kinds ->
+        from(merchants, unfiled.associate { it.merchantId to it.transactionCount }, categories,
+            operationEvidence(notes, kinds))
+    }.flowOn(Dispatchers.Default)
+
+    fun operationEvidence(
+        notes: List<StatementNoteCount>,
+        messageKinds: List<SmsKindCount>,
+    ): Map<Pair<String, CategoryKind>, Int> {
+        val evidence = mutableMapOf<Pair<String, CategoryKind>, Int>()
+        notes.forEach { row ->
+            val operation = StatementParsers.operationFor(row.note) ?: return@forEach
+            val target = OperationCategories.targetOf(operation) ?: return@forEach
+            evidence[target] = (evidence[target] ?: 0) + row.transactionCount
+        }
+        messageKinds.forEach { row ->
+            val operation = OperationCategories.operationOf(row.kind) ?: return@forEach
+            val target = OperationCategories.targetOf(operation) ?: return@forEach
+            evidence[target] = (evidence[target] ?: 0) + row.transactionCount
+        }
+        return evidence
+    }
 
     /**
      * @param usageByMerchantId how many transactions each merchant accounts for.

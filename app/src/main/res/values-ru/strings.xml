@@ -1640,6 +1640,12 @@
     <string name="setup_categories_body">Добавьте нужные категории. Прошлые расходы можно разметить позже.</string>
     <string name="setup_category_suggestions">Предложения по расходам</string>
     <string name="setup_category_waiting_bank">История банка не полная; предложения могут измениться</string>
+    <string name="setup_category_new_review">Проверить новые категории</string>
+    <string name="setup_category_new_count">Новых видов: %1$d</string>
+    <string name="home_category_review_title">Предложения категорий</string>
+    <string name="home_category_review_body">Новых видов по расходам: %1$d. Добавьте только подходящие.</string>
+    <string name="home_category_review_action">Открыть</string>
+    <string name="home_category_review_later">Позже</string>
     <string name="setup_category_edit">Изменить категории</string>
     <string name="setup_category_unfiled">Разметить прошлые расходы</string>
     <string name="setup_income_title">Когда приходят деньги</string>

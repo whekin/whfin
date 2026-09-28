@@ -205,6 +205,7 @@ class MainActivity : FragmentActivity() {
                         app.runtimeModes.restoreCompleted = true
                         app.runtimeModes.personalSetupChecks = emptySet()
                         app.bankSync.resetAfterRestore()
+                        app.deferredCategoryReview.resetAfterRestore()
                         restartForRuntimeMode()
                     }
                 }

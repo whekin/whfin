@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.preferences.AppLockTimeout
 import dev.whekin.whfin.data.preferences.UiPreferences
+import dev.whekin.whfin.data.categorization.deferredCategoryReviewVisible
 import dev.whekin.whfin.data.security.BiometricAvailability
 import dev.whekin.whfin.data.sms.BankSmsBank
 import dev.whekin.whfin.data.sms.SmsInboxCardLinker
@@ -53,6 +54,8 @@ fun PersonalSetupFlow(
     val app = remember(context) { context.applicationContext as dev.whekin.whfin.WhfinApp }
     val runtime = remember(app) { app.runtimeModes }
     val bankSyncStatuses by app.bankSync.statuses.collectAsState()
+    val deferredCategoryReview = remember(app) { app.deferredCategoryReview }
+    val deferredCategories by deferredCategoryReview.pending.collectAsState()
     val credoConnection by app.bankSync.credo.state.collectAsState()
     val tbcConnection by app.bankSync.tbc.state.collectAsState()
     val bankWorkActive = bankSyncStatuses.any { it.active }
@@ -212,7 +215,12 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open(SetupPage.Lock) },
                 SetupAction(stringResource(R.string.backup_title)) { open(SetupPage.Backup) },
             )
-            SetupStage.Ready -> (if (reviewCount != null && reviewCount > 0) listOf(
+            SetupStage.Ready -> (if (deferredCategoryReviewVisible(deferredCategories, bankSyncStatuses)) listOf(
+                SetupAction(stringResource(R.string.setup_category_new_review),
+                    stringResource(R.string.setup_category_new_count, deferredCategories.orEmpty().size)) {
+                    open(SetupPage.Suggestions)
+                },
+            ) else emptyList()) + (if (reviewCount != null && reviewCount > 0) listOf(
                 SetupAction(stringResource(R.string.data_health_title)) { open(SetupPage.Health) },
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             ) else emptyList()) + listOf(SetupAction(stringResource(R.string.setup_edit_steps)) { showSteps = !showSteps }) +
@@ -240,7 +248,10 @@ fun PersonalSetupFlow(
             onBack = { if (stage.ordinal == 0) onExit() else stage = SetupStage.entries[stage.ordinal - 1] },
             onContinue = {
                 if (stage == SetupStage.Ready) onContinue(0, false)
-                else stage = SetupStage.entries[stage.ordinal + 1]
+                else {
+                    if (stage == SetupStage.Categories) deferredCategoryReview.arm()
+                    stage = SetupStage.entries[stage.ordinal + 1]
+                }
             },
             continueLabel = if (stage != SetupStage.Ready) null else when (readyCta) {
                 SetupReadyCta.WAIT_FOR_DATA -> stringResource(R.string.setup_review_loading)
@@ -292,7 +303,12 @@ fun PersonalSetupFlow(
         return
     }
     if (destination == SetupPage.Suggestions) {
-        CategorySetupStep(onContinue = { back(); stage = SetupStage.Income }, onBack = ::back,
+        CategorySetupStep(onContinue = {
+            val continueWizard = stage == SetupStage.Categories
+            if (continueWizard) deferredCategoryReview.arm()
+            back()
+            if (continueWizard) stage = SetupStage.Income
+        }, onBack = ::back,
             bankHistoryPending = categoryBankPending)
         return
     }
@@ -352,6 +368,7 @@ fun PersonalSetupFlow(
             SetupPage.Intelligence -> CategoryIntelligenceRoute(
                 queue = categoryQueue,
                 onOpenQueue = { categoryQueue = it },
+                onProposalsShown = deferredCategoryReview::markSeen,
             )
             SetupPage.Income -> IncomeSourcesRoute(showWalletHistoryAction = false)
             SetupPage.People -> PeopleRoute()

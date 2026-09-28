@@ -75,6 +75,19 @@ class SetupQaActivity : ComponentActivity() {
                         onAccept = { proposals = emptyList() },
                         onAddPacks = { selected -> packs = packs.filterNot { it.id in selected.map { p -> p.id } } },
                         onContinue = {}, onBack = {})
+                } else if (intent.getBooleanExtra("deferredHome", false)) {
+                    dev.whekin.whfin.ui.feed.FeedScreen(
+                        mode = dev.whekin.whfin.ui.feed.FeedMode.HOME,
+                        showSmsOnboarding = false,
+                        onEnableSms = {}, onDismissSmsOnboarding = {},
+                        showCredoSyncReminder = false,
+                        deferredCategoryCount = 2,
+                    )
+                } else if (intent.getBooleanExtra("deferredReady", false)) {
+                    SetupStageScreen(SetupStage.Ready, listOf(
+                        SetupAction(getString(dev.whekin.whfin.R.string.setup_category_new_review),
+                            getString(dev.whekin.whfin.R.string.setup_category_new_count, 2)) {},
+                    ), {}, {})
                 } else if (intent.getBooleanExtra("review", false)) SetupReviewSample()
                 else if (complete) Box(Modifier.fillMaxSize().systemBarsPadding(), contentAlignment = Alignment.Center) { Text("Setup finished") } else PersonalSetupFlow(
                     state = PersonalSetupState(accountCount = 0,
