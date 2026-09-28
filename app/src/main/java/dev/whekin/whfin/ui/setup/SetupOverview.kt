@@ -8,6 +8,7 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.LedgerCalendar
 import dev.whekin.whfin.data.db.*
 import dev.whekin.whfin.data.sms.BankSmsBank
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -121,7 +122,7 @@ internal class SetupOverviewViewModel(app: Application) : AndroidViewModel(app) 
             incomes = db.incomeSourceDao().active().size,
             savingsPlans = db.savingsPlanDao().allForIntegrity().count { it.endedOn == null },
             debts = db.debtDao().allCasesForIntegrity().count { it.status == DebtStatus.OPEN },
-            unrouted = db.smsDiagnosticDao().unrouted().size)
+            unrouted = db.smsDiagnosticDao().unrouted().count { it.needsRoutingDecision() })
     }
 
     fun retry() { revision.value++ }

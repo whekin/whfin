@@ -73,6 +73,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import dev.whekin.whfin.data.db.CategoryEntity
 import dev.whekin.whfin.ui.components.CategoryGrid
 import dev.whekin.whfin.ui.components.CategoryAppearancePicker
@@ -324,7 +325,7 @@ fun FeedScreen(
             // exactly as much "something the owner still has to answer" as a draft is, and Home
             // counts it as one. A filter that dropped it would send "Review all" to a shorter list
             // than the one it was pressed from.
-            FeedFilter.NEEDS_REVIEW -> true
+            FeedFilter.NEEDS_REVIEW -> diagnostic.needsRoutingDecision()
             FeedFilter.WAITING_BANK -> false
         }
         val haystack = listOfNotNull(

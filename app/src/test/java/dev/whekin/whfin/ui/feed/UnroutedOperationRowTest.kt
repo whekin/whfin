@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.feed
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -10,6 +11,7 @@ import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.time.LocalDate
 import org.junit.Assert.assertTrue
@@ -59,5 +61,23 @@ class UnroutedOperationRowTest {
             .assertIsDisplayed()
         compose.onNodeWithTag("unrouted-operation-73").performClick()
         compose.runOnIdle { assertTrue(clicked) }
+    }
+
+    @Test fun coveredMessageShowsBankMatchStatusWithoutAnAccountAction() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val operation = UnroutedOperation(
+            diagnostic = SmsDiagnosticEntity(
+                id = 74, externalKey = "sms|covered", kind = SmsDiagnosticKind.OUTGOING_TRANSFER,
+                outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+                receivedAt = 1_000, occurredAt = 1_000, amountMinor = 7_490,
+                currency = "GEL", updatedAt = 1_000,
+            ),
+            day = LocalDate.of(2026, 7, 29),
+        )
+        compose.setContent { WhfinTheme { UnroutedOperationRow(operation, onClick = {}) } }
+
+        compose.onNodeWithText(context.getString(R.string.feed_unrouted_awaiting_bank_match)).assertIsDisplayed()
+        compose.onNodeWithTag("unrouted-operation-74").assertIsNotEnabled()
     }
 }

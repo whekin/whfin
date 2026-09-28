@@ -90,6 +90,7 @@ import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import dev.whekin.whfin.data.rates.PIVOT_CURRENCY
 import dev.whekin.whfin.ui.accountChoiceLabels
 import dev.whekin.whfin.ui.formatMinor
@@ -1126,11 +1127,7 @@ private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresent
 internal fun SmsDiagnosticEntity.awaitsStatement(): Boolean =
     reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
 
-internal fun SmsDiagnosticEntity.needsUserAction(): Boolean = !awaitsStatement() && when (outcome) {
-    SmsDiagnosticOutcome.NEEDS_CARD_MAPPING,
-    SmsDiagnosticOutcome.CHOOSE_ACCOUNT -> true
-    else -> false
-}
+internal fun SmsDiagnosticEntity.needsUserAction(): Boolean = needsRoutingDecision()
 
 private fun SmsDiagnosticKind.labelResource(): Int = when (this) {
     SmsDiagnosticKind.CARD_PAYMENT -> R.string.sms_kind_card

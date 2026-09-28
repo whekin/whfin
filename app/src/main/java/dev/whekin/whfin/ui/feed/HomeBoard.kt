@@ -13,6 +13,7 @@ import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.isOpeningBalanceAnchor
 import dev.whekin.whfin.data.recurring.RecurringCharge
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -135,7 +136,8 @@ internal fun waitingForBank(item: FeedItem): Boolean =
 
 /** Only missing routing blocks import; an absent category is optional ledger detail. */
 internal fun homeAttention(unrouted: List<UnroutedOperation>): List<FeedTimelineEntry> =
-    unrouted.map(FeedTimelineEntry::Unrouted)
+    unrouted.filter { it.diagnostic.needsRoutingDecision() }
+        .map(FeedTimelineEntry::Unrouted)
     .sortedByDescending(FeedTimelineEntry::occurredAt)
 
 /**

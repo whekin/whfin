@@ -9,11 +9,14 @@ import dev.whekin.whfin.data.db.FinancialGroupEntity
 import dev.whekin.whfin.data.db.FinancialGroupType
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
 import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.db.StatementImportEntity
+import dev.whekin.whfin.data.db.StatementImportOrigin
 import dev.whekin.whfin.data.db.TransactionEntity
 import dev.whekin.whfin.data.db.TxSource
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.WhfinDatabase
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -86,6 +89,34 @@ class SmsBalanceRoutingImporterTest {
                 createdAt = ANCHOR_AT,
             ),
         )
+    }
+
+    private suspend fun cover(accountId: Long) {
+        db.statementImportDao().insert(StatementImportEntity(
+            accountId = accountId, origin = StatementImportOrigin.CREDO_SYNC,
+            periodFrom = LocalDate.of(2026, 4, 1).toEpochDay(),
+            periodTo = LocalDate.of(2026, 4, 30).toEpochDay(),
+            openingBalanceMinor = 0, closingBalanceMinor = 0,
+            totalRows = 0, inserted = 0, duplicates = 0, reconciled = 0, importedAt = RECEIVED_AT,
+        ))
+    }
+
+    @Test fun ambiguousTransferCoveredOnEveryPossibleLedgerNeedsNoAccountDecision() = runBlocking {
+        cover(everydayId)
+        cover(secondId)
+
+        val result = importer.preview(TRANSFER, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticOutcome.CHOOSE_ACCOUNT, result.outcome)
+        assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, result.reason)
+    }
+
+    @Test fun ambiguousTransferWithAnUncoveredLedgerStillNeedsAnAccount() = runBlocking {
+        cover(everydayId)
+
+        val result = importer.preview(TRANSFER, RECEIVED_AT)
+
+        assertEquals(SmsDiagnosticReason.MULTIPLE_ACCOUNTS, result.reason)
     }
 
     @Test fun aUniqueDestinationBalanceCanResolveAnOtherwiseAmbiguousConversion() = runBlocking {

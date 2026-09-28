@@ -19,6 +19,7 @@ import dev.whekin.whfin.data.sms.SmsImportResult
 import dev.whekin.whfin.data.sms.SmsHistoryReader
 import dev.whekin.whfin.data.sms.SmsInboxCardLinker
 import dev.whekin.whfin.data.sms.SmsTransactionImporter
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
@@ -100,8 +101,7 @@ internal fun summarizeSmsPreview(results: List<SmsImportResult>): SmsScanSummary
     importable = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
     duplicates = results.count { it.outcome in setOf(SmsDiagnosticOutcome.DUPLICATE,
         SmsDiagnosticOutcome.ATTACHED, SmsDiagnosticOutcome.CANCELED) },
-    needsAttention = results.count { it.reason != SmsDiagnosticReason.STATEMENT_COVERS_PERIOD &&
-        it.outcome in setOf(SmsDiagnosticOutcome.NEEDS_CARD_MAPPING, SmsDiagnosticOutcome.CHOOSE_ACCOUNT) },
+    needsAttention = results.count(SmsImportResult::needsRoutingDecision),
     ignored = results.count { it.outcome == SmsDiagnosticOutcome.IGNORED },
     waitingForStatement = results.count { it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD },
     unreadable = results.count { it.outcome in setOf(SmsDiagnosticOutcome.UNRECOGNIZED, SmsDiagnosticOutcome.ERROR) },

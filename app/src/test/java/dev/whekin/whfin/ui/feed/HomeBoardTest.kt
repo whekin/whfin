@@ -156,6 +156,20 @@ class HomeBoardTest {
         assertEquals(300L, queue[0].occurredAt)
     }
 
+    @Test fun `SMS awaiting statement does not become another account choice`() {
+        val waiting = unroutedOperation(id = 10, occurredAt = 100).let { row ->
+            row.copy(diagnostic = row.diagnostic.copy(
+                outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                reason = dev.whekin.whfin.data.db.SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,
+            ))
+        }
+        val needsAccount = unroutedOperation(id = 11, occurredAt = 200)
+
+        val decisions = homeAttention(listOf(waiting, needsAccount))
+
+        assertEquals(listOf(11L), decisions.map { (it as FeedTimelineEntry.Unrouted).operation.diagnostic.id })
+    }
+
     @Test
     fun `today wins over recent history, and drafts are left to the queue above`() {
         val today = LocalDate.of(2026, 8, 25)

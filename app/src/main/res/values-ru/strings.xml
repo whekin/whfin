@@ -106,6 +106,7 @@
     <string name="transactions_history_title">История операций</string>
     <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
     <string name="feed_unrouted_choose_account">Выбрать счёт</string>
+    <string name="feed_unrouted_awaiting_bank_match">Ждёт сверку с банком</string>
     <string name="feed_unrouted_choose_accounts">Выбрать счета</string>
     <string name="feed_bank_sms_source">SMS банка</string>
     <string name="feed_no_description">Без описания</string>
@@ -378,11 +379,11 @@
     <string name="sms_history_scanning">Проверяем сообщения…</string>
     <string name="sms_history_importing">Импортируем распознанные операции…</string>
     <string name="sms_history_preview_title">Готово к импорту</string>
-    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · Сообщения без счёта: %4$d · безопасно пропущено %5$d · ждут выписку: %6$d · не удалось прочитать: %7$d</string>
+    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · Сообщения без счёта: %4$d · безопасно пропущено %5$d · ждут сопоставления с банком: %6$d · не удалось прочитать: %7$d</string>
     <string name="sms_history_import">Импортировать распознанные</string>
     <string name="sms_history_cancel">Отмена</string>
     <string name="sms_history_complete_title">Недавние сообщения проверены</string>
-    <string name="sms_history_complete_body">Импортировано операций: %1$d · Сообщения без счёта: %2$d · ждут выписку: %3$d · не удалось прочитать: %4$d</string>
+    <string name="sms_history_complete_body">Импортировано операций: %1$d · Сообщения без счёта: %2$d · ждут сопоставления с банком: %3$d · не удалось прочитать: %4$d</string>
     <string name="sms_history_error_title">Не удалось проверить сообщения</string>
     <string name="sms_history_error_body">Ничего не изменено. Проверьте доступ к SMS и повторите.</string>
     <string name="sms_history_empty_preview">За последние 90 дней сообщения Credo / TBC не найдены.</string>
@@ -391,7 +392,7 @@
     <string name="sms_history_compact_body">Перед импортом покажем, что добавится из сообщений за 90 дней</string>
     <string name="sms_history_permission_compact_body">Отдельный доступ Android · предпросмотр перед импортом</string>
     <string name="sms_diagnostics_attention">НУЖНО ДЕЙСТВИЕ</string>
-    <string name="sms_diagnostics_waiting_statement">ЖДУТ ВЫПИСКУ</string>
+    <string name="sms_diagnostics_waiting_statement">ЖДУТ СВЕРКУ С БАНКОМ</string>
     <string name="sms_diagnostics_recent">НЕДАВНЯЯ АКТИВНОСТЬ</string>
     <string name="sms_recent_show_more">Показать ещё</string>
     <string name="sms_recent_show_less">Свернуть активность</string>
@@ -415,7 +416,7 @@
     <string name="sms_outcome_ignored">Безопасно пропущено</string>
     <string name="sms_outcome_unrecognized">Формат сообщения не распознан</string>
     <string name="sms_outcome_mapping">Выберите счёт</string>
-    <string name="sms_outcome_waiting_for_statement">Ожидает выписку банка</string>
+    <string name="sms_outcome_waiting_for_statement">Пока не сопоставлено с банковской историей</string>
     <string name="sms_outcome_error">Ошибка импорта</string>
     <string name="sms_kind_card">Оплата картой</string>
     <string name="sms_kind_outgoing">Исходящий перевод</string>

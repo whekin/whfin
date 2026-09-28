@@ -14,7 +14,7 @@ tap away, in Accounts and Statistics.
 | Runway | Whether spendable money covers ordinary spending and expected bills until payday | no reliable rate yet; without payday, more than 45 days |
 | Expected from your history | Monthly payments this month has not seen yet, read off repetition | nothing recurring is outstanding, **or the runway above already named them** |
 | You owe | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
-| Needs a decision | Standing conditions first, then bank messages missing an account | nothing needs routing and no condition needs attention |
+| Needs a decision | Standing conditions first, then bank messages that truly need an account choice | nothing needs routing and no condition needs attention |
 | Today / Recent | Today's own spending and the last settled rows | no history at all |
 | This month | Spent, received, and — when there is one — the projection to month end with its comparison | never; extra lines only when they exist |
 

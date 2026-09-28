@@ -637,6 +637,14 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 // The statement already filed this payment under one account: ask it before asking
                 // the user, or the same money gets a second row in whichever ledger they pick.
                 attachToStatement(unrouted, persist)?.let { return it }
+                // A transfer SMS has no account number. If every account it could belong to is
+                // already covered by a statement for that day, choosing one cannot create new
+                // money: it would only place a second row on top of bank history. Keep the
+                // unmatched evidence for later reconciliation without asking for a false choice.
+                if (sms is BankSmsMessage.OutgoingTransfer &&
+                    resolution.reason == SmsDiagnosticReason.MULTIPLE_ACCOUNTS &&
+                    allPossibleTransferLedgersCovered(sms, unrouted.occurredAt)
+                ) return unwritten(unrouted, persist)
                 val id = if (persist) persistDiagnostic(unrouted) else null
                 SmsImportResult(resolution.outcome, id, reason = resolution.reason)
             }
@@ -1111,6 +1119,15 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             val to = import.periodTo?.let(LocalDate::ofEpochDay) ?: return@any false
             !day.isBefore(from) && !day.isAfter(to)
         }
+    }
+
+    private suspend fun allPossibleTransferLedgersCovered(
+        sms: BankSmsMessage.OutgoingTransfer,
+        occurredAt: Long?,
+    ): Boolean {
+        val currency = sms.balanceCurrency ?: sms.currency
+        val candidates = db.accountDao().bankAccountsByCurrency(currency).filter { bank.accepts(db, it) }
+        return candidates.size > 1 && candidates.all { isCoveredByStatement(it.id, occurredAt) }
     }
 
     /** Recorded, visible, and deliberately not in the ledger. */

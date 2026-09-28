@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.db.TxStatus
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
+import dev.whekin.whfin.data.db.SmsDiagnosticReason
+import dev.whekin.whfin.data.sms.needsRoutingDecision
 import dev.whekin.whfin.ui.CategoryIcons
 import dev.whekin.whfin.ui.currencySymbol
 import dev.whekin.whfin.ui.formatMinor
@@ -155,9 +157,14 @@ internal fun UnroutedOperationRow(
     val cardHint = diagnostic.cardLast4?.let {
         stringResource(R.string.sms_card_suffix, it)
     }
-    val routingLabel = stringResource(
-        if (grouped) R.string.feed_unrouted_choose_accounts else R.string.feed_unrouted_choose_account,
-    )
+    val awaitingBankMatch = diagnostic.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
+    val statusColor = if (awaitingBankMatch) MaterialTheme.colorScheme.onSurfaceVariant
+        else MaterialTheme.colorScheme.tertiary
+    val routingLabel = stringResource(when {
+        awaitingBankMatch -> R.string.feed_unrouted_awaiting_bank_match
+        grouped -> R.string.feed_unrouted_choose_accounts
+        else -> R.string.feed_unrouted_choose_account
+    })
     val currency = diagnostic.currency ?: diagnostic.balanceCurrency ?: "—"
     val amount = diagnostic.amountMinor ?: 0L
     val signedAmount = when (diagnostic.kind) {
@@ -172,6 +179,7 @@ internal fun UnroutedOperationRow(
 
     Surface(
         onClick = onClick,
+        enabled = diagnostic.needsRoutingDecision(),
         modifier = Modifier.fillMaxWidth().testTag("unrouted-operation-${diagnostic.id}"),
         shape = androidx.compose.ui.graphics.RectangleShape,
         color = Color.Transparent,
@@ -184,14 +192,14 @@ internal fun UnroutedOperationRow(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = .11f),
+                    color = statusColor.copy(alpha = .11f),
                     modifier = Modifier.size(40.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             if (grouped) Icons.Default.SwapHoriz else Icons.Default.Sms,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
+                            tint = statusColor,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -208,7 +216,7 @@ internal fun UnroutedOperationRow(
                         listOfNotNull(bankName, stringResource(R.string.feed_bank_sms_source), cardHint)
                             .joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
+                        color = statusColor,
                         maxLines = 1,
                     )
                 }
@@ -241,14 +249,14 @@ internal fun UnroutedOperationRow(
                     ) {
                         Box(
                             Modifier.size(6.dp).background(
-                                MaterialTheme.colorScheme.tertiary,
+                                statusColor,
                                 CircleShape,
                             ),
                         )
                         Text(
                             routingLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary,
+                            color = statusColor,
                         )
                     }
                 }

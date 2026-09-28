@@ -70,6 +70,7 @@ Each candidate message gets exactly one visible outcome:
 | Already imported | Stable key matches an existing row | Open transaction |
 | Needs card mapping | Card last four is known to the SMS but not WHFIN | Choose/create instrument and ledger |
 | Choose account | More than one ledger can receive a transfer | Tap one derived route |
+| Awaiting bank match | Every possible ledger is already covered by bank history, but no unique row has been matched yet | None; keep the SMS as evidence and retry reconciliation after bank data changes |
 | Ignored | OTP, rejected payment, or unrelated message | None |
 | Not recognized | Credo-like message does not match the parser | Share explicitly or copy |
 | Error | Storage/platform failure | Retry; preserve diagnostic reason |
@@ -78,6 +79,9 @@ For card payments, routing is deliberately strict: `bank + card last4 → one ph
 `card + balance currency → one active ledger`. Four digits are required. One card may be connected to
 GEL, USD, EUR, and other ledgers under the same IBAN, so the card mapping is not duplicated per currency.
 WHFIN never guesses from a bank name alone because one bank can contain several cards and several IBANs.
+An account-free outgoing transfer is not a routing question when statements already cover **every**
+eligible same-bank, same-currency ledger on its date. WHFIN leaves that SMS outside the ledger for
+later bank matching; choosing one account cannot justify another transaction in a covered period.
 Saving that mapping processes all already queued card payments that match one of those ledgers. Those
 payments become active automatically; routing is not a review or approval decision.
 

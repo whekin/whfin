@@ -59,6 +59,8 @@ _Avoid_: SMS monitoring, message capture
 A parsed supported-bank message that has enough financial meaning to appear in the Feed but does not yet
 belong to a ledger. It never affects balances or statistics; resolving its routing turns it into, or
 attaches it to, a real transaction.
+When every possible ledger is already covered by bank history, the message awaits a bank match and is
+not an owner decision; choosing an account cannot create a second transaction in a covered period.
 _Avoid_: Pending transaction, diagnostic row, uncategorized transaction
 
 **Routing resolver**:
