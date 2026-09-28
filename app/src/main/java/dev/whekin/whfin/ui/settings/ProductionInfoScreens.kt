@@ -1,6 +1,7 @@
 package dev.whekin.whfin.ui.settings
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -256,6 +257,11 @@ fun AboutScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        dev.whekin.whfin.core.ui.WhfinCuriousCat(
+            stringResource(R.string.about_cat_description), stringResource(R.string.about_cat_action),
+            Modifier.height(if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 700) 88.dp else 128.dp),
+            activeDescription = stringResource(R.string.about_cat_playing),
+        )
         WhfinNotice(
             title = stringResource(R.string.about_hero_title),
             body = stringResource(R.string.about_hero_body),

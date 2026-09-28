@@ -161,6 +161,7 @@ private fun DebtLedgerContent(
                         WhfinPaneState.Empty,
                         stringResource(R.string.debts_none),
                         stringResource(R.string.debt_empty_body),
+                        illustration = dev.whekin.whfin.core.ui.WhfinIllustrationScene.Debts,
                         actionLabel = stringResource(R.string.debt_empty_action),
                         onAction = onAdd,
                     )

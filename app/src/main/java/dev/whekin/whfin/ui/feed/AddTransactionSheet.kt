@@ -700,8 +700,11 @@ private fun minorInput(value: Long): String {
     onFrom: (Long) -> Unit, onTo: (Long) -> Unit, onDestinationAmount: (String) -> Unit, onSwap: () -> Unit,
     onCreateCashCurrency: (String) -> Unit, onDate: () -> Unit, onNote: (String) -> Unit) {
     CompactAccountSelector(stringResource(R.string.from_account), sources, from, Modifier.fillMaxWidth(), onFrom, onCreateCashCurrency = onCreateCashCurrency)
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        IconButton(onClick = onSwap, enabled = to != null) { Icon(Icons.Default.SwapVert, null) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (from != null && to != null && from != to) dev.whekin.whfin.core.ui.WhfinTransferDirection(from to to)
+        IconButton(onClick = onSwap, enabled = to != null) {
+            Icon(Icons.Default.SwapVert, stringResource(R.string.transfer_swap_accounts))
+        }
     }
     CompactAccountSelector(stringResource(R.string.to_account), sources, to, Modifier.fillMaxWidth(), onTo, exclude = from, onCreateCashCurrency = onCreateCashCurrency)
     if (conversion) WhfinField(

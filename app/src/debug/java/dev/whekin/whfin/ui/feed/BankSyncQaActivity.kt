@@ -44,7 +44,7 @@ class BankSyncQaActivity : ComponentActivity() {
                             BankSyncStatus("TBC", 2, false, SyncPhase.ATTENTION))
                         Column(Modifier.safeDrawingPadding()) {
                             WhfinContextHeader("Available", "123.45", valueSymbol = "₾") {
-                                BankSyncIndicator(true) { sheet = true }
+                                BankSyncIndicator(states) { sheet = true }
                             }
                             Text(if (locale.language == "ru") "Главная" else "Home", Modifier.padding(20.dp), style = MaterialTheme.typography.headlineLarge)
                             selected?.let { Text("Opened $it", Modifier.padding(20.dp)) }

@@ -136,6 +136,25 @@ class CategoryIntelligenceScreenTest {
         compose.onNodeWithText("Transport").performClick()
 
         assertEquals(42L to 7L, assignment)
+        compose.onNodeWithText(context.getString(R.string.category_remembered_feedback)).assertDoesNotExist()
+    }
+
+    @Test
+    fun acknowledgementAppearsOnlyWhenTheOwnerSuppliesSuccessfulPersistence() {
+        val acknowledgement = androidx.compose.runtime.mutableStateOf<Pair<Long, CategoryEntity>?>(null)
+        compose.setContent {
+            WhfinTheme { CategoryIntelligenceScreen(
+                state = CategoryIntelligenceState(CategoryCoverage(100, 64, 0), listOf(merchant), categories = listOf(transport)),
+                queue = CategoryQueue.Merchants, onCheckLocalRules = {}, onAssignCategory = { _, _ -> },
+                acknowledgement = acknowledgement.value,
+            ) }
+        }
+        val message = context.getString(R.string.category_remembered_feedback)
+        compose.onNodeWithText(message).assertDoesNotExist()
+        compose.runOnIdle { acknowledgement.value = 1L to transport }
+        compose.onNodeWithText(message).assertIsDisplayed()
+        compose.runOnIdle { acknowledgement.value = null }
+        compose.onNodeWithText(message).assertDoesNotExist()
     }
 
     @Test

@@ -236,6 +236,14 @@ fun FeedScreen(
     }
     val smsRoutingAccounts by viewModel.smsRoutingAccounts.collectAsState()
     var details by remember { mutableStateOf<FeedItem?>(null) }
+    var rememberedCategoryFor by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    val accessibility = androidx.compose.ui.platform.LocalAccessibilityManager.current
+    LaunchedEffect(rememberedCategoryFor) {
+        if (rememberedCategoryFor != null) {
+            kotlinx.coroutines.delay(accessibility?.calculateRecommendedTimeoutMillis(4000, containsText = true) ?: 4000)
+            rememberedCategoryFor = null
+        }
+    }
     var routingFor by remember { mutableStateOf<UnroutedOperation?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -446,7 +454,7 @@ fun FeedScreen(
                         // Analytics and the full record are destinations now, so the two icons that
                         // used to be their only doors are gone from here. What the header keeps is
                         // the one thing that had no stable place at all.
-                        if (showCredoSyncReminder) BankSyncIndicator(bankSyncStatuses.any { it.active }) { showBankSync = true }
+                        if (showCredoSyncReminder) BankSyncIndicator(bankSyncStatuses) { showBankSync = true }
                         onOpenSettings?.let { openSettings ->
                             WhfinIconButton(
                                 icon = Icons.Default.Settings,
@@ -660,6 +668,9 @@ fun FeedScreen(
                         state = WhfinPaneState.Empty,
                         title = stringResource(R.string.transactions_history_title),
                         body = stringResource(R.string.feed_empty),
+                        illustration = dev.whekin.whfin.core.ui.WhfinIllustrationScene.History.takeIf {
+                            search.isBlank() && filter == FeedFilter.ALL && categoryFilters.isEmpty()
+                        },
                     )
                 }
             }
@@ -853,8 +864,10 @@ fun FeedScreen(
     details?.let { item ->
         TransactionDetailsSheet(
             item = item,
-            onDismiss = { details = null },
+            categoryAcknowledgement = rememberedCategoryFor?.takeIf { it.first == item.tx.id }?.second,
+            onDismiss = { details = null; rememberedCategoryFor = null },
             onChangeCategory = {
+                rememberedCategoryFor = null
                 details = null
                 categoryFor = item
             },
@@ -944,6 +957,7 @@ fun FeedScreen(
                 viewModel.assignCategory(item, category.id) {
                     if (categoryFor?.tx?.id == item.tx.id) {
                         categoryFor = null
+                        if (item.merchant != null) rememberedCategoryFor = item.tx.id to System.nanoTime()
                         details = item.copy(category = category, tx = item.tx.copy(categoryId = category.id))
                     }
                 }

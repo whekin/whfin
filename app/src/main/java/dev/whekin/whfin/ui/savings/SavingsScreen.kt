@@ -121,6 +121,7 @@ internal fun SavingsScreen(
             state = WhfinPaneState.Unavailable,
             title = stringResource(R.string.savings_no_reserve_title),
             body = stringResource(R.string.savings_no_reserve_body),
+            illustration = dev.whekin.whfin.core.ui.WhfinIllustrationScene.Savings,
             actionLabel = stringResource(R.string.savings_choose_reserve),
             onAction = onOpenAccounts,
             modifier = Modifier.fillMaxSize(),

@@ -1740,4 +1740,9 @@
     <string name="feed_waiting_bank">Ожидают банк</string>
     <string name="status_waiting_statement">Ожидает выписку</string>
     <string name="history_result_count">Записей: %1$d</string>
+    <string name="category_remembered_feedback">Категория запомнена. В следующий раз — автоматически.</string>
+    <string name="transfer_swap_accounts">Поменять счета местами</string>
+    <string name="about_cat_description">Иллюстрация WHFIN</string>
+    <string name="about_cat_action">Позвать тбилисского кота</string>
+    <string name="about_cat_playing">Кот выглядывает и толкает фигуру лапой.</string>
 </resources>

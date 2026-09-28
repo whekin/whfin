@@ -307,8 +307,8 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         mutate { db.mergeCounterparties(firstId, secondId) }
     }
 
-    fun assignCategory(merchantId: Long, categoryId: Long) {
-        mutate {
+    fun assignCategory(merchantId: Long, categoryId: Long, onAssigned: () -> Unit = {}) {
+        mutate(onSuccess = onAssigned) {
             db.merchantDao().setCategory(merchantId, categoryId)
             db.transactionDao().categorizeUnassignedForMerchant(merchantId, categoryId)
         }
@@ -401,11 +401,12 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun mutate(block: suspend () -> Unit) {
+    private fun mutate(onSuccess: () -> Unit = {}, block: suspend () -> Unit) {
         viewModelScope.launch {
             try {
                 db.withTransaction { block() }
                 operation.value = operation.value.copy(failed = false)
+                onSuccess()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

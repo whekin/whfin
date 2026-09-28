@@ -2,6 +2,7 @@ package dev.whekin.whfin.core.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -257,12 +258,18 @@ fun WhfinStatePane(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    illustration: WhfinIllustrationScene? = null,
 ) {
     Column(
         modifier.padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (illustration != null && state in setOf(WhfinPaneState.Empty, WhfinPaneState.Unavailable)) {
+            val compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 700 ||
+                androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
+            WhfinIllustration(illustration, Modifier.height(if (compact) 64.dp else 112.dp))
+        }
         if (state == WhfinPaneState.Loading) WhfinLoadingIndicator(Modifier.size(32.dp))
         Text(title, style = MaterialTheme.typography.titleLarge)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

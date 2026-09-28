@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 
 /** Decorative compositions, never a representation of balances, coverage or sync success. */
-enum class WhfinIllustrationScene { Gather, Sort, Balance }
+enum class WhfinIllustrationScene { Gather, Sort, Balance, History, Debts, Savings }
 
 /**
  * A small family of cut-out forms. Every pigment comes from the active Material palette, including
@@ -56,6 +56,35 @@ fun WhfinIllustration(
         translate((size.width - 320f * unit) / 2f, (size.height - 180f * unit) / 2f) {
             scale(unit, pivot = Offset.Zero) {
                 when (scene) {
+                    WhfinIllustrationScene.History -> {
+                        drawCircle(colors.secondaryContainer, 62f, Offset(170f, 87f))
+                        repeat(3) { row ->
+                            piece(153f, 48f + row * 40f, (row - 1) * -4f, drift, (row - 1) * 12f, 10f) {
+                                drawRoundRect(if (row == 1) colors.primary else colors.primaryContainer,
+                                    Offset(-66f, -12f), Size(132f, 24f), CornerRadius(12f))
+                                drawCircle(if (row == 1) colors.onPrimary else colors.onPrimaryContainer, 3f, Offset(-48f, 0f))
+                            }
+                        }
+                        sparkle(Offset(252f, 43f), colors.tertiary, 8f)
+                    }
+                    WhfinIllustrationScene.Debts -> {
+                        drawCircle(colors.secondaryContainer, 55f, Offset(160f, 90f))
+                        piece(112f, 80f, -20f, drift, -15f, 5f) { capsule(colors.primaryContainer, colors.onPrimaryContainer) }
+                        piece(202f, 113f, 20f, drift, 15f, -5f) { capsule(colors.tertiaryContainer, colors.onTertiaryContainer) }
+                        drawCircle(colors.primary, 9f, Offset(197f, 44f))
+                        sparkle(Offset(83f, 131f), colors.tertiary, 7f)
+                    }
+                    WhfinIllustrationScene.Savings -> {
+                        drawCircle(colors.secondaryContainer, 62f, Offset(164f, 89f))
+                        repeat(3) { index ->
+                            val height = 35f + index * 25f
+                            piece(107f + index * 48f, 142f - height / 2, 0f, drift, 0f, 12f) {
+                                drawRoundRect(if (index == 1) colors.primary else colors.primaryContainer,
+                                    Offset(-18f, -height / 2), Size(36f, height), CornerRadius(12f))
+                            }
+                        }
+                        piece(204f, 32f, -20f, drift, 8f, -8f) { petal(colors.tertiary) }
+                    }
                     WhfinIllustrationScene.Gather -> {
                         drawCircle(colors.secondaryContainer, 68f, Offset(163f, 91f))
                         piece(94f, 99f, -12f, drift, -18f, 12f) {

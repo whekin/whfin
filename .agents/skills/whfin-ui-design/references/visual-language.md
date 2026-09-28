@@ -253,6 +253,23 @@ No idle loop, delayed CTA, confetti over financial data, or replay on a palette 
 is decorative and absent from accessibility navigation. Reduce its footprint on short screens and
 at large font sizes; keep primary actions pinned and content scrollable.
 
+## Everyday feedback and the About easter egg
+
+The decorative exception also covers confirmed empty History, Debt and Savings states, a saved
+merchant-category acknowledgement, a direction cue between transfer selectors, and a long-press
+cat in About. Use the existing vector family and Material colour roles. Empty artwork must never
+replace loading, error or unresolved-data states, and it must yield space at large fonts/short heights.
+
+Category acknowledgement follows successful persistence of the merchant rule, never the picker tap.
+Keep its text readable for the accessibility-recommended timeout. Sync completion requires every
+reported bank to be inactive and COMPLETE; errors, interrupted runs and confirmation remain attention
+states, and the indicator still opens the actual result. The transfer cue only describes the chosen
+source/destination and must not look like a submitted bank payment.
+
+The cat is optional, local, finite and separate from developer-mode version taps. Expose a localized
+long-click action to accessibility, ignore repeat triggers while playing, and respect system motion
+and haptic preferences. It must not hide real actions or write any ledger/settings data.
+
 ## Motion
 
 - Use `WhfinMotion` springs, not durations. They come from the theme's `MotionScheme.expressive()`, so

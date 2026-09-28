@@ -1678,4 +1678,9 @@
     <string name="feed_waiting_bank">Awaiting bank</string>
     <string name="status_waiting_statement">Awaiting statement</string>
     <string name="history_result_count">%1$d entries</string>
+    <string name="category_remembered_feedback">Category remembered. Next time, automatically.</string>
+    <string name="transfer_swap_accounts">Swap accounts</string>
+    <string name="about_cat_description">WHFIN illustration</string>
+    <string name="about_cat_action">Call the Tbilisi cat</string>
+    <string name="about_cat_playing">The cat peeks out and nudges a shape.</string>
 </resources>

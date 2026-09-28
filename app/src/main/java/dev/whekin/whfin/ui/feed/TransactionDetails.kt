@@ -106,6 +106,7 @@ internal fun TransactionDetailsSheet(
     onConfirm: (() -> Unit)? = null,
     onOwnTransfer: (() -> Unit)? = null,
     onClearOwnTransfer: (() -> Unit)? = null,
+    categoryAcknowledgement: Long? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -127,6 +128,7 @@ internal fun TransactionDetailsSheet(
             onConfirm = onConfirm,
             onOwnTransfer = onOwnTransfer,
             onClearOwnTransfer = onClearOwnTransfer,
+            categoryAcknowledgement = categoryAcknowledgement,
         )
     }
 }
@@ -147,6 +149,7 @@ private fun TransactionDetailsContent(
     onConfirm: (() -> Unit)? = null,
     onOwnTransfer: (() -> Unit)? = null,
     onClearOwnTransfer: (() -> Unit)? = null,
+    categoryAcknowledgement: Long? = null,
 ) {
     val tx = item.tx
     val presentationAmount = transactionPresentationAmount(tx)
@@ -282,6 +285,12 @@ private fun TransactionDetailsContent(
             }
         }
         if (!isTransfer) item(key = "transaction-category") {
+            if (categoryAcknowledgement != null) androidx.compose.runtime.key(categoryAcknowledgement) {
+                dev.whekin.whfin.core.ui.WhfinAcknowledgement(
+                    CategoryIcons.resolve(item.category?.icon), stringResource(R.string.category_remembered_feedback),
+                    Modifier.padding(bottom = 10.dp),
+                )
+            }
             WhfinLedgerGroup {
                 dev.whekin.whfin.core.ui.WhfinLedgerRow(
                     title = item.category?.name ?: stringResource(R.string.category_assign_hint),

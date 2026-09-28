@@ -108,6 +108,14 @@ fun CategoryIntelligenceRoute(
     viewModel: CategoryIntelligenceViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var acknowledgement by remember { mutableStateOf<Pair<Long, CategoryEntity>?>(null) }
+    val accessibility = androidx.compose.ui.platform.LocalAccessibilityManager.current
+    LaunchedEffect(acknowledgement) {
+        if (acknowledgement != null) {
+            kotlinx.coroutines.delay(accessibility?.calculateRecommendedTimeoutMillis(4000, containsText = true) ?: 4000)
+            acknowledgement = null
+        }
+    }
     var firstSnapshotSeen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state, queue) {
         if (queue == null && !firstSnapshotSeen && state != null) {
@@ -121,7 +129,13 @@ fun CategoryIntelligenceRoute(
         queue = queue,
         onOpenQueue = onOpenQueue,
         onCheckLocalRules = viewModel::checkLocalRules,
-        onAssignCategory = viewModel::assignCategory,
+        onAssignCategory = { merchant, category ->
+            acknowledgement = null
+            viewModel.assignCategory(merchant, category) {
+                state?.categories?.firstOrNull { it.id == category }?.let { acknowledgement = System.nanoTime() to it }
+            }
+        },
+        acknowledgement = acknowledgement,
         onAssignCounterparty = viewModel::assignCounterparty,
         onDismissCounterparty = viewModel::dismissCounterparty,
         onUpdateRule = viewModel::updateRule,
@@ -146,6 +160,7 @@ fun CategoryIntelligenceScreen(
     onCreateCategories: (List<CategoryCatalog.Definition>) -> Unit = {},
     onAddPack: (CategoryPacks.Pack) -> Unit = {},
     onMergeCounterparties: (Long, Long) -> Unit = { _, _ -> },
+    acknowledgement: Pair<Long, CategoryEntity>? = null,
 ) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<UncategorizedMerchant?>(null) }
@@ -165,53 +180,60 @@ fun CategoryIntelligenceScreen(
         return
     }
 
-    LazyColumn(
-        Modifier.fillMaxSize().navigationBarsPadding(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        when (queue) {
-            null -> indexSection(
-                state = state,
-                onCheckLocalRules = onCheckLocalRules,
-                onCreateCategories = onCreateCategories,
-                onAddPack = onAddPack,
-                onOpenQueue = onOpenQueue,
-            )
-            CategoryQueue.Merchants -> merchantQueue(
-                merchants = state.unresolved,
-                query = query,
-                onQueryChange = { query = it },
-                onSelect = { selected = it },
-            )
-            CategoryQueue.Transfers -> counterpartyQueue(
-                repeated = state.counterparties,
-                once = state.counterpartiesOnce,
-                icon = Icons.Default.SwapHoriz,
-                bodyRes = R.string.category_intelligence_transfers_body,
-                onSelect = { selectedCounterparty = it },
-            )
-            CategoryQueue.Income -> counterpartyQueue(
-                repeated = state.incomeSenders,
-                once = state.incomeSendersOnce,
-                icon = Icons.Default.SouthWest,
-                bodyRes = R.string.category_intelligence_income_body_short,
-                onSelect = { selectedSender = it },
-            )
-            CategoryQueue.Duplicates -> duplicateQueue(
-                names = state.names,
-                query = query,
-                onQueryChange = { query = it },
-                chosen = mergeFrom,
-                onChoose = { name ->
-                    val first = mergeFrom
-                    if (first == null) mergeFrom = name
-                    else if (first.merchantId != name.merchantId) mergePair = first to name
-                },
-                onClearChoice = { mergeFrom = null },
-            )
-            CategoryQueue.Rules -> ruleQueue(state.rules) { selectedRule = it }
+    Column(Modifier.fillMaxSize()) {
+        acknowledgement?.let { (id, category) -> androidx.compose.runtime.key(id) {
+            dev.whekin.whfin.core.ui.WhfinAcknowledgement(dev.whekin.whfin.ui.CategoryIcons.resolve(category.icon),
+                stringResource(R.string.category_remembered_feedback), Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+        } }
+        LazyColumn(
+            Modifier.weight(1f).navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            when (queue) {
+                null -> indexSection(
+                    state = state,
+                    onCheckLocalRules = onCheckLocalRules,
+                    onCreateCategories = onCreateCategories,
+                    onAddPack = onAddPack,
+                    onOpenQueue = onOpenQueue,
+                )
+                CategoryQueue.Merchants -> merchantQueue(
+                    merchants = state.unresolved,
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSelect = { selected = it },
+                )
+                CategoryQueue.Transfers -> counterpartyQueue(
+                    repeated = state.counterparties,
+                    once = state.counterpartiesOnce,
+                    icon = Icons.Default.SwapHoriz,
+                    bodyRes = R.string.category_intelligence_transfers_body,
+                    onSelect = { selectedCounterparty = it },
+                )
+                CategoryQueue.Income -> counterpartyQueue(
+                    repeated = state.incomeSenders,
+                    once = state.incomeSendersOnce,
+                    icon = Icons.Default.SouthWest,
+                    bodyRes = R.string.category_intelligence_income_body_short,
+                    onSelect = { selectedSender = it },
+                )
+                CategoryQueue.Duplicates -> duplicateQueue(
+                    names = state.names,
+                    query = query,
+                    onQueryChange = { query = it },
+                    chosen = mergeFrom,
+                    onChoose = { name ->
+                        val first = mergeFrom
+                        if (first == null) mergeFrom = name
+                        else if (first.merchantId != name.merchantId) mergePair = first to name
+                    },
+                    onClearChoice = { mergeFrom = null },
+                )
+                CategoryQueue.Rules -> ruleQueue(state.rules) { selectedRule = it }
+            }
         }
+
     }
 
     selectedSender?.let { sender ->
