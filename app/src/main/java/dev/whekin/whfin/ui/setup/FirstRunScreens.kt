@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Wallet
-import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,6 +25,8 @@ import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinIllustration
+import dev.whekin.whfin.core.ui.WhfinIllustrationScene
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
@@ -66,11 +66,9 @@ fun WelcomeChoiceScreen(
                         Modifier.fillMaxWidth().heightIn(min = viewport),
                         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                     ) {
-                        Icon(
-                            painterResource(R.drawable.ic_launcher_foreground),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(96.dp).offset(x = (-24).dp),
+                        WhfinIllustration(
+                            WhfinIllustrationScene.Gather,
+                            Modifier.height((viewport * .38f).coerceIn(88.dp, 220.dp)),
                         )
                         Text(
                             stringResource(R.string.welcome_title),

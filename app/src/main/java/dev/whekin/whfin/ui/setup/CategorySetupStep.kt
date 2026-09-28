@@ -41,6 +41,7 @@ import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinNotice
 import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
+import dev.whekin.whfin.core.ui.WhfinIllustrationScene
 import dev.whekin.whfin.data.categorization.CategoryCatalog
 import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.categorization.CategoryProposals
@@ -123,6 +124,7 @@ internal fun CategorySetupStep(
                 verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp),
             ) {
                 WhfinBackButton(stringResource(R.string.action_back), onBack)
+                SetupIllustration(WhfinIllustrationScene.Sort)
                 Text(
                     stringResource(R.string.category_setup_title),
                     style = MaterialTheme.typography.headlineMedium,

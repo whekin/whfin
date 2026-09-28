@@ -55,6 +55,11 @@ internal fun SetupStageScreen(
             ) {
                 WhfinBackButton(stringResource(R.string.action_back), onBack)
                 WhfinSectionLabel(stringResource(R.string.setup_stage_progress, stage.ordinal + 1, SetupStage.entries.size))
+                when (stage) {
+                    SetupStage.Categories -> SetupIllustration(WhfinIllustrationScene.Sort)
+                    SetupStage.Ready -> SetupIllustration(WhfinIllustrationScene.Balance)
+                    else -> Unit
+                }
                 Text(stringResource(stage.title), style = MaterialTheme.typography.headlineLarge)
                 if (stage != SetupStage.Ready) Text(stringResource(stage.body), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)

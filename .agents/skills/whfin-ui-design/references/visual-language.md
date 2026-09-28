@@ -239,6 +239,20 @@ Use one full-screen Welcome choice before the shell on a fresh untouched install
 Demo workspace. Do not use a feature carousel or request permissions there. Personal setup is
 bank-centred, guided but skippable, and exposes only channels that work for the chosen bank.
 
+## Onboarding illustrations
+
+Welcome, category setup and the final balance-review step may carry abstract vector compositions
+from `WhfinIllustration`. This is the deliberate decorative exception to the working-ledger rules.
+Use the current `MaterialTheme.colorScheme` for every fill and detail so Material You and dark mode
+recolour the whole composition. Never bake brand colours into a bitmap or the drawing geometry.
+The illustration carries no status: a balanced composition must not imply that bank sync, balance
+review or all setup choices have completed. Keep the real status and actions visible as text.
+
+A finite entrance may gather the forms once, using `WhfinMotion` and Compose's system duration scale.
+No idle loop, delayed CTA, confetti over financial data, or replay on a palette change. The drawing
+is decorative and absent from accessibility navigation. Reduce its footprint on short screens and
+at large font sizes; keep primary actions pinned and content scrollable.
+
 ## Motion
 
 - Use `WhfinMotion` springs, not durations. They come from the theme's `MotionScheme.expressive()`, so
