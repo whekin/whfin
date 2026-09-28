@@ -164,11 +164,6 @@ internal fun CategorySetupStep(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    WhfinButton(
-                        stringResource(R.string.category_packs_select_all),
-                        { selectedPackIds = packs.map { it.id } },
-                        style = WhfinActionStyle.Quiet,
-                    )
                     Column(Modifier.fillMaxWidth()) {
                         packs.forEach { pack ->
                             val chosen = pack.id in selectedPackIds

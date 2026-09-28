@@ -157,11 +157,6 @@ fun PersonalSetupFlow(
 
     if (destination == null) {
         @Composable fun saved(count: Int?) = count?.let { stringResource(R.string.setup_count_saved, it) }
-        @Composable fun smsStatus(enabled: Boolean): String = stringResource(when {
-            !enabled -> R.string.setup_sms_off
-            !state.hasSmsPermission -> R.string.setup_sms_permission_needed
-            else -> R.string.setup_sms_on
-        })
         val smsReviewStatus = overview?.unrouted?.takeIf { it > 0 }
             ?.let { stringResource(R.string.setup_needs_account, it) }
             ?: when {
@@ -182,10 +177,9 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.personal_setup_restore_title)) { open(SetupPage.Backup) },
             )
             SetupStage.Sms -> listOf(
-                SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), smsStatus(credoSmsEnabled)) { messages(BankSmsBank.CREDO) },
-                SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), smsStatus(tbcSmsEnabled)) { messages(BankSmsBank.TBC) },
                 SetupAction(stringResource(R.string.setup_sms_review), smsReviewStatus) { messages(null) },
                 SetupAction(stringResource(R.string.setup_tbc_push)) { openSettings("bank:TBC") },
+                SetupAction(stringResource(R.string.setup_sms_individual)) { openSettings("connections") },
             ) + if (cardLinkState == SetupCardLinkState.Failed) listOf(
                 SetupAction(stringResource(R.string.setup_sms_retry_cards)) {
                     cardsAttempted = false
@@ -252,10 +246,22 @@ fun PersonalSetupFlow(
                 overview?.allChecked == false -> stringResource(R.string.setup_continue_unchecked)
                 else -> null
             },
+            footerAction = if (stage == SetupStage.Sms &&
+                !(credoSmsEnabled && tbcSmsEnabled && state.hasSmsPermission))
+                SetupAction(stringResource(if (credoSmsEnabled && tbcSmsEnabled)
+                    R.string.setup_sms_allow else R.string.setup_sms_all_enable),
+                    onClick = onEnableSmsMonitoring)
+            else null,
             summary = bankSummary.takeUnless { stage == SetupStage.Banks },
-            content = if (stage == SetupStage.Ready) ({
-                SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
-            }) else null,
+            content = when (stage) {
+                SetupStage.Sms -> ({
+                    SetupSmsConsent(credoSmsEnabled && tbcSmsEnabled, state.hasSmsPermission)
+                })
+                SetupStage.Ready -> ({
+                    SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
+                })
+                else -> null
+            },
         )
         if (showCashSheet) {
             val accountsModel: AccountsViewModel = viewModel()

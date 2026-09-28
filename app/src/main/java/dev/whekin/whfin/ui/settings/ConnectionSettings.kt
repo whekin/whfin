@@ -52,6 +52,7 @@ internal data class ConnectionSettingsActions(
     val statements: () -> Unit,
     val journal: () -> Unit,
     val account: (Long) -> Unit,
+    val smsAll: (Boolean) -> Unit = {},
 )
 
 @Composable
@@ -84,6 +85,17 @@ internal fun ConnectionsSettings(state: ConnectionSettingsState, navigation: Set
                 }
             }
             if (page != "add-bank") {
+                val allSmsEnabled = BankSmsBank.entries.all { state.sms[it] == true }
+                val someSmsEnabled = BankSmsBank.entries.any { state.sms[it] == true }
+                BankChannelSwitch(
+                    stringResource(R.string.settings_all_bank_sms_action), allSmsEnabled, true,
+                    actions.smsAll,
+                    stringResource(when {
+                        allSmsEnabled && !state.smsPermission -> R.string.settings_access_needed
+                        someSmsEnabled && !allSmsEnabled -> R.string.settings_all_bank_sms_some
+                        else -> R.string.settings_all_bank_sms_body
+                    }), icon = Icons.Outlined.Sms,
+                )
                 if (available.isNotEmpty()) WhfinButton(stringResource(R.string.settings_add_bank), { haptics.performHapticFeedback(WhfinHaptics.navigation); navigation.open("add-bank") }, Modifier.fillMaxWidth(), enabled = !demoMode)
                 WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     WhfinLedgerRow(stringResource(R.string.statements_upload), icon = Icons.Outlined.Description,

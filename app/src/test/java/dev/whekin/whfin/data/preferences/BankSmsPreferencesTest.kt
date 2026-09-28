@@ -30,6 +30,9 @@ class BankSmsPreferencesTest {
             val restored = UiPreferences(store)
             assertFalse(restored.bankSmsEnabled(BankSmsBank.CREDO).first())
             assertTrue(restored.bankSmsEnabled(BankSmsBank.TBC).first())
+            restored.setSmsImportEnabled(true)
+            assertTrue(restored.bankSmsEnabled(BankSmsBank.CREDO).first())
+            assertTrue(restored.bankSmsEnabled(BankSmsBank.TBC).first())
         } finally { scope.cancel(); file.delete() }
     }
 }

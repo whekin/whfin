@@ -180,6 +180,10 @@ fun SettingsScreen(
             preferences.setBankSmsEnabled(bank, value)
             if (value && !hasSmsPermission) { if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings() }
         } },
+        smsAll = { value -> scope.launch {
+            preferences.setSmsImportEnabled(value)
+            if (value && !hasSmsPermission) { if (canRequestSmsPermission) onRequestSmsPermission() else onOpenSystemSettings() }
+        } },
         push = { value -> pushSettings.enabled = value; pushEnabled = value
             if (value && !pushPermission) notificationsPermission()
             else if (value) android.service.notification.NotificationListenerService.requestRebind(component) },

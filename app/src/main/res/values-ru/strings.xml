@@ -788,8 +788,8 @@
     </plurals>
     <string name="category_setup_title">Категории по вашим расходам</string>
     <string name="category_setup_body">Найдено в ваших расходах. Добавьте подходящее — прежние операции разметятся сами.</string>
-    <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
-    <string name="category_setup_packs_only">Из прочитанной истории ничего нового не вышло. Ниже — увлечения, о которых выписка знать не может; добавьте свои.</string>
+    <string name="category_setup_none">Новых видов категорий для распознанных магазинов нет. Некоторым операциям всё ещё нужна категория; проверьте их отдельно.</string>
+    <string name="category_setup_packs_only">Для распознанных магазинов новых видов категорий нет. Ниже — необязательные увлечения, о которых выписка не расскажет.</string>
     <string name="category_setup_continue">Продолжить настройку</string>
     <string name="category_duplicates_section">Имена</string>
     <string name="category_duplicates_title">Один контрагент под двумя именами</string>
@@ -1349,8 +1349,7 @@
     </plurals>
     <string name="category_proposals_accept_all">Добавить все</string>
     <string name="category_packs_title">Добавить по интересам</string>
-    <string name="category_packs_body">Выберите подходящие необязательные наборы и добавьте их одним действием.</string>
-    <string name="category_packs_select_all">Выбрать все наборы</string>
+    <string name="category_packs_body">Эти необязательные наборы — интересы, а не вывод из ваших расходов. Выберите только подходящие и добавьте вместе.</string>
     <string name="category_packs_add_selected">Добавить выбранные наборы: %1$d</string>
     <string name="category_setup_pending_empty">История банка пока не полная. Предложения могут появиться позже; можно продолжить.</string>
     <string name="category_setup_pending_hint">История банка пока не полная; предложения могут дополниться.</string>
@@ -1608,8 +1607,19 @@
     <string name="credo_sync_linking_cards">Сопоставляем карты с банковскими сообщениями…</string>
     <string name="setup_banks_title">Подключите банки</string>
     <string name="setup_banks_body">Подключите нужные банки. История будет загружаться, пока вы продолжаете настройку.</string>
-    <string name="setup_sms_title">Проверьте сообщения банков</string>
-    <string name="setup_sms_body">SMS помогут узнать ваши карты. Выберите банки и проверьте старые сообщения перед импортом.</string>
+    <string name="setup_sms_title">SMS банков</string>
+    <string name="setup_sms_body">Включите новые SMS. Старые проверьте перед импортом.</string>
+    <string name="setup_sms_all_title">Credo и TBC</string>
+    <string name="setup_sms_all_body">Одно действие для Credo и TBC.</string>
+    <string name="setup_sms_all_enable">Включить SMS банков</string>
+    <string name="setup_sms_all_on">SMS банков включены</string>
+    <string name="setup_sms_all_on_body">Новые SMS обоих банков включены.</string>
+    <string name="setup_sms_all_permission">Оба банка выбраны. Разрешите доступ к SMS в Android.</string>
+    <string name="setup_sms_allow">Разрешить доступ к SMS</string>
+    <string name="setup_sms_individual">Выбрать банки отдельно</string>
+    <string name="settings_all_bank_sms_action">Читать SMS всех банков</string>
+    <string name="settings_all_bank_sms_body">Все поддерживаемые банки</string>
+    <string name="settings_all_bank_sms_some">Включено для части банков</string>
     <string name="setup_sms_review">Проверить сообщения и карты</string>
     <string name="setup_sms_access_hint">Для проверки старых SMS нужен доступ</string>
     <string name="setup_sms_waiting_for_bank">Проверим карты после загрузки банка</string>

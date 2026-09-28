@@ -30,15 +30,15 @@ class PersonalSetupJourneyTest {
             ActivityScenario.launch<SetupQaActivity>(Intent(context, SetupQaActivity::class.java)).use {
                 assertNotNull(device.wait(Until.findObject(By.text("Подключите банки")), 8_000))
                 device.findObject(By.text("Продолжить")).click()
-                assertNotNull(device.wait(Until.findObject(By.text("Проверьте сообщения банков")), 5_000))
-                assertNotNull(device.findObject(By.text("SMS Credo")))
+                assertNotNull(device.wait(Until.findObject(By.text("SMS банков")), 5_000))
+                val output = File(context.getExternalFilesDir(null), "setup-qa").apply { mkdirs() }
+                device.waitForIdle(1_000)
+                assertTrue(device.takeScreenshot(File(output, "ru-bank-sms-compact.png")))
+                assertNotNull(device.findObject(By.text("Включить SMS банков")))
                 val continueButton = device.findObject(By.text("Продолжить"))
                 assertNotNull(continueButton)
                 assertTrue(continueButton.visibleBounds.height() > 40)
-                val output = File(context.getExternalFilesDir(null), "setup-qa").apply { mkdirs() }
-                device.waitForIdle(1_000)
                 android.os.SystemClock.sleep(350)
-                assertTrue(device.takeScreenshot(File(output, "ru-bank-sms-compact.png")))
             }
         } finally {
             device.executeShellCommand("wm size ${oldSize ?: "reset"}")
@@ -138,6 +138,7 @@ class PersonalSetupJourneyTest {
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.setup_banks_title))), 5000))
             click(text(R.string.setup_next))
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.setup_sms_title))), 5000))
+            assertTrue(device.hasObject(By.text(text(R.string.setup_sms_all_enable))))
             capture("bank-sms")
             click(text(R.string.setup_sms_review))
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.sms_diagnostics_title))), 5000))

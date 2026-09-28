@@ -42,6 +42,7 @@ internal fun SetupStageScreen(
     onContinue: () -> Unit,
     summary: String? = null,
     continueLabel: String? = null,
+    footerAction: SetupAction? = null,
     content: (@Composable () -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
@@ -68,13 +69,29 @@ internal fun SetupStageScreen(
             }
             Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (footerAction != null) WhfinButton(footerAction.label, footerAction.onClick, Modifier.fillMaxWidth())
                 WhfinButton(
                     continueLabel ?: stringResource(if (stage == SetupStage.Ready) R.string.personal_setup_continue_action else R.string.setup_next),
                     onContinue, Modifier.fillMaxWidth(),
+                    style = if (footerAction == null) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
                 )
             }
         }
     }
+}
+
+@Composable
+internal fun SetupSmsConsent(allBanksEnabled: Boolean, hasSmsPermission: Boolean) {
+    val ready = allBanksEnabled && hasSmsPermission
+    WhfinNotice(
+        title = stringResource(if (ready) R.string.setup_sms_all_on else R.string.setup_sms_all_title),
+        body = stringResource(when {
+            ready -> R.string.setup_sms_all_on_body
+            allBanksEnabled -> R.string.setup_sms_all_permission
+            else -> R.string.setup_sms_all_body
+        }),
+        kind = if (allBanksEnabled && !hasSmsPermission) WhfinNoticeKind.Attention else WhfinNoticeKind.Info,
+    )
 }
 
 @Preview(name = "Setup light", widthDp = 400, heightDp = 850)
@@ -92,8 +109,26 @@ private fun SetupStagePreview() = WhfinTheme {
 @Composable
 private fun SetupSmsPreview() = WhfinTheme {
     SetupStageScreen(SetupStage.Sms, listOf(
-        SetupAction(stringResource(R.string.setup_sms_bank, "Credo"), stringResource(R.string.setup_sms_on)) {},
-        SetupAction(stringResource(R.string.setup_sms_bank, "TBC"), stringResource(R.string.setup_sms_off)) {},
         SetupAction(stringResource(R.string.setup_sms_review), stringResource(R.string.setup_sms_cards_checked, 1)) {},
-    ), {}, {})
+        SetupAction(stringResource(R.string.setup_sms_individual)) {},
+    ), {}, {}, footerAction = SetupAction(stringResource(R.string.setup_sms_all_enable)) {},
+        content = { SetupSmsConsent(false, false) })
+}
+
+@Preview(name = "Bank SMS enabled", widthDp = 400, heightDp = 850)
+@Composable
+private fun SetupSmsEnabledPreview() = WhfinTheme {
+    SetupStageScreen(SetupStage.Sms, listOf(
+        SetupAction(stringResource(R.string.setup_sms_review)) {},
+    ), {}, {}, content = { SetupSmsConsent(true, true) })
+}
+
+@Preview(name = "Bank SMS permission RU", widthDp = 360, heightDp = 560,
+    locale = "ru", fontScale = 1.5f, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun SetupSmsPermissionPreview() = WhfinTheme {
+    SetupStageScreen(SetupStage.Sms, listOf(
+        SetupAction(stringResource(R.string.setup_sms_review)) {},
+    ), {}, {}, footerAction = SetupAction(stringResource(R.string.setup_sms_allow)) {},
+        content = { SetupSmsConsent(true, false) })
 }

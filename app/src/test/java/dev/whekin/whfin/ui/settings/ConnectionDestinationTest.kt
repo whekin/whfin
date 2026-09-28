@@ -20,6 +20,20 @@ class ConnectionDestinationTest {
     @get:Rule val compose = createComposeRule()
     @Test fun commonMessagesEntryNamesItsDestination() = entry("connections", null)
     @Test fun bankMessagesEntryKeepsItsBankFilter() = entry("bank:CREDO", BankSmsBank.CREDO)
+    @Test fun rootCanEnableSmsForAllBanksWithOneAction() {
+        var selected: Boolean? = null
+        compose.setContent { WhfinTheme {
+            val navigation = rememberSettingsSearchState().apply { page = "connections" }
+            ConnectionsSettings(ConnectionSettingsState(accounts = emptyMap(), sms = mapOf(
+                BankSmsBank.CREDO to true, BankSmsBank.TBC to false)), navigation,
+                ConnectionSettingsActions({}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {},
+                    smsAll = { selected = it }), false)
+        } }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        compose.onNodeWithContentDescription(context.getString(R.string.settings_all_bank_sms_action))
+            .performScrollTo().performClick()
+        assertEquals(true, selected)
+    }
     private fun entry(page: String, expected: BankSmsBank?) {
         var called = false
         var bank: BankSmsBank? = null

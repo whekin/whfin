@@ -49,8 +49,9 @@ class SetupBankCategoryVisualTest {
                     requireNotNull(device.findObject(By.text(label))).click()
                     1
                 } else {
-                    scrollTo(device, resources.getString(R.string.category_packs_select_all)).click()
-                    3
+                    scrollTo(device, "Outdoor and sport").click()
+                    scrollTo(device, "Everyday life").click()
+                    2
                 }
                 device.waitForIdle(500)
                 assertTrue(device.takeScreenshot(File(out, "$name-after-select.png")))

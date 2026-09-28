@@ -34,6 +34,7 @@ class SettingsHierarchyVisualTest {
             assertFalse(device.hasObject(By.desc(resources.getString(R.string.settings_bank_sms))))
             device.findObject(By.text(resources.getString(R.string.settings_connections))).click()
             assertNotNull(device.wait(Until.findObject(By.res("connection-TBC")), 5000))
+            assertNotNull(device.findObject(By.desc(resources.getString(R.string.settings_all_bank_sms_action))))
             capture("connections")
             device.findObject(By.res("connection-TBC")).click()
             assertNotNull(device.wait(Until.findObject(By.desc(resources.getString(R.string.settings_bank_push))), 5000))

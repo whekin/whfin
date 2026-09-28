@@ -44,7 +44,8 @@ never prevents adding another.
 1. **Banks**: Credo and TBC sign-in, lock code for remembered credentials, statement files and backup
    restore. Bank sign-in does not require SMS monitoring consent. The initial sync still reads all
    available history; a current-balances-only import is not implemented.
-2. **Bank SMS**: separate Credo/TBC opt-ins, optional TBC push, an automatic card-link check after
+2. **Bank SMS**: one opt-in enables Credo and TBC SMS together; individual bank overrides remain in
+   Connections. Optional TBC push and an automatic card-link check after
    bank history finishes, and a review of unresolved messages. With existing SMS permission, entering
    Bank SMS previews the past 90 days; importing those operations still requires confirmation.
 3. **Accounts**: imported bank ledgers, cash and watch-only crypto wallets, names, currencies, available
@@ -181,8 +182,9 @@ balances can be skipped explicitly; this never certifies a connection or silentl
 ## First personal-setup feedback — 2026-09-23
 
 The full initial Credo history walk continues in the application while the owner advances through
-setup. The connected TBC page offers an explicit Done action. Bank sign-in and per-bank SMS monitoring
-are separate decisions on consecutive setup steps, with a door to the older-SMS check.
+setup. The connected TBC page offers an explicit Done action. Bank sign-in and SMS monitoring
+are separate decisions on consecutive setup steps; the SMS step now turns on both supported banks
+with one action and keeps a door to the older-SMS check.
 The account step presents cash amount entry directly and names the imported-account facts to verify:
 card type, primary card, bank product, and Available/Reserve fund role. Cash remains optional.
 The SMS dry-run still summarizes counts; [the feedback report](onboarding-feedback-2026-09-23.md)

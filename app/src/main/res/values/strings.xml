@@ -756,8 +756,8 @@
     </plurals>
     <string name="category_setup_title">Categories from your spending</string>
     <string name="category_setup_body">Recognized from your spending. Add what fits; past matching transactions will be categorized.</string>
-    <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
-    <string name="category_setup_packs_only">Nothing new came out of the history WHFIN just read. These are interests a ledger cannot know about on its own — add the ones that are yours.</string>
+    <string name="category_setup_none">No new category types to add from recognized merchants. Some transactions may still need a category; review them separately.</string>
+    <string name="category_setup_packs_only">No new category types came from recognized merchants. These optional packs are interests a ledger cannot know on its own.</string>
     <string name="category_setup_continue">Continue setup</string>
     <string name="category_duplicates_section">Names</string>
     <string name="category_duplicates_title">One counterparty, two names</string>
@@ -1287,8 +1287,7 @@
     </plurals>
     <string name="category_proposals_accept_all">Add all of them</string>
     <string name="category_packs_title">Add by interest</string>
-    <string name="category_packs_body">Choose the optional packs that fit you, then add them together.</string>
-    <string name="category_packs_select_all">Select all packs</string>
+    <string name="category_packs_body">These optional packs are interests, not suggestions from your spending. Select only what fits, then add together.</string>
     <string name="category_packs_add_selected">Add selected packs (%1$d)</string>
     <string name="category_setup_pending_empty">Bank history is not complete yet. More suggestions may appear later; you can continue.</string>
     <string name="category_setup_pending_hint">Bank history is not complete yet; more suggestions may appear later.</string>
@@ -1546,8 +1545,19 @@
     <string name="credo_sync_linking_cards">Linking cards from bank messages…</string>
     <string name="setup_banks_title">Connect your banks</string>
     <string name="setup_banks_body">Connect the banks you use. History will load while you continue setup.</string>
-    <string name="setup_sms_title">Check bank messages</string>
-    <string name="setup_sms_body">Bank SMS can identify your cards. Choose banks, then review older messages before importing them.</string>
+    <string name="setup_sms_title">Bank SMS</string>
+    <string name="setup_sms_body">Turn on new SMS. Review older messages before import.</string>
+    <string name="setup_sms_all_title">Credo and TBC</string>
+    <string name="setup_sms_all_body">One choice for Credo and TBC.</string>
+    <string name="setup_sms_all_enable">Turn on bank SMS</string>
+    <string name="setup_sms_all_on">Bank SMS is on</string>
+    <string name="setup_sms_all_on_body">New messages from both banks are on.</string>
+    <string name="setup_sms_all_permission">Both banks are selected. Allow SMS access in Android.</string>
+    <string name="setup_sms_allow">Allow SMS access</string>
+    <string name="setup_sms_individual">Choose banks individually</string>
+    <string name="settings_all_bank_sms_action">Read SMS from all banks</string>
+    <string name="settings_all_bank_sms_body">All supported banks</string>
+    <string name="settings_all_bank_sms_some">On for some banks</string>
     <string name="setup_sms_review">Review messages and cards</string>
     <string name="setup_sms_access_hint">SMS access needed to check older messages</string>
     <string name="setup_sms_waiting_for_bank">We’ll check cards when bank history finishes loading</string>
