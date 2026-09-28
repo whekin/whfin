@@ -108,7 +108,7 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
     suspend fun resolveDiagnostic(
         diagnosticId: Long,
         accountId: Long,
-        cardType: PaymentInstrumentType = PaymentInstrumentType.PHYSICAL_CARD,
+        cardType: PaymentInstrumentType = PaymentInstrumentType.UNCLASSIFIED_CARD,
     ): SmsImportResult = db.withTransaction {
         val diagnostic = db.smsDiagnosticDao().byId(diagnosticId)
             ?: return@withTransaction SmsImportResult(SmsDiagnosticOutcome.ERROR, reason = SmsDiagnosticReason.NO_ACCOUNT)
@@ -169,7 +169,12 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         }
 
         val family = cardFamilyFor(account)
-        db.paymentInstrumentDao().linkForAccounts(family, cardLast4, cardType)
+        // A four-digit suffix can collide inside one bank. A chosen account does not justify
+        // teaching every queued payment the same wrong card-to-IBAN link.
+        if (!db.paymentInstrumentDao().linkDiscoveredForAccounts(family, cardLast4))
+            return@withTransaction updateFailure(diagnostic, SmsDiagnosticReason.MULTIPLE_ACCOUNTS)
+        if (cardType != PaymentInstrumentType.UNCLASSIFIED_CARD)
+            db.paymentInstrumentDao().linkForAccounts(family, cardLast4, cardType)
         var selectedResult: SmsImportResult? = null
         db.smsDiagnosticDao().unresolvedCardPayments(cardLast4).filter { BankSmsBank.fromKey(it.externalKey) == bank }.forEach { queued ->
             val queuedCurrency = queued.balanceCurrency ?: queued.currency
@@ -1089,16 +1094,12 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
      * they do. Learning the pair here is what turns one matched purchase into every later message
      * from that card landing on its own.
      */
-    private suspend fun learnCardMapping(diagnostic: SmsDiagnosticEntity, account: AccountEntity) {
-        val last4 = diagnostic.cardLast4?.takeIf { it.matches(Regex("\\d{4}")) } ?: return
-        if (account.groupId == null) return
+    private suspend fun learnCardMapping(diagnostic: SmsDiagnosticEntity, account: AccountEntity): Boolean {
+        val last4 = diagnostic.cardLast4?.takeIf { it.matches(Regex("\\d{4}")) } ?: return false
+        if (account.groupId == null) return false
         // An existing mapping is the user's own; a match is evidence, not grounds to overrule it.
-        if (db.accountDao().byCardAndCurrency(last4, account.currency).any { bank.accepts(db, it) }) return
-        db.paymentInstrumentDao().linkForAccounts(
-            cardFamilyFor(account),
-            last4,
-            PaymentInstrumentType.PHYSICAL_CARD,
-        )
+        if (db.accountDao().byCardAndCurrency(last4, account.currency).any { bank.accepts(db, it) }) return false
+        return db.paymentInstrumentDao().linkDiscoveredForAccounts(cardFamilyFor(account), last4)
     }
 
     /**
@@ -1204,9 +1205,10 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 receivedAt = System.currentTimeMillis(),
             )
             val match = statementEvidence.find(probe)?.takeIf { it.exact } ?: return@forEach
-            learnCardMapping(probe, match.account)
-            knownCards += card
-            learned += 1
+            if (learnCardMapping(probe, match.account)) {
+                knownCards += card
+                learned += 1
+            }
         }
         learned
     }

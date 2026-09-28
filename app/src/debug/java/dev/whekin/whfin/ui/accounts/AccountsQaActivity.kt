@@ -134,7 +134,7 @@ class AccountsQaActivity : ComponentActivity() {
                             AccountTransactionsContent(item.account, item.balanceMinor, emptyList(), item, {},
                                 AccountActivityCallbacks({}, { edit = true }, { adjust = true }, {}, { correction = true }), empty = true)
                             if (edit) BankMappingSheet(account = item.account, existingCards = emptyList(), existingVirtualCards = emptyList(),
-                                onDismiss = { edit = false }, onConfirm = { _, _, _, _, _, _, _ -> edit = false })
+                                onDismiss = { edit = false }, onConfirm = { _, _, _, _, _, _, _, _ -> edit = false })
                             if (correction) UserOpeningCorrectionSheet(item.account.currency, balance,
                                 onDismiss = { correction = false }, onConfirm = { balance = it; correction = false })
                             if (adjust) AdjustBalanceSheet(item, { adjust = false }, { balance += it; balanceAdjusted = true; adjust = false })

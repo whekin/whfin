@@ -172,8 +172,12 @@ interface FinancialGroupDao {
 interface PaymentInstrumentDao {
     @Query("SELECT * FROM payment_instruments WHERE isArchived = 0 ORDER BY id")
     fun observeActive(): Flow<List<PaymentInstrumentEntity>>
+    @Query("SELECT * FROM payment_instruments WHERE isArchived = 0 ORDER BY id")
+    suspend fun allActive(): List<PaymentInstrumentEntity>
     @Query("SELECT * FROM instrument_account_links")
     fun observeLinks(): Flow<List<InstrumentAccountLinkEntity>>
+    @Query("SELECT * FROM instrument_account_links")
+    suspend fun allLinks(): List<InstrumentAccountLinkEntity>
 
     @Query(
         "SELECT COUNT(*) FROM instrument_account_links l " +
@@ -196,6 +200,9 @@ interface PaymentInstrumentDao {
 
     @Query("SELECT i.* FROM payment_instruments i JOIN instrument_account_links l ON l.instrumentId = i.id WHERE l.accountId = :accountId ORDER BY i.id")
     suspend fun forAccount(accountId: Long): List<PaymentInstrumentEntity>
+
+    @Query("SELECT accountId FROM instrument_account_links WHERE instrumentId = :instrumentId")
+    suspend fun accountIdsForInstrument(instrumentId: Long): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(item: PaymentInstrumentEntity): Long
     @Update suspend fun update(item: PaymentInstrumentEntity)
@@ -221,12 +228,18 @@ interface PaymentInstrumentDao {
         require(accounts.isNotEmpty())
         val groupId = requireNotNull(accounts.first().groupId)
         require(accounts.all { it.groupId == groupId })
+        require(accounts.map { it.iban ?: "id:${it.id}" }.distinct().size == 1)
         require(primaryLast4 == null || cards.any { it.first == primaryLast4 })
         val editedPrimary = accounts.any { account -> forAccount(account.id).any { it.isPrimary } }
         accounts.forEach { account -> unlinkAccount(account.id) }
         cards.distinctBy { it.first }.forEach { (last4, type) ->
             val existing = byLast4(groupId, last4)
-            if (existing != null && existing.type != type) update(existing.copy(type = type))
+            if (existing != null) require(accountIdsForInstrument(existing.id).none { id ->
+                    val linked = requireNotNull(accountByIdForCard(id))
+                    (linked.iban ?: "id:${linked.id}") != (accounts.first().iban ?: "id:${accounts.first().id}")
+                }) { "CARD_SUFFIX_COLLISION" }
+            if (existing != null && existing.type != type && type != PaymentInstrumentType.UNCLASSIFIED_CARD)
+                update(existing.copy(type = type))
             val instrumentId = existing?.id
                 ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
                     .takeIf { it > 0 }
@@ -254,14 +267,47 @@ interface PaymentInstrumentDao {
         require(accounts.isNotEmpty())
         val groupId = requireNotNull(accounts.first().groupId)
         require(accounts.all { it.groupId == groupId })
+        require(accounts.map { it.iban ?: "id:${it.id}" }.distinct().size == 1)
         val existing = byLast4(groupId, last4)
-        if (existing != null && existing.type != type) update(existing.copy(type = type))
+        if (existing != null) require(accountIdsForInstrument(existing.id).none { id ->
+                val linked = requireNotNull(accountByIdForCard(id))
+                (linked.iban ?: "id:${linked.id}") != (accounts.first().iban ?: "id:${accounts.first().id}")
+            }) { "CARD_SUFFIX_COLLISION" }
+        if (existing != null && existing.type != type && type != PaymentInstrumentType.UNCLASSIFIED_CARD)
+            update(existing.copy(type = type))
         val instrumentId = existing?.id
             ?: insert(PaymentInstrumentEntity(groupId = groupId, type = type, last4 = last4))
                 .takeIf { it > 0 }
             ?: requireNotNull(byLast4(groupId, last4)).id
         accounts.forEach { account -> link(InstrumentAccountLinkEntity(instrumentId, account.id)) }
     }
+
+    /** A bank-provided suffix proves the account link, not physical/virtual type or primacy. */
+    @Transaction
+    suspend fun linkDiscoveredForAccounts(accounts: List<AccountEntity>, last4: String): Boolean {
+        require(last4.matches(Regex("\\d{4}")))
+        require(accounts.isNotEmpty())
+        val groupId = requireNotNull(accounts.first().groupId)
+        val identity = accounts.first().iban ?: "id:${accounts.first().id}"
+        require(accounts.all { it.groupId == groupId && (it.iban ?: "id:${it.id}") == identity })
+        val existing = byLast4(groupId, last4)
+        if (existing?.isArchived == true) return false
+        // Same suffix on another IBAN is not identity proof; never combine two cards accidentally.
+        if (existing != null && accountIdsForInstrument(existing.id).any { id ->
+                val linked = requireNotNull(accountByIdForCard(id))
+                (linked.iban ?: "id:${linked.id}") != identity
+            }) return false
+        val instrumentId = existing?.id
+            ?: insert(PaymentInstrumentEntity(groupId = groupId,
+                type = PaymentInstrumentType.UNCLASSIFIED_CARD, last4 = last4))
+                .takeIf { it > 0 }
+            ?: requireNotNull(byLast4(groupId, last4)).id
+        accounts.forEach { link(InstrumentAccountLinkEntity(instrumentId, it.id)) }
+        return true
+    }
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun accountByIdForCard(id: Long): AccountEntity?
 }
 
 @Dao

@@ -10,7 +10,8 @@ import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 
 data class TbcSyncResult(val inserted: Int = 0, val matched: Int = 0, val unchanged: Int = 0,
-    val needsStatement: List<TbcLedgerAccount> = emptyList(), val initialHistories: List<TbcInitialHistory> = emptyList(), val errors: List<String> = emptyList(), val reports: List<TbcSyncReport> = emptyList())
+    val needsStatement: List<TbcLedgerAccount> = emptyList(), val initialHistories: List<TbcInitialHistory> = emptyList(), val errors: List<String> = emptyList(), val reports: List<TbcSyncReport> = emptyList(),
+    val discoveredCards: List<TbcCardCandidate> = emptyList())
 /** Counts and masked account labels only; no raw bank payload or authentication data. */
 data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown: Int = 0,
     val inserted: Int = 0, val matched: Int = 0, val waitingForBalance: Boolean = false,
@@ -22,10 +23,34 @@ data class TbcSyncReport(val label: String, val received: Int, val alreadyKnown:
 data class TbcInitialHistory(val remote: TbcLedgerAccount, val from: LocalDate, val to: LocalDate,
     val rows: List<TbcHistoryRow>, val readAt: Long = System.currentTimeMillis(), val holds: List<TbcHold> = emptyList())
 data class TbcInitializationResult(val inserted: Int, val reconciled: Int)
+
+/** Persist the bank's exact suffix→IBAN evidence without guessing a card's form or primary role. */
+suspend fun linkTbcDiscoveredCards(db: WhfinDatabase, candidates: List<TbcCardCandidate>) {
+    if (candidates.isEmpty()) return
+    db.withTransaction {
+        val groups = db.financialGroupDao().all().associateBy(FinancialGroupEntity::id)
+        val accounts = db.accountDao().allActive()
+        candidates.distinct().forEach { candidate ->
+            if (!candidate.last4.matches(Regex("\\d{4}"))) return@forEach
+            val family = accounts.filter { account ->
+                account.iban == candidate.iban && account.groupId != null &&
+                    dev.whekin.whfin.data.sms.BankSmsBank.TBC.accepts(account,
+                        groups[account.groupId]?.let { it.provider ?: it.name })
+            }
+            family.groupBy(AccountEntity::groupId).values.forEach { ledgers ->
+                db.paymentInstrumentDao().linkDiscoveredForAccounts(ledgers, candidate.last4)
+            }
+        }
+    }
+}
+
 class TbcHistorySync(private val db: WhfinDatabase) {
     suspend fun sync(gateway: TbcGateway, today: LocalDate = LocalDate.now(LedgerCalendar.zone),
         progress: (Int, Int) -> Unit = { _, _ -> }): TbcSyncResult {
         val accounts = gateway.ledgerAccounts()
+        val discoveredCards = accounts.flatMap { account -> account.cardSuffixes.values.map { suffix ->
+            TbcCardCandidate(account.iban, suffix)
+        } }.distinct()
         var inserted = 0; var matched = 0; var unchanged = 0
         val initial = mutableListOf<TbcInitialHistory>()
         val missing = mutableListOf<TbcLedgerAccount>()
@@ -164,7 +189,8 @@ class TbcHistorySync(private val db: WhfinDatabase) {
                 reports[deposit.key] = TbcSyncReport(deposit.label, 0, error = code, fullHistory = true)
             }
         }
-        return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors, reports.values.toList())
+        return TbcSyncResult(inserted, matched, unchanged, missing, initial, errors,
+            reports.values.toList(), discoveredCards)
     }
 
     /** Whether the mobile card history has already written rows into this ledger, by their own IDs. */

@@ -40,6 +40,13 @@ class TbcHistorySyncTest {
         }
     }
     private suspend fun sync(rows: List<TbcHistoryRow> = mobile()) = TbcHistorySync(db).sync(Gateway(listOf(remote), mapOf(remote.key to rows)), today)
+
+    @Test fun `bank card suffixes survive until initial balances are confirmed`() = runBlocking {
+        val withCard = remote.copy(cardSuffixes = mapOf("bank-card-id" to "1234"))
+        val result = TbcHistorySync(db).sync(Gateway(listOf(withCard), mapOf(withCard.key to emptyList())), today)
+        assertEquals(listOf(TbcCardCandidate(withCard.iban, "1234")), result.discoveredCards)
+        assertTrue(result.needsStatement.isNotEmpty())
+    }
     @Before fun setup() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), WhfinDatabase::class.java).allowMainThreadQueries().build() }
     @After fun close() = db.close()
     private suspend fun seedOpening(account: TbcLedgerAccount = remote): Long {

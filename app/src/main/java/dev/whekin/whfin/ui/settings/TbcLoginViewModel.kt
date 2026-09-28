@@ -187,6 +187,9 @@ class TbcLoginViewModel internal constructor(
             val result = initials.zip(plans).fold(previous) { current, (entry, plan) ->
                 current.afterInitialBalance(entry.first.remote, plan)
             }
+            withContext(Dispatchers.IO) {
+                dev.whekin.whfin.data.importer.linkTbcDiscoveredCards(app.userDb, result.discoveredCards)
+            }
             mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncResult = result)
             if (result.needsStatement.isEmpty() && result.errors.isEmpty())
                 dev.whekin.whfin.data.preferences.UiPreferences(app).setLastTbcSyncAt(System.currentTimeMillis())
@@ -206,12 +209,15 @@ class TbcLoginViewModel internal constructor(
         val result = synchronize?.invoke(client) { current, total ->
             mutable.value = mutable.value.copy(syncProgress = current to total)
         }
+        val app = getApplication<Application>() as? dev.whekin.whfin.WhfinApp
+        if (result != null && app != null) withContext(Dispatchers.IO) {
+            dev.whekin.whfin.data.importer.linkTbcDiscoveredCards(app.userDb, result.discoveredCards)
+        }
         if (result != null && result.errors.isEmpty() && result.needsStatement.isEmpty()) {
             dev.whekin.whfin.data.preferences.UiPreferences(getApplication<Application>()).setLastTbcSyncAt(System.currentTimeMillis())
         }
         persistSession()
         if (result != null && result.inserted > 0) {
-            val app = getApplication<Application>() as? dev.whekin.whfin.WhfinApp
             if (app != null) withContext(Dispatchers.IO) {
                 try { dev.whekin.whfin.data.rates.TransactionValuationRepository(app.userDb,
                     dev.whekin.whfin.data.rates.NbgHistoricalRateProvider()).backfill() }

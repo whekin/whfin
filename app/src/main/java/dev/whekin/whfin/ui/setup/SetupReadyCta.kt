@@ -9,6 +9,7 @@ internal enum class SetupReadyCta {
     START_WITHOUT_ACCOUNTS,
     START_WITH_BALANCES_TO_REVIEW,
     START_WITH_KNOWN_DIFFERENCE,
+    START_WITH_ACCOUNT_DETAILS,
     START,
 }
 
@@ -25,6 +26,7 @@ internal fun setupReadyCta(
         overview.value.accounts.isEmpty() -> SetupReadyCta.START_WITHOUT_ACCOUNTS
         !overview.value.allResolved -> SetupReadyCta.START_WITH_BALANCES_TO_REVIEW
         overview.value.hasBankDifference -> SetupReadyCta.START_WITH_KNOWN_DIFFERENCE
+        overview.value.bankSetupNeedsReview > 0 -> SetupReadyCta.START_WITH_ACCOUNT_DETAILS
         else -> SetupReadyCta.START
     }
 }

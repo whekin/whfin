@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -132,6 +133,9 @@ class SmsStatementEvidenceInstrumentedTest {
 
         assertEquals(1, linked)
         assertEquals(second, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        assertEquals(PaymentInstrumentType.UNCLASSIFIED_CARD,
+            db.paymentInstrumentDao().forAccount(second).single().type)
+        assertFalse(db.paymentInstrumentDao().forAccount(second).single().isPrimary)
         // Reading the inbox is not importing it: the statement stays the only row.
         assertEquals(1, transactionCount())
     }

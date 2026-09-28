@@ -480,7 +480,7 @@ private fun EditBankProfilePreview() {
             existingPrimaryCard = "0000",
             currencies = listOf("GEL", "USD"),
             onDismiss = {},
-            onConfirm = { _, _, _, _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _, _, _, _ -> },
         )
     }
 }
@@ -522,11 +522,12 @@ fun BankMappingSheet(
     account: AccountEntity,
     existingCards: List<String>,
     existingVirtualCards: List<String>,
+    existingUnclassifiedCards: List<String> = emptyList(),
     existingPrimaryCard: String? = null,
     /** The ledgers this one answer applies to, named so the claim above is verifiable on sight. */
     currencies: List<String> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, String?) -> Unit,
+    onConfirm: (String, FundRole, String?, BankProduct?, List<String>, List<String>, List<String>, String?) -> Unit,
     formState: FormSaveState = FormSaveState(),
 ) {
     // A name the import wrote is not an answer the owner gave, so the field starts empty and the
@@ -539,15 +540,16 @@ fun BankMappingSheet(
     var bankProduct by remember(account.id, account.bankProduct) {
         mutableStateOf(account.bankProduct)
     }
-    var cards by remember(account.id, existingCards, existingVirtualCards) {
-        mutableStateOf((existingCards + existingVirtualCards).distinct())
+    var cards by remember(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
+        mutableStateOf((existingCards + existingVirtualCards + existingUnclassifiedCards).distinct())
     }
     var pendingCard by remember(account.id) { mutableStateOf("") }
-    var cardTypes by remember(account.id, existingCards, existingVirtualCards) {
+    var cardTypes by remember(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
         mutableStateOf(
             buildMap {
                 existingCards.forEach { put(it, PaymentInstrumentType.PHYSICAL_CARD) }
                 existingVirtualCards.forEach { put(it, PaymentInstrumentType.VIRTUAL_CARD) }
+                existingUnclassifiedCards.forEach { put(it, PaymentInstrumentType.UNCLASSIFIED_CARD) }
             },
         )
     }
@@ -565,8 +567,9 @@ fun BankMappingSheet(
                 fundRole,
                 iban.trim().takeIf(String::isNotEmpty),
                 bankProduct,
-                validCards.filter { cardTypes[it] != PaymentInstrumentType.VIRTUAL_CARD },
+                validCards.filter { cardTypes[it] == PaymentInstrumentType.PHYSICAL_CARD },
                 validCards.filter { cardTypes[it] == PaymentInstrumentType.VIRTUAL_CARD },
+                validCards.filter { cardTypes[it] == PaymentInstrumentType.UNCLASSIFIED_CARD },
                 primaryCard?.takeIf(validCards::contains),
             )
         },
@@ -632,6 +635,11 @@ fun BankMappingSheet(
             Modifier.padding(top = 6.dp),
             icon = Icons.Outlined.CreditCard,
         )
+        if (existingUnclassifiedCards.isNotEmpty()) Text(
+            stringResource(R.string.account_cards_discovered_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         // Cards were a comma-separated list the person had to keep in their own head and retype to
         // change: adding one meant editing a sentence, removing one meant deleting the right comma.
         // Four digits go in and a card comes out; each one is then an object below with its own
@@ -640,7 +648,7 @@ fun BankMappingSheet(
         val addPendingCard = {
             if (canAddCard) {
                 cards = cards + pendingCard
-                cardTypes = cardTypes + (pendingCard to PaymentInstrumentType.PHYSICAL_CARD)
+                cardTypes = cardTypes + (pendingCard to PaymentInstrumentType.UNCLASSIFIED_CARD)
                 pendingCard = ""
             }
         }
@@ -693,7 +701,7 @@ fun BankMappingSheet(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        WhfinFilterPill(
+                        if (cardTypes[mask] != PaymentInstrumentType.UNCLASSIFIED_CARD) WhfinFilterPill(
                             label = primaryLabel,
                             selected = primaryCard == mask,
                             onClick = { primaryCard = mask.takeUnless { primaryCard == mask } },
@@ -723,11 +731,11 @@ fun BankMappingSheet(
                     ) {
                         WhfinFilterPill(
                             label = physicalLabel,
-                            selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD,
+                            selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD,
                             onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.PHYSICAL_CARD) },
                             modifier = Modifier.weight(1f).testTag("card-$mask-physical").semantics {
                                 contentDescription = physicalLabel + " ••" + mask
-                                selected = cardTypes[mask] != PaymentInstrumentType.VIRTUAL_CARD
+                                selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD
                             },
                         )
                         WhfinFilterPill(
@@ -740,6 +748,11 @@ fun BankMappingSheet(
                             },
                         )
                     }
+                    if (cardTypes[mask] == PaymentInstrumentType.UNCLASSIFIED_CARD) Text(
+                        stringResource(R.string.account_card_type_needed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
                 }
             }
         }
@@ -769,7 +782,7 @@ private fun BankMappingPreview() {
             existingPrimaryCard = "0001",
             currencies = listOf("GEL", "EUR", "USD"),
             onDismiss = {},
-            onConfirm = { _, _, _, _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _, _, _, _ -> },
         )
     }
 }

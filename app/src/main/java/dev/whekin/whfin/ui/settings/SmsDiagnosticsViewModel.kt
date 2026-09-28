@@ -24,6 +24,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+enum class CardMappingProblem { COLLISION, SAVE_FAILED }
+
+internal fun cardMappingProblemFor(error: Exception): CardMappingProblem =
+    if (error is IllegalArgumentException && error.message == "CARD_SUFFIX_COLLISION")
+        CardMappingProblem.COLLISION else CardMappingProblem.SAVE_FAILED
 
 data class SmsAccountOption(
     val account: AccountEntity,
@@ -180,6 +187,9 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _scanState = MutableStateFlow<SmsScanState>(SmsScanState.Idle)
     val scanState: StateFlow<SmsScanState> = _scanState
 
+    private val _cardMappingProblem = MutableStateFlow<CardMappingProblem?>(null)
+    val cardMappingProblem: StateFlow<CardMappingProblem?> = _cardMappingProblem
+
     private val _messageState = MutableStateFlow<SmsMessageState>(SmsMessageState.Hidden)
     val messageState: StateFlow<SmsMessageState> = _messageState
 
@@ -259,8 +269,12 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         val normalized = last4.filter(Char::isDigit)
         if (normalized.length != 4) return
+        _cardMappingProblem.value = null
         viewModelScope.launch(Dispatchers.IO) {
-            linkCard(familyAccountId, normalized, cardType)
+            try {
+                linkCard(familyAccountId, normalized, cardType)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { _cardMappingProblem.value = cardMappingProblemFor(error) }
         }
     }
 
@@ -277,11 +291,15 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         val cleanName = name.trim()
         val normalized = last4.filter(Char::isDigit)
         if (cleanName.isEmpty() || normalized.length != 4) return
+        _cardMappingProblem.value = null
         viewModelScope.launch(Dispatchers.IO) {
-            db.withTransaction {
-                val accountId = db.insertBankLedger(CREDO_PROVIDER, cleanName, currency)
-                if (accountId > 0) linkCard(accountId, normalized, cardType)
-            }
+            try {
+                db.withTransaction {
+                    val accountId = db.insertBankLedger(CREDO_PROVIDER, cleanName, currency)
+                    if (accountId > 0) linkCard(accountId, normalized, cardType)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { _cardMappingProblem.value = cardMappingProblemFor(error) }
         }
     }
 
@@ -309,8 +327,8 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         last4: String,
         cardType: PaymentInstrumentType,
     ) {
-        val account = db.accountDao().byId(familyAccountId) ?: return
-        if (account.type != AccountType.BANK && account.type != AccountType.SAVINGS) return
+        val account = db.accountDao().byId(familyAccountId) ?: error("NO_ACCOUNT")
+        if (account.type != AccountType.BANK && account.type != AccountType.SAVINGS) error("NO_ACCOUNT")
         val family = requireNotNull(account.groupId).let { db.accountDao().byGroup(it) }.filter { candidate ->
             if (account.iban != null) candidate.iban == account.iban else candidate.id == account.id
         }

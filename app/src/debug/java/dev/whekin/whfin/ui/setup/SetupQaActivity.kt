@@ -75,6 +75,38 @@ class SetupQaActivity : ComponentActivity() {
                         onAccept = { proposals = emptyList() },
                         onAddPacks = { selected -> packs = packs.filterNot { it.id in selected.map { p -> p.id } } },
                         onContinue = {}, onBack = {})
+                } else if (intent.getBooleanExtra("accountSetup", false)) {
+                    val credo = dev.whekin.whfin.data.db.AccountEntity(id = 1, name = "Credo GEL",
+                        type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",
+                        groupId = 1, iban = "GE00CD0000000000000001",
+                        bankProduct = dev.whekin.whfin.data.db.BankProduct.DEMAND_DEPOSIT)
+                    val tbc = dev.whekin.whfin.data.db.AccountEntity(id = 2, name = "TBC GEL",
+                        type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",
+                        groupId = 2, iban = "GE00TB0000000000000002")
+                    val overview = SetupOverview(emptyList(), emptyMap(), emptySet(), 0, 0, 0, 0, 0, 0,
+                        bankContainers = listOf(
+                            SetupBankContainer("credo", dev.whekin.whfin.data.sms.BankSmsBank.CREDO,
+                                listOf(credo), listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
+                                    id = 7, groupId = 1, type = dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD,
+                                    last4 = "1234"))),
+                            SetupBankContainer("tbc", dev.whekin.whfin.data.sms.BankSmsBank.TBC,
+                                listOf(tbc), listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
+                                    id = 8, groupId = 2, type = dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD,
+                                    last4 = "5678"))),
+                        ))
+                    SetupStageScreen(SetupStage.Accounts, listOf(
+                        SetupAction(getString(dev.whekin.whfin.R.string.personal_setup_cash_add_action)) {},
+                        SetupAction(getString(dev.whekin.whfin.R.string.setup_review_accounts)) {},
+                    ), {}, {}, content = { SetupBankAccountsContent(SetupOverviewState.Ready(overview), {}, {}) })
+                } else if (intent.getBooleanExtra("unknownCard", false)) {
+                    dev.whekin.whfin.ui.accounts.BankMappingSheet(
+                        account = dev.whekin.whfin.data.db.AccountEntity(id = 2, name = "TBC GEL",
+                            type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",
+                            groupId = 2, iban = "GE00TB0000000000000002"),
+                        existingCards = emptyList(), existingVirtualCards = emptyList(),
+                        existingUnclassifiedCards = listOf("5678"), currencies = listOf("GEL", "USD"),
+                        onDismiss = {}, onConfirm = { _, _, _, _, _, _, _, _ -> },
+                    )
                 } else if (intent.getBooleanExtra("deferredHome", false)) {
                     dev.whekin.whfin.ui.feed.FeedScreen(
                         mode = dev.whekin.whfin.ui.feed.FeedMode.HOME,

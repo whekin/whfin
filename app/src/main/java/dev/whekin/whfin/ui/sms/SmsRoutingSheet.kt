@@ -142,7 +142,7 @@ fun SmsRoutingSheet(
         mutableLongStateOf(matching.singleOrNull()?.account?.id ?: 0L)
     }
     var cardType by rememberSaveable(diagnostic.id) {
-        mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD)
+        mutableStateOf(PaymentInstrumentType.UNCLASSIFIED_CARD)
     }
     var creatingCurrency by rememberSaveable(diagnostic.id) { mutableStateOf<String?>(null) }
     var accountName by rememberSaveable(diagnostic.id) { mutableStateOf("") }
@@ -381,6 +381,11 @@ fun SmsRoutingSheet(
                     )
                 }
             }
+            if (cardType == PaymentInstrumentType.UNCLASSIFIED_CARD) Text(
+                stringResource(R.string.sms_card_type_later),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -17,6 +17,8 @@ data class TbcLedgerAccount(val id: String, val iban: String, val currency: Stri
     val key: String get() = "$iban|$currency"
     val label: String get() = "$currency · •${iban.takeLast(4)}"
 }
+/** A bank-provided IBAN ↔ card suffix; physical/virtual and primary remain the owner's choice. */
+data class TbcCardCandidate(val iban: String, val last4: String)
 data class TbcHistoryReadStats(val pages: Int = 0, val parsed: Int = 0, val blocked: Int = 0,
     val firstPageEmpty: Boolean = false)
 data class TbcHistoryRow(val movementId: String, val transactionId: String, val row: StatementRow)

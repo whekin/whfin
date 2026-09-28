@@ -63,8 +63,10 @@ fun PersonalSetupFlow(
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
     var showSteps by rememberSaveable { mutableStateOf(false) }
     var showCashSheet by rememberSaveable { mutableStateOf(false) }
+    var selectedBankSetupKey by rememberSaveable { mutableStateOf<String?>(null) }
     var cardLinkState by remember { mutableStateOf<SetupCardLinkState>(SetupCardLinkState.NotStarted) }
-    var cardsAttempted by remember { mutableStateOf(false) }
+    var lastCardLinkRevision by rememberSaveable { mutableLongStateOf(-1L) }
+    var lastCardLinkRetryKey by rememberSaveable { mutableIntStateOf(-1) }
     var cardLinkRetryKey by remember { mutableIntStateOf(0) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var autoAdvanceBank by rememberSaveable { mutableStateOf<SetupPage?>(null) }
@@ -83,28 +85,36 @@ fun PersonalSetupFlow(
     val scope = rememberCoroutineScope()
     val destination = SetupPage.fromSaved(stack.lastOrNull())
     val reviewCount = state.unresolvedSmsCount?.let { sms -> state.statementReviewCount?.let { sms + it } }
-    LaunchedEffect(stage, hasSmsHistoryPermission, destination, bankWorkActive, cardLinkRetryKey) {
+    val overviewModel: SetupOverviewViewModel = viewModel()
+    val overviewState by overviewModel.state.collectAsState()
+    val overview = (overviewState as? SetupOverviewState.Ready)?.value
+    LaunchedEffect(hasSmsHistoryPermission, bankWorkActive, overview?.bankImportRevision, cardLinkRetryKey) {
         if (bankWorkActive) {
-            cardsAttempted = false
-            if (stage == SetupStage.Sms) cardLinkState = SetupCardLinkState.WaitingForBank
+            cardLinkState = SetupCardLinkState.WaitingForBank
             return@LaunchedEffect
         }
-        if (stage != SetupStage.Sms) return@LaunchedEffect
         if (!hasSmsHistoryPermission) {
-            cardsAttempted = false
             cardLinkState = SetupCardLinkState.NotStarted
             return@LaunchedEffect
         }
-        if (destination != null || cardsAttempted) return@LaunchedEffect
+        val revision = overview?.bankImportRevision ?: return@LaunchedEffect
+        if (revision == 0L) {
+            cardLinkState = SetupCardLinkState.WaitingForBank
+            return@LaunchedEffect
+        }
+        if (!shouldCheckCards(hasSmsHistoryPermission, bankWorkActive, revision,
+                lastCardLinkRevision, cardLinkRetryKey, lastCardLinkRetryKey)) return@LaunchedEffect
         cardLinkState = SetupCardLinkState.Checking
         cardLinkState = try {
             val result = withContext(Dispatchers.IO) { SmsInboxCardLinker.run(app, app.userDb) }
-            cardsAttempted = true
+            lastCardLinkRevision = revision
+            lastCardLinkRetryKey = cardLinkRetryKey
             SetupCardLinkState.Checked(result.cardsLinked)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            cardsAttempted = true
+            lastCardLinkRevision = revision
+            lastCardLinkRetryKey = cardLinkRetryKey
             SetupCardLinkState.Failed
         }
     }
@@ -138,9 +148,6 @@ fun PersonalSetupFlow(
     fun account(id: Long) { selectedAccount = id; open(SetupPage.Account) }
     fun lockForCredo() { rememberCredo = true; createPin = true; open(SetupPage.Lock) }
 
-    val overviewModel: SetupOverviewViewModel = viewModel()
-    val overviewState by overviewModel.state.collectAsState()
-    val overview = (overviewState as? SetupOverviewState.Ready)?.value
     val credoRuntime = bankSyncStatuses.firstOrNull { it.bank == "Credo" }
     val tbcRuntime = bankSyncStatuses.firstOrNull { it.bank == "TBC" }
     val credoProgress = setupBankProgress(credoRuntime,
@@ -169,8 +176,10 @@ fun PersonalSetupFlow(
                 !hasSmsHistoryPermission -> stringResource(R.string.setup_sms_access_hint)
                 cardLinkState == SetupCardLinkState.WaitingForBank -> stringResource(R.string.setup_sms_waiting_for_bank)
                 cardLinkState == SetupCardLinkState.Checking -> stringResource(R.string.setup_sms_checking_cards)
-                cardLinkState is SetupCardLinkState.Checked -> stringResource(R.string.setup_sms_cards_checked,
+                cardLinkState is SetupCardLinkState.Checked -> maxOf(overview?.linkedCardCount ?: 0,
                     (cardLinkState as SetupCardLinkState.Checked).linked)
+                    .takeIf { it > 0 }?.let { stringResource(R.string.setup_sms_cards_checked, it) }
+                    ?: stringResource(R.string.setup_sms_no_cards_found)
                 cardLinkState == SetupCardLinkState.Failed -> stringResource(R.string.setup_sms_check_failed)
                 else -> null
             }
@@ -188,7 +197,6 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.setup_sms_individual)) { openSettings("connections") },
             ) + if (cardLinkState == SetupCardLinkState.Failed) listOf(
                 SetupAction(stringResource(R.string.setup_sms_retry_cards)) {
-                    cardsAttempted = false
                     cardLinkRetryKey++
                 },
             ) else emptyList()
@@ -197,7 +205,7 @@ fun PersonalSetupFlow(
                     stringResource(R.string.setup_cash_action_body)) { showCashSheet = true },
                 SetupAction(stringResource(R.string.setup_review_accounts),
                     overview?.let { stringResource(R.string.setup_count_accounts, it.accounts.size) }) { open(SetupPage.Accounts) },
-                SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
+                SetupAction(stringResource(R.string.setup_sms_review), smsReviewStatus) { messages(null) },
             )
             SetupStage.Categories -> listOf(
                 SetupAction(stringResource(R.string.setup_category_suggestions),
@@ -215,7 +223,12 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open(SetupPage.Lock) },
                 SetupAction(stringResource(R.string.backup_title)) { open(SetupPage.Backup) },
             )
-            SetupStage.Ready -> (if (deferredCategoryReviewVisible(deferredCategories, bankSyncStatuses)) listOf(
+            SetupStage.Ready -> (if ((overview?.bankSetupNeedsReview ?: 0) > 0) listOf(
+                SetupAction(stringResource(R.string.setup_accounts_followup),
+                    stringResource(R.string.setup_accounts_followup_count, overview?.bankSetupNeedsReview ?: 0)) {
+                    stage = SetupStage.Accounts
+                },
+            ) else emptyList()) + (if (deferredCategoryReviewVisible(deferredCategories, bankSyncStatuses)) listOf(
                 SetupAction(stringResource(R.string.setup_category_new_review),
                     stringResource(R.string.setup_category_new_count, deferredCategories.orEmpty().size)) {
                     open(SetupPage.Suggestions)
@@ -261,6 +274,7 @@ fun PersonalSetupFlow(
                 SetupReadyCta.START_WITHOUT_ACCOUNTS -> stringResource(R.string.setup_start_no_accounts)
                 SetupReadyCta.START_WITH_BALANCES_TO_REVIEW -> stringResource(R.string.setup_continue_unchecked)
                 SetupReadyCta.START_WITH_KNOWN_DIFFERENCE -> stringResource(R.string.setup_start_with_difference)
+                SetupReadyCta.START_WITH_ACCOUNT_DETAILS -> stringResource(R.string.setup_start_with_account_details)
                 SetupReadyCta.START -> null
             },
             continueEnabled = stage != SetupStage.Ready || readyCta != SetupReadyCta.WAIT_FOR_DATA,
@@ -274,6 +288,13 @@ fun PersonalSetupFlow(
             content = when (stage) {
                 SetupStage.Sms -> ({
                     SetupSmsConsent(credoSmsEnabled && tbcSmsEnabled, state.hasSmsPermission)
+                })
+                SetupStage.Accounts -> ({
+                    SetupBankAccountsContent(overviewState, overviewModel::retry) { key ->
+                        if (overview?.bankContainers?.firstOrNull { it.key == key }?.representative?.groupId != null)
+                            selectedBankSetupKey = key
+                        else open(SetupPage.Accounts)
+                    }
                 })
                 SetupStage.Ready -> ({
                     SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
@@ -295,6 +316,30 @@ fun PersonalSetupFlow(
                 titleOverride = stringResource(R.string.personal_setup_cash_sheet_title),
                 formState = formState,
             )
+        }
+        selectedBankSetupKey?.let { key ->
+            overview?.bankContainers?.firstOrNull { it.key == key }?.let { container ->
+                val accountsModel: AccountsViewModel = viewModel()
+                val formState by accountsModel.formSaveState.collectAsState()
+                OnFormSaved(formState) { selectedBankSetupKey = null }
+                BankMappingSheet(
+                    formState = formState,
+                    account = container.representative,
+                    existingCards = container.cards.filter { it.type == dev.whekin.whfin.data.db.PaymentInstrumentType.PHYSICAL_CARD }
+                        .map { it.last4 },
+                    existingVirtualCards = container.cards.filter { it.type == dev.whekin.whfin.data.db.PaymentInstrumentType.VIRTUAL_CARD }
+                        .map { it.last4 },
+                    existingUnclassifiedCards = container.cards.filter { it.type == dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD }
+                        .map { it.last4 },
+                    existingPrimaryCard = container.cards.firstOrNull { it.isPrimary }?.last4,
+                    currencies = container.currencies,
+                    onDismiss = { selectedBankSetupKey = null },
+                    onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, unclassifiedCards, primaryCard ->
+                        accountsModel.updateBankMapping(container.accounts, name, fundRole, iban, bankProduct,
+                            physicalCards, virtualCards, unclassifiedCards, primaryCard)
+                    },
+                )
+            }
         }
         return
     }

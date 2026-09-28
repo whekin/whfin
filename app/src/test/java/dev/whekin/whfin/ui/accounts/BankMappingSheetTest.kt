@@ -2,6 +2,8 @@ package dev.whekin.whfin.ui.accounts
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performTextInput
@@ -55,7 +57,7 @@ class BankMappingSheetTest {
                     existingCards = emptyList(),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { name, role, _, _, _, _, _ ->
+                    onConfirm = { name, role, _, _, _, _, _, _ ->
                         savedName = name
                         savedRole = role
                     },
@@ -90,7 +92,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = listOf("0002"),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, _, _, _ -> },
+                    onConfirm = { _, _, _, _, _, _, _, _ -> },
                 )
             }
         }
@@ -100,6 +102,32 @@ class BankMappingSheetTest {
         compose.onAllNodesWithText(context.getString(R.string.account_card_physical)).assertCountEquals(2)
         compose.onAllNodesWithText(context.getString(R.string.account_card_virtual)).assertCountEquals(2)
         compose.onAllNodesWithText(context.getString(R.string.account_card_primary)).assertCountEquals(2)
+    }
+
+    @Test fun discoveredCardShowsItsDigitsWithoutInventingPhysicalOrVirtualType() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var virtual = emptyList<String>()
+        var unclassified = listOf("unset")
+        compose.setContent { WhfinTheme {
+            BankMappingSheet(
+                account = AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK,
+                    groupId = 1, currency = "GEL", iban = "GE00TB0000000000000001"),
+                existingCards = emptyList(), existingVirtualCards = emptyList(),
+                existingUnclassifiedCards = listOf("9876"), onDismiss = {},
+                onConfirm = { _, _, _, _, _, savedVirtual, savedUnknown, _ ->
+                    virtual = savedVirtual; unclassified = savedUnknown
+                },
+            )
+        } }
+        compose.onNodeWithText(context.getString(R.string.account_card_label, "9876")).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_card_type_needed)).assertExists()
+        compose.onNodeWithTag("card-9876-primary").assertDoesNotExist()
+        compose.onNodeWithTag("card-9876-physical").performScrollTo().assertIsNotSelected()
+        compose.onNodeWithTag("card-9876-virtual").assertIsNotSelected().performClick()
+        compose.onNodeWithTag("card-9876-primary").assertExists()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        assertEquals(listOf("9876"), virtual)
+        assertEquals(emptyList<String>(), unclassified)
     }
 
     @Test
@@ -114,7 +142,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, savedPhysical, savedVirtual, _ ->
+                    onConfirm = { _, _, _, _, savedPhysical, savedVirtual, _, _ ->
                         physical = savedPhysical
                         virtual = savedVirtual
                     },
@@ -143,7 +171,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = emptyList(),
                     existingPrimaryCard = "0001",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, _, _, savedPrimary -> primary = savedPrimary },
+                    onConfirm = { _, _, _, _, _, _, _, savedPrimary -> primary = savedPrimary },
                 )
             }
         }
@@ -174,7 +202,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { _, _, iban, product, _, _, _ ->
+                    onConfirm = { _, _, iban, product, _, _, _, _ ->
                         savedIban = iban
                         savedProduct = product
                     },
@@ -205,7 +233,7 @@ class BankMappingSheetTest {
                     existingCards = listOf("0001"),
                     existingVirtualCards = emptyList(),
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, savedPhysical, _, _ -> physical = savedPhysical },
+                    onConfirm = { _, _, _, _, savedPhysical, _, _, _ -> physical = savedPhysical },
                 )
             }
         }
@@ -218,6 +246,8 @@ class BankMappingSheetTest {
         compose.onNodeWithTag("card-add").performClick()
 
         compose.onNodeWithText(context.getString(R.string.account_card_label, "0002")).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_card_type_needed)).assertExists()
+        compose.onNodeWithTag("card-0002-physical").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         compose.runOnIdle { assertEquals(listOf("0001", "0002"), physical) }
     }
@@ -235,7 +265,7 @@ class BankMappingSheetTest {
                     existingVirtualCards = emptyList(),
                     existingPrimaryCard = "0002",
                     onDismiss = {},
-                    onConfirm = { _, _, _, _, savedPhysical, _, savedPrimary ->
+                    onConfirm = { _, _, _, _, savedPhysical, _, _, savedPrimary ->
                         physical = savedPhysical
                         primary = savedPrimary
                     },

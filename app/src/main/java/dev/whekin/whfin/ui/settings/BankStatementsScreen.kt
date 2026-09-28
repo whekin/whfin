@@ -185,10 +185,11 @@ private fun CardSourceHistoryCard(history: CardStatementHistory) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(history.source.label, style = MaterialTheme.typography.titleMedium)
             Text(
-                stringResource(
-                    if (history.instrument.type == dev.whekin.whfin.data.db.PaymentInstrumentType.VIRTUAL_CARD)
-                        R.string.instrument_virtual_card else R.string.instrument_physical_card,
-                ),
+                stringResource(when (history.instrument.type) {
+                    dev.whekin.whfin.data.db.PaymentInstrumentType.VIRTUAL_CARD -> R.string.instrument_virtual_card
+                    dev.whekin.whfin.data.db.PaymentInstrumentType.PHYSICAL_CARD -> R.string.instrument_physical_card
+                    dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD -> R.string.account_card_unclassified
+                }),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(

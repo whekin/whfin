@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,5 +61,24 @@ class PaymentInstrumentDaoTest {
         val card = dao.forAccount(account.id).single()
         assertEquals(PaymentInstrumentType.VIRTUAL_CARD, card.type)
         assertEquals(true, card.isPrimary)
+    }
+
+    @Test fun `discovered suffix is linked without guessing type or replacing an owner choice`() = runBlocking {
+        val dao = db.paymentInstrumentDao()
+        assertTrue(dao.linkDiscoveredForAccounts(listOf(account), "0001"))
+        assertEquals(PaymentInstrumentType.UNCLASSIFIED_CARD, dao.forAccount(account.id).single().type)
+        dao.replaceForAccount(account, listOf("0001" to PaymentInstrumentType.VIRTUAL_CARD), "0001")
+        assertTrue(dao.linkDiscoveredForAccounts(listOf(account), "0001"))
+        assertEquals(PaymentInstrumentType.VIRTUAL_CARD, dao.forAccount(account.id).single().type)
+        assertTrue(dao.forAccount(account.id).single().isPrimary)
+
+        val otherId = db.accountDao().insert(account.copy(id = 0, name = "Other"))
+        val other = requireNotNull(db.accountDao().byId(otherId))
+        assertFalse(dao.linkDiscoveredForAccounts(listOf(other), "0001"))
+        assertTrue(dao.forAccount(other.id).isEmpty())
+        assertTrue(runCatching { dao.replaceForAccount(other,
+            listOf("0001" to PaymentInstrumentType.PHYSICAL_CARD)) }.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(dao.forAccount(other.id).isEmpty())
+        assertEquals(PaymentInstrumentType.VIRTUAL_CARD, dao.forAccount(account.id).single().type)
     }
 }

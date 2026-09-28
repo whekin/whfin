@@ -2,6 +2,7 @@ package dev.whekin.whfin.ui.setup
 
 import dev.whekin.whfin.data.LedgerCalendar
 import dev.whekin.whfin.data.db.*
+import dev.whekin.whfin.data.sms.BankSmsBank
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.LocalDate
@@ -23,6 +24,29 @@ class SetupAccountReviewTest {
         assertFalse(includeInSetupBalanceReview(cash, listOf(row(1, 100).copy(isVoided = true))))
         assertTrue(includeInSetupBalanceReview(cash, listOf(row(1, 100))))
         assertTrue(includeInSetupBalanceReview(account, emptyList()))
+    }
+
+    @Test fun `setup groups currency ledgers by bank IBAN and shows their linked cards once`() {
+        val gel = account.copy(id = 1, groupId = 10, iban = "GE00CD0000000000000001",
+            bankProduct = BankProduct.DEMAND_DEPOSIT, fundRole = FundRole.RESERVE)
+        val usd = gel.copy(id = 2, currency = "USD")
+        val tbc = account.copy(id = 3, groupId = 20, iban = "GE00TB0000000000000002")
+        fun review(a: AccountEntity, provider: String) = SetupAccountReview(a, provider,
+            0, null, null, null, null, 0, "${a.id}")
+        val card = PaymentInstrumentEntity(id = 7, groupId = 10,
+            type = PaymentInstrumentType.PHYSICAL_CARD, last4 = "1234", isPrimary = true)
+        val containers = setupBankContainers(mapOf(
+            BankSmsBank.CREDO to listOf(review(gel, "Credo"), review(usd, "Credo")),
+            BankSmsBank.TBC to listOf(review(tbc, "TBC"))), listOf(card), listOf(
+            InstrumentAccountLinkEntity(7, 1), InstrumentAccountLinkEntity(7, 2)))
+        assertEquals(2, containers.size)
+        assertEquals(listOf("GEL", "USD"), containers[0].currencies)
+        assertEquals(BankProduct.DEMAND_DEPOSIT, containers[0].bankProduct)
+        assertEquals(FundRole.RESERVE, containers[0].fundRole)
+        assertEquals(listOf("1234"), containers[0].cards.map { it.last4 })
+        assertTrue(containers[1].cards.isEmpty())
+        assertEquals(1, SetupOverview(emptyList(), emptyMap(), emptySet(), 0, 0, 0, 0, 0, 0,
+            bankContainers = containers).bankSetupNeedsReview)
     }
 
     @Test fun `bank comparison uses end of day not current balance or within day order`() {

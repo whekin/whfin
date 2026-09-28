@@ -2,6 +2,9 @@ package dev.whekin.whfin.ui.setup
 
 import dev.whekin.whfin.data.db.AccountEntity
 import dev.whekin.whfin.data.db.AccountType
+import dev.whekin.whfin.data.db.PaymentInstrumentEntity
+import dev.whekin.whfin.data.db.PaymentInstrumentType
+import dev.whekin.whfin.data.sms.BankSmsBank
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -38,5 +41,15 @@ class SetupReadyCtaTest {
             0, 0, 0, 0, 0, 0))
         assertEquals(SetupReadyCta.START_WITHOUT_ACCOUNTS, setupReadyCta(empty, false, false))
         assertEquals(SetupReadyCta.START_DURING_BANK_SYNC, setupReadyCta(empty, false, true))
+    }
+
+    @Test fun unclassifiedBankCardAndMissingProductStayVisibleAtReady() {
+        val tbc = account.copy(groupId = 2, iban = "GE00TB0000000000000001")
+        val needsDetails = ready(0).value.copy(bankContainers = listOf(SetupBankContainer("tbc",
+            BankSmsBank.TBC, listOf(tbc), listOf(PaymentInstrumentEntity(id = 1, groupId = 2,
+                type = PaymentInstrumentType.UNCLASSIFIED_CARD, last4 = "1234")))))
+        assertEquals(3, needsDetails.bankSetupNeedsReview)
+        assertEquals(SetupReadyCta.START_WITH_ACCOUNT_DETAILS,
+            setupReadyCta(SetupOverviewState.Ready(needsDetails), false, false))
     }
 }

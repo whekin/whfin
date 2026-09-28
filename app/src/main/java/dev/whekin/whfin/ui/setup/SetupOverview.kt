@@ -34,6 +34,40 @@ internal data class SetupAccountReview(
     val resolved: Boolean get() = difference == 0L || checked
 }
 
+/** One bank contract across its currency ledgers; these choices are edited together. */
+internal data class SetupBankContainer(
+    val key: String,
+    val bank: BankSmsBank,
+    val accounts: List<AccountEntity>,
+    val cards: List<PaymentInstrumentEntity>,
+) {
+    val representative: AccountEntity get() = accounts.firstOrNull { it.currency == "GEL" } ?: accounts.first()
+    val currencies: List<String> get() = accounts.map(AccountEntity::currency).distinct().sorted()
+    val fundRole: FundRole? get() = accounts.map(AccountEntity::fundRole).distinct().singleOrNull()
+    val bankProduct: BankProduct? get() = accounts.map(AccountEntity::bankProduct).distinct().singleOrNull()
+}
+
+internal fun setupBankContainers(
+    banks: Map<BankSmsBank, List<SetupAccountReview>>,
+    instruments: List<PaymentInstrumentEntity>,
+    links: List<InstrumentAccountLinkEntity>,
+): List<SetupBankContainer> {
+    val byInstrumentId = instruments.associateBy(PaymentInstrumentEntity::id)
+    return banks.flatMap { (bank, rows) ->
+        rows.groupBy { row -> row.account.groupId to (row.account.iban ?: "id:${row.account.id}") }
+            .map { (identity, entries) ->
+                val accountIds = entries.map { it.account.id }.toSet()
+                SetupBankContainer(
+                    key = "${bank.name}:${identity.first}:${identity.second}",
+                    bank = bank,
+                    accounts = entries.map { it.account },
+                    cards = links.filter { it.accountId in accountIds }
+                        .mapNotNull { byInstrumentId[it.instrumentId] }.distinctBy(PaymentInstrumentEntity::id),
+                )
+            }
+    }
+}
+
 /** The app seeds an empty GEL cash shell; there is no owner balance to confirm until it is used. */
 internal fun includeInSetupBalanceReview(account: AccountEntity, transactions: List<TransactionEntity>): Boolean =
     account.type != AccountType.CASH || transactions.any { it.accountId == account.id && !it.isVoided }
@@ -82,10 +116,20 @@ internal data class SetupOverview(
     val savingsPlans: Int,
     val debts: Int,
     val unrouted: Int,
+    val bankImportRevision: Long = 0L,
+    val bankContainers: List<SetupBankContainer> = emptyList(),
+    val linkedCardCount: Int = 0,
 ) {
     val resolved: Int get() = accounts.count { it.resolved }
     val allResolved: Boolean get() = accounts.all { it.resolved }
     val hasBankDifference: Boolean get() = accounts.any { it.difference != null && it.difference != 0L }
+    val bankSetupNeedsReview: Int get() {
+        val cards = bankContainers.flatMap(SetupBankContainer::cards).distinctBy(PaymentInstrumentEntity::id)
+        return bankContainers.count { it.bankProduct == null } +
+            bankContainers.count { it.fundRole == null } +
+            cards.count { it.type == PaymentInstrumentType.UNCLASSIFIED_CARD } +
+            if (cards.isNotEmpty() && cards.none(PaymentInstrumentEntity::isPrimary)) 1 else 0
+    }
 }
 
 internal sealed interface SetupOverviewState {
@@ -102,7 +146,8 @@ internal class SetupOverviewViewModel(app: Application) : AndroidViewModel(app) 
     private val checksMutex = Mutex()
     val state: StateFlow<SetupOverviewState> = combine(
         db.invalidationTracker.createFlow("accounts", "transactions", "statement_imports", "financial_groups",
-            "categories", "income_sources", "savings_plans", "debt_cases", "sms_diagnostics", "crypto_balances"),
+            "categories", "income_sources", "savings_plans", "debt_cases", "sms_diagnostics", "crypto_balances",
+            "payment_instruments", "instrument_account_links"),
         revision,
     ) { _, _ -> Unit }.map {
         try { SetupOverviewState.Ready(read()) as SetupOverviewState }
@@ -115,6 +160,8 @@ internal class SetupOverviewViewModel(app: Application) : AndroidViewModel(app) 
         val groups = db.financialGroupDao().all().associateBy { it.id }
         val transactions = db.transactionDao().allForIntegrity()
         val imports = db.statementImportDao().all()
+        val instruments = db.paymentInstrumentDao().allActive()
+        val instrumentLinks = db.paymentInstrumentDao().allLinks()
         val chains = db.cryptoDao().allBalances().associateBy { it.accountId }
         val checks = runtime.personalSetupChecks
         val reviews = accounts.filter { includeInSetupBalanceReview(it, transactions) }.map { account ->
@@ -122,9 +169,14 @@ internal class SetupOverviewViewModel(app: Application) : AndroidViewModel(app) 
                 imports, chains[account.id]).let { it.copy(checked = it.fingerprint in checks) }
         }
         val banks = BankSmsBank.entries.associateWith { bank -> reviews.filter { bank.accepts(it.account, it.provider) } }
+        val bankContainers = setupBankContainers(banks, instruments, instrumentLinks)
         SetupOverview(reviews,
             bankAccounts = banks.mapValues { (_, rows) -> rows.map { it.account.iban ?: "id:${it.account.id}" }.distinct().size },
             bankImports = banks.filterValues { rows -> imports.any { it.accountId in rows.map { r -> r.account.id } && it.origin != StatementImportOrigin.USER_OPENING } }.keys,
+            bankImportRevision = imports.filter { it.origin != StatementImportOrigin.USER_OPENING }.maxOfOrNull { it.id } ?: 0L,
+            bankContainers = bankContainers,
+            linkedCardCount = bankContainers.flatMap(SetupBankContainer::cards)
+                .distinctBy(PaymentInstrumentEntity::id).size,
             categories = db.categoryDao().all().count { !it.isSystem },
             uncategorized = transactions.count { !it.isVoided && !it.isTransfer && it.amountMinor < 0 && it.categoryId == null && it.source != TxSource.ADJUSTMENT },
             incomes = db.incomeSourceDao().active().size,

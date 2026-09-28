@@ -121,6 +121,7 @@ fun SmsDiagnosticsRoute(
     val scanState by viewModel.scanState.collectAsState()
     val messageState by viewModel.messageState.collectAsState()
     val shareMessageState by viewModel.shareMessageState.collectAsState()
+    val cardMappingProblem by viewModel.cardMappingProblem.collectAsState()
     val context = LocalContext.current
     val monitoring = if (bankFilter == null) smsImportEnabled else {
         val active by remember(context, bankFilter) { dev.whekin.whfin.data.preferences.UiPreferences(context).bankSmsEnabled(bankFilter) }.collectAsState(initial = false)
@@ -167,6 +168,7 @@ fun SmsDiagnosticsRoute(
         scanState = scanState,
         messageState = messageState,
         shareMessageState = shareMessageState,
+        cardMappingProblem = cardMappingProblem,
         smsImportEnabled = monitoring,
         hasReceivePermission = hasReceivePermission,
         canRequestReceivePermission = canRequestReceivePermission,
@@ -230,6 +232,7 @@ internal fun SmsDiagnosticsScreen(
     scanState: SmsScanState,
     messageState: SmsMessageState,
     shareMessageState: SmsShareMessageState = SmsShareMessageState.Hidden,
+    cardMappingProblem: CardMappingProblem? = null,
     smsImportEnabled: Boolean,
     hasReceivePermission: Boolean,
     canRequestReceivePermission: Boolean = true,
@@ -290,6 +293,20 @@ internal fun SmsDiagnosticsScreen(
                 onEnable = onEnableMonitoring,
                 onRequestPermission = onRequestReceivePermission,
                 onOpenSystemSettings = onOpenSystemSettings,
+            )
+        }
+        if (cardMappingProblem != null) item("card-mapping-problem") {
+            WhfinNotice(
+                title = stringResource(
+                    if (cardMappingProblem == CardMappingProblem.COLLISION)
+                        R.string.sms_card_collision_title else R.string.sms_card_save_failed_title,
+                ),
+                body = stringResource(
+                    if (cardMappingProblem == CardMappingProblem.COLLISION)
+                        R.string.sms_card_collision_body else R.string.sms_card_save_failed_body,
+                ),
+                icon = Icons.Default.ErrorOutline,
+                kind = WhfinNoticeKind.Attention,
             )
         }
         when (loadState) {
@@ -576,13 +593,11 @@ private fun CardMappings(
                             mapping.family.iban?.takeLast(4)?.let { "••$it" },
                             mapping.family.currencies.joinToString("/"),
                         ).joinToString(" · "),
-                        stringResource(
-                            if (mapping.instrument.type == PaymentInstrumentType.VIRTUAL_CARD) {
-                                R.string.sms_card_virtual
-                            } else {
-                                R.string.sms_card_physical
-                            },
-                        ),
+                        stringResource(when (mapping.instrument.type) {
+                            PaymentInstrumentType.VIRTUAL_CARD -> R.string.sms_card_virtual
+                            PaymentInstrumentType.PHYSICAL_CARD -> R.string.sms_card_physical
+                            PaymentInstrumentType.UNCLASSIFIED_CARD -> R.string.account_card_unclassified
+                        }),
                     ).joinToString(" · "),
                     icon = Icons.Default.CreditCard,
                     divider = true,
@@ -611,7 +626,7 @@ private fun AddCardMappingSheet(
     var selectedId by rememberSaveable {
         mutableLongStateOf(cardFamilies.singleOrNull()?.primaryAccountId ?: 0L)
     }
-    var cardType by rememberSaveable { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
+    var cardType by rememberSaveable { mutableStateOf(PaymentInstrumentType.UNCLASSIFIED_CARD) }
     // Без счетов карту привязать не к чему, поэтому первый счёт Credo создаётся здесь же:
     // отправлять пользователя в редактор счетов и обратно ради одной строки незачем.
     val creating = cardFamilies.isEmpty()
@@ -713,6 +728,11 @@ private fun AddCardMappingSheet(
                 )
             }
         }
+        if (cardType == PaymentInstrumentType.UNCLASSIFIED_CARD) Text(
+            stringResource(R.string.sms_card_type_later),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -1168,7 +1188,7 @@ private fun AccountMappingSheet(
             else matching.singleOrNull()?.account?.id ?: 0L,
         )
     }
-    var cardType by remember(diagnostic.id) { mutableStateOf(PaymentInstrumentType.PHYSICAL_CARD) }
+    var cardType by remember(diagnostic.id) { mutableStateOf(PaymentInstrumentType.UNCLASSIFIED_CARD) }
     // Тот же выход, что в Feed-resolver: счёт нужной валюты создаётся прямо в листе.
     var creating by rememberSaveable(diagnostic.id) { mutableStateOf(false) }
     var accountName by rememberSaveable(diagnostic.id) { mutableStateOf(bank.provider) }
@@ -1270,6 +1290,11 @@ private fun AccountMappingSheet(
                     )
                 }
             }
+            if (cardType == PaymentInstrumentType.UNCLASSIFIED_CARD) Text(
+                stringResource(R.string.sms_card_type_later),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

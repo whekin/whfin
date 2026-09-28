@@ -50,6 +50,8 @@ class MultiBankSmsImportTest {
         val messages = listOf(credoPayment.replace("EXAMPLE BUS", "UNKNOWN SHOP"), credoPayment, credoPayment)
         assertEquals(1, SmsTransactionImporter(db).learnCardsFrom(messages))
         assertEquals(account.id, db.accountDao().byCardAndCurrency("0001", "GEL").single().id)
+        assertEquals(PaymentInstrumentType.UNCLASSIFIED_CARD,
+            db.paymentInstrumentDao().forAccount(account.id).single().type)
     }
     @Test fun sameCardSuffixInTwoBanksRoutesToTheSendingBank() = runBlocking {
         val credo = bank("Credo", "GE00CD0000000000000001")

@@ -41,6 +41,26 @@ class SmsDiagnosticsScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @Test fun cardSuffixCollision_isExplainedWithoutClaimingASuccessfulLink() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertEquals(CardMappingProblem.COLLISION,
+            cardMappingProblemFor(IllegalArgumentException("CARD_SUFFIX_COLLISION")))
+        compose.setContent { WhfinTheme { SmsDiagnosticsScreen(
+            loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData()),
+            scanState = SmsScanState.Idle,
+            messageState = SmsMessageState.Hidden,
+            cardMappingProblem = CardMappingProblem.COLLISION,
+            smsImportEnabled = true,
+            hasReceivePermission = true,
+            hasHistoryPermission = true,
+            canRequestHistoryPermission = true,
+            onScanHistory = {}, onConfirmHistoryImport = {}, onCancelHistoryImport = {},
+            onResolve = { _, _, _ -> }, onAddCardMapping = { _, _, _ -> },
+            onViewMessage = {}, onDismissMessage = {},
+        ) } }
+        compose.onNodeWithText(context.getString(R.string.sms_card_collision_title)).assertIsDisplayed()
+    }
+
     @Test
     fun statementCoveredPayment_doesNotClaimThatItsLinkedAccountIsMissing() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -209,7 +229,7 @@ class SmsDiagnosticsScreenTest {
         compose.onNodeWithTag("sms-diagnostics-list").performScrollToNode(hasText(mappingTitle))
         compose.onNodeWithContentDescription(context.getString(R.string.sms_link_action)).performClick()
         compose.onNodeWithText(context.getString(R.string.sms_link_action)).performClick()
-        assertEquals(Triple(7L, 11L, PaymentInstrumentType.PHYSICAL_CARD), resolved)
+        assertEquals(Triple(7L, 11L, PaymentInstrumentType.UNCLASSIFIED_CARD), resolved)
     }
 
     @Test
@@ -315,7 +335,7 @@ class SmsDiagnosticsScreenTest {
         compose.onNodeWithContentDescription(context.getString(R.string.sms_last_four_label)).performTextInput("33")
         compose.onNodeWithText(context.getString(R.string.sms_save_card_action)).performClick()
 
-        assertEquals(Triple(11L, "2533", PaymentInstrumentType.PHYSICAL_CARD), saved)
+        assertEquals(Triple(11L, "2533", PaymentInstrumentType.UNCLASSIFIED_CARD), saved)
     }
 
     @Test
@@ -355,7 +375,7 @@ class SmsDiagnosticsScreenTest {
 
         compose.runOnIdle {
             assertEquals(
-                listOf("Credo", "GEL", "2533", PaymentInstrumentType.PHYSICAL_CARD),
+                listOf("Credo", "GEL", "2533", PaymentInstrumentType.UNCLASSIFIED_CARD),
                 created,
             )
         }
@@ -413,7 +433,7 @@ class SmsDiagnosticsScreenTest {
 
         compose.runOnIdle {
             assertEquals(
-                listOf(21L, "Credo", "GEL", PaymentInstrumentType.PHYSICAL_CARD),
+                listOf(21L, "Credo", "GEL", PaymentInstrumentType.UNCLASSIFIED_CARD),
                 created,
             )
         }

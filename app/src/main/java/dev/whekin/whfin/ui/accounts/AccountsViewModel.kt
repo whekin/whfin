@@ -69,6 +69,7 @@ data class AccountWithBalance(
     val balanceMinor: Long,
     val cardMasks: List<String>,
     val virtualCardMasks: List<String> = emptyList(),
+    val unclassifiedCardMasks: List<String> = emptyList(),
     val primaryCardMasks: List<String> = emptyList(),
     val primaryCardConfigured: Boolean = false,
     val address: String? = null,
@@ -171,6 +172,9 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     .map { card -> card.last4 },
                 virtualCardMasks = cardsByAccount[it.id].orEmpty()
                     .filter { card -> card.type == PaymentInstrumentType.VIRTUAL_CARD }
+                    .map { card -> card.last4 },
+                unclassifiedCardMasks = cardsByAccount[it.id].orEmpty()
+                    .filter { card -> card.type == PaymentInstrumentType.UNCLASSIFIED_CARD }
                     .map { card -> card.last4 },
                 primaryCardMasks = cardsByAccount[it.id].orEmpty()
                     .filter(PaymentInstrumentEntity::isPrimary)
@@ -535,6 +539,7 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
         bankProduct: BankProduct?,
         cardMasks: List<String>,
         virtualCards: List<String>,
+        unclassifiedCards: List<String>,
         primaryLast4: String?,
     ) {
         formSaver.save {
@@ -561,7 +566,8 @@ class AccountsViewModel(app: Application) : AndroidViewModel(app) {
                     db.paymentInstrumentDao().replaceForAccounts(
                         updatedAccounts,
                         cardMasks.map { it to PaymentInstrumentType.PHYSICAL_CARD } +
-                            virtualCards.map { it to PaymentInstrumentType.VIRTUAL_CARD },
+                            virtualCards.map { it to PaymentInstrumentType.VIRTUAL_CARD } +
+                            unclassifiedCards.map { it to PaymentInstrumentType.UNCLASSIFIED_CARD },
                         primaryLast4,
                     )
                     db.paymentInstrumentDao().forAccount(updatedAccounts.first().id)

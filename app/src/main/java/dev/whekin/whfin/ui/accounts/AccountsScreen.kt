@@ -498,10 +498,11 @@ fun AccountsScreen(
             account = representative.account,
             existingCards = rows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = rows.flatMap { it.virtualCardMasks }.distinct(),
+            existingUnclassifiedCards = rows.flatMap { it.unclassifiedCardMasks }.distinct(),
             existingPrimaryCard = rows.flatMap { it.primaryCardMasks }.firstOrNull(),
             currencies = rows.map { it.account.currency }.distinct().sorted(),
             onDismiss = { bankDetailsFor = null },
-            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, primaryCard ->
+            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, unclassifiedCards, primaryCard ->
                 viewModel.updateBankMapping(
                     rows.map { it.account },
                     name,
@@ -510,6 +511,7 @@ fun AccountsScreen(
                     bankProduct,
                     physicalCards,
                     virtualCards,
+                    unclassifiedCards,
                     primaryCard,
                 )
             },
@@ -727,7 +729,7 @@ internal fun orderedAccountContainers(accounts: List<AccountWithBalance>): List<
             compareBy<List<AccountWithBalance>> { container ->
                 if (container.any { it.primaryCardMasks.isNotEmpty() }) 0 else 1
             }.thenBy { container ->
-                if (container.any { it.cardMasks.isNotEmpty() }) 0 else 1
+                if (container.any { it.cardMasks.isNotEmpty() || it.unclassifiedCardMasks.isNotEmpty() }) 0 else 1
             }.thenBy { container ->
                 if (container.any { it.account.bankProduct == BankProduct.CURRENT_ACCOUNT }) 0 else 1
             }.thenBy { container ->
@@ -798,7 +800,8 @@ private fun AccountGroupDetailsDialog(
                     }) { container ->
                         val first = container.first()
                         val cards = (container.flatMap { it.cardMasks }.map { "••$it" } +
-                            container.flatMap { it.virtualCardMasks }.map { "${stringResource(R.string.account_card_virtual)} ••$it" })
+                            container.flatMap { it.virtualCardMasks }.map { "${stringResource(R.string.account_card_virtual)} ••$it" } +
+                            container.flatMap { it.unclassifiedCardMasks }.map { "${stringResource(R.string.account_card_unclassified)} ••$it" })
                             .distinct()
                         val supporting = buildList {
                             first.account.iban?.let(::add)

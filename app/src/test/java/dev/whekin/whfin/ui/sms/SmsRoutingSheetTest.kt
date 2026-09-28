@@ -79,7 +79,7 @@ class SmsRoutingSheetTest {
             .assertIsEnabled()
             .performClick()
         compose.runOnIdle {
-            assertEquals(10L to PaymentInstrumentType.PHYSICAL_CARD, resolved)
+            assertEquals(10L to PaymentInstrumentType.UNCLASSIFIED_CARD, resolved)
         }
     }
 

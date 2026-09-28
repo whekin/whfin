@@ -13,7 +13,7 @@ enum class SavingsMode { FLEXIBLE_RESERVE, GOAL, TERM_DEPOSIT }
 
 enum class FinancialGroupType { BANK, WALLET }
 
-enum class PaymentInstrumentType { PHYSICAL_CARD, VIRTUAL_CARD }
+enum class PaymentInstrumentType { PHYSICAL_CARD, VIRTUAL_CARD, UNCLASSIFIED_CARD }
 
 enum class StatementSourceType { ACCOUNT, CARD }
 

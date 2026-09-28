@@ -395,10 +395,11 @@ internal fun AccountTransactionsScreen(
             account = item.account,
             existingCards = containerRows.flatMap { it.cardMasks }.distinct(),
             existingVirtualCards = containerRows.flatMap { it.virtualCardMasks }.distinct(),
+            existingUnclassifiedCards = containerRows.flatMap { it.unclassifiedCardMasks }.distinct(),
             existingPrimaryCard = containerRows.flatMap { it.primaryCardMasks }.firstOrNull(),
             currencies = containerRows.map { it.account.currency }.distinct().sorted(),
             onDismiss = { editAccount = false },
-            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, primaryCard ->
+            onConfirm = { name, fundRole, iban, bankProduct, physicalCards, virtualCards, unclassifiedCards, primaryCard ->
                 accountsViewModel.updateBankMapping(
                     containerRows.map { it.account },
                     name,
@@ -407,6 +408,7 @@ internal fun AccountTransactionsScreen(
                     bankProduct,
                     physicalCards,
                     virtualCards,
+                    unclassifiedCards,
                     primaryCard,
                 )
             },
