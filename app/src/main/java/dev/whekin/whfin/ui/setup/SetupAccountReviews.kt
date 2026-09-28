@@ -37,7 +37,7 @@ internal fun SetupAccountReviews(
             val overview = state.value
             if (overview.accounts.isEmpty()) Text(stringResource(R.string.setup_no_accounts))
             else {
-                WhfinSectionLabel(stringResource(R.string.setup_checked_count, overview.checked, overview.accounts.size))
+                WhfinSectionLabel(stringResource(R.string.setup_checked_count, overview.resolved, overview.accounts.size))
                 WhfinLedgerGroup {
                     overview.accounts.forEachIndexed { index, review ->
                         SetupAccountReviewRow(review, onCheck, onOpenAccount)
@@ -59,6 +59,7 @@ private fun SetupAccountReviewRow(
     val account = review.account
     val title = listOfNotNull(review.provider, accountTitle(account, review.provider)).distinct().joinToString(" · ")
     val crypto = account.type == AccountType.CRYPTO
+    val reviewLabel = if (review.difference != null) R.string.setup_difference_reviewed else R.string.setup_checked
     val amount = if (crypto) review.chainBalance?.let {
         BigDecimal(it.baseUnits).movePointLeft(it.decimals).stripTrailingZeros().toPlainString() + " " + account.currency
     } ?: stringResource(R.string.setup_balance_unknown) else formatMinor(review.balance, account.currency)
@@ -74,7 +75,9 @@ private fun SetupAccountReviewRow(
         } ?: stringResource(R.string.setup_refresh_balance)
         else -> stringResource(R.string.setup_check_balance)
     }
-    WhfinLedgerRow(title = title, supportingText = "$amount\n$status" + if (review.checked && !expanded) "\n" + stringResource(R.string.setup_checked) else "", supportingMaxLines = Int.MAX_VALUE,
+    WhfinLedgerRow(title = title, supportingText = "$amount\n$status" +
+        if (review.checked && review.difference != 0L && !expanded) "\n" + stringResource(reviewLabel) else "",
+        supportingMaxLines = Int.MAX_VALUE,
         onClick = { expanded = !expanded }, trailing = {
             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
         })
@@ -82,9 +85,9 @@ private fun SetupAccountReviewRow(
         if (review.bankBalance != null) Text(stringResource(R.string.setup_bank_closing,
             formatMinor(review.bankBalance, account.currency), requireNotNull(day)), style = MaterialTheme.typography.bodyMedium)
         if (review.pending > 0) Text(stringResource(R.string.setup_waiting_bank, review.pending), style = MaterialTheme.typography.bodyMedium)
-        WhfinLedgerRow(title = stringResource(R.string.setup_checked), onClick = {
+        if (review.difference != 0L) WhfinLedgerRow(title = stringResource(reviewLabel), onClick = {
             onCheck(account.id, review.fingerprint, !review.checked)
-        }, trailing = { WhfinSwitch(review.checked, null, stringResource(R.string.setup_checked)) })
+        }, trailing = { WhfinSwitch(review.checked, null, stringResource(reviewLabel)) })
         WhfinButton(stringResource(R.string.setup_open_account), { onOpenAccount(account.id) }, style = WhfinActionStyle.Quiet)
     }
 }
@@ -101,13 +104,17 @@ internal fun SetupReviewPreview() = dev.whekin.whfin.ui.theme.WhfinTheme {
 /** Synthetic multi-currency fixture shared by preview and device visual QA. */
 @Composable
 internal fun SetupReviewSample() {
-    var checked by rememberSaveable { mutableStateOf(false) }
+    var checkedSecond by rememberSaveable { mutableStateOf(false) }
     val account = dev.whekin.whfin.data.db.AccountEntity(id = 1, name = "", type = AccountType.BANK,
         currency = "GEL", iban = "GE00EXAMPLE0001")
     val day = LocalDate.of(2026, 9, 20).toEpochDay()
-    val rows = listOf(SetupAccountReview(account, "Credo", 245000, 250000, day, 0, null, 0, "1", checked),
-        SetupAccountReview(account.copy(id = 2, currency = "USD"), "Credo", 125050, 125000, day, 50, null, 0, "2"))
+    val rows = listOf(SetupAccountReview(account, "Credo", 250000, 250000, day, 0, null, 0, "1"),
+        SetupAccountReview(account.copy(id = 2, currency = "USD", iban = "GE00EXAMPLE0002"),
+            "Credo", 125050, 125000, day, 50, null, 0, "2", checkedSecond))
     val overview = SetupOverview(rows, emptyMap(), emptySet(), 8, 0, 1, 0, 0, 0)
     SetupStageScreen(SetupStage.Ready, listOf(SetupAction(stringResource(R.string.setup_banks_title)) {}), {}, {},
-        content = { SetupAccountReviews(SetupOverviewState.Ready(overview), {}, { _, _, value -> checked = value }, {}) })
+        continueLabel = stringResource(if (!overview.allResolved) R.string.setup_continue_unchecked
+            else if (overview.hasBankDifference) R.string.setup_start_with_difference
+            else R.string.personal_setup_continue_action),
+        content = { SetupAccountReviews(SetupOverviewState.Ready(overview), {}, { _, _, value -> checkedSecond = value }, {}) })
 }

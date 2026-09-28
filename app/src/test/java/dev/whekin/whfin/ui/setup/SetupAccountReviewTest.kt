@@ -17,6 +17,14 @@ class SetupAccountReviewTest {
         periodTo = day.toEpochDay(), openingBalanceMinor = 0, closingBalanceMinor = closing,
         totalRows = 2, inserted = 2, duplicates = 0, reconciled = 0, importedAt = at(1))
 
+    @Test fun `untouched seeded cash has no balance to review`() {
+        val cash = account.copy(type = AccountType.CASH)
+        assertFalse(includeInSetupBalanceReview(cash, emptyList()))
+        assertFalse(includeInSetupBalanceReview(cash, listOf(row(1, 100).copy(isVoided = true))))
+        assertTrue(includeInSetupBalanceReview(cash, listOf(row(1, 100))))
+        assertTrue(includeInSetupBalanceReview(account, emptyList()))
+    }
+
     @Test fun `bank comparison uses end of day not current balance or within day order`() {
         val review = setupAccountReview(account, "Bank", listOf(row(3, 10000), row(1, -2000), row(2, -1000, 1)), listOf(bank(8000)))
         assertEquals(7000L, review.balance)
@@ -46,5 +54,16 @@ class SetupAccountReviewTest {
             row(3, 300).copy(accountId = 2)), emptyList())
         assertEquals(original.fingerprint, changed.fingerprint)
         assertEquals(100L, changed.balance)
+    }
+    @Test fun `matching bank evidence needs no owner tap but an unresolved balance does`() {
+        val matched = setupAccountReview(account, null, listOf(row(1, 10000)), listOf(bank(10000)))
+        val unresolved = matched.copy(account = account.copy(id = 2), difference = 50, checked = false)
+        fun overview(rows: List<SetupAccountReview>) = SetupOverview(rows, emptyMap(), emptySet(),
+            0, 0, 0, 0, 0, 0)
+        assertTrue(matched.resolved)
+        assertEquals(1, overview(listOf(matched, unresolved)).resolved)
+        assertFalse(overview(listOf(matched, unresolved)).allResolved)
+        assertTrue(overview(listOf(matched, unresolved.copy(checked = true))).allResolved)
+        assertTrue(overview(listOf(matched, unresolved.copy(checked = true))).hasBankDifference)
     }
 }

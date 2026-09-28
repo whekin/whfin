@@ -88,14 +88,17 @@ class PersonalSetupJourneyTest {
         }).resources
         val out = File(context.getExternalFilesDir(null), "setup-qa").apply { mkdirs() }
         ActivityScenario.launch<SetupQaActivity>(Intent(context, SetupQaActivity::class.java).putExtra("review", true)).use {
-            assertTrue(device.wait(Until.hasObject(By.textContains("0001")), 8000))
+            assertTrue(device.wait(Until.hasObject(By.textContains("0002")), 8000))
+            assertTrue(device.hasObject(By.text(res.getString(R.string.setup_checked_count, 1, 2))))
+            assertTrue(device.hasObject(By.text(res.getString(R.string.setup_continue_unchecked))))
             device.waitForIdle(1000)
             device.takeScreenshot(File(out, "$language-$dark-$scale-balances.png"))
-            device.findObjects(By.textContains("0001")).first().click()
-            val label = res.getString(R.string.setup_checked)
+            device.findObjects(By.textContains("0002")).first().click()
+            val label = res.getString(R.string.setup_difference_reviewed)
             val node = device.wait(Until.findObject(By.text(label)), 4000)
             assertNotNull(node); node.click()
-            assertTrue(device.wait(Until.hasObject(By.text(res.getString(R.string.setup_checked_count, 1, 2))), 5000))
+            assertTrue(device.wait(Until.hasObject(By.text(res.getString(R.string.setup_checked_count, 2, 2))), 5000))
+            assertTrue(device.hasObject(By.text(res.getString(R.string.setup_start_with_difference))))
             device.takeScreenshot(File(out, "$language-$dark-$scale-balance-details.png"))
         }
     }
@@ -156,7 +159,7 @@ class PersonalSetupJourneyTest {
             device.pressBack()
             click(text(R.string.setup_next))
             capture("categories")
-            click(text(R.string.categories_title))
+            click(text(R.string.setup_category_edit))
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.categories_expense))), 8000))
             device.pressBack()
             click(text(R.string.setup_next))
@@ -206,10 +209,12 @@ class PersonalSetupJourneyTest {
             assertTrue("Setup must show a complete Room snapshot", device.wait(Until.hasObject(
                 By.textStartsWith(checkedPrefix)), 8000) || device.hasObject(By.text(text(R.string.setup_no_accounts))))
             assertFalse(device.hasObject(By.text(text(R.string.setup_read_failed))))
+            assertTrue(device.hasObject(By.text(text(R.string.setup_no_accounts))))
+            assertTrue(device.hasObject(By.text(text(R.string.setup_start_no_accounts))))
             capture("ready")
             scenario.recreate()
             assertTrue(device.wait(Until.hasObject(By.text(text(R.string.setup_finish_title))), 8000))
-            click(text(if (device.hasObject(By.text(text(R.string.setup_continue_unchecked)))) R.string.setup_continue_unchecked else R.string.personal_setup_continue_action))
+            click(text(R.string.setup_start_no_accounts))
             assertTrue(device.wait(Until.hasObject(By.text("Setup finished")), 5000))
         } } finally {
             if (previousIme == "null") device.executeShellCommand("settings delete secure show_ime_with_hard_keyboard")

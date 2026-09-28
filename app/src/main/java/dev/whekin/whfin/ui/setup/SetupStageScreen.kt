@@ -42,6 +42,7 @@ internal fun SetupStageScreen(
     onContinue: () -> Unit,
     summary: String? = null,
     continueLabel: String? = null,
+    continueEnabled: Boolean = true,
     footerAction: SetupAction? = null,
     content: (@Composable () -> Unit)? = null,
 ) {
@@ -73,6 +74,7 @@ internal fun SetupStageScreen(
                 WhfinButton(
                     continueLabel ?: stringResource(if (stage == SetupStage.Ready) R.string.personal_setup_continue_action else R.string.setup_next),
                     onContinue, Modifier.fillMaxWidth(),
+                    enabled = continueEnabled,
                     style = if (footerAction == null) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
                 )
             }

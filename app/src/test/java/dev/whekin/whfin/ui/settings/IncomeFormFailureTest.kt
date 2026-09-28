@@ -21,6 +21,16 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35], qualifiers = "w400dp-h850dp")
 class IncomeFormFailureTest {
     @get:Rule val compose = createComposeRule()
+    @Test fun setupKeepsWalletSetupOutOfTheIncomeStep() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        compose.setContent { WhfinTheme {
+            IncomeSourcesScreen(IncomeSourcesState(emptyList(), emptyList(), emptyList(), YearMonth.of(2026, 9)),
+                onSave = { _, _, _, _, _, _, _, _ -> }, onEnd = {}, onDelete = {},
+                showWalletHistoryAction = false)
+        } }
+        compose.onNodeWithText(context.getString(R.string.income_sources_add)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.income_sources_add_tron_wallet)).assertDoesNotExist()
+    }
     @Test fun walletHistoryExplainsMissingTronWalletAndOpensAccounts() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         var opened = false

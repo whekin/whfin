@@ -29,7 +29,14 @@ internal data class SetupAccountReview(
     val pending: Int,
     val fingerprint: String,
     val checked: Boolean = false,
-)
+) {
+    /** A dated bank closing balance matching the ledger is evidence; it needs no owner tap. */
+    val resolved: Boolean get() = difference == 0L || checked
+}
+
+/** The app seeds an empty GEL cash shell; there is no owner balance to confirm until it is used. */
+internal fun includeInSetupBalanceReview(account: AccountEntity, transactions: List<TransactionEntity>): Boolean =
+    account.type != AccountType.CASH || transactions.any { it.accountId == account.id && !it.isVoided }
 
 /** Compare once at the closing date, never row-by-row within a bank's unordered day. */
 internal fun setupAccountReview(
@@ -76,8 +83,9 @@ internal data class SetupOverview(
     val debts: Int,
     val unrouted: Int,
 ) {
-    val checked: Int get() = accounts.count { it.checked }
-    val allChecked: Boolean get() = accounts.all { it.checked }
+    val resolved: Int get() = accounts.count { it.resolved }
+    val allResolved: Boolean get() = accounts.all { it.resolved }
+    val hasBankDifference: Boolean get() = accounts.any { it.difference != null && it.difference != 0L }
 }
 
 internal sealed interface SetupOverviewState {
@@ -109,7 +117,7 @@ internal class SetupOverviewViewModel(app: Application) : AndroidViewModel(app) 
         val imports = db.statementImportDao().all()
         val chains = db.cryptoDao().allBalances().associateBy { it.accountId }
         val checks = runtime.personalSetupChecks
-        val reviews = accounts.map { account ->
+        val reviews = accounts.filter { includeInSetupBalanceReview(it, transactions) }.map { account ->
             setupAccountReview(account, groups[account.groupId]?.let { it.provider ?: it.name }, transactions,
                 imports, chains[account.id]).let { it.copy(checked = it.fingerprint in checks) }
         }

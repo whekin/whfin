@@ -71,7 +71,11 @@ import java.time.ZoneId
 import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
-fun IncomeSourcesRoute(onOpenAccounts: (() -> Unit)? = null, viewModel: IncomeSourcesViewModel = viewModel()) {
+fun IncomeSourcesRoute(
+    onOpenAccounts: (() -> Unit)? = null,
+    showWalletHistoryAction: Boolean = true,
+    viewModel: IncomeSourcesViewModel = viewModel(),
+) {
     val state by viewModel.state.collectAsState()
     val formState by viewModel.formSaveState.collectAsState()
     IncomeSourcesScreen(
@@ -82,6 +86,7 @@ fun IncomeSourcesRoute(onOpenAccounts: (() -> Unit)? = null, viewModel: IncomeSo
         onDelete = viewModel::delete,
         onRefresh = viewModel::refreshFromChain,
         onOpenAccounts = onOpenAccounts,
+        showWalletHistoryAction = showWalletHistoryAction,
         demoMode = isDemoWorkspaceActive(),
         onLink = viewModel::link,
         onUnlink = viewModel::unlink,
@@ -98,6 +103,7 @@ fun IncomeSourcesScreen(
     onDelete: (IncomeSourceEntity) -> Unit,
     onRefresh: () -> Unit = {},
     onOpenAccounts: (() -> Unit)? = null,
+    showWalletHistoryAction: Boolean = true,
     demoMode: Boolean = false,
     onLink: (CryptoBankTransfer) -> Unit = {},
     onUnlink: (CryptoBankTransfer) -> Unit = {},
@@ -148,7 +154,7 @@ fun IncomeSourcesScreen(
             )
         }
 
-        WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+        if (showWalletHistoryAction) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
                 title = stringResource(when {
                     demoMode -> R.string.income_sources_recheck

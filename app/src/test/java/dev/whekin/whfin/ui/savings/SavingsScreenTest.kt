@@ -49,7 +49,7 @@ class SavingsScreenTest {
             }
         }
 
-        compose.onNodeWithText("Choose an account").performClick()
+        compose.onNodeWithText("Go to Accounts").performClick()
         compose.runOnIdle { assertEquals(true, opened) }
     }
 

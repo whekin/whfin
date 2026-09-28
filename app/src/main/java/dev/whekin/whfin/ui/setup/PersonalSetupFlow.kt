@@ -149,6 +149,9 @@ fun PersonalSetupFlow(
         tbcConnection.syncResult?.needsStatement?.size ?: 0)
     val credoProgressText = credoProgress.label()
     val tbcProgressText = tbcProgress.label()
+    val categoryBankPending = credoProgress.historyPending || tbcProgress.historyPending
+    val readyCta = setupReadyCta(overviewState, credoProgress.needsAction || tbcProgress.needsAction,
+        bankWorkActive)
     LaunchedEffect(autoAdvanceBank, destination, bankEntryRunId, bankSyncStatuses) {
         val page = autoAdvanceBank ?: return@LaunchedEffect
         val status = if (page == SetupPage.Credo) credoRuntime else tbcRuntime
@@ -194,9 +197,10 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
             )
             SetupStage.Categories -> listOf(
-                SetupAction(stringResource(R.string.category_setup_title)) { open(SetupPage.Suggestions) },
-                SetupAction(stringResource(R.string.categories_title), saved(overview?.categories)) { open(SetupPage.Categories) },
-                SetupAction(stringResource(R.string.category_intelligence_title), overview?.uncategorized?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_category, it) }) { open(SetupPage.Intelligence) },
+                SetupAction(stringResource(R.string.setup_category_suggestions),
+                    if (categoryBankPending) stringResource(R.string.setup_category_waiting_bank) else null) { open(SetupPage.Suggestions) },
+                SetupAction(stringResource(R.string.setup_category_edit), saved(overview?.categories)) { open(SetupPage.Categories) },
+                SetupAction(stringResource(R.string.setup_category_unfiled), overview?.uncategorized?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_category, it) }) { open(SetupPage.Intelligence) },
             )
             SetupStage.Income -> listOf(SetupAction(stringResource(R.string.income_sources_title), saved(overview?.incomes)) { open(SetupPage.Income) })
             SetupStage.Plans -> listOf(
@@ -238,14 +242,17 @@ fun PersonalSetupFlow(
                 if (stage == SetupStage.Ready) onContinue(0, false)
                 else stage = SetupStage.entries[stage.ordinal + 1]
             },
-            continueLabel = when {
-                stage != SetupStage.Ready -> null
-                credoProgress.needsAction || tbcProgress.needsAction ->
-                    stringResource(R.string.setup_start_with_bank_pending)
-                bankWorkActive -> stringResource(R.string.setup_start_while_bank_loads)
-                overview?.allChecked == false -> stringResource(R.string.setup_continue_unchecked)
-                else -> null
+            continueLabel = if (stage != SetupStage.Ready) null else when (readyCta) {
+                SetupReadyCta.WAIT_FOR_DATA -> stringResource(R.string.setup_review_loading)
+                SetupReadyCta.START_WITHOUT_REVIEW -> stringResource(R.string.setup_start_without_review)
+                SetupReadyCta.START_WITH_BANK_ACTION -> stringResource(R.string.setup_start_with_bank_pending)
+                SetupReadyCta.START_DURING_BANK_SYNC -> stringResource(R.string.setup_start_while_bank_loads)
+                SetupReadyCta.START_WITHOUT_ACCOUNTS -> stringResource(R.string.setup_start_no_accounts)
+                SetupReadyCta.START_WITH_BALANCES_TO_REVIEW -> stringResource(R.string.setup_continue_unchecked)
+                SetupReadyCta.START_WITH_KNOWN_DIFFERENCE -> stringResource(R.string.setup_start_with_difference)
+                SetupReadyCta.START -> null
             },
+            continueEnabled = stage != SetupStage.Ready || readyCta != SetupReadyCta.WAIT_FOR_DATA,
             footerAction = if (stage == SetupStage.Sms &&
                 !(credoSmsEnabled && tbcSmsEnabled && state.hasSmsPermission))
                 SetupAction(stringResource(if (credoSmsEnabled && tbcSmsEnabled)
@@ -286,7 +293,7 @@ fun PersonalSetupFlow(
     }
     if (destination == SetupPage.Suggestions) {
         CategorySetupStep(onContinue = { back(); stage = SetupStage.Income }, onBack = ::back,
-            bankHistoryPending = credoProgress.historyPending || tbcProgress.historyPending)
+            bankHistoryPending = categoryBankPending)
         return
     }
     val title = when (destination) {
@@ -346,7 +353,7 @@ fun PersonalSetupFlow(
                 queue = categoryQueue,
                 onOpenQueue = { categoryQueue = it },
             )
-            SetupPage.Income -> IncomeSourcesRoute(onOpenAccounts = { open(SetupPage.Accounts) })
+            SetupPage.Income -> IncomeSourcesRoute(showWalletHistoryAction = false)
             SetupPage.People -> PeopleRoute()
             SetupPage.Savings -> SavingsRoute(onOpenAccounts = { open(SetupPage.Accounts) })
             SetupPage.Debts -> SetupDebtsRoute(::back)

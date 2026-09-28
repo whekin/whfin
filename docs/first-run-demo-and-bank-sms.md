@@ -52,11 +52,18 @@ never prevents adding another.
    money versus reserve, opening balances and card mappings. Multiple accounts can be added.
 4. **Categories**: evidence-based suggestions, editable categories and remembered counterparty rules.
 5. **Income**: any number of regular income sources with currency, receiving account and expected payday.
+   Wallet history setup stays outside this onboarding step.
 6. **Savings and debts**: savings pace and goals for reserves, existing debts including declarations
    without a new money movement.
 7. **Preferences**: appearance, quick entry and widget choices, PIN/biometrics and portable backup.
 8. **Ready**: per-currency balance review and a collapsed return to any setup stage; no invented completion marks
    for banks or permissions. Skipped features remain accessible in the normal application.
+
+The final review counts a dated bank closing balance that exactly matches the ledger as verified
+without an owner tap. A manually reviewed mismatch remains a known difference, not a repaired
+balance. The untouched zero-balance Cash account seeded by the app has no balance to review;
+once cash transactions exist, it appears. Starting waits for the first complete local snapshot,
+and the action names any remaining review, bank attention, or missing account setup.
 
 After a fresh Credo or TBC sign-in has started its data read, setup automatically moves to Bank SMS.
 The process-owned read continues while the owner configures other stages. Bank rows share a progress
