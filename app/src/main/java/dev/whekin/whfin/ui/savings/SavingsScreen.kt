@@ -81,7 +81,7 @@ private enum class SavingsChartMode { Pace, Balance, Projection }
 private enum class SavingsChartRange { Year, All }
 
 @Composable
-fun SavingsRoute(viewModel: SavingsViewModel = viewModel()) {
+fun SavingsRoute(onOpenAccounts: () -> Unit = {}, viewModel: SavingsViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val demoWorkspace = isDemoWorkspaceActive()
@@ -93,6 +93,7 @@ fun SavingsRoute(viewModel: SavingsViewModel = viewModel()) {
         onClearPlan = viewModel::clearPlan,
         onSelectCurrency = viewModel::selectCurrency,
         onOpenBank = context::launchBank,
+        onOpenAccounts = onOpenAccounts,
     )
 }
 
@@ -103,6 +104,7 @@ internal fun SavingsScreen(
     onClearPlan: () -> Unit,
     onSelectCurrency: (String) -> Unit = {},
     onOpenBank: (SupportedBankApp) -> Boolean = { false },
+    onOpenAccounts: () -> Unit = {},
     formState: FormSaveState = FormSaveState(),
 ) {
     var editingPlan by rememberSaveable { mutableStateOf(false) }
@@ -119,6 +121,8 @@ internal fun SavingsScreen(
             state = WhfinPaneState.Unavailable,
             title = stringResource(R.string.savings_no_reserve_title),
             body = stringResource(R.string.savings_no_reserve_body),
+            actionLabel = stringResource(R.string.savings_choose_reserve),
+            onAction = onOpenAccounts,
             modifier = Modifier.fillMaxSize(),
         )
         return

@@ -703,7 +703,7 @@ fun MainScreen(
                     ShellScene.Savings -> SecondaryPage(
                         title = stringResource(R.string.savings_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { SavingsRoute() }
+                    ) { SavingsRoute(onOpenAccounts = { goBack(withHaptic = true) }) }
                     ShellScene.AccountTransactions -> targetShell.accountId?.let { accountId ->
                         AccountTransactionsScreen(
                             accountId = accountId,
@@ -794,7 +794,11 @@ fun MainScreen(
                     ShellScene.IncomeSources -> SecondaryPage(
                         title = stringResource(R.string.income_sources_title),
                         onBack = { goBack(withHaptic = true) },
-                    ) { IncomeSourcesRoute() }
+                    ) { IncomeSourcesRoute(onOpenAccounts = {
+                        root = RootDestination.Accounts
+                        secondaryDestination = null
+                        secondaryBackStack = emptyList()
+                    }) }
                     ShellScene.People -> SecondaryPage(
                         title = stringResource(R.string.people_title),
                         onBack = { goBack(withHaptic = true) },

@@ -13,11 +13,14 @@ import java.io.File
 
 class TbcLoginVisualTest {
     /** A result page is longer than the screen; a target below the fold is still a visible target. */
-    private fun scrollTo(device: UiDevice, text: String) = device.findObject(By.text(text)) ?: run {
-        androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
-            .scrollTextIntoView(text)
-        device.waitForIdle(500)
-        requireNotNull(device.findObject(By.text(text))) { "Expected \"$text\" somewhere on the page" }
+    private fun scrollTo(device: UiDevice, text: String): androidx.test.uiautomator.UiObject2 {
+        repeat(12) {
+            device.findObject(By.text(text))?.let { return it }
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
+                device.displayWidth / 2, device.displayHeight / 3, 25)
+            device.waitForIdle(400)
+        }
+        return requireNotNull(device.findObject(By.text(text))) { "Expected \"$text\" somewhere on the page" }
     }
 
     @Test fun englishLight() = render("en-light")
@@ -61,7 +64,7 @@ class TbcLoginVisualTest {
                 val accounts = if (language == "ru") "Счета" else "Accounts"
                 assertNotNull(device.wait(Until.findObject(By.text(attention)), 5000))
                 assertTrue(device.hasObject(By.text("1287.40")))
-                assertTrue(device.hasObject(By.textContains(if (language == "ru") "Ждёт начальный остаток" else "Waiting for its starting balance")))
+                assertTrue(device.hasObject(By.text(if (language == "ru") "Проведённый остаток" else "Booked balance")))
                 // The deposit listing is WHFIN's own word, so it is read in the reader's language.
                 assertNotNull(scrollTo(device, if (language == "ru") "Депозиты" else "Deposits"))
                 scrollTo(device, accounts)
@@ -95,6 +98,13 @@ class TbcLoginVisualTest {
             }
             android.os.SystemClock.sleep(400)
             assertTrue(device.takeScreenshot(File(out, "$name.png")))
+            if (initial && language == "ru") {
+                scrollTo(device, "Подтвердить 5 остатков и загрузить операции")
+                assertTrue(device.takeScreenshot(File(out, "$name-actions.png")))
+                scrollTo(device, "Продолжить без истории банка").click()
+                assertNotNull(device.wait(Until.findObject(By.text("Оставить эти счета на потом?")), 5000))
+                assertTrue(device.takeScreenshot(File(out, "$name-confirm-exit.png")))
+            }
             if (stage == "Code") {
                 assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
                 if (!device.hasObject(By.text("0"))) {
@@ -117,6 +127,7 @@ class TbcLoginVisualTest {
                 assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             }
             if (initial && language == "en") {
+                assertFalse(device.hasObject(By.text("Done")))
                 val field = device.findObject(By.clazz("android.widget.EditText"))
                 assertNotNull(field)
                 field.click(); field.text = "0"
@@ -125,11 +136,11 @@ class TbcLoginVisualTest {
                 device.waitForIdle(1000)
                 assertTrue(device.takeScreenshot(File(out, "$name-keyboard.png")))
                 device.pressBack()
-                if (!device.hasObject(By.text("Confirm balance and load transactions"))) {
+                if (!device.hasObject(By.text("Confirm 5 balances and load transactions"))) {
                     androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
-                        .scrollTextIntoView("Confirm balance and load transactions")
+                        .scrollTextIntoView("Confirm 5 balances and load transactions")
                 }
-                device.findObject(By.text("Confirm balance and load transactions")).click()
+                device.findObject(By.text("Confirm 5 balances and load transactions")).click()
                 assertTrue(device.wait(Until.gone(By.clazz("android.widget.EditText")), 5000))
             }
         }

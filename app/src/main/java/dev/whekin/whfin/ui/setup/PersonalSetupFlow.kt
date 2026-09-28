@@ -64,6 +64,7 @@ fun PersonalSetupFlow(
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
+    var categoryQueue by rememberSaveable { mutableStateOf<CategoryQueue?>(null) }
     var smsBank by rememberSaveable { mutableStateOf<BankSmsBank?>(null) }
     var rememberCredo by rememberSaveable { mutableStateOf(false) }
     var createPin by rememberSaveable { mutableStateOf(false) }
@@ -100,7 +101,10 @@ fun PersonalSetupFlow(
             SetupCardLinkState.Failed
         }
     }
-    fun open(page: SetupPage) { stack = stack + page.savedKey }
+    fun open(page: SetupPage) {
+        if (page == SetupPage.Intelligence) categoryQueue = null
+        stack = stack + page.savedKey
+    }
     fun back() { stack = stack.dropLast(1) }
     fun openSettings(page: String) {
         settingsEntry = page
@@ -223,7 +227,7 @@ fun PersonalSetupFlow(
         return
     }
     if (destination == SetupPage.Suggestions) {
-        CategorySetupStep(onContinue = ::back, onBack = ::back)
+        CategorySetupStep(onContinue = { back(); stage = SetupStage.Income }, onBack = ::back)
         return
     }
     val title = when (destination) {
@@ -240,7 +244,8 @@ fun PersonalSetupFlow(
         SetupPage.Savings -> stringResource(R.string.savings_title)
         SetupPage.Debts -> stringResource(R.string.debts_title)
         SetupPage.Categories -> stringResource(R.string.categories_title)
-        SetupPage.Intelligence -> stringResource(R.string.category_intelligence_title)
+        SetupPage.Intelligence -> categoryQueue?.let { categoryQueueTitle(it) }
+            ?: stringResource(R.string.category_intelligence_title)
         SetupPage.People -> stringResource(R.string.people_title)
         SetupPage.Privacy -> stringResource(R.string.privacy_title)
         SetupPage.About -> stringResource(R.string.about_title)
@@ -250,7 +255,9 @@ fun PersonalSetupFlow(
         SetupPage.Push -> stringResource(R.string.push_title)
     }
     val setupBack: () -> Unit = {
-        if (destination != SetupPage.Settings || settings.page == settingsEntry || !settings.back()) {
+        if (destination == SetupPage.Intelligence && categoryQueue != null) {
+            categoryQueue = null
+        } else if (destination != SetupPage.Settings || settings.page == settingsEntry || !settings.back()) {
             createPin = false
             back()
         }
@@ -272,10 +279,13 @@ fun PersonalSetupFlow(
             )
             SetupPage.Overview -> AccountOverviewScreen()
             SetupPage.Categories -> CategoriesRoute()
-            SetupPage.Intelligence -> CategoryIntelligenceRoute()
-            SetupPage.Income -> IncomeSourcesRoute()
+            SetupPage.Intelligence -> CategoryIntelligenceRoute(
+                queue = categoryQueue,
+                onOpenQueue = { categoryQueue = it },
+            )
+            SetupPage.Income -> IncomeSourcesRoute(onOpenAccounts = { open(SetupPage.Accounts) })
             SetupPage.People -> PeopleRoute()
-            SetupPage.Savings -> SavingsRoute()
+            SetupPage.Savings -> SavingsRoute(onOpenAccounts = { open(SetupPage.Accounts) })
             SetupPage.Debts -> SetupDebtsRoute(::back)
             SetupPage.Statements -> BankStatementsScreen()
             SetupPage.Backup -> BackupRoute(appVersion)

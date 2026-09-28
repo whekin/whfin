@@ -115,7 +115,7 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
         onRestore = { sensitive.require(SensitiveAction.BankCredential) { beginOtp { vm.restore() } } },
         onRefresh = vm::syncTransactions, onForget = vm::forget,
         onCancel = { otpKey++; preparation?.cancel(); preparing = false; otpInbox.endChallenge(); incomingOtp = null; vm.leave() },
-        onOpenStatements = onOpenStatements, onConfirmBalance = vm::confirmBalance,
+        onOpenStatements = onOpenStatements, onConfirmBalances = vm::confirmBalances,
         incomingOtp = incomingOtp, onOtpConsumed = { incomingOtp = null }, onDone = onDone)
 
 }
@@ -132,7 +132,7 @@ internal fun TbcLoginScreen(
     onForget: () -> Unit = {},
     onCancel: () -> Unit = {},
     onOpenStatements: () -> Unit = {},
-    onConfirmBalance: (String, Long) -> Unit = { _, _ -> },
+    onConfirmBalances: (List<Pair<String, Long>>) -> Unit = {},
     incomingOtp: String? = null,
     onOtpConsumed: () -> Unit = {},
     onDone: (() -> Unit)? = null,
@@ -142,6 +142,13 @@ internal fun TbcLoginScreen(
     var credential by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var usePassword by remember(state.hasSaved) { mutableStateOf(false) }
+    val balanceDrafts = remember(state.syncResult) {
+        mutableStateMapOf<String, String>().apply {
+            state.syncResult?.initialHistories?.forEach { initial ->
+                put(initial.remote.key, initial.remote.balanceMinor?.let(::formatBookedBalance).orEmpty())
+            }
+        }
+    }
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(state.stage, incomingOtp, state.error) {
         if (state.stage != TbcLoginStage.Code || state.error == "OTP") code = ""
@@ -161,7 +168,7 @@ internal fun TbcLoginScreen(
         TbcOtpContent(state, code, { code = it }, { onCode(code); code = "" }, onCancel)
         return
     }
-    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
+    Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         dev.whekin.whfin.ui.banks.BankBrand("TBC")
         if (state.error != null) {
@@ -210,7 +217,7 @@ internal fun TbcLoginScreen(
             }
             TbcLoginStage.Code -> Unit // Dedicated keypad surface above.
             TbcLoginStage.Connected -> TbcConnectedContent(state, onRefresh, onForget, onOpenStatements,
-                onConfirmBalance, { keyboard?.hide() }, onDone)
+                onConfirmBalances, balanceDrafts, { keyboard?.hide() }, onDone)
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -219,7 +226,7 @@ internal fun TbcLoginScreen(
 /**
  * What the sync did, read in the order the owner needs it.
  *
- * The accounts that want an answer come first and carry their own action; everything else is one
+ * The accounts that want an answer come first and share one review action; everything else is one
  * list of accounts, each saying what happened to it. The technical read — pages, bank rows, holds —
  * stays behind one disclosure, because it answers "why is this number what it is", not "what now".
  * A failure belongs to the row it happened on rather than to a separate paragraph of red text.
@@ -230,7 +237,8 @@ private fun ColumnScope.TbcConnectedContent(
     onRefresh: () -> Unit,
     onForget: () -> Unit,
     onOpenStatements: () -> Unit,
-    onConfirmBalance: (String, Long) -> Unit,
+    onConfirmBalances: (List<Pair<String, Long>>) -> Unit,
+    balanceDrafts: androidx.compose.runtime.snapshots.SnapshotStateMap<String, String>,
     onHideKeyboard: () -> Unit,
     onDone: (() -> Unit)?,
 ) {
@@ -242,6 +250,16 @@ private fun ColumnScope.TbcConnectedContent(
     }
     val unreported = failures.filterKeys { label -> reports.none { it.label == label } }
     var showReadDetails by remember(result) { mutableStateOf(false) }
+    var confirmSkip by remember { mutableStateOf(false) }
+    if (confirmSkip && onDone != null) WhfinConfirmDialog(
+        title = stringResource(R.string.tbc_continue_later_title),
+        body = stringResource(R.string.tbc_continue_later_body, waiting.size),
+        confirmLabel = stringResource(R.string.tbc_continue_later),
+        dismissLabel = stringResource(R.string.action_cancel),
+        confirmStyle = WhfinActionStyle.Secondary,
+        onConfirm = { confirmSkip = false; onDone() },
+        onDismiss = { confirmSkip = false },
+    )
 
     Text(stringResource(R.string.tbc_connected), style = MaterialTheme.typography.titleLarge)
     if (state.hasSaved) Text(stringResource(R.string.tbc_saved_title), style = MaterialTheme.typography.bodySmall,
@@ -249,18 +267,14 @@ private fun ColumnScope.TbcConnectedContent(
     if (result != null && (result.inserted > 0 || result.matched > 0 || result.unchanged > 0 || waiting.isEmpty()))
         Text(stringResource(R.string.tbc_sync_result, result.inserted, result.matched),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (onDone != null) WhfinButton(
-        stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth(),
-        style = WhfinActionStyle.Secondary,
-        leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-    )
-
     if (waiting.isNotEmpty() || unreported.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             WhfinSectionLabel(stringResource(R.string.tbc_section_attention))
             if (waiting.isNotEmpty()) {
                 Text(stringResource(R.string.tbc_initial_statement), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (waiting.any { it.balanceMinor != null }) Text(stringResource(R.string.tbc_balance_prefilled),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 var explainBalance by remember { mutableStateOf(false) }
                 WhfinButton(stringResource(R.string.tbc_balance_help), { explainBalance = !explainBalance },
                     style = WhfinActionStyle.Quiet)
@@ -269,28 +283,30 @@ private fun ColumnScope.TbcConnectedContent(
                 WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     waiting.forEachIndexed { index, remote ->
                         val initial = result?.initialHistories?.singleOrNull { it.remote.key == remote.key }
-                        WhfinLedgerRow(title = remote.label, supportingText = stringResource(R.string.tbc_row_needs_balance),
+                        WhfinLedgerRow(title = remote.label,
                             icon = Icons.Default.AccountBalance, divider = index < waiting.lastIndex)
                         if (initial != null) {
                             // The bank prints a figure for the account; what it means is not documented,
                             // so it is an offer to check rather than an anchor.
-                            val suggested = remote.balanceMinor?.let(::formatBookedBalance)
-                            var balance by remember(remote.key, initial.readAt) { mutableStateOf(suggested.orEmpty()) }
-                            val parsed = parseBookedBalance(balance)
+                            val balance = balanceDrafts[remote.key].orEmpty()
                             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                WhfinField(balance, { balance = it }, stringResource(R.string.tbc_booked_balance_field),
+                                WhfinField(balance, { balanceDrafts[remote.key] = it }, stringResource(R.string.tbc_booked_balance_field),
                                     keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
-                                if (suggested != null) Text(stringResource(R.string.tbc_balance_prefilled),
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                WhfinButton(stringResource(R.string.tbc_confirm_balance), {
-                                    parsed?.let { onConfirmBalance(remote.key, it) }; onHideKeyboard()
-                                }, Modifier.fillMaxWidth(), enabled = parsed != null)
                             }
                         }
                     }
                 }
+                val ready = waiting.mapNotNull { remote ->
+                    if (result?.initialHistories?.none { it.remote.key == remote.key } != false) null
+                    else parseBookedBalance(balanceDrafts[remote.key].orEmpty())?.let { remote.key to it }
+                }
+                WhfinButton(stringResource(R.string.tbc_confirm_balances, waiting.size), {
+                    onHideKeyboard(); onConfirmBalances(ready)
+                }, Modifier.fillMaxWidth(), enabled = ready.size == waiting.size)
                 WhfinButton(stringResource(R.string.statements_upload), onOpenStatements,
+                    Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+                WhfinButton(stringResource(R.string.tbc_refresh_read), onRefresh,
                     Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
             // A product family that could not be listed is its own failure, not part of the form above.
@@ -357,8 +373,13 @@ private fun ColumnScope.TbcConnectedContent(
             { showReadDetails = !showReadDetails }, style = WhfinActionStyle.Quiet)
     }
 
-    WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth(),
-        style = if (waiting.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Secondary)
+    if (waiting.isEmpty()) WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth())
+    if (onDone != null) WhfinButton(
+        stringResource(if (waiting.isEmpty()) R.string.action_done else R.string.tbc_continue_later),
+        if (waiting.isEmpty()) onDone else { { confirmSkip = true } }, Modifier.fillMaxWidth(),
+        style = if (waiting.isEmpty()) WhfinActionStyle.Secondary else WhfinActionStyle.Quiet,
+        leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+    )
     WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
 }
 

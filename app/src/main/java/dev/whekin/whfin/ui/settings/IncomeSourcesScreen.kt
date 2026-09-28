@@ -63,6 +63,7 @@ import dev.whekin.whfin.data.income.IncomeExpectation
 import dev.whekin.whfin.ui.formatMinor
 import dev.whekin.whfin.ui.parseToMinor
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import dev.whekin.whfin.ui.demo.isDemoWorkspaceActive
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -70,9 +71,8 @@ import java.time.ZoneId
 import dev.whekin.whfin.data.LedgerCalendar
 
 @Composable
-fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
+fun IncomeSourcesRoute(onOpenAccounts: (() -> Unit)? = null, viewModel: IncomeSourcesViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(Unit) { viewModel.refreshFromChain() }
     val formState by viewModel.formSaveState.collectAsState()
     IncomeSourcesScreen(
         state = state,
@@ -81,6 +81,8 @@ fun IncomeSourcesRoute(viewModel: IncomeSourcesViewModel = viewModel()) {
         onEnd = viewModel::end,
         onDelete = viewModel::delete,
         onRefresh = viewModel::refreshFromChain,
+        onOpenAccounts = onOpenAccounts,
+        demoMode = isDemoWorkspaceActive(),
         onLink = viewModel::link,
         onUnlink = viewModel::unlink,
         onConfirmPayment = viewModel::confirmPayment,
@@ -95,6 +97,8 @@ fun IncomeSourcesScreen(
     onEnd: (IncomeSourceEntity) -> Unit,
     onDelete: (IncomeSourceEntity) -> Unit,
     onRefresh: () -> Unit = {},
+    onOpenAccounts: (() -> Unit)? = null,
+    demoMode: Boolean = false,
     onLink: (CryptoBankTransfer) -> Unit = {},
     onUnlink: (CryptoBankTransfer) -> Unit = {},
     onConfirmPayment: (IncomeSourceEntity, TransactionEntity) -> Unit = { _, _ -> },
@@ -146,15 +150,26 @@ fun IncomeSourcesScreen(
 
         WhfinLedgerGroup(Modifier.fillMaxWidth()) {
             WhfinLedgerRow(
-                title = stringResource(
-                    if (state.isReadingChain) R.string.income_sources_reading
-                    else R.string.income_sources_recheck,
-                ),
-                supportingText = stringResource(R.string.income_sources_recheck_hint),
+                title = stringResource(when {
+                    demoMode -> R.string.income_sources_recheck
+                    state.tronWalletCount == 0 -> R.string.income_sources_add_tron_wallet
+                    state.isReadingChain -> R.string.income_sources_reading
+                    else -> R.string.income_sources_recheck
+                }),
+                supportingText = stringResource(when {
+                    demoMode -> R.string.demo_mode_live_import_unavailable
+                    state.tronWalletCount == 0 && state.walletCount > 0 -> R.string.crypto_history_scope
+                    state.tronWalletCount == 0 -> R.string.income_sources_no_wallet
+                    else -> R.string.income_sources_recheck_hint
+                }),
                 supportingMaxLines = 3,
                 icon = Icons.Default.SouthWest,
                 iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onRefresh,
+                onClick = when {
+                    demoMode || state.isReadingChain -> null
+                    state.tronWalletCount == 0 -> onOpenAccounts
+                    else -> onRefresh
+                },
             )
         }
 

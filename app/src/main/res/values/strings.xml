@@ -757,7 +757,7 @@
     <string name="category_setup_body">WHFIN read the history it just imported and recognized these. Add the ones that fit — every transaction already behind them gets categorized at once.</string>
     <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
     <string name="category_setup_packs_only">Nothing new came out of the history WHFIN just read. These are interests a ledger cannot know about on its own — add the ones that are yours.</string>
-    <string name="category_setup_skip">Not now</string>
+    <string name="category_setup_continue">Continue setup</string>
     <string name="category_duplicates_section">Names</string>
     <string name="category_duplicates_title">One counterparty, two names</string>
     <string name="category_duplicates_row_body">Join two names WHFIN could not prove are the same</string>
@@ -1237,6 +1237,10 @@
     <string name="income_sources_past">Earlier</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
     <string name="income_sources_recheck">Load wallet history</string>
+    <string name="income_sources_add_tron_wallet">Add a Tron wallet</string>
+    <string name="income_sources_no_wallet">Tron USDT and USDC history becomes available after you add a watch-only wallet in Accounts.</string>
+    <string name="income_sources_history_no_new">Wallet history checked. No new confirmed USDT or USDC transfers.</string>
+    <string name="income_sources_history_failed">Could not load wallet history. Check the connection and try again.</string>
     <string name="income_sources_recheck_hint">Saves confirmed wallet operations, so a later exchange into the bank is not counted as new money.</string>
     <string name="income_sources_reading">Reading…</string>
     <string name="income_sources_unreadable">%1$s declared · the chain could not be read just now</string>
@@ -1304,7 +1308,8 @@
     <string name="savings_open_bank_hint">Move money in your bank. WHFIN observes it through the normal bank sync.</string>
     <string name="savings_loading">Reading reserve history…</string>
     <string name="savings_no_reserve_title">No Reserve funds yet</string>
-    <string name="savings_no_reserve_body">Mark any account as Reserve to track its balance and saving pace here.</string>
+    <string name="savings_no_reserve_body">In Accounts, edit a cash or bank account and mark it Reserve. This changes its role; it does not move money.</string>
+    <string name="savings_choose_reserve">Choose an account</string>
     <string name="savings_reserve_label">Reserve now</string>
     <string name="savings_goal_reached">Goal reached</string>
     <string name="savings_goal_remaining">%1$s left to the goal</string>
@@ -1381,7 +1386,12 @@
     <string name="tbc_sync_progress">Loading transactions · account %1$d of %2$d</string>
     <string name="tbc_sync_result">New transactions: %1$d · matched: %2$d</string>
     <string name="tbc_deposits_family">Deposits</string>
-    <string name="tbc_initial_statement">Confirm each account’s booked balance to start without a file. You can verify it with a statement later.</string>
+    <string name="tbc_initial_statement">Check the booked balances, including zeros, then load all accounts together.</string>
+    <string name="tbc_confirm_balances">Confirm %1$d balances and load transactions</string>
+    <string name="tbc_continue_later">Continue without bank history</string>
+    <string name="tbc_continue_later_title">Leave these accounts for later?</string>
+    <string name="tbc_continue_later_body">%1$d accounts still need a starting balance. Their transactions will not appear until you return and confirm them or import a statement.</string>
+    <string name="tbc_refresh_read">Refresh bank data</string>
     <string name="tbc_history_conflict">Mobile history and the statement cannot be matched uniquely. This account was left unchanged.</string>
     <string name="tbc_history_format">Could not read the complete history for this account. Nothing from this account was imported.</string>
     <string name="tbc_history_changed">History changed during download. Please sync again.</string>
@@ -1395,12 +1405,10 @@
     <string name="bank_connect_action">Connect bank</string>
     <string name="bank_connect_offer">Connect %1$s to load accounts and transactions. The bank may ask you to confirm sign-in.</string>
     <string name="bank_create_manually">Skip connection, create manually</string>
-    <string name="tbc_confirm_balance">Confirm balance and load transactions</string>
-    <string name="tbc_balance_prefilled">Filled in with the figure TBC shows for this account. The bank does not say whether it already deducts pending charges, so check it before confirming.</string>
+    <string name="tbc_balance_prefilled">TBC figures are prefilled where available. Check them before confirming.</string>
     <string name="tbc_booked_balance_field">Booked balance</string>
     <string name="tbc_section_attention">Needs you</string>
     <string name="tbc_section_accounts">Accounts</string>
-    <string name="tbc_row_needs_balance">Waiting for its starting balance</string>
     <string name="tbc_row_new">New: %1$d</string>
     <string name="tbc_row_matched">Matched: %1$d</string>
     <string name="tbc_row_unchanged">No changes</string>

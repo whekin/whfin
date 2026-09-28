@@ -7,8 +7,13 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.categorization.CategoryCatalog
+import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.categorization.CategoryProposals
 import dev.whekin.whfin.ui.theme.WhfinTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -61,7 +66,7 @@ class CategorySetupStepTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.category_setup_skip)).performClick()
+        compose.onNodeWithText(context.getString(R.string.category_setup_continue)).performClick()
 
         assertEquals(null, accepted)
         assertEquals(true, continued)
@@ -87,6 +92,28 @@ class CategorySetupStepTest {
         assertEquals(listOf("PedalBike"), accepted)
     }
 
+    @Test
+    fun acceptingAllLeavesAClearWayForwardEvenWhenOptionalPacksRemain() {
+        var continued = false
+        compose.setContent {
+            var proposals by remember { mutableStateOf(listOf(CategoryProposals.Proposal(bike, 18))) }
+            WhfinTheme {
+                CategorySetupStep(
+                    proposals = proposals,
+                    packs = listOf(CategoryPacks.all.first()),
+                    onAccept = { proposals = emptyList() },
+                    onContinue = { continued = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText(context.getString(R.string.category_proposals_accept_all)).performClick()
+        compose.onNodeWithText(context.getString(R.string.category_setup_continue))
+            .assertIsDisplayed().performClick()
+        assertEquals(true, continued)
+    }
+
     /** A ledger that earned nothing new still needs a way forward, not an empty list. */
     @Test
     fun aLedgerWithNothingToPropose_stillOffersAWayOn() {
@@ -103,7 +130,7 @@ class CategorySetupStepTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.category_setup_none)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.personal_setup_continue_action))
+        compose.onNodeWithText(context.getString(R.string.category_setup_continue))
             .performClick()
 
         assertEquals(true, continued)

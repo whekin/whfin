@@ -35,7 +35,8 @@ class IncomeSourcesVisualTest {
             device.dumpWindowHierarchy(File(dir, "$name.xml"))
             if (editor) {
                 device.findObject(By.desc(if (large) "Что это" else "What is it")).click()
-                assertTrue(device.wait(Until.hasObject(By.pkg("com.google.android.inputmethod.latin")), 5000))
+                val imePackage = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
+                assertTrue(device.wait(Until.hasObject(By.pkg(imePackage)), 5000))
                 device.waitForIdle(2000)
                 assertNotNull(device.findObject(By.text(if (large) "Сохранить" else "Save")))
                 assertTrue(device.takeScreenshot(File(dir, "$name-ime.png")))

@@ -56,11 +56,15 @@ class TbcLoginQaActivity : ComponentActivity() {
                                 fullHistory = true, bankBalanceDiffers = true),
                             dev.whekin.whfin.data.importer.TbcSyncReport("EUR · •0001", 0, error = "HISTORY_FORMAT"),
                             dev.whekin.whfin.data.importer.TbcSyncReport("GEL · •0002", 0, waitingForBalance = true)))
-                } else if (intent.getBooleanExtra("initial", false)) dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(
-                    dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")),
-                    initialHistories = listOf(dev.whekin.whfin.data.importer.TbcInitialHistory(
-                        dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday"),
-                        java.time.LocalDate.of(2025, 9, 9), java.time.LocalDate.of(2026, 9, 9), emptyList())))
+                } else if (intent.getBooleanExtra("initial", false)) {
+                    val waiting = listOf("GEL", "USD", "EUR", "GBP", "TRY").mapIndexed { index, currency ->
+                        dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", currency,
+                            if (index == 0) "Everyday" else "Currency account", balanceMinor = if (index == 0) 128740L else 0L)
+                    }
+                    dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = waiting,
+                        initialHistories = waiting.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
+                            it, java.time.LocalDate.of(2025, 9, 9), java.time.LocalDate.of(2026, 9, 9), emptyList()) })
+                }
                 else dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 0, matched = 0, unchanged = 2,
                     reports = listOf(
                         dev.whekin.whfin.data.importer.TbcSyncReport("GEL · •0001", 0, fullHistory = true,
@@ -82,7 +86,7 @@ class TbcLoginQaActivity : ComponentActivity() {
                             onRemember = { state = state.copy(remember = it) },
                             onRestore = { state = state.copy(stage = TbcLoginStage.Connected) },
                             onForget = { state = state.copy(hasSaved = false, remember = false, stage = TbcLoginStage.Login) },
-                            onConfirmBalance = { _, _ -> state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) },
+                            onConfirmBalances = { state = state.copy(syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(inserted = 3)) },
                             onDone = ::finish)
                     }
                     }

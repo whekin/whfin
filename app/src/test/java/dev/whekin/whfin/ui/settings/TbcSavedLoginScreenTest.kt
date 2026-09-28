@@ -25,6 +25,20 @@ class TbcSavedLoginScreenTest {
         compose.onNodeWithText(context.getString(R.string.action_done)).performScrollTo().performClick()
         compose.runOnIdle { assertTrue(completed) }
     }
+    @Test fun leavingWithUnloadedAccountsRequiresConfirmation() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val remote = dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL", "Everyday")
+        var completed = false
+        compose.setContent { WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
+            syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(remote))), true,
+            onDone = { completed = true }) } }
+        compose.onNodeWithText(context.getString(R.string.action_done)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.tbc_continue_later)).performScrollTo().performClick()
+        compose.runOnIdle { assertFalse(completed) }
+        compose.onNodeWithText(context.getString(R.string.tbc_continue_later_title)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.action_cancel)).performClick()
+        compose.runOnIdle { assertFalse(completed) }
+    }
     @Test fun savedSessionDoesNotAskForPasswordAgain() {
         compose.setContent { WhfinTheme { TbcLoginScreen(TbcLoginState(hasSaved = true), true) } }
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
@@ -89,26 +103,22 @@ class TbcSavedLoginScreenTest {
         assertEquals(1, report.matched)
     }
 
-    @Test fun zeroBalanceCanBeConfirmedForEachOfFourCurrencies() {
+    @Test fun fourZeroBalancesNeedOneExplicitBatchConfirmation() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val remotes = listOf("GEL", "USD", "EUR", "GBP").map { currency ->
-            dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", currency, "Everyday")
+            dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", currency, "Everyday", balanceMinor = 0)
         }
-        val confirmed = mutableListOf<Pair<String, Long>>()
+        var confirmed: List<Pair<String, Long>>? = null
         compose.setContent {
-            var remaining by remember { mutableStateOf(remotes) }
             WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
-                syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = remaining,
-                    initialHistories = remaining.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
+                syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = remotes,
+                    initialHistories = remotes.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
                         it, java.time.LocalDate.now(), java.time.LocalDate.now(), emptyList()) })), true,
-                onConfirmBalance = { key, amount -> confirmed += key to amount; remaining = remaining.filterNot { it.key == key } }) }
+                onConfirmBalances = { confirmed = it }) }
         }
-        remotes.forEachIndexed { index, remote ->
-            compose.onAllNodes(hasSetTextAction())[0].performScrollTo().performTextInput("0")
-            compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[0].performScrollTo().performClick()
-            compose.runOnIdle { assertEquals(remote.key to 0L, confirmed.getOrNull(index)) }
-        }
-        compose.onAllNodes(hasSetTextAction()).assertCountEquals(0)
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(4)
+        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 4)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(remotes.map { it.key to 0L }, confirmed) }
     }
 
     @Test fun manualOtpUsesBuiltInKeypadAndExplicitConfirmation() {
@@ -130,21 +140,22 @@ class TbcSavedLoginScreenTest {
         val known = dev.whekin.whfin.data.tbc.TbcLedgerAccount("10", "GE00TB0000000000000001", "GEL",
             "Everyday", balanceMinor = -1234L)
         val silent = dev.whekin.whfin.data.tbc.TbcLedgerAccount("11", "GE00TB0000000000000002", "USD", "Travel")
-        var confirmed: Pair<String, Long>? = null
+        var confirmed: List<Pair<String, Long>>? = null
         val remotes = listOf(known, silent)
         compose.setContent {
             WhfinTheme { TbcLoginScreen(TbcLoginState(stage = TbcLoginStage.Connected,
                 syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = remotes,
                     initialHistories = remotes.map { dev.whekin.whfin.data.importer.TbcInitialHistory(
                         it, java.time.LocalDate.now(), java.time.LocalDate.now(), emptyList()) })), true,
-                onConfirmBalance = { key, amount -> confirmed = key to amount }) }
+                onConfirmBalances = { confirmed = it }) }
         }
         compose.onNodeWithText("-12.34").assertExists()
         // Nothing is asserted about an account the bank said nothing about.
         compose.onAllNodesWithText(context.getString(R.string.tbc_balance_prefilled)).assertCountEquals(1)
-        compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[0].performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(known.key to -1234L, confirmed) }
-        compose.onAllNodesWithText(context.getString(R.string.tbc_confirm_balance))[1].performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 2)).performScrollTo().assertIsNotEnabled()
+        compose.onAllNodes(hasSetTextAction())[1].performScrollTo().performTextInput("0")
+        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 2)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf(known.key to -1234L, silent.key to 0L), confirmed) }
     }
 
     @Test fun bookedBalanceAcceptsZeroAndDebtWithoutTruncationOrOverflow() {

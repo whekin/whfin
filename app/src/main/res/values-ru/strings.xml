@@ -789,7 +789,7 @@
     <string name="category_setup_body">WHFIN прочитал только что загруженную историю и узнал вот это. Добавьте подходящие — все операции, которые за ними стоят, разметятся сразу.</string>
     <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
     <string name="category_setup_packs_only">Из прочитанной истории ничего нового не вышло. Ниже — увлечения, о которых выписка знать не может; добавьте свои.</string>
-    <string name="category_setup_skip">Не сейчас</string>
+    <string name="category_setup_continue">Продолжить настройку</string>
     <string name="category_duplicates_section">Имена</string>
     <string name="category_duplicates_title">Один контрагент под двумя именами</string>
     <string name="category_duplicates_row_body">Объединить имена, которые WHFIN не смог доказать сам</string>
@@ -1297,6 +1297,10 @@
     <string name="income_sources_past">Раньше</string>
     <string name="income_sources_past_range">%1$s — %2$s</string>
     <string name="income_sources_recheck">Загрузить историю кошелька</string>
+    <string name="income_sources_add_tron_wallet">Добавить кошелёк Tron</string>
+    <string name="income_sources_no_wallet">История USDT и USDC в Tron станет доступна после добавления watch-only кошелька в «Счетах».</string>
+    <string name="income_sources_history_no_new">История кошелька проверена. Новых подтверждённых переводов USDT и USDC нет.</string>
+    <string name="income_sources_history_failed">Не удалось загрузить историю кошелька. Проверьте соединение и повторите.</string>
     <string name="income_sources_recheck_hint">Сохраняет подтверждённые операции кошелька, чтобы обмен в банк потом не посчитался новыми деньгами.</string>
     <string name="income_sources_reading">Читаю…</string>
     <string name="income_sources_unreadable">объявлено %1$s · сейчас не удалось прочитать блокчейн</string>
@@ -1366,7 +1370,8 @@
     <string name="savings_open_bank_hint">Переведите деньги в банке. WHFIN увидит движение при обычной синхронизации.</string>
     <string name="savings_loading">Читаю историю резерва…</string>
     <string name="savings_no_reserve_title">В резерве пока ничего нет</string>
-    <string name="savings_no_reserve_body">Отметьте любой счёт как «Резерв», чтобы видеть здесь его баланс и темп накопления.</string>
+    <string name="savings_no_reserve_body">В «Счетах» откройте наличный или банковский счёт и отметьте его как «Резерв». Деньги при этом не переводятся.</string>
+    <string name="savings_choose_reserve">Выбрать счёт</string>
     <string name="savings_reserve_label">Сейчас в резерве</string>
     <string name="savings_goal_reached">Цель достигнута</string>
     <string name="savings_goal_remaining">До цели осталось %1$s</string>
@@ -1443,7 +1448,12 @@
     <string name="tbc_sync_progress">Получаем операции · счёт %1$d из %2$d</string>
     <string name="tbc_sync_result">Новых операций: %1$d · сопоставлено: %2$d</string>
     <string name="tbc_deposits_family">Депозиты</string>
-    <string name="tbc_initial_statement">Подтвердите проведённый остаток каждого счёта, чтобы начать без файла. Позже его можно сверить выпиской.</string>
+    <string name="tbc_initial_statement">Проверьте проведённые остатки, включая нули, затем загрузите все счета одним действием.</string>
+    <string name="tbc_confirm_balances">Подтвердить %1$d остатков и загрузить операции</string>
+    <string name="tbc_continue_later">Продолжить без истории банка</string>
+    <string name="tbc_continue_later_title">Оставить эти счета на потом?</string>
+    <string name="tbc_continue_later_body">Осталось счетов без начального остатка: %1$d. Операции появятся после подтверждения остатков или импорта выписки.</string>
+    <string name="tbc_refresh_read">Обновить данные банка</string>
     <string name="tbc_history_conflict">Не удалось однозначно сопоставить историю и выписку. Данные этого счёта не изменены.</string>
     <string name="tbc_history_format">Не удалось прочитать полную историю счёта. Операции этого счёта не загружены.</string>
     <string name="tbc_history_changed">История изменилась во время загрузки. Повторите синхронизацию.</string>
@@ -1457,12 +1467,10 @@
     <string name="bank_connect_action">Подключить банк</string>
     <string name="bank_connect_offer">Подключите %1$s, чтобы загрузить счета и операции. Банк может попросить подтвердить вход.</string>
     <string name="bank_create_manually">Без подключения — создать вручную</string>
-    <string name="tbc_confirm_balance">Подтвердить остаток и загрузить операции</string>
-    <string name="tbc_balance_prefilled">Подставлена цифра, которую TBC показывает по этому счёту. Банк не говорит, вычтены ли из неё покупки в обработке, поэтому сверьте её перед подтверждением.</string>
+    <string name="tbc_balance_prefilled">Цифры TBC подставлены там, где доступны. Проверьте их перед подтверждением.</string>
     <string name="tbc_booked_balance_field">Проведённый остаток</string>
     <string name="tbc_section_attention">Требует решения</string>
     <string name="tbc_section_accounts">Счета</string>
-    <string name="tbc_row_needs_balance">Ждёт начальный остаток</string>
     <string name="tbc_row_new">Новых: %1$d</string>
     <string name="tbc_row_matched">Сверено: %1$d</string>
     <string name="tbc_row_unchanged">Без изменений</string>

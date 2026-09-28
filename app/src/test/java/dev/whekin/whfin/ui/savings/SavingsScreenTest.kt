@@ -36,6 +36,24 @@ class SavingsScreenTest {
     val compose = createComposeRule()
 
     @Test
+    fun emptyReserveOpensAccountsInsteadOfEndingAtAnExplanation() {
+        var opened = false
+        compose.setContent {
+            WhfinTheme {
+                SavingsScreen(
+                    data = data(plan = null).copy(hasReserve = false),
+                    onSavePlan = { _, _, _ -> },
+                    onClearPlan = {},
+                    onOpenAccounts = { opened = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Choose an account").performClick()
+        compose.runOnIdle { assertEquals(true, opened) }
+    }
+
+    @Test
     fun noPlanExplainsTheDeclarationAndOpensItsEditor() {
         compose.setContent { content(data(plan = null)) }
 

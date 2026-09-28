@@ -51,6 +51,18 @@ class TbcHistorySyncTest {
             inserted = 0, duplicates = 0, reconciled = 0, importedAt = 1))
         return id
     }
+    @Test fun batchRollsBackEveryAccountWhenOneBalanceCannotBeApplied() = runBlocking {
+        val second = remote.copy(currency = "USD")
+        val initials = TbcHistorySync(db).sync(Gateway(listOf(remote, second),
+            mapOf(remote.key to emptyList(), second.key to emptyList())), today).initialHistories
+        assertEquals(2, initials.size)
+        seedOpening(second)
+        val before = db.statementImportDao().all()
+        val failure = runCatching { TbcHistorySync(db).initializeBatch(initials.map { it to 0L }) }.exceptionOrNull()
+        assertTrue(failure is TbcException)
+        assertEquals(before, db.statementImportDao().all())
+        assertNull(db.accountDao().byIbanAndCurrency(remote.iban, remote.currency))
+    }
     @Test fun reportDistinguishesEmptyBankHistoryFromAlreadyImportedRows() = runBlocking {
         seedOpening()
         val empty = sync(emptyList())

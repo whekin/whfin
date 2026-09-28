@@ -191,6 +191,22 @@ class TbcHistorySync(private val db: WhfinDatabase) {
     }
     /** Uses the exact displayed read, never a fresh download after the owner enters its balance. */
     suspend fun initialize(initial: TbcInitialHistory, bookedBalanceMinor: Long): TbcInitializationResult {
+        val prepared = prepareInitialization(initial, bookedBalanceMinor)
+        return db.withTransaction { applyInitialization(prepared) }
+    }
+
+    /** All reviewed balances either enter the ledger together or none of them do. */
+    suspend fun initializeBatch(balances: List<Pair<TbcInitialHistory, Long>>): List<TbcInitializationResult> {
+        require(balances.isNotEmpty())
+        require(balances.map { it.first.remote.key }.distinct().size == balances.size)
+        val prepared = balances.map { (initial, booked) -> prepareInitialization(initial, booked) }
+        return db.withTransaction { prepared.map { applyInitialization(it) } }
+    }
+
+    private data class PreparedInitialization(val initial: TbcInitialHistory, val opening: Long,
+        val statement: BankStatement)
+
+    private fun prepareInitialization(initial: TbcInitialHistory, bookedBalanceMinor: Long): PreparedInitialization {
         if (System.currentTimeMillis() - initial.readAt > 15 * 60_000L) throw TbcException("HISTORY_CHANGED")
         val remote = initial.remote
         val net = initial.rows.fold(0L) { sum, row -> Math.addExact(sum, row.row.amountMinor) }
@@ -198,20 +214,23 @@ class TbcHistorySync(private val db: WhfinDatabase) {
         val statement = BankStatement(BankProfile("TBC", "TBC"), remote.iban, remote.currency,
             initial.from, initial.to, null, null, initial.rows.map { it.row }.sortedBy { it.postedDate })
         StatementValidator.validate(statement)
-        return db.withTransaction {
-            val resolved = BankLedgerResolver(db).resolve(statement)
-            if (db.statementImportDao().earliestWithOpeningBalance(resolved.account.id) != null) throw TbcException("HISTORY_CHANGED")
-            val plan = ImportPlanner(db, LedgerCalendar.zone).plan(statement, resolved.account, resolved.created, resolved.adopted, collectReview = false)
-            val seed = statement.copy(rows = emptyList(), openingBalanceMinor = opening, closingBalanceMinor = opening)
-            StatementValidator.validate(seed)
-            ImportApplier(db, LedgerCalendar.zone).apply(ImportPlan(seed, resolved.account.id, resolved.created, resolved.adopted, emptyList(), emptyList()),
-                resolved.account, null, StatementImportOrigin.USER_OPENING)
-            ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_HISTORY)
-            val held = TbcHoldImporter(db).apply(resolved.account, initial.holds)
-            SmsTransactionImporter(db, dev.whekin.whfin.data.sms.BankSmsBank.TBC).attachUnroutedToHolds()
-            SmsTransactionImporter(db).attachUnroutedToStatements()
-            TbcInitializationResult(plan.inserted + held.inserted, plan.reconciled + held.attached)
-        }
+        return PreparedInitialization(initial, opening, statement)
+    }
+
+    private suspend fun applyInitialization(prepared: PreparedInitialization): TbcInitializationResult {
+        val (initial, opening, statement) = prepared
+        val resolved = BankLedgerResolver(db).resolve(statement)
+        if (db.statementImportDao().earliestWithOpeningBalance(resolved.account.id) != null) throw TbcException("HISTORY_CHANGED")
+        val plan = ImportPlanner(db, LedgerCalendar.zone).plan(statement, resolved.account, resolved.created, resolved.adopted, collectReview = false)
+        val seed = statement.copy(rows = emptyList(), openingBalanceMinor = opening, closingBalanceMinor = opening)
+        StatementValidator.validate(seed)
+        ImportApplier(db, LedgerCalendar.zone).apply(ImportPlan(seed, resolved.account.id, resolved.created, resolved.adopted, emptyList(), emptyList()),
+            resolved.account, null, StatementImportOrigin.USER_OPENING)
+        ImportApplier(db, LedgerCalendar.zone).apply(plan, resolved.account, null, StatementImportOrigin.TBC_HISTORY)
+        val held = TbcHoldImporter(db).apply(resolved.account, initial.holds)
+        SmsTransactionImporter(db, dev.whekin.whfin.data.sms.BankSmsBank.TBC).attachUnroutedToHolds()
+        SmsTransactionImporter(db).attachUnroutedToStatements()
+        return TbcInitializationResult(plan.inserted + held.inserted, plan.reconciled + held.attached)
     }
 
     companion object {

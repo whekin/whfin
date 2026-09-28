@@ -172,13 +172,21 @@ class TbcLoginViewModel internal constructor(
         mutable.value = mutable.value.copy(hasSaved = hasSavedSignIn(), hasSavedCredentials = credentialStore.hasCredentials())
     }
 
-    fun confirmBalance(key: String, amountMinor: Long) {
+    fun confirmBalances(balances: List<Pair<String, Long>>) {
         val previous = mutable.value.syncResult ?: return
-        val initial = previous.initialHistories.singleOrNull { it.remote.key == key } ?: return
-        run(TbcLoginStage.Connected) {
+        if (balances.isEmpty() || balances.map { it.first }.distinct().size != balances.size) return
+        if (balances.map { it.first }.toSet() != previous.needsStatement.map { it.key }.toSet()) return
+        val initials = balances.map { (key, amount) ->
+            (previous.initialHistories.singleOrNull { it.remote.key == key } ?: return) to amount
+        }
+        run(TbcLoginStage.Connected, preserveSyncResult = true) {
             val app = getApplication<Application>() as dev.whekin.whfin.WhfinApp
-            val plan = withContext(Dispatchers.IO) { dev.whekin.whfin.data.importer.TbcHistorySync(app.userDb).initialize(initial, amountMinor) }
-            val result = previous.afterInitialBalance(initial.remote, plan)
+            val plans = withContext(Dispatchers.IO) {
+                dev.whekin.whfin.data.importer.TbcHistorySync(app.userDb).initializeBatch(initials)
+            }
+            val result = initials.zip(plans).fold(previous) { current, (entry, plan) ->
+                current.afterInitialBalance(entry.first.remote, plan)
+            }
             mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncResult = result)
             if (result.needsStatement.isEmpty() && result.errors.isEmpty())
                 dev.whekin.whfin.data.preferences.UiPreferences(app).setLastTbcSyncAt(System.currentTimeMillis())
@@ -213,10 +221,11 @@ class TbcLoginViewModel internal constructor(
         }
         mutable.value = mutable.value.copy(stage = TbcLoginStage.Connected, syncProgress = null, syncResult = result)
     }
-    private fun run(failureStage: TbcLoginStage, block: suspend () -> Unit) {
+    private fun run(failureStage: TbcLoginStage, preserveSyncResult: Boolean = false, block: suspend () -> Unit) {
         if ((getApplication<Application>() as? dev.whekin.whfin.WhfinApp)?.isDemoMode == true) return
         if (work?.isActive == true) return
-        mutable.value = mutable.value.copy(stage = TbcLoginStage.Working, error = null, syncResult = null, syncProgress = null)
+        mutable.value = mutable.value.copy(stage = TbcLoginStage.Working, error = null,
+            syncResult = if (preserveSyncResult) mutable.value.syncResult else null, syncProgress = null)
         work = launchBankWork {
             try { block() }
             catch (error: CancellationException) { throw error }

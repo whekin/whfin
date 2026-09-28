@@ -160,16 +160,12 @@ internal fun CategorySetupStep(
                     )
                 }
                 WhfinButton(
-                    label = if (proposals.isEmpty() && packs.isEmpty()) {
-                        stringResource(R.string.personal_setup_continue_action)
-                    } else {
-                        stringResource(R.string.category_setup_skip)
-                    },
+                    label = stringResource(R.string.category_setup_continue),
                     onClick = onContinue,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(if (proposals.isEmpty() && packs.isEmpty()) Modifier.padding(top = 8.dp) else Modifier),
-                    style = if (proposals.isEmpty() && packs.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
+                        .then(if (proposals.isEmpty()) Modifier.padding(top = 8.dp) else Modifier),
+                    style = if (proposals.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
                 )
             }
         }

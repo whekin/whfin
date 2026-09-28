@@ -9,6 +9,7 @@ import dev.whekin.whfin.WhfinApp
 import dev.whekin.whfin.data.crypto.CryptoBankTransfer
 import dev.whekin.whfin.data.income.WeekendRule
 import dev.whekin.whfin.data.crypto.CryptoHistoryRepository
+import dev.whekin.whfin.data.crypto.CryptoNetwork
 import dev.whekin.whfin.data.crypto.HttpCryptoTransferProvider
 import dev.whekin.whfin.data.crypto.cryptoBankCandidates
 import dev.whekin.whfin.data.db.AccountEntity
@@ -42,6 +43,8 @@ data class IncomeSourcesState(
     val accounts: List<AccountEntity>,
     val month: YearMonth,
     val isReadingChain: Boolean = false,
+    val tronWalletCount: Int = 0,
+    val walletCount: Int = 0,
     val transfers: List<CryptoBankTransfer> = emptyList(),
     val linkedTransfers: List<CryptoBankTransfer> = emptyList(),
     val message: String? = null,
@@ -97,8 +100,19 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    val state: StateFlow<IncomeSourcesState?> = combine(ledger, reading, message, readFailed) { ledger, reading, message, failed ->
-        ledger.copy(isReadingChain = reading, message = message, expectations = ledger.expectations.map { expectation ->
+    private val walletScope = combine(
+        db.cryptoDao().observeAddresses(),
+        db.financialGroupDao().observeActive(),
+    ) { addresses, groups ->
+        val activeGroups = groups.mapTo(mutableSetOf()) { it.id }
+        val active = addresses.filter { it.groupId in activeGroups }
+        active.count { CryptoNetwork.byChainId(it.chainId) == CryptoNetwork.TRON } to active.size
+    }
+
+    val state: StateFlow<IncomeSourcesState?> = combine(ledger, reading, message, readFailed, walletScope) { ledger, reading, message, failed, wallets ->
+        ledger.copy(isReadingChain = reading, message = message,
+            tronWalletCount = wallets.first, walletCount = wallets.second,
+            expectations = ledger.expectations.map { expectation ->
             expectation.copy(unreadable = failed && ledger.accounts.any {
                 it.id == expectation.source.accountId && it.type == AccountType.CRYPTO
             })
@@ -107,7 +121,11 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
 
     /** One persistent history feeds Accounts, income expectations, the feed and analytics. */
     fun refreshFromChain() {
-        if (reading.value || getApplication<WhfinApp>().isDemoMode) return
+        if (reading.value) return
+        if (getApplication<WhfinApp>().isDemoMode) {
+            message.value = getApplication<Application>().getString(R.string.demo_mode_live_import_unavailable)
+            return
+        }
         reading.value = true
         viewModelScope.launch {
             try {
@@ -116,13 +134,17 @@ class IncomeSourcesViewModel(app: Application) : AndroidViewModel(app) {
                     CryptoHistoryRepository(db, HttpCryptoTransferProvider({ endpoints })).refreshAll()
                 }
                 readFailed.value = result.failed > 0 || result.unsupported > 0
-                message.value = getApplication<Application>().getString(R.string.crypto_history_result, result.imported, result.failed) +
-                    if (result.unsupported > 0) " " + getApplication<Application>().getString(R.string.crypto_history_scope) else ""
+                message.value = if (result.imported == 0 && result.failed == 0 && result.unsupported == 0) {
+                    getApplication<Application>().getString(R.string.income_sources_history_no_new)
+                } else {
+                    getApplication<Application>().getString(R.string.crypto_history_result, result.imported, result.failed) +
+                        if (result.unsupported > 0) " " + getApplication<Application>().getString(R.string.crypto_history_scope) else ""
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
                 readFailed.value = true
-                message.value = getApplication<Application>().getString(R.string.income_sources_save_failed)
+                message.value = getApplication<Application>().getString(R.string.income_sources_history_failed)
             } finally {
                 reading.value = false
             }
