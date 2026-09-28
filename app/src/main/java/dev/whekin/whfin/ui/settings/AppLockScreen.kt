@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -434,49 +436,70 @@ private fun WhfinPinPad(
     onBiometric: () -> Unit = {},
     applySystemInsets: Boolean = false,
 ) {
-    Column(
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .then(if (applySystemInsets) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
             .padding(horizontal = 28.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
-        Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        WhfinCodeDots(
-            length = AppLockPinStore.PIN_LENGTH,
-            filled = pin.length,
-            modifier = Modifier.padding(top = 28.dp),
-        )
-        Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) {
-            if (error != null) Text(
-                error,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
+        val compact = maxHeight < 700.dp
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Entry, repeat and error copy have different heights. Keep the keys in their own
+            // measured zone; the header absorbs that change and scrolls on short displays.
+            Box(
+                Modifier.weight(if (compact) 1f else 5f).fillMaxWidth(),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (!compact) {
+                        Icon(Icons.Default.Lock, null,
+                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                    }
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = if (compact) 0.dp else 16.dp),
+                    )
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = if (compact) 4.dp else 8.dp),
+                    )
+                    WhfinCodeDots(
+                        length = AppLockPinStore.PIN_LENGTH,
+                        filled = pin.length,
+                        modifier = Modifier.padding(top = if (compact) 12.dp else 28.dp),
+                    )
+                }
+            }
+            // Reserve room even without an error, including two lines at large font scale.
+            Box(
+                Modifier.fillMaxWidth().height((56f * LocalDensity.current.fontScale).dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (error != null) Text(
+                    error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            WhfinNumericKeypad(
+                deleteContentDescription = stringResource(R.string.app_lock_delete_digit),
+                onDigit = onDigit,
+                onBackspace = onBackspace,
+                leadingIcon = Icons.Default.Fingerprint.takeIf { showBiometric },
+                leadingContentDescription = stringResource(R.string.app_lock_use_biometrics).takeIf { showBiometric },
+                onLeadingAction = onBiometric.takeIf { showBiometric },
             )
+            if (!compact) Spacer(Modifier.weight(2f))
         }
-        WhfinNumericKeypad(
-            deleteContentDescription = stringResource(R.string.app_lock_delete_digit),
-            onDigit = onDigit,
-            onBackspace = onBackspace,
-            leadingIcon = Icons.Default.Fingerprint.takeIf { showBiometric },
-            leadingContentDescription = stringResource(R.string.app_lock_use_biometrics).takeIf { showBiometric },
-            onLeadingAction = onBiometric.takeIf { showBiometric },
-        )
     }
 }
 
