@@ -91,6 +91,20 @@ data class SmsScanSummary(
     val needsAttention: Int,
     val ignored: Int,
     val waitingForStatement: Int = 0,
+    val unreadable: Int = 0,
+)
+
+/** Parsing failures are WHFIN diagnostics, never choices the owner can make about money. */
+internal fun summarizeSmsPreview(results: List<SmsImportResult>): SmsScanSummary = SmsScanSummary(
+    total = results.size,
+    importable = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
+    duplicates = results.count { it.outcome in setOf(SmsDiagnosticOutcome.DUPLICATE,
+        SmsDiagnosticOutcome.ATTACHED, SmsDiagnosticOutcome.CANCELED) },
+    needsAttention = results.count { it.reason != SmsDiagnosticReason.STATEMENT_COVERS_PERIOD &&
+        it.outcome in setOf(SmsDiagnosticOutcome.NEEDS_CARD_MAPPING, SmsDiagnosticOutcome.CHOOSE_ACCOUNT) },
+    ignored = results.count { it.outcome == SmsDiagnosticOutcome.IGNORED },
+    waitingForStatement = results.count { it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD },
+    unreadable = results.count { it.outcome in setOf(SmsDiagnosticOutcome.UNRECOGNIZED, SmsDiagnosticOutcome.ERROR) },
 )
 
 sealed interface SmsScanState {
@@ -102,6 +116,7 @@ sealed interface SmsScanState {
         val imported: Int,
         val needsAttention: Int,
         val waitingForStatement: Int = 0,
+        val unreadable: Int = 0,
     ) : SmsScanState
     data object Error : SmsScanState
 }
@@ -181,26 +196,7 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
                 val messages = historyReader.bankCandidates(since).filter { bank == null || it.bank == bank }
                 val results = messages.map { SmsTransactionImporter(db, it.bank).preview(it.body, it.receivedAt) }
                 pendingHistory = messages
-                SmsScanSummary(
-                    total = messages.size,
-                    importable = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
-                    duplicates = results.count {
-                        it.outcome == SmsDiagnosticOutcome.DUPLICATE ||
-                            it.outcome == SmsDiagnosticOutcome.ATTACHED ||
-                            it.outcome == SmsDiagnosticOutcome.CANCELED
-                    },
-                    needsAttention = results.count {
-                        it.reason != SmsDiagnosticReason.STATEMENT_COVERS_PERIOD &&
-                            (it.outcome == SmsDiagnosticOutcome.NEEDS_CARD_MAPPING ||
-                                it.outcome == SmsDiagnosticOutcome.CHOOSE_ACCOUNT ||
-                                it.outcome == SmsDiagnosticOutcome.UNRECOGNIZED ||
-                                it.outcome == SmsDiagnosticOutcome.ERROR)
-                    },
-                    ignored = results.count { it.outcome == SmsDiagnosticOutcome.IGNORED },
-                    waitingForStatement = results.count {
-                        it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
-                    },
-                )
+                summarizeSmsPreview(results)
             }.fold(
                 onSuccess = { _scanState.value = SmsScanState.Preview(it) },
                 onFailure = {
@@ -230,6 +226,8 @@ class SmsDiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
                     imported = finalDiagnostics.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
                     needsAttention = finalDiagnostics.count(SmsDiagnosticEntity::needsUserAction),
                     waitingForStatement = finalDiagnostics.count(SmsDiagnosticEntity::awaitsStatement),
+                    unreadable = finalDiagnostics.count { it.outcome in setOf(SmsDiagnosticOutcome.UNRECOGNIZED,
+                        SmsDiagnosticOutcome.ERROR) },
                 )
             }.fold(
                 onSuccess = { _scanState.value = it },

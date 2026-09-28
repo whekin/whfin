@@ -59,8 +59,8 @@ Both activities call `enableEdgeToEdge()` and disable navigation-bar contrast en
 ## Context headers and balance overview
 
 Home, History, Accounts and Analytics are the four peer destinations. Home leads with available money
-and stays finite. Decisions are unresolved account routing and uncategorised expenses; categories
-use one compact count/action instead of repeating recent rows. Bank SMS and card holds awaiting
+and stays finite. Decisions are unresolved account routing; uncategorised confirmed expenses remain
+ordinary History entries and can be improved later through Smart categories. Bank SMS and card holds awaiting
 statement evidence have their own count and history filter. Waiting on the bank is never presented as
 an owner confirmation task. Transfers count once in the waiting summary. Recent activity remains a
 short list, and Settings lives in Home's header.

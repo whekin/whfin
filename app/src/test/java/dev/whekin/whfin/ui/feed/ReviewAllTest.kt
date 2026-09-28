@@ -25,7 +25,7 @@ class ReviewAllTest {
         val confirmed = item(2, TxStatus.CONFIRMED).let { it.copy(tx = it.tx.copy(categoryId = 9)) }
         val manual = item(3, TxStatus.MANUAL).let { it.copy(tx = it.tx.copy(categoryId = 9)) }
 
-        val listedOnHome = homeAttention(listOf(pending, confirmed, manual), emptyList())
+        val listedOnHome = homeAttention(emptyList())
             .mapNotNull { (it as? FeedTimelineEntry.Transaction)?.item?.tx?.id }
 
         val keptByFilter = listOf(pending, confirmed, manual)
@@ -33,16 +33,22 @@ class ReviewAllTest {
             .map { it.tx.id }
 
         assertEquals(listedOnHome, keptByFilter)
-        assertEquals(listOf(1L), keptByFilter)
+        assertTrue(keptByFilter.isEmpty())
     }
 
     @Test
-    fun `an uncategorised expense needs the owner even after the bank confirmed it`() {
-        // It cannot be confirmed — it needs an account first — but Home lists it under the same
-        // heading, so a filter that dropped it would hand over a shorter list than the one the
-        // reader pressed from.
-        assertTrue(matchesFeedFilter(item(1, TxStatus.PENDING), FeedFilter.NEEDS_REVIEW))
-        assertTrue(matchesFeedFilter(item(2, TxStatus.CONFIRMED), FeedFilter.NEEDS_REVIEW))
+    fun `an uncategorised expense never blocks import`() {
+        assertFalse(matchesFeedFilter(item(1, TxStatus.PENDING), FeedFilter.NEEDS_REVIEW))
+        assertFalse(matchesFeedFilter(item(2, TxStatus.CONFIRMED), FeedFilter.NEEDS_REVIEW))
+    }
+
+    @Test
+    fun `confirmed bank posting without a category is not a decision`() {
+        val posting = item(7, TxStatus.CONFIRMED).let {
+            it.copy(tx = it.tx.copy(source = TxSource.STATEMENT))
+        }
+        assertFalse(matchesFeedFilter(posting, FeedFilter.NEEDS_REVIEW))
+        assertTrue(homeAttention(emptyList()).isEmpty())
     }
 
     @Test
@@ -59,7 +65,7 @@ class ReviewAllTest {
     @Test fun `categorised bank messages wait on bank without asking owner to confirm them`() {
         val sms = item(1, TxStatus.PENDING).let { it.copy(tx = it.tx.copy(categoryId = 4)) }
         val hold = sms.copy(tx = sms.tx.copy(id = 2, source = TxSource.BANK_HOLD, categoryId = null))
-        assertTrue(homeAttention(listOf(sms, hold), emptyList()).isEmpty())
+        assertTrue(homeAttention(emptyList()).isEmpty())
         listOf(sms, hold).forEach {
             assertFalse(matchesFeedFilter(it, FeedFilter.NEEDS_REVIEW))
             assertTrue(matchesFeedFilter(it, FeedFilter.WAITING_BANK))

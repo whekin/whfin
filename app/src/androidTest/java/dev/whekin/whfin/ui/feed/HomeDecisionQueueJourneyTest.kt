@@ -91,11 +91,11 @@ class HomeDecisionQueueJourneyTest {
                 assertTrue(device.hasObject(By.text(res.getString(R.string.feed_waiting_bank))))
                 capture("waiting")
                 device.pressBack()
-                click(res.getString(R.string.home_needs_category, 1))
+                assertFalse(device.hasObject(By.text(res.getString(R.string.home_review_all))))
+                click(res.getString(R.string.tab_transactions))
+                assertNotNull(device.wait(Until.findObject(By.text(res.getString(R.string.history_result_count, 3))), 8000))
                 assertTrue(device.wait(Until.hasObject(By.textContains("Needs category")), 8000))
-                assertTrue(device.wait(Until.gone(By.textContains("SMS coffee")), 5000))
-                assertTrue(device.hasObject(By.text(res.getString(R.string.home_needs_attention))))
-                capture("decisions")
+                capture("history")
             }
         } finally {
             fixture.close()

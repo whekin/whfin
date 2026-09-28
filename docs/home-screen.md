@@ -14,13 +14,17 @@ tap away, in Accounts and Statistics.
 | Runway | Whether spendable money covers ordinary spending and expected bills until payday | no reliable rate yet; without payday, more than 45 days |
 | Expected from your history | Monthly payments this month has not seen yet, read off repetition | nothing recurring is outstanding, **or the runway above already named them** |
 | You owe | Borrowed money the balances still count as the person's own | nothing is owed to anybody |
-| Needs a decision | Standing conditions first, then drafts and unrouted messages | nothing is wrong and the queue is empty |
+| Needs a decision | Standing conditions first, then bank messages missing an account | nothing needs routing and no condition needs attention |
 | Today / Recent | Today's own spending and the last settled rows | no history at all |
 | This month | Spent, received, and — when there is one — the projection to month end with its comparison | never; extra lines only when they exist |
 
 The order is the answer to "how am I doing for money", built in the order a person builds it: what
 there is, how far it goes, what is already owed out of it, what still needs them, what just happened,
 and only then the month.
+
+A confirmed bank posting without a category is already part of the ledger. It remains visible in
+History and can be categorized later through Smart categories; import does not ask for a category
+decision. Only unresolved account routing blocks an SMS from becoming a ledger operation.
 
 The month used to open the screen with its net result as the hero. Before payday that number is
 negative for structural reasons — the salary has not landed and the rent has — so the largest figure

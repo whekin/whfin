@@ -362,11 +362,11 @@
     <string name="sms_history_scanning">Checking messages…</string>
     <string name="sms_history_importing">Importing recognized operations…</string>
     <string name="sms_history_preview_title">Ready to import</string>
-    <string name="sms_history_preview_body">%1$d found · %2$d new · %3$d already present · %4$d need action · %5$d safely ignored · %6$d waiting for statement</string>
+    <string name="sms_history_preview_body">%1$d found · %2$d new · %3$d already present · Messages awaiting account routing: %4$d · %5$d safely ignored · %6$d waiting for statement · %7$d could not be read</string>
     <string name="sms_history_import">Import recognized</string>
     <string name="sms_history_cancel">Cancel</string>
     <string name="sms_history_complete_title">Recent messages checked</string>
-    <string name="sms_history_complete_body">%1$d transactions imported · %2$d need action · %3$d waiting for statement</string>
+    <string name="sms_history_complete_body">%1$d transactions imported · Messages awaiting account routing: %2$d · %3$d waiting for statement · %4$d could not be read</string>
     <string name="sms_history_error_title">Couldn’t check messages</string>
     <string name="sms_history_error_body">Nothing was changed. Check SMS access and try again.</string>
     <string name="sms_history_empty_preview">No Credo / TBC messages were found in the last 90 days.</string>
@@ -736,7 +736,7 @@
     <string name="category_intelligence_transfers_body">These went to somebody\'s account, not to a shop. They are grouped by the recipient\'s account, so every spelling of one name is a single row.</string>
     <string name="category_intelligence_income_body_short">These arrived from somebody\'s account. Naming a sender settles every arrival from them, past and future.</string>
     <string name="category_intelligence_transfer_unnamed">Unnamed recipient</string>
-    <string name="category_intelligence_queues_title">Left to answer</string>
+    <string name="category_intelligence_queues_title">Improve categories when you like</string>
     <string name="category_intelligence_once_title">Seen once</string>
     <string name="category_intelligence_once_body">One transfer is not a pattern. A rule here would apply to a payment that may never repeat — these are usually better answered on the transaction itself.</string>
     <string name="category_intelligence_not_a_rule">These are unrelated</string>
@@ -797,7 +797,7 @@
     <string name="category_intelligence_person_none">Not saying</string>
     <string name="category_intelligence_person_create">Add %1$s</string>
     <string name="category_intelligence_category_label">Category</string>
-    <string name="category_intelligence_review_title">Needs review</string>
+    <string name="category_intelligence_review_title">Uncategorized merchants</string>
     <plurals name="category_intelligence_review_body">
         <item quantity="one">%1$d merchant is still unknown. Choose once to fix its uncategorized history and remember the choice.</item>
         <item quantity="other">%1$d merchants are still unknown. The most frequent are first; choose once to fix their uncategorized history and remember the choice.</item>
@@ -1613,6 +1613,5 @@
     <string name="home_waiting_bank">Awaiting bank: %1$d</string>
     <string name="feed_waiting_bank">Awaiting bank</string>
     <string name="status_waiting_statement">Awaiting statement</string>
-    <string name="home_needs_category">Choose category: %1$d</string>
     <string name="history_result_count">%1$d entries</string>
 </resources>

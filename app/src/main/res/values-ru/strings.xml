@@ -378,11 +378,11 @@
     <string name="sms_history_scanning">Проверяем сообщения…</string>
     <string name="sms_history_importing">Импортируем распознанные операции…</string>
     <string name="sms_history_preview_title">Готово к импорту</string>
-    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · нужно действие: %4$d · безопасно пропущено %5$d · ждут выписку: %6$d</string>
+    <string name="sms_history_preview_body">Найдено %1$d · новых %2$d · уже есть %3$d · Сообщения без счёта: %4$d · безопасно пропущено %5$d · ждут выписку: %6$d · не удалось прочитать: %7$d</string>
     <string name="sms_history_import">Импортировать распознанные</string>
     <string name="sms_history_cancel">Отмена</string>
     <string name="sms_history_complete_title">Недавние сообщения проверены</string>
-    <string name="sms_history_complete_body">Импортировано операций: %1$d · нужно действие: %2$d · ждут выписку: %3$d</string>
+    <string name="sms_history_complete_body">Импортировано операций: %1$d · Сообщения без счёта: %2$d · ждут выписку: %3$d · не удалось прочитать: %4$d</string>
     <string name="sms_history_error_title">Не удалось проверить сообщения</string>
     <string name="sms_history_error_body">Ничего не изменено. Проверьте доступ к SMS и повторите.</string>
     <string name="sms_history_empty_preview">За последние 90 дней сообщения Credo / TBC не найдены.</string>
@@ -762,7 +762,7 @@
     <string name="category_intelligence_transfers_body">Эти деньги ушли на чей-то счёт, а не в магазин. Строки сгруппированы по счёту получателя, поэтому все написания одного имени — одна строка.</string>
     <string name="category_intelligence_income_body_short">Эти деньги пришли с чьего-то счёта. Один раз назвав отправителя, вы разметите все поступления от него — и прошлые, и будущие.</string>
     <string name="category_intelligence_transfer_unnamed">Получатель без имени</string>
-    <string name="category_intelligence_queues_title">Осталось разобрать</string>
+    <string name="category_intelligence_queues_title">Категории можно улучшить позже</string>
     <string name="category_intelligence_once_title">Встретился один раз</string>
     <string name="category_intelligence_once_body">Один перевод — ещё не закономерность. Правило здесь описывало бы платёж, который может больше не повториться; такие обычно проще разметить прямо в операции.</string>
     <string name="category_intelligence_not_a_rule">Это разные переводы</string>
@@ -837,7 +837,7 @@
     <string name="category_intelligence_person_none">Не указывать</string>
     <string name="category_intelligence_person_create">Добавить «%1$s»</string>
     <string name="category_intelligence_category_label">Категория</string>
-    <string name="category_intelligence_review_title">Нужно разобрать</string>
+    <string name="category_intelligence_review_title">Мерчанты без категории</string>
     <plurals name="category_intelligence_review_body">
         <item quantity="one">Остался %1$d неизвестный мерчант. Выбери категорию один раз — исправится история и запомнится правило.</item>
         <item quantity="few">Осталось %1$d неизвестных мерчанта. Самые частые идут первыми; один выбор исправляет историю и запоминает правило.</item>
@@ -1675,6 +1675,5 @@
     <string name="home_waiting_bank">Ожидают банк: %1$d</string>
     <string name="feed_waiting_bank">Ожидают банк</string>
     <string name="status_waiting_statement">Ожидает выписку</string>
-    <string name="home_needs_category">Выбрать категорию: %1$d</string>
     <string name="history_result_count">Записей: %1$d</string>
 </resources>

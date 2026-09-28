@@ -813,6 +813,7 @@ private fun HistoryControl(
                 state.summary.needsAttention,
                 state.summary.ignored,
                 state.summary.waitingForStatement,
+                state.summary.unreadable,
             ),
             icon = Icons.Default.CheckCircle,
             kind = WhfinNoticeKind.Info,
@@ -830,6 +831,7 @@ private fun HistoryControl(
                 state.imported,
                 state.needsAttention,
                 state.waitingForStatement,
+                state.unreadable,
             ),
             icon = Icons.Default.CheckCircle,
             kind = if (state.needsAttention > 0) WhfinNoticeKind.Attention else WhfinNoticeKind.Info,
@@ -1126,9 +1128,7 @@ internal fun SmsDiagnosticEntity.awaitsStatement(): Boolean =
 
 internal fun SmsDiagnosticEntity.needsUserAction(): Boolean = !awaitsStatement() && when (outcome) {
     SmsDiagnosticOutcome.NEEDS_CARD_MAPPING,
-    SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
-    SmsDiagnosticOutcome.UNRECOGNIZED,
-    SmsDiagnosticOutcome.ERROR -> true
+    SmsDiagnosticOutcome.CHOOSE_ACCOUNT -> true
     else -> false
 }
 

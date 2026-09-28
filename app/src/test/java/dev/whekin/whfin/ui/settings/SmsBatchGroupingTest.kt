@@ -3,7 +3,9 @@ package dev.whekin.whfin.ui.settings
 import dev.whekin.whfin.data.db.SmsDiagnosticEntity
 import dev.whekin.whfin.data.db.SmsDiagnosticKind
 import dev.whekin.whfin.data.db.SmsDiagnosticOutcome
+import dev.whekin.whfin.data.sms.SmsImportResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -11,6 +13,19 @@ import org.junit.Test
  * One card route settles every queued payment of that card, so the screen must ask once per card.
  */
 class SmsBatchGroupingTest {
+
+    @Test fun unreadableMessageIsDiagnosticNotAnOwnerDecision() {
+        val unreadable = waiting(30, null, SmsDiagnosticOutcome.UNRECOGNIZED)
+        assertFalse(unreadable.needsUserAction())
+        assertFalse(waiting(31, null, SmsDiagnosticOutcome.ERROR).needsUserAction())
+    }
+
+    @Test fun twentyUnreadableMessagesDoNotBecomeTwentyOwnerDecisions() {
+        val summary = summarizeSmsPreview(List(20) { SmsImportResult(SmsDiagnosticOutcome.UNRECOGNIZED) })
+        assertEquals(0, summary.importable)
+        assertEquals(0, summary.needsAttention)
+        assertEquals(20, summary.unreadable)
+    }
 
     private fun waiting(
         id: Long,

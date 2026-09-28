@@ -147,19 +147,13 @@ class HomeBoardTest {
     }
 
     @Test
-    fun `uncategorised expenses and unrouted messages form one queue, newest first`() {
-        val drafts = listOf(
-            item(id = 1, amountMinor = -1_000, day = LocalDate.of(2026, 8, 20), occurredAt = 200),
-            item(id = 2, amountMinor = -1_000, day = LocalDate.of(2026, 8, 22), status = TxStatus.PENDING, occurredAt = 400),
-        )
+    fun `unrouted messages alone form the decision queue`() {
         val unrouted = listOf(unroutedOperation(id = 9, occurredAt = 300))
 
-        val queue = homeAttention(drafts, unrouted)
+        val queue = homeAttention(unrouted)
 
-        assertEquals(3, queue.size)
-        assertEquals(400L, queue[0].occurredAt)
-        assertEquals(300L, queue[1].occurredAt)
-        assertEquals(200L, queue[2].occurredAt)
+        assertEquals(1, queue.size)
+        assertEquals(300L, queue[0].occurredAt)
     }
 
     @Test

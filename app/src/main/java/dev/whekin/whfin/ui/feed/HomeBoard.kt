@@ -130,22 +130,13 @@ private fun pivotValueMinor(transaction: TransactionEntity): Long? =
 
 private fun pivotValueMinor(item: FeedItem): Long? = pivotValueMinor(item.tx)
 
-/** A category is the owner's decision; a bank posting is not. */
-internal fun needsOwnerDecision(item: FeedItem): Boolean =
-    !item.tx.isVoided && item.tx.amountMinor < 0 && item.tx.categoryId == null &&
-        !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt &&
-        item.tx.source !in setOf(TxSource.BANK_HOLD, TxSource.ADJUSTMENT)
-
 internal fun waitingForBank(item: FeedItem): Boolean =
     !item.tx.isVoided && item.tx.source in setOf(TxSource.SMS, TxSource.BANK_HOLD)
 
-internal fun homeAttention(
-    items: List<FeedItem>,
-    unrouted: List<UnroutedOperation>,
-): List<FeedTimelineEntry> = (
-    unrouted.map(FeedTimelineEntry::Unrouted) +
-        items.filter(::needsOwnerDecision).map(FeedTimelineEntry::Transaction)
-    ).sortedByDescending(FeedTimelineEntry::occurredAt)
+/** Only missing routing blocks import; an absent category is optional ledger detail. */
+internal fun homeAttention(unrouted: List<UnroutedOperation>): List<FeedTimelineEntry> =
+    unrouted.map(FeedTimelineEntry::Unrouted)
+    .sortedByDescending(FeedTimelineEntry::occurredAt)
 
 /**
  * Settled rows Home closes with: today when the day has any, otherwise the last few.

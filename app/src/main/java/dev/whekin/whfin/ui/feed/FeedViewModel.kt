@@ -540,10 +540,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    internal val attention: StateFlow<List<FeedTimelineEntry>> = combine(
-        items,
-        unroutedOperations,
-    ) { items, unrouted -> homeAttention(items, unrouted) }
+    internal val attention: StateFlow<List<FeedTimelineEntry>> = unroutedOperations
+        .map(::homeAttention)
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

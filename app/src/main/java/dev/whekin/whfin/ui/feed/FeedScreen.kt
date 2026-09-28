@@ -597,11 +597,6 @@ fun FeedScreen(
                 )
             }
 
-            val categoryCount = attention.count { it is FeedTimelineEntry.Transaction }
-            if (categoryCount > 0) item(key = "needs-category") {
-                WhfinLedgerRow(title = stringResource(R.string.home_needs_category, categoryCount),
-                    onClick = onReviewAll, trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForward, null) })
-            }
             items(attention.filterIsInstance<FeedTimelineEntry.Unrouted>().take(3),
                 key = { "home-unrouted-${it.operation.diagnostic.id}" }) { entry ->
                 UnroutedOperationRow(operation = entry.operation, onClick = { routingFor = entry.operation })
@@ -1043,15 +1038,15 @@ internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW,
  * Which rows a filter keeps.
  *
  * Named rather than inlined because one of them has to agree with something outside this screen:
- * `NEEDS_REVIEW` is where "Review all" on Home leads, so it has to hold exactly what
- * [homeAttention] just listed — uncategorised expenses and unrouted messages.
+ * `NEEDS_REVIEW` is where "Review all" on Home leads, so it holds exactly the
+ * unrouted operations that require an account choice. Categorisation is optional.
  */
 internal fun matchesFeedFilter(item: FeedItem, filter: FeedFilter): Boolean = when (filter) {
     FeedFilter.ALL -> true
     FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
     FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
     FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
-    FeedFilter.NEEDS_REVIEW -> needsOwnerDecision(item)
+    FeedFilter.NEEDS_REVIEW -> false
     FeedFilter.WAITING_BANK -> waitingForBank(item)
 }
 @Composable
