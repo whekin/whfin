@@ -58,6 +58,19 @@ exact dates and values are shown below. Goal dates round up to complete monthly 
 and monetary arithmetic is exact. Past deadlines, deadlines before the first contribution,
 zero pace, already-reached goals, and values exceeding Long are handled explicitly.
 
+The forecast can also be explored by tapping or dragging horizontally on the chart. Its selection
+and the accessible month scrubber share the same exact point. Historical balance mode supports the
+same selection with its existing previous/next buttons. Vertical gestures continue scrolling the
+page. A guide and halo identify the selected point; actual history remains solid and forecast dashed,
+with colours taken from the current Material palette (including Material You).
+
+Editing pace or goal smoothly retargets only the chart's screen coordinates. Monetary values, dates
+and accessibility descriptions update immediately from the new projection; no interpolated money
+is displayed or persisted. Motion is finite, respects the system animation scale, and stops after
+settling. A changed deadline initially selects the last contribution on/before it within the chosen
+horizon. The separate deadline reading continues to show the exact chosen date and amount, even
+when the date lies between contributions or beyond the displayed horizon.
+
 `projectSavings` is pure and has no Room or network dependency. The calendar uses UTC date-picker
 values only for conversion to `LocalDate`; the projection then works with calendar dates. Draft
 values use saved state, and calendar Back cancels only the date step. No schema change is needed.

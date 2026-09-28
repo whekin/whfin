@@ -80,6 +80,12 @@ Keep colors, typography, spacing, shapes, sizes, elevation, and motion in `:core
   a recommendation. The
   adjacent ledger rows own selection and navigation so tiny arcs never become inaccessible touch targets;
   the ring exposes one complete accessibility description and may dim non-selected segments.
+- `WhfinSavingsBalanceChart`: solid actual history and dashed forecast on a shared axis. Optional
+  point selection uses taps/horizontal drags, adjustable accessibility semantics and a guide/halo;
+  vertical scrolling belongs to the parent. Callers own selection, exact date/money labels and the
+  selectable interval. Forecast edits may animate drawing coordinates through `WhfinMotion`, but
+  exact readings update immediately. Keep settled geometry identical to static rendering and
+  respect the system duration scale. Use Material colours directly for actual, forecast and guides.
 - `WhfinMonthlyBarChart`: compact selectable comparison of up to twelve ordered periods. The selected period uses emphasis, every bar exposes an accessible label/value, and feature code owns money/date formatting, selection, and filtering. Rolling ranges preserve 48 dp targets and may scroll. A named calendar year is the deliberate dense exception: all twelve bars fit at once, keep a tall tap region, and the screen must also expose previous/next period arrows for accessible navigation.
 
 Interactive surfaces own their click semantics: use the clickable `Surface` overload or clip the indication to the same shape before `clickable`. Circular controls must never produce square pressed states. Full-bleed ledger rows use an edge-to-edge rectangular pressed state while their content and dividers remain on the shared horizontal rail.

@@ -449,6 +449,9 @@ private fun SavingsChart(
                         onBarClick = { index -> selectedMonth = months[index].month.toString() },
                     )
                     SavingsChartMode.Balance -> WhfinSavingsBalanceChart(
+                        contentDescription = title,
+                        selectedIndex = selectedIndex,
+                        onPointSelected = { selectedMonth = months[it].month.toString() },
                         points = months.mapIndexed { index, point ->
                             WhfinSavingsBalancePoint(
                                 periodLabel = if (range == SavingsChartRange.All) {

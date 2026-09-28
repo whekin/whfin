@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <activity android:name=".ui.savings.SavingsMotionQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.setup.IllustrationQaActivity" android:exported="false" />
         <activity android:name=".ui.DockQaActivity" android:exported="false" />
         <activity android:name=".ui.setup.SetupQaActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />

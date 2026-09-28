@@ -72,3 +72,19 @@ private fun WhfinSavingsChartsPreviewContent() {
 private fun WhfinSavingsChartsPreview() {
     WhfinTheme { WhfinSavingsChartsPreviewContent() }
 }
+
+@Preview(name = "Interactive forecast light", widthDp = 400, heightDp = 240)
+@Preview(name = "Interactive forecast dark", widthDp = 400, heightDp = 240, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Interactive forecast compact large", widthDp = 320, heightDp = 260, fontScale = 1.5f)
+@Composable
+private fun InteractiveSavingsPreview() = WhfinTheme {
+    Surface {
+        WhfinSavingsBalanceChart(listOf(
+            WhfinSavingsBalancePoint("Jun", 120_000, "1,200 GEL", position = 0),
+            WhfinSavingsBalancePoint("Jul", 150_000, "1,500 GEL", position = 30),
+            WhfinSavingsBalancePoint("Aug", 175_000, "1,750 GEL", isProjected = true, position = 61),
+            WhfinSavingsBalancePoint("Sep", 200_000, "2,000 GEL", isProjected = true, position = 92),
+        ), Modifier.padding(20.dp), goalMinor = 200_000, selectedIndex = 2,
+            firstSelectableIndex = 1, onPointSelected = {}, animateChanges = true)
+    }
+}

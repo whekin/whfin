@@ -2,6 +2,19 @@ package dev.whekin.whfin.ui.savings
 
 import dev.whekin.whfin.ui.bank.SupportedBankApp
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.swipeUp
+import org.junit.Assert.assertTrue
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -109,6 +122,67 @@ class SavingsScreenTest {
         compose.onNodeWithContentDescription("Explore future reserve by month")
             .performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
         compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("18,400.00 ₾")
+    }
+
+    @Test
+    fun chartTouchAndAccessibilityShareTheExactForecastSelection() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            WhfinTheme { Column(Modifier.verticalScroll(rememberScrollState())) {
+                SavingsProjectionPanel(1_800_000, 100_000, "GEL", null, null, LocalDate.of(2026, 9, 29))
+            } }
+        }
+        val plot = compose.onNodeWithTag("whfin-savings-balance-plot", useUnmergedTree = true)
+        plot.performScrollTo().performTouchInput { click(Offset(0f, centerY)) }
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("18,000.00 ₾")
+        plot.performTouchInput { swipe(Offset(0f, centerY), Offset(width.toFloat(), centerY), 500) }
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("30,000.00 ₾")
+        compose.onNodeWithTag("savings-forecast-chart")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("24,000.00 ₾")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("24,000.00 ₾")
+    }
+
+    @Test
+    fun historicalBalanceTouchUpdatesTheExistingExactReading() {
+        compose.setContent { content(data(plan())) }
+        compose.onNodeWithTag("savings-list").performScrollToIndex(2)
+        compose.onNodeWithText("Balance").performClick()
+        compose.onNodeWithTag("whfin-savings-balance-plot", useUnmergedTree = true)
+            .performScrollTo().performTouchInput { click(Offset(0f, centerY)) }
+        compose.onNodeWithText("10,200.00 ₾").assertExists()
+        compose.onNodeWithContentDescription("Next month").performClick()
+        compose.onNodeWithText("10,400.00 ₾").assertExists()
+    }
+
+    @Test
+    fun verticalGestureOverPlotScrollsThePageWithoutChangingTheMonth() {
+        compose.setContent {
+            WhfinTheme { Column(Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
+                SavingsProjectionPanel(1_800_000, 100_000, "GEL", null, null, LocalDate.of(2026, 9, 29))
+            } }
+        }
+        val plot = compose.onNodeWithTag("whfin-savings-balance-plot", useUnmergedTree = true)
+        plot.performScrollTo()
+        val before = plot.fetchSemanticsNode().boundsInRoot.top
+        plot.performTouchInput { swipeUp() }
+        assertTrue(plot.fetchSemanticsNode().boundsInRoot.top < before)
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("30,000.00 ₾")
+    }
+
+    @Test
+    fun changingDeadlineSelectsTheLastContributionNotAnInventedPartialPayment() {
+        val today = LocalDate.of(2026, 9, 29)
+        val deadline = mutableStateOf(today.plusMonths(5).plusDays(4))
+        compose.setContent {
+            WhfinTheme { Column(Modifier.verticalScroll(rememberScrollState())) {
+                SavingsProjectionPanel(1_800_000, 100_000, "GEL", 3_000_000, deadline.value, today)
+            } }
+        }
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("23,000.00 ₾")
+        compose.runOnIdle { deadline.value = today.plusMonths(2).plusDays(4) }
+        compose.onNodeWithTag("savings-projection-selected-amount").assertTextEquals("20,000.00 ₾")
     }
 
     @Test

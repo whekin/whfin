@@ -72,7 +72,13 @@ internal fun SavingsProjectionPanel(
     val projection = remember(balanceMinor, monthlyMinor, goalMinor, targetDate, today, horizon) {
         projectSavings(balanceMinor, monthlyMinor, today, goalMinor, targetDate, horizon)
     }
-    var selected by rememberSaveable { mutableIntStateOf(12) }
+    // A changed deadline previews the last contribution on/before that date. The separate
+    // deadline reading still names the exact chosen day, including between-contribution dates.
+    var selected by rememberSaveable(targetDate, currency) {
+        mutableIntStateOf(targetDate?.let { deadline ->
+            projection.points.indexOfLast { it.date <= deadline }.coerceAtLeast(0)
+        } ?: 12)
+    }
     val index = selected.coerceIn(0, projection.points.lastIndex)
     val point = projection.points[index]
     val dateFormatter = DateTimeFormatter.ofPattern("MMM yy", LocalConfiguration.current.locales[0])
@@ -108,9 +114,13 @@ internal fun SavingsProjectionPanel(
                 }
             }
         }
-        WhfinSavingsBalanceChart(recorded + future, goalMinor = goalMinor,
+        key(currency) { WhfinSavingsBalanceChart(recorded + future, Modifier.testTag("savings-forecast-chart"), goalMinor = goalMinor,
+            contentDescription = stringResource(R.string.savings_projection_title),
+            onPointSelected = { selected = it - recorded.size },
+            firstSelectableIndex = recorded.size,
+            animateChanges = true,
             goalDescription = goalMinor?.let { stringResource(R.string.savings_goal_description, formatMinor(it, currency)) },
-            selectedIndex = recorded.size + index)
+            selectedIndex = recorded.size + index) }
         Text(stringResource(R.string.savings_projection_legend), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

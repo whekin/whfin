@@ -1,5 +1,17 @@
 package dev.whekin.whfin.core.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.key
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -364,8 +376,8 @@ private fun savingsPaceBarColor(positive: Boolean, selected: Boolean): Color {
 }
 
 /**
- * A quiet, non-interactive balance history. The line is intentionally a single solid stroke: the
- * surrounding screen provides exact values and period navigation, while this chart gives the eye
+ * A balance history with optional point selection. Actual data uses a solid stroke; the
+ * forecast remains dashed. The caller provides exact values and period navigation; the chart shows
  * the shape of the reserve over time. [contentDescription] should be a localized chart summary;
  * when omitted, a complete description is assembled from every point and the goal.
  */
@@ -377,6 +389,9 @@ fun WhfinSavingsBalanceChart(
     goalDescription: String? = null,
     contentDescription: String? = null,
     selectedIndex: Int? = null,
+    onPointSelected: ((Int) -> Unit)? = null,
+    firstSelectableIndex: Int = 0,
+    animateChanges: Boolean = false,
 ) {
     if (points.isEmpty()) return
 
@@ -385,12 +400,32 @@ fun WhfinSavingsBalanceChart(
     val chartModifier = modifier
         .fillMaxWidth()
         .height(SAVINGS_BALANCE_CHART_HEIGHT)
-        .semantics { this.contentDescription = completeDescription }
+        .semantics {
+            this.contentDescription = completeDescription
+            selectedIndex?.let(points::getOrNull)?.let { point ->
+                stateDescription = "${point.periodDescription}, ${point.balanceDescription}"
+            }
+            if (onPointSelected != null && points.size > 1) {
+                val first = firstSelectableIndex.coerceIn(points.indices)
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    (selectedIndex ?: first).coerceIn(first, points.lastIndex).toFloat(),
+                    first.toFloat()..points.lastIndex.toFloat(), (points.lastIndex - first - 1).coerceAtLeast(0),
+                )
+                setProgress { value ->
+                    if (!value.isFinite()) false else {
+                        onPointSelected(value.roundToInt().coerceIn(first, points.lastIndex)); true
+                    }
+                }
+            }
+        }
 
     SavingsBalanceChartContent(
         points = points,
         goalMinor = goalMinor,
         selectedIndex = selectedIndex,
+        onPointSelected = onPointSelected,
+        firstSelectableIndex = firstSelectableIndex,
+        animateChanges = animateChanges,
         modifier = chartModifier,
     )
 }
@@ -400,6 +435,9 @@ private fun SavingsBalanceChartContent(
     points: List<WhfinSavingsBalancePoint>,
     goalMinor: Long?,
     selectedIndex: Int?,
+    onPointSelected: ((Int) -> Unit)?,
+    firstSelectableIndex: Int,
+    animateChanges: Boolean,
     modifier: Modifier,
 ) {
     val values = buildList {
@@ -420,22 +458,66 @@ private fun SavingsBalanceChartContent(
     val guideColor = MaterialTheme.colorScheme.outlineVariant
     val denseLabels = points.size <= SAVINGS_CHART_DENSE_PERIOD_LIMIT && LocalDensity.current.fontScale <= 1.2f
 
+    val positions = points.mapNotNull { it.position }
+    val firstPosition = positions.minOrNull()?.toDouble() ?: 0.0
+    val positionSpan = (positions.maxOrNull()?.toDouble() ?: 0.0) - firstPosition
+    val fractions = points.indices.map { index ->
+        if (positions.size == points.size && positionSpan > 0.0) {
+            .5f / points.size + ((positions[index].toDouble() - firstPosition) / positionSpan).toFloat() * (1f - 1f / points.size)
+        } else (index + .5f) / points.size
+    }
+    fun ordinate(value: Double) = ((upperBound - value) / range).toFloat().coerceIn(0f, 1f)
+    val animate = animateChanges && !LocalInspectionMode.current
+    val motion = WhfinMotion.quick<Float>()
+    // Only screen coordinates interpolate. Exact amounts, dates and accessibility update atomically
+    // with the caller's snapshot. Read the animated states in drawing, not in composition.
+    val ordinates = points.mapIndexed { index, point ->
+        key(point.position ?: index.toLong(), point.isProjected) {
+            val target = ordinate(point.balanceMinor.toDouble())
+            if (animate) animateFloatAsState(target, motion, visibilityThreshold = .001f, label = "savings-point")
+            else rememberUpdatedState(target)
+        }
+    }
+    val goalOrdinate = goal?.let {
+        if (animate) animateFloatAsState(ordinate(it), motion, visibilityThreshold = .001f, label = "savings-goal")
+        else rememberUpdatedState(ordinate(it))
+    }
+    val select by rememberUpdatedState(onPointSelected)
+    val first = firstSelectableIndex.coerceIn(points.indices)
+    val touch = if (onPointSelected == null) Modifier else Modifier
+        .pointerInput(fractions, first) {
+            detectTapGestures { point ->
+                select?.invoke((first..fractions.lastIndex).minBy { kotlin.math.abs(fractions[it] * size.width - point.x) })
+            }
+        }
+        .pointerInput(fractions, first) {
+            fun choose(x: Float) {
+                select?.invoke((first..fractions.lastIndex).minBy { kotlin.math.abs(fractions[it] * size.width - x) })
+            }
+            // Vertical gestures belong to the surrounding list. Once horizontal slop is crossed,
+            // the same gesture continues across recompositions as selection/amount labels change.
+            detectHorizontalDragGestures(onDragStart = { choose(it.x) }) { change, _ -> choose(change.position.x) }
+        }
+
     Box(modifier.height(SAVINGS_BALANCE_CHART_HEIGHT)) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxWidth().height(SAVINGS_BALANCE_PLOT_HEIGHT)
+            .testTag("whfin-savings-balance-plot").then(touch)) {
             val plotHeightPx = SAVINGS_BALANCE_PLOT_HEIGHT.toPx()
             val xStep = size.width / points.size
-            val positions = points.mapNotNull { it.position }
-            val firstPosition = positions.minOrNull()?.toDouble() ?: 0.0
-            val positionSpan = (positions.maxOrNull()?.toDouble() ?: 0.0) - firstPosition
             fun xFor(index: Int): Float = if (positions.size == points.size && positionSpan > 0.0) {
                 xStep / 2 + ((positions[index].toDouble() - firstPosition) / positionSpan).toFloat() * (size.width - xStep)
             } else (index + .5f) * xStep
-            fun yFor(value: Double): Float = ((upperBound - value) / range * plotHeightPx).toFloat()
-            goal?.let { goalValue ->
+            // Preserve the established final pixel geometry: normalize only while moving, since
+            // rounding a normalized Float before scaling slightly shifts antialiased static lines.
+            fun yFor(value: Double, animated: Float): Float = if (animated == ordinate(value)) {
+                ((upperBound - value) / range * plotHeightPx).toFloat()
+            } else animated.coerceIn(0f, 1f) * plotHeightPx
+            fun yAt(index: Int): Float = yFor(points[index].balanceMinor.toDouble(), ordinates[index].value)
+            goalOrdinate?.let { goalY ->
                 drawLine(
                     color = goalColor,
-                    start = androidx.compose.ui.geometry.Offset(0f, yFor(goalValue)),
-                    end = androidx.compose.ui.geometry.Offset(size.width, yFor(goalValue)),
+                    start = androidx.compose.ui.geometry.Offset(0f, yFor(requireNotNull(goal), goalY.value)),
+                    end = androidx.compose.ui.geometry.Offset(size.width, yFor(requireNotNull(goal), goalY.value)),
                     strokeWidth = 1.5.dp.toPx(),
                     cap = StrokeCap.Round,
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
@@ -446,8 +528,8 @@ private fun SavingsBalanceChartContent(
                 // control that suggests it can be tapped.
                 drawLine(
                     color = balanceColor,
-                    start = androidx.compose.ui.geometry.Offset(0f, yFor(points.first().balanceMinor.toDouble())),
-                    end = androidx.compose.ui.geometry.Offset(size.width, yFor(points.first().balanceMinor.toDouble())),
+                    start = androidx.compose.ui.geometry.Offset(0f, yAt(0)),
+                    end = androidx.compose.ui.geometry.Offset(size.width, yAt(0)),
                     strokeWidth = 2.5.dp.toPx(),
                     cap = StrokeCap.Round,
                 )
@@ -456,7 +538,7 @@ private fun SavingsBalanceChartContent(
                     val path = androidx.compose.ui.graphics.Path()
                     for (index in start..end) {
                         val x = xFor(index)
-                        val y = yFor(points[index].balanceMinor.toDouble())
+                        val y = yAt(index)
                         if (index == start) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     return path
@@ -472,7 +554,7 @@ private fun SavingsBalanceChartContent(
                             pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 4.dp.toPx()))))
                     drawLine(guideColor, androidx.compose.ui.geometry.Offset(xFor(anchor), 0f),
                         androidx.compose.ui.geometry.Offset(xFor(anchor), plotHeightPx), strokeWidth = 1.dp.toPx())
-                    drawCircle(balanceColor, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(anchor), yFor(points[anchor].balanceMinor.toDouble())))
+                    drawCircle(balanceColor, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(anchor), yAt(anchor)))
                 }
             }
             points.forEachIndexed { index, point ->
@@ -485,7 +567,14 @@ private fun SavingsBalanceChartContent(
                 )
             }
             selectedIndex?.takeIf { it in points.indices }?.let { index ->
-                drawCircle(balanceColor, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(xFor(index), yFor(points[index].balanceMinor.toDouble())))
+                val center = androidx.compose.ui.geometry.Offset(xFor(index), yAt(index))
+                val selectedColor = if (points[index].isProjected && onPointSelected != null) projectionColor else balanceColor
+                if (onPointSelected != null) {
+                    drawLine(guideColor, androidx.compose.ui.geometry.Offset(center.x, 0f),
+                        androidx.compose.ui.geometry.Offset(center.x, plotHeightPx), strokeWidth = 1.dp.toPx())
+                    drawCircle(selectedColor.copy(alpha = .14f), 10.dp.toPx(), center)
+                }
+                drawCircle(selectedColor, 4.dp.toPx(), center)
             }
         }
         Row(
