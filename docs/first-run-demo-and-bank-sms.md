@@ -57,6 +57,15 @@ never prevents adding another.
 8. **Ready**: per-currency balance review and a collapsed return to any setup stage; no invented completion marks
    for banks or permissions. Skipped features remain accessible in the normal application.
 
+After a fresh Credo or TBC sign-in has started its data read, setup automatically moves to Bank SMS.
+The process-owned read continues while the owner configures other stages. Bank rows share a progress
+vocabulary, including account progress, balance review, interruption, and attention. A previous
+statement import proves that transactions exist, but does not prove that the current full history
+read completed. The other bank stays accessible on Bank SMS, and later stages surface bank work
+that still needs action. Category suggestions are based on unfiled transactions; optional interest
+packs can be selected and added in one action. While a bank read is unfinished, the category step
+states that more suggestions may arrive.
+
 The current stage is stored with installation-local runtime flags and excluded from backup. Activity
 recreation also restores the nested caller stack; a fresh process can resume at the saved stage without
 persisting credentials, codes or a bank session. Re-entering setup from Home starts at Banks.

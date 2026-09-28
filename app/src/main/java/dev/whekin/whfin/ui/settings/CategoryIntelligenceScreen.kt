@@ -105,6 +105,7 @@ fun CategoryIntelligenceRoute(
     viewModel: CategoryIntelligenceViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val isRussian = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
     CategoryIntelligenceScreen(
         state = state,
         queue = queue,
@@ -115,8 +116,8 @@ fun CategoryIntelligenceRoute(
         onDismissCounterparty = viewModel::dismissCounterparty,
         onUpdateRule = viewModel::updateRule,
         onDeleteRule = viewModel::deleteRule,
-        onCreateCategories = viewModel::createCategories,
-        onAddPack = viewModel::addPack,
+        onCreateCategories = { viewModel.createCategories(it, isRussian) },
+        onAddPack = { viewModel.addPack(it, isRussian) },
         onMergeCounterparties = viewModel::mergeCounterparties,
     )
 }
@@ -342,7 +343,7 @@ private fun LazyListScope.indexSection(
             )
         }
         items(state.proposals, key = { "new:" + it.definition.icon }) { proposal ->
-            val isRussian = java.util.Locale.getDefault().language == "ru"
+            val isRussian = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
             WhfinLedgerRow(
                 title = proposal.definition.name(isRussian),
                 supportingText = pluralStringResource(
@@ -374,7 +375,7 @@ private fun LazyListScope.indexSection(
             )
         }
         items(state.packs, key = { "pack:" + it.id }) { pack ->
-            val isRussian = java.util.Locale.getDefault().language == "ru"
+            val isRussian = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
             WhfinLedgerRow(
                 title = pack.name(isRussian),
                 supportingText = CategoryPacks.definitions(pack)

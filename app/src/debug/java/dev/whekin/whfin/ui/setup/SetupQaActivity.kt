@@ -55,6 +55,26 @@ class SetupQaActivity : ComponentActivity() {
                             dev.whekin.whfin.ui.demo.DemoWorkspaceFrame { Text("WHFIN", Modifier.padding(20.dp)) }
                         }
                     }
+                } else if (intent.getBooleanExtra("bankStatus", false)) {
+                    val loading = dev.whekin.whfin.ui.setup.setupBankProgress(
+                        dev.whekin.whfin.data.sync.BankSyncStatus("Credo", 1, true,
+                            dev.whekin.whfin.data.sync.SyncPhase.HISTORY, 2, 5, true), 5, true)
+                    val balances = dev.whekin.whfin.ui.setup.setupBankProgress(null, 5, false, 5)
+                    SetupStageScreen(SetupStage.Banks, listOf(
+                        SetupAction("Credo", loading.label()) {},
+                        SetupAction("TBC", balances.label()) {},
+                    ), {}, {})
+                } else if (intent.getBooleanExtra("categoryPacks", false)) {
+                    var proposals by remember { mutableStateOf(listOf(
+                        dev.whekin.whfin.data.categorization.CategoryProposals.Proposal(
+                            dev.whekin.whfin.data.categorization.CategoryCatalog.all.single { it.icon == "PedalBike" }, 18),
+                    )) }
+                    var packs by remember { mutableStateOf(dev.whekin.whfin.data.categorization.CategoryPacks.all.take(3)) }
+                    CategorySetupStep(proposals = proposals, packs = packs,
+                        bankHistoryPending = true,
+                        onAccept = { proposals = emptyList() },
+                        onAddPacks = { selected -> packs = packs.filterNot { it.id in selected.map { p -> p.id } } },
+                        onContinue = {}, onBack = {})
                 } else if (intent.getBooleanExtra("review", false)) SetupReviewSample()
                 else if (complete) Box(Modifier.fillMaxSize().systemBarsPadding(), contentAlignment = Alignment.Center) { Text("Setup finished") } else PersonalSetupFlow(
                     state = PersonalSetupState(accountCount = 0,

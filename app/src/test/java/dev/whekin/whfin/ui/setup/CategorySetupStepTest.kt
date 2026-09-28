@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import dev.whekin.whfin.R
 import dev.whekin.whfin.data.categorization.CategoryCatalog
@@ -112,6 +113,43 @@ class CategorySetupStepTest {
         compose.onNodeWithText(context.getString(R.string.category_setup_continue))
             .assertIsDisplayed().performClick()
         assertEquals(true, continued)
+    }
+
+    @Test fun optionalPacksCanBeSelectedAndWrittenTogetherWithoutAddingUnchosenInterests() {
+        val packs = CategoryPacks.all.take(3)
+        var added: List<String>? = null
+        compose.setContent { WhfinTheme {
+            CategorySetupStep(proposals = emptyList(), packs = packs, onAccept = {},
+                onAddPacks = { added = it.map(CategoryPacks.Pack::id) },
+                onContinue = {}, onBack = {})
+        } }
+
+        compose.onNodeWithText(packs[0].en).performScrollTo().performClick()
+        compose.onNodeWithText(packs[2].en).performScrollTo().performClick()
+        assertEquals(null, added)
+        compose.onNodeWithText(context.getString(R.string.category_packs_add_selected, 2)).performClick()
+        assertEquals(listOf(packs[0].id, packs[2].id), added)
+    }
+
+    @Test fun optionalPackListsOnlyCategoriesThatWouldActuallyBeAdded() {
+        val online = CategoryPacks.all.single { it.id == "online" }
+        compose.setContent { WhfinTheme {
+            CategorySetupStep(proposals = emptyList(), packs = listOf(online),
+                existingCategoryKeys = setOf("Subscriptions" to bike.kind),
+                onAccept = {}, onContinue = {}, onBack = {})
+        } }
+
+        compose.onNodeWithText("Subscriptions", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Tech", substring = true).assertExists()
+    }
+
+    @Test fun pendingBankHistoryDoesNotClaimTheCurrentSuggestionsAreFinal() {
+        compose.setContent { WhfinTheme {
+            CategorySetupStep(proposals = emptyList(), packs = emptyList(), onAccept = {},
+                onContinue = {}, onBack = {}, bankHistoryPending = true)
+        } }
+        compose.onNodeWithText(context.getString(R.string.category_setup_pending_empty)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.category_setup_none)).assertDoesNotExist()
     }
 
     /** A ledger that earned nothing new still needs a way forward, not an empty list. */

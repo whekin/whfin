@@ -20,7 +20,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -30,10 +37,13 @@ import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinBackButton
 import dev.whekin.whfin.core.ui.WhfinButton
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
+import dev.whekin.whfin.core.ui.WhfinNotice
+import dev.whekin.whfin.core.ui.WhfinNoticeKind
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
 import dev.whekin.whfin.data.categorization.CategoryCatalog
 import dev.whekin.whfin.data.categorization.CategoryPacks
 import dev.whekin.whfin.data.categorization.CategoryProposals
+import dev.whekin.whfin.data.db.CategoryKind
 import dev.whekin.whfin.ui.settings.CategoryIntelligenceViewModel
 
 /**
@@ -48,9 +58,11 @@ import dev.whekin.whfin.ui.settings.CategoryIntelligenceViewModel
 internal fun CategorySetupStep(
     onContinue: () -> Unit,
     onBack: () -> Unit,
+    bankHistoryPending: Boolean = false,
     viewModel: CategoryIntelligenceViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val isRussian = LocalConfiguration.current.locales[0].language == "ru"
     if (state == null) {
         PersonalSetupSecondaryPage(stringResource(R.string.category_setup_title), onBack) {
             dev.whekin.whfin.core.ui.WhfinLoadingIndicator()
@@ -60,10 +72,13 @@ internal fun CategorySetupStep(
     CategorySetupStep(
         proposals = state?.proposals.orEmpty(),
         packs = state?.packs.orEmpty(),
-        onAccept = viewModel::createCategories,
-        onAddPack = viewModel::addPack,
+        existingCategoryKeys = state?.categories.orEmpty().map { it.icon to it.kind }.toSet(),
+        onAccept = { viewModel.createCategories(it, isRussian) },
+        onAddPacks = { viewModel.addPacks(it, isRussian) },
         onContinue = onContinue,
         onBack = onBack,
+        bankHistoryPending = bankHistoryPending,
+        operationFailed = state?.operationFailed == true,
     )
 }
 
@@ -71,13 +86,19 @@ internal fun CategorySetupStep(
 internal fun CategorySetupStep(
     proposals: List<CategoryProposals.Proposal>,
     packs: List<CategoryPacks.Pack> = emptyList(),
+    existingCategoryKeys: Set<Pair<String, CategoryKind>> = emptySet(),
     onAccept: (List<CategoryCatalog.Definition>) -> Unit,
-    onAddPack: (CategoryPacks.Pack) -> Unit = {},
+    onAddPacks: (List<CategoryPacks.Pack>) -> Unit = {},
     onContinue: () -> Unit,
     onBack: () -> Unit,
+    bankHistoryPending: Boolean = false,
+    operationFailed: Boolean = false,
 ) {
     BackHandler(onBack = onBack)
-    val isRussian = java.util.Locale.getDefault().language == "ru"
+    val isRussian = LocalConfiguration.current.locales[0].language == "ru"
+    val compact = LocalConfiguration.current.screenHeightDp < 700
+    var selectedPackIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(packs) { selectedPackIds = selectedPackIds.filter { id -> packs.any { it.id == id } } }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -89,8 +110,8 @@ internal fun CategorySetupStep(
                 Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                    .padding(horizontal = 20.dp, vertical = if (compact) 12.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp),
             ) {
                 WhfinBackButton(stringResource(R.string.action_back), onBack)
                 Text(
@@ -98,11 +119,22 @@ internal fun CategorySetupStep(
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    if (proposals.isEmpty() && packs.isEmpty()) stringResource(R.string.category_setup_none)
+                    if (bankHistoryPending && proposals.isEmpty()) stringResource(R.string.category_setup_pending_empty)
+                    else if (proposals.isEmpty() && packs.isEmpty()) stringResource(R.string.category_setup_none)
                     else if (proposals.isEmpty()) stringResource(R.string.category_setup_packs_only)
                     else stringResource(R.string.category_setup_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (bankHistoryPending && proposals.isNotEmpty()) Text(
+                    stringResource(R.string.category_setup_pending_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (operationFailed) WhfinNotice(
+                    title = stringResource(R.string.category_setup_add_failed_title),
+                    body = stringResource(R.string.category_setup_add_failed),
+                    kind = WhfinNoticeKind.Attention,
                 )
                 if (proposals.isNotEmpty()) {
                     WhfinSectionLabel(stringResource(R.string.category_proposals_title))
@@ -132,14 +164,25 @@ internal fun CategorySetupStep(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    WhfinButton(
+                        stringResource(R.string.category_packs_select_all),
+                        { selectedPackIds = packs.map { it.id } },
+                        style = WhfinActionStyle.Quiet,
+                    )
                     Column(Modifier.fillMaxWidth()) {
                         packs.forEach { pack ->
+                            val chosen = pack.id in selectedPackIds
                             WhfinLedgerRow(
                                 title = pack.name(isRussian),
                                 supportingText = CategoryPacks.definitions(pack)
+                                    .filterNot { it.icon to it.kind in existingCategoryKeys }
                                     .joinToString(" · ") { it.name(isRussian) },
-                                icon = Icons.Default.Add,
-                                onClick = { onAddPack(pack) },
+                                supportingMaxLines = 4,
+                                icon = if (chosen) Icons.Default.Check else Icons.Default.Add,
+                                modifier = Modifier.semantics { selected = chosen },
+                                onClick = {
+                                    selectedPackIds = if (chosen) selectedPackIds - pack.id else selectedPackIds + pack.id
+                                },
                                 divider = pack != packs.last(),
                             )
                         }
@@ -159,13 +202,22 @@ internal fun CategorySetupStep(
                         leadingIcon = Icons.Default.Check,
                     )
                 }
+                if (selectedPackIds.isNotEmpty()) WhfinButton(
+                    label = stringResource(R.string.category_packs_add_selected, selectedPackIds.size),
+                    onClick = {
+                        onAddPacks(packs.filter { it.id in selectedPackIds })
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    style = if (proposals.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Secondary,
+                )
                 WhfinButton(
                     label = stringResource(R.string.category_setup_continue),
                     onClick = onContinue,
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(if (proposals.isEmpty()) Modifier.padding(top = 8.dp) else Modifier),
-                    style = if (proposals.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
+                    style = if (proposals.isEmpty() && selectedPackIds.isEmpty()) WhfinActionStyle.Primary
+                        else WhfinActionStyle.Quiet,
                 )
             }
         }

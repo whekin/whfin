@@ -786,8 +786,8 @@
         <item quantity="many">%1$d отправителей</item>
         <item quantity="other">%1$d отправителей</item>
     </plurals>
-    <string name="category_setup_title">Категории из ваших же трат</string>
-    <string name="category_setup_body">WHFIN прочитал только что загруженную историю и узнал вот это. Добавьте подходящие — все операции, которые за ними стоят, разметятся сразу.</string>
+    <string name="category_setup_title">Категории по вашим расходам</string>
+    <string name="category_setup_body">Найдено в ваших расходах. Добавьте подходящее — прежние операции разметятся сами.</string>
     <string name="category_setup_none">Стартовые категории уже покрывают всё, что WHFIN узнал. Новые предложатся позже, в настройках, когда истории станет больше.</string>
     <string name="category_setup_packs_only">Из прочитанной истории ничего нового не вышло. Ниже — увлечения, о которых выписка знать не может; добавьте свои.</string>
     <string name="category_setup_continue">Продолжить настройку</string>
@@ -1349,7 +1349,13 @@
     </plurals>
     <string name="category_proposals_accept_all">Добавить все</string>
     <string name="category_packs_title">Добавить по интересам</string>
-    <string name="category_packs_body">То, чего история о вас пока не знает. Ничего не добавится, пока не выберете.</string>
+    <string name="category_packs_body">Выберите подходящие необязательные наборы и добавьте их одним действием.</string>
+    <string name="category_packs_select_all">Выбрать все наборы</string>
+    <string name="category_packs_add_selected">Добавить выбранные наборы: %1$d</string>
+    <string name="category_setup_pending_empty">История банка пока не полная. Предложения могут появиться позже; можно продолжить.</string>
+    <string name="category_setup_pending_hint">История банка пока не полная; предложения могут дополниться.</string>
+    <string name="category_setup_add_failed_title">Не удалось завершить добавление</string>
+    <string name="category_setup_add_failed">Часть категорий могла сохраниться. Проверьте список и повторите для остальных.</string>
     <string name="savings_title">Накопления</string>
     <string name="savings_view_projection">Прогноз</string>
     <string name="savings_choose_date">Выбрать срок</string>
@@ -1662,6 +1668,17 @@
     <string name="setup_count_accounts">Счетов: %1$d</string>
     <string name="setup_count_saved">Сохранено: %1$d</string>
     <string name="setup_history_loaded">История загружена</string>
+    <string name="setup_bank_connecting">Подключение к банку</string>
+    <string name="setup_bank_loading">Загрузка истории банка</string>
+    <string name="setup_bank_loading_progress">Загрузка истории · счёт %1$d из %2$d</string>
+    <string name="setup_bank_review_balances">Остатки для подтверждения: %1$d</string>
+    <string name="setup_bank_attention">Требует внимания</string>
+    <string name="setup_bank_interrupted">Загрузка прервана · повторить</string>
+    <string name="setup_bank_connected">Подключено счетов: %1$d · история не загружена</string>
+    <string name="setup_history_available">Операции банка есть · полнота истории не проверена</string>
+    <string name="setup_bank_progress_line">%1$s · %2$s</string>
+    <string name="setup_start_with_bank_pending">Начать с незавершённой настройкой банка</string>
+    <string name="setup_start_while_bank_loads">Начать, пока банк загружает историю</string>
     <string name="setup_not_added">Не добавлено</string>
     <string name="setup_needs_category">Без категории: %1$d</string>
     <string name="setup_needs_account">Выбрать счёт: %1$d</string>

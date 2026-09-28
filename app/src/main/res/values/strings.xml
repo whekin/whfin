@@ -754,8 +754,8 @@
         <item quantity="one">%1$d sender</item>
         <item quantity="other">%1$d senders</item>
     </plurals>
-    <string name="category_setup_title">Categories from your own spending</string>
-    <string name="category_setup_body">WHFIN read the history it just imported and recognized these. Add the ones that fit — every transaction already behind them gets categorized at once.</string>
+    <string name="category_setup_title">Categories from your spending</string>
+    <string name="category_setup_body">Recognized from your spending. Add what fits; past matching transactions will be categorized.</string>
     <string name="category_setup_none">The categories WHFIN starts with already cover what it recognized. More can be proposed later, in Settings, as history grows.</string>
     <string name="category_setup_packs_only">Nothing new came out of the history WHFIN just read. These are interests a ledger cannot know about on its own — add the ones that are yours.</string>
     <string name="category_setup_continue">Continue setup</string>
@@ -1287,7 +1287,13 @@
     </plurals>
     <string name="category_proposals_accept_all">Add all of them</string>
     <string name="category_packs_title">Add by interest</string>
-    <string name="category_packs_body">Things a ledger cannot know about you yet. Nothing is added unless you pick it.</string>
+    <string name="category_packs_body">Choose the optional packs that fit you, then add them together.</string>
+    <string name="category_packs_select_all">Select all packs</string>
+    <string name="category_packs_add_selected">Add selected packs (%1$d)</string>
+    <string name="category_setup_pending_empty">Bank history is not complete yet. More suggestions may appear later; you can continue.</string>
+    <string name="category_setup_pending_hint">Bank history is not complete yet; more suggestions may appear later.</string>
+    <string name="category_setup_add_failed_title">Categories need another try</string>
+    <string name="category_setup_add_failed">Some categories may have been saved. Check the list and try adding the remaining ones.</string>
     <string name="savings_title">Savings</string>
     <string name="savings_view_projection">Forecast</string>
     <string name="savings_choose_date">Choose target date</string>
@@ -1600,6 +1606,17 @@
     <string name="setup_count_accounts">Accounts: %1$d</string>
     <string name="setup_count_saved">Saved: %1$d</string>
     <string name="setup_history_loaded">History loaded</string>
+    <string name="setup_bank_connecting">Connecting to bank</string>
+    <string name="setup_bank_loading">Loading bank history</string>
+    <string name="setup_bank_loading_progress">Loading history · account %1$d of %2$d</string>
+    <string name="setup_bank_review_balances">Balances to confirm: %1$d</string>
+    <string name="setup_bank_attention">Needs attention</string>
+    <string name="setup_bank_interrupted">Sync interrupted · retry</string>
+    <string name="setup_bank_connected">Accounts connected: %1$d · history not loaded</string>
+    <string name="setup_history_available">Bank transactions available · full history unverified</string>
+    <string name="setup_bank_progress_line">%1$s · %2$s</string>
+    <string name="setup_start_with_bank_pending">Start with bank setup unfinished</string>
+    <string name="setup_start_while_bank_loads">Start while bank history loads</string>
     <string name="setup_not_added">Not added</string>
     <string name="setup_needs_category">Uncategorised: %1$d</string>
     <string name="setup_needs_account">Choose account: %1$d</string>

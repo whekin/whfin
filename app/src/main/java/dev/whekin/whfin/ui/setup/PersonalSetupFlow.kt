@@ -53,6 +53,8 @@ fun PersonalSetupFlow(
     val app = remember(context) { context.applicationContext as dev.whekin.whfin.WhfinApp }
     val runtime = remember(app) { app.runtimeModes }
     val bankSyncStatuses by app.bankSync.statuses.collectAsState()
+    val credoConnection by app.bankSync.credo.state.collectAsState()
+    val tbcConnection by app.bankSync.tbc.state.collectAsState()
     val bankWorkActive = bankSyncStatuses.any { it.active }
     var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
@@ -62,6 +64,8 @@ fun PersonalSetupFlow(
     var cardsAttempted by remember { mutableStateOf(false) }
     var cardLinkRetryKey by remember { mutableIntStateOf(0) }
     var stack by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var autoAdvanceBank by rememberSaveable { mutableStateOf<SetupPage?>(null) }
+    var bankEntryRunId by rememberSaveable { mutableLongStateOf(0L) }
     var selectedTransaction by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedAccount by rememberSaveable { mutableLongStateOf(0L) }
     var categoryQueue by rememberSaveable { mutableStateOf<CategoryQueue?>(null) }
@@ -103,9 +107,25 @@ fun PersonalSetupFlow(
     }
     fun open(page: SetupPage) {
         if (page == SetupPage.Intelligence) categoryQueue = null
+        if (page == SetupPage.Credo || page == SetupPage.Tbc) {
+            val needsSignIn = if (page == SetupPage.Credo)
+                credoConnection.stage == CredoSyncStage.Disconnected
+            else tbcConnection.stage == TbcLoginStage.Login
+            autoAdvanceBank = page.takeIf { needsSignIn }
+            bankEntryRunId = bankSyncStatuses.firstOrNull {
+                it.bank == if (page == SetupPage.Credo) "Credo" else "TBC"
+            }?.runId ?: 0L
+        }
         stack = stack + page.savedKey
     }
     fun back() { stack = stack.dropLast(1) }
+    fun finishBank(page: SetupPage) {
+        val firstConnection = autoAdvanceBank == page
+        autoAdvanceBank = null
+        val next = returnFromBankPage(stack, stage, page, firstConnection)
+        stack = next.stack
+        stage = next.stage
+    }
     fun openSettings(page: String) {
         settingsEntry = page
         settings.open(page)
@@ -118,16 +138,25 @@ fun PersonalSetupFlow(
     val overviewModel: SetupOverviewViewModel = viewModel()
     val overviewState by overviewModel.state.collectAsState()
     val overview = (overviewState as? SetupOverviewState.Ready)?.value
+    val credoRuntime = bankSyncStatuses.firstOrNull { it.bank == "Credo" }
+    val tbcRuntime = bankSyncStatuses.firstOrNull { it.bank == "TBC" }
+    val credoProgress = setupBankProgress(credoRuntime,
+        overview?.bankAccounts?.get(BankSmsBank.CREDO) ?: 0,
+        BankSmsBank.CREDO in overview?.bankImports.orEmpty())
+    val tbcProgress = setupBankProgress(tbcRuntime,
+        overview?.bankAccounts?.get(BankSmsBank.TBC) ?: 0,
+        BankSmsBank.TBC in overview?.bankImports.orEmpty(),
+        tbcConnection.syncResult?.needsStatement?.size ?: 0)
+    val credoProgressText = credoProgress.label()
+    val tbcProgressText = tbcProgress.label()
+    LaunchedEffect(autoAdvanceBank, destination, bankEntryRunId, bankSyncStatuses) {
+        val page = autoAdvanceBank ?: return@LaunchedEffect
+        val status = if (page == SetupPage.Credo) credoRuntime else tbcRuntime
+        if (shouldAdvanceAfterBankSignIn(page, destination, bankEntryRunId, status)) finishBank(page)
+    }
 
     if (destination == null) {
         @Composable fun saved(count: Int?) = count?.let { stringResource(R.string.setup_count_saved, it) }
-        @Composable fun bankStatus(bank: BankSmsBank): String? = overview?.let {
-            when {
-                bank in it.bankImports -> stringResource(R.string.setup_history_loaded)
-                it.bankAccounts.getValue(bank) > 0 -> stringResource(R.string.setup_count_accounts, it.bankAccounts.getValue(bank))
-                else -> stringResource(R.string.setup_not_added)
-            }
-        }
         @Composable fun smsStatus(enabled: Boolean): String = stringResource(when {
             !enabled -> R.string.setup_sms_off
             !state.hasSmsPermission -> R.string.setup_sms_permission_needed
@@ -146,8 +175,8 @@ fun PersonalSetupFlow(
             }
         val actions = when (stage) {
             SetupStage.Banks -> listOf(
-                SetupAction("Credo", bankStatus(BankSmsBank.CREDO)) { open(SetupPage.Credo) },
-                SetupAction("TBC", bankStatus(BankSmsBank.TBC)) { open(SetupPage.Tbc) },
+                SetupAction("Credo", credoProgressText) { open(SetupPage.Credo) },
+                SetupAction("TBC", tbcProgressText) { open(SetupPage.Tbc) },
                 SetupAction(stringResource(R.string.app_lock_title), if (appLockHasPin) stringResource(R.string.setup_lock_set) else null) { open(SetupPage.Lock) },
                 SetupAction(stringResource(R.string.statements_title)) { open(SetupPage.Statements) },
                 SetupAction(stringResource(R.string.personal_setup_restore_title)) { open(SetupPage.Backup) },
@@ -193,14 +222,37 @@ fun PersonalSetupFlow(
                 SetupAction(stringResource(target.title)) { stage = target; showSteps = false }
             } else emptyList())
         }
-        SetupStageScreen(stage, actions,
+        val oneBankConnected = credoProgress.kind != SetupBankProgressKind.NOT_CONNECTED ||
+            tbcProgress.kind != SetupBankProgressKind.NOT_CONNECTED
+        val followUps = if (stage == SetupStage.Banks) emptyList() else listOfNotNull(
+            SetupAction("Credo", credoProgressText) { open(SetupPage.Credo) }
+                .takeIf { credoProgress.needsAction || (stage == SetupStage.Sms && oneBankConnected &&
+                    credoProgress.kind == SetupBankProgressKind.NOT_CONNECTED) },
+            SetupAction("TBC", tbcProgressText) { open(SetupPage.Tbc) }
+                .takeIf { tbcProgress.needsAction || (stage == SetupStage.Sms && oneBankConnected &&
+                    tbcProgress.kind == SetupBankProgressKind.NOT_CONNECTED) },
+        )
+        val bankSummary = listOfNotNull(
+            credoProgressText.takeIf { credoProgress.isNotable }
+                ?.let { stringResource(R.string.setup_bank_progress_line, "Credo", it) },
+            tbcProgressText.takeIf { tbcProgress.isNotable }
+                ?.let { stringResource(R.string.setup_bank_progress_line, "TBC", it) },
+        ).joinToString("\n").takeIf(String::isNotEmpty)
+        SetupStageScreen(stage, followUps + actions,
             onBack = { if (stage.ordinal == 0) onExit() else stage = SetupStage.entries[stage.ordinal - 1] },
             onContinue = {
                 if (stage == SetupStage.Ready) onContinue(0, false)
                 else stage = SetupStage.entries[stage.ordinal + 1]
             },
-            continueLabel = if (stage == SetupStage.Ready && overview?.allChecked == false)
-                stringResource(R.string.setup_continue_unchecked) else null,
+            continueLabel = when {
+                stage != SetupStage.Ready -> null
+                credoProgress.needsAction || tbcProgress.needsAction ->
+                    stringResource(R.string.setup_start_with_bank_pending)
+                bankWorkActive -> stringResource(R.string.setup_start_while_bank_loads)
+                overview?.allChecked == false -> stringResource(R.string.setup_continue_unchecked)
+                else -> null
+            },
+            summary = bankSummary.takeUnless { stage == SetupStage.Banks },
             content = if (stage == SetupStage.Ready) ({
                 SetupAccountReviews(overviewState, overviewModel::retry, overviewModel::check, ::account)
             }) else null,
@@ -227,7 +279,8 @@ fun PersonalSetupFlow(
         return
     }
     if (destination == SetupPage.Suggestions) {
-        CategorySetupStep(onContinue = { back(); stage = SetupStage.Income }, onBack = ::back)
+        CategorySetupStep(onContinue = { back(); stage = SetupStage.Income }, onBack = ::back,
+            bankHistoryPending = credoProgress.historyPending || tbcProgress.historyPending)
         return
     }
     val title = when (destination) {
@@ -258,6 +311,7 @@ fun PersonalSetupFlow(
         if (destination == SetupPage.Intelligence && categoryQueue != null) {
             categoryQueue = null
         } else if (destination != SetupPage.Settings || settings.page == settingsEntry || !settings.back()) {
+            if (destination == SetupPage.Credo || destination == SetupPage.Tbc) autoAdvanceBank = null
             createPin = false
             back()
         }
@@ -268,9 +322,12 @@ fun PersonalSetupFlow(
         when (destination) {
             SetupPage.Credo -> CredoSyncRoute(canStoreCredentials = appLockHasPin,
                 initialRememberPassword = rememberCredo, onOpenAppLock = ::lockForCredo,
-                autoLoadFullHistory = true, onGuidedHistoryComplete = ::back, onDone = ::back,
-                onContinueDuringSync = ::back)
-            SetupPage.Tbc -> TbcLoginRoute(appLockHasPin, false, onOpenStatements = { open(SetupPage.Statements) }, onDone = ::back)
+                autoLoadFullHistory = true, onGuidedHistoryComplete = { finishBank(SetupPage.Credo) },
+                onDone = { finishBank(SetupPage.Credo) },
+                onContinueDuringSync = { finishBank(SetupPage.Credo) })
+            SetupPage.Tbc -> TbcLoginRoute(appLockHasPin, false,
+                onOpenStatements = { open(SetupPage.Statements) },
+                onDone = { finishBank(SetupPage.Tbc) })
             SetupPage.Accounts -> AccountsScreen(
                 onConnectBank = { open(if (it == "Credo") SetupPage.Credo else SetupPage.Tbc) },
                 onOpenStatements = { open(SetupPage.Statements) }, onOpenSavings = { open(SetupPage.Savings) },

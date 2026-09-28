@@ -45,6 +45,19 @@ class CategoryProposalsTest {
         assertEquals(listOf("Bike"), proposals.map { it.definition.en })
     }
 
+    @Test fun `a generic preset never overrides a merchant the owner has already categorized`() {
+        val filedAsSomethingElse = merchant(4, "bike24").copy(categoryId = 17)
+        val proposals = CategoryProposals.from(listOf(filedAsSomethingElse),
+            mapOf(4L to 28), existing = listOf(category(17, "ShoppingBag")))
+        assertTrue(proposals.isEmpty())
+    }
+
+    @Test fun `only still unfiled transactions justify a new category`() {
+        val proposals = CategoryProposals.from(listOf(merchant(4, "bike24")),
+            usageByMerchantId = mapOf(4L to 2), existing = emptyList())
+        assertEquals(listOf("Bike" to 2), proposals.map { it.definition.en to it.transactionCount })
+    }
+
     /** An unrecognized merchant is not evidence of anything; it is a question for the user. */
     @Test
     fun `an unknown merchant proposes nothing, however much was spent there`() {

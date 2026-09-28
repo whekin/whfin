@@ -38,6 +38,9 @@ object CategoryProposals {
         val evidence = mutableMapOf<Pair<String, CategoryKind>, Int>()
 
         merchants.forEach { merchant ->
+            // A category the owner already assigned to this merchant outranks a generic preset;
+            // adding a competing category would leave the existing rows exactly where they are.
+            if (merchant.categoryId != null) return@forEach
             val icon = GeorgiaMerchantPreset.iconFor(merchant.normalizedKey) ?: return@forEach
             val key = icon to CategoryKind.EXPENSE
             if (key in present) return@forEach

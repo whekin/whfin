@@ -208,7 +208,9 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
             incomeCategories = categories.filter { it.kind == CategoryKind.INCOME && !it.isSystem },
             proposals = CategoryProposals.from(
                 merchants = earned.merchants,
-                usageByMerchantId = earned.usage.associate { it.merchantId to it.transactionCount },
+                // Only rows a new category can actually fill are evidence for an offer. Total
+                // merchant use also includes transactions the owner already categorized elsewhere.
+                usageByMerchantId = spending.merchants.associate { it.merchantId to it.transactionCount },
                 existing = categories,
                 operationEvidence = operationEvidence(earned.operationNotes, earned.messageKinds),
             ),
@@ -251,9 +253,8 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
      * this category, so accepting it should file that history immediately rather than leave the
      * user to press a second button for the result they just asked for.
      */
-    fun createCategories(definitions: List<CategoryCatalog.Definition>) {
+    fun createCategories(definitions: List<CategoryCatalog.Definition>, isRussian: Boolean) {
         if (definitions.isEmpty()) return
-        val isRussian = java.util.Locale.getDefault().language == "ru"
         viewModelScope.launch {
             try {
                 db.withTransaction {
@@ -292,7 +293,10 @@ class CategoryIntelligenceViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addPack(pack: CategoryPacks.Pack) = createCategories(CategoryPacks.definitions(pack))
+    fun addPack(pack: CategoryPacks.Pack, isRussian: Boolean) = createCategories(CategoryPacks.definitions(pack), isRussian)
+    fun addPacks(packs: List<CategoryPacks.Pack>, isRussian: Boolean) = createCategories(
+        packs.flatMap(CategoryPacks::definitions).distinctBy { it.icon to it.kind }, isRussian,
+    )
 
     /**
      * Joins two names the owner says are one counterparty.
