@@ -3,8 +3,6 @@ package dev.whekin.whfin.ui.accounts
 import dev.whekin.whfin.ui.FormSaveState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.outlined.Close
 import dev.whekin.whfin.core.ui.WhfinActionStyle
 import dev.whekin.whfin.core.ui.WhfinButton
@@ -22,6 +20,8 @@ import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CreditCard
@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -416,7 +417,6 @@ private fun FundRoleSelector(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BankProductSelector(
     selected: BankProduct?,
@@ -428,21 +428,18 @@ private fun BankProductSelector(
         BankProduct.DEMAND_DEPOSIT to R.string.account_product_demand_deposit,
         BankProduct.TERM_DEPOSIT to R.string.account_product_term_deposit,
     )
-    // Four longish labels do not fit one line, and on a rail the fourth was simply off the screen
-    // with nothing to say it was there: "Term deposit" could not be chosen without discovering that
-    // the row scrolled. A form is read top to bottom, so the options wrap instead of scrolling and
-    // every one of them is on the screen at once, in RU and at large font too.
-    FlowRow(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    WhfinChoiceRail(
+        modifier = Modifier.testTag("bank-product-rail"),
+        revealIndex = options.indexOfFirst { it.first == selected },
     ) {
         options.forEach { (product, label) ->
-            WhfinFilterPill(
-                label = stringResource(label),
-                selected = selected == product,
-                onClick = { onSelect(product) },
-            )
+            item {
+                WhfinFilterPill(
+                    label = stringResource(label),
+                    selected = selected == product,
+                    onClick = { onSelect(product) },
+                )
+            }
         }
     }
 }
@@ -554,10 +551,14 @@ fun BankMappingSheet(
         )
     }
     var primaryCard by remember(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
+    var showProductChoices by rememberSaveable(account.id) { mutableStateOf(false) }
+    var showBankDetails by rememberSaveable(account.id) { mutableStateOf(false) }
+    var showAddCard by rememberSaveable(account.id) { mutableStateOf(false) }
     val validCards = cards
 
     FormSheet(
-        title = stringResource(R.string.account_settings_title),
+        title = account.iban?.takeLast(4)?.let { stringResource(R.string.account_settings_numbered_title, it) }
+            ?: stringResource(R.string.account_settings_title),
         onDismiss = { if (!formState.busy) onDismiss() },
         primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
         primaryEnabled = !formState.busy,
@@ -575,60 +576,10 @@ fun BankMappingSheet(
         },
     ) {
         if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
-        // One sentence of context, and the ledgers it is a claim about. A form whose every control
-        // carried the same weight read as a pile of settings; the scope belongs at the top, once.
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                Icons.Outlined.Info,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp).padding(top = 2.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    stringResource(R.string.account_settings_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (currencies.isNotEmpty()) Text(
-                    stringResource(
-                        R.string.account_settings_currencies,
-                        currencies.joinToString(" · "),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        WhfinField(
-            value = name,
-            onValueChange = { name = it },
-            label = stringResource(R.string.account_name),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        WhfinFieldLabel(stringResource(R.string.account_fund_role))
-        FundRoleSelector(
-            selected = fundRole,
-            onSelect = { fundRole = it },
-        )
-        WhfinSectionLabel(
-            stringResource(R.string.account_section_bank),
-            Modifier.padding(top = 6.dp),
-            icon = Icons.Outlined.AccountBalance,
-        )
-        WhfinField(
-            value = iban,
-            onValueChange = { iban = it.uppercase().filterNot(Char::isWhitespace) },
-            label = stringResource(R.string.account_iban),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        WhfinFieldLabel(stringResource(R.string.account_bank_product))
-        BankProductSelector(
-            selected = bankProduct,
-            onSelect = { bankProduct = it },
+        if (currencies.isNotEmpty()) Text(
+            stringResource(R.string.account_settings_currencies, currencies.joinToString(" · ")),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         WhfinSectionLabel(
             stringResource(R.string.account_cards),
@@ -636,7 +587,7 @@ fun BankMappingSheet(
             icon = Icons.Outlined.CreditCard,
         )
         if (existingUnclassifiedCards.isNotEmpty()) Text(
-            stringResource(R.string.account_cards_discovered_hint),
+            stringResource(R.string.account_cards_discovered_short),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -652,34 +603,19 @@ fun BankMappingSheet(
                 pendingCard = ""
             }
         }
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            WhfinField(
-                value = pendingCard,
-                onValueChange = { value ->
-                    pendingCard = value.filter(Char::isDigit).take(CARD_MASK_LENGTH)
-                },
-                label = stringResource(R.string.account_card_last4),
-                placeholder = stringResource(R.string.account_card_last4_placeholder),
-                keyboardType = KeyboardType.Number,
-                modifier = Modifier.weight(1f).testTag("card-input"),
-            )
-            WhfinButton(
-                label = stringResource(R.string.account_card_add),
-                onClick = addPendingCard,
-                enabled = canAddCard,
-                style = WhfinActionStyle.Secondary,
-                modifier = Modifier.testTag("card-add"),
-            )
-        }
         validCards.forEach { mask ->
             val physicalLabel = stringResource(R.string.account_card_physical)
             val virtualLabel = stringResource(R.string.account_card_virtual)
+            val laterLabel = stringResource(R.string.account_card_decide_later)
             val primaryLabel = stringResource(R.string.account_card_primary)
-            WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
+            val initialTypeIndex = remember(account.id, mask, existingCards, existingVirtualCards) {
+                when (mask) {
+                    in existingVirtualCards -> 2
+                    in existingCards -> 1
+                    else -> 0
+                }
+            }
+            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 Column(
                     Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -701,16 +637,6 @@ fun BankMappingSheet(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        if (cardTypes[mask] != PaymentInstrumentType.UNCLASSIFIED_CARD) WhfinFilterPill(
-                            label = primaryLabel,
-                            selected = primaryCard == mask,
-                            onClick = { primaryCard = mask.takeUnless { primaryCard == mask } },
-                            leadingIcon = if (primaryCard == mask) Icons.Default.Star else Icons.Outlined.StarOutline,
-                            modifier = Modifier.testTag("card-$mask-primary").semantics {
-                                contentDescription = primaryLabel + " ••" + mask
-                                selected = primaryCard == mask
-                            },
-                        )
                         WhfinIconButton(
                             icon = Icons.Outlined.Close,
                             contentDescription = stringResource(R.string.account_card_remove, mask),
@@ -723,38 +649,134 @@ fun BankMappingSheet(
                             modifier = Modifier.testTag("card-$mask-remove"),
                         )
                     }
-                    // The two pills name the question they answer, so a label above them repeated
-                    // the word "card" for a third time inside a block that is already one card.
-                    Row(
-                        Modifier.fillMaxWidth().padding(end = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    WhfinChoiceRail(
+                        modifier = Modifier.testTag("card-$mask-type-rail"),
+                        revealIndex = initialTypeIndex,
                     ) {
-                        WhfinFilterPill(
-                            label = physicalLabel,
-                            selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD,
-                            onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.PHYSICAL_CARD) },
-                            modifier = Modifier.weight(1f).testTag("card-$mask-physical").semantics {
-                                contentDescription = physicalLabel + " ••" + mask
-                                selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD
-                            },
-                        )
-                        WhfinFilterPill(
-                            label = virtualLabel,
-                            selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD,
-                            onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.VIRTUAL_CARD) },
-                            modifier = Modifier.weight(1f).testTag("card-$mask-virtual").semantics {
-                                contentDescription = virtualLabel + " ••" + mask
-                                selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD
-                            },
-                        )
+                        item {
+                            WhfinFilterPill(
+                                label = laterLabel,
+                                selected = cardTypes[mask] == PaymentInstrumentType.UNCLASSIFIED_CARD,
+                                onClick = {
+                                    cardTypes = cardTypes + (mask to PaymentInstrumentType.UNCLASSIFIED_CARD)
+                                    if (primaryCard == mask) primaryCard = null
+                                },
+                                modifier = Modifier.testTag("card-$mask-later").semantics {
+                                    contentDescription = laterLabel + " ••" + mask
+                                    selected = cardTypes[mask] == PaymentInstrumentType.UNCLASSIFIED_CARD
+                                },
+                            )
+                        }
+                        item {
+                            WhfinFilterPill(
+                                label = physicalLabel,
+                                selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD,
+                                onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.PHYSICAL_CARD) },
+                                modifier = Modifier.testTag("card-$mask-physical").semantics {
+                                    contentDescription = physicalLabel + " ••" + mask
+                                    selected = cardTypes[mask] == PaymentInstrumentType.PHYSICAL_CARD
+                                },
+                            )
+                        }
+                        item {
+                            WhfinFilterPill(
+                                label = virtualLabel,
+                                selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD,
+                                onClick = { cardTypes = cardTypes + (mask to PaymentInstrumentType.VIRTUAL_CARD) },
+                                modifier = Modifier.testTag("card-$mask-virtual").semantics {
+                                    contentDescription = virtualLabel + " ••" + mask
+                                    selected = cardTypes[mask] == PaymentInstrumentType.VIRTUAL_CARD
+                                },
+                            )
+                        }
                     }
-                    if (cardTypes[mask] == PaymentInstrumentType.UNCLASSIFIED_CARD) Text(
-                        stringResource(R.string.account_card_type_needed),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
+                    if (cardTypes[mask] != PaymentInstrumentType.UNCLASSIFIED_CARD) WhfinFilterPill(
+                        label = primaryLabel,
+                        selected = primaryCard == mask,
+                        onClick = { primaryCard = mask.takeUnless { primaryCard == mask } },
+                        leadingIcon = if (primaryCard == mask) Icons.Default.Star else Icons.Outlined.StarOutline,
+                        modifier = Modifier.testTag("card-$mask-primary").semantics {
+                            contentDescription = primaryLabel + " ••" + mask
+                            selected = primaryCard == mask
+                        },
                     )
                 }
             }
+        }
+        if (cards.isNotEmpty() && !showAddCard) WhfinButton(
+            label = stringResource(R.string.account_card_add_another),
+            onClick = { showAddCard = true },
+            style = WhfinActionStyle.Quiet,
+        )
+        if (cards.isEmpty() || showAddCard) Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            WhfinField(
+                value = pendingCard,
+                onValueChange = { value ->
+                    pendingCard = value.filter(Char::isDigit).take(CARD_MASK_LENGTH)
+                },
+                label = stringResource(R.string.account_card_last4),
+                placeholder = stringResource(R.string.account_card_last4_placeholder),
+                keyboardType = KeyboardType.Number,
+                modifier = Modifier.weight(1f).testTag("card-input"),
+            )
+            WhfinButton(
+                label = stringResource(R.string.account_card_add),
+                onClick = {
+                    addPendingCard()
+                    showAddCard = false
+                },
+                enabled = canAddCard,
+                style = WhfinActionStyle.Secondary,
+                modifier = Modifier.testTag("card-add"),
+            )
+        }
+        WhfinSectionLabel(
+            stringResource(R.string.account_fund_role),
+            Modifier.padding(top = 6.dp),
+            icon = Icons.Outlined.Savings,
+        )
+        FundRoleSelector(selected = fundRole, onSelect = { fundRole = it })
+        WhfinLedgerRow(
+            title = stringResource(R.string.account_bank_product),
+            supportingText = stringResource(when (bankProduct) {
+                null -> R.string.account_product_unspecified
+                BankProduct.CURRENT_ACCOUNT -> R.string.account_product_current
+                BankProduct.DEMAND_DEPOSIT -> R.string.account_product_demand_deposit
+                BankProduct.TERM_DEPOSIT -> R.string.account_product_term_deposit
+            }),
+            onClick = { showProductChoices = !showProductChoices },
+            trailing = { Icon(if (showProductChoices) Icons.Default.KeyboardArrowUp
+                else Icons.Default.KeyboardArrowDown, null) },
+        )
+        if (showProductChoices) BankProductSelector(
+            selected = bankProduct,
+            onSelect = { bankProduct = it; showProductChoices = false },
+        )
+        WhfinLedgerRow(
+            title = stringResource(R.string.account_settings_bank_details),
+            supportingText = listOfNotNull(name.ifBlank { account.name },
+                iban.takeLast(4).takeIf { it.isNotEmpty() }?.let { "••$it" }).joinToString(" · "),
+            onClick = { showBankDetails = !showBankDetails },
+            trailing = { Icon(if (showBankDetails) Icons.Default.KeyboardArrowUp
+                else Icons.Default.KeyboardArrowDown, null) },
+        )
+        if (showBankDetails) {
+            WhfinField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.account_name),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            WhfinField(
+                value = iban,
+                onValueChange = { iban = it.uppercase().filterNot(Char::isWhitespace) },
+                label = stringResource(R.string.account_iban),
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -783,6 +805,23 @@ private fun BankMappingPreview() {
             currencies = listOf("GEL", "EUR", "USD"),
             onDismiss = {},
             onConfirm = { _, _, _, _, _, _, _, _ -> },
+        )
+    }
+}
+
+@Preview(name = "Discovered card", widthDp = 400, heightDp = 760, showBackground = true)
+@Preview(name = "Discovered card dark", widthDp = 400, heightDp = 760, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Discovered card large font", widthDp = 400, heightDp = 980, fontScale = 1.5f)
+@Preview(name = "Discovered card compact", widthDp = 400, heightDp = 520, showBackground = true)
+@Composable
+private fun DiscoveredCardPreview() {
+    WhfinTheme {
+        BankMappingSheet(
+            account = AccountEntity(id = 2, name = "TBC GEL", type = AccountType.BANK,
+                groupId = 2, currency = "GEL", iban = "GE00TB0000000000000002"),
+            existingCards = emptyList(), existingVirtualCards = emptyList(),
+            existingUnclassifiedCards = listOf("5678"), currencies = listOf("GEL", "USD"),
+            onDismiss = {}, onConfirm = { _, _, _, _, _, _, _, _ -> },
         )
     }
 }

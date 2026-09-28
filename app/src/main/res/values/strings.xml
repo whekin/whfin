@@ -134,20 +134,22 @@
     <string name="action_save_changes">Save changes</string>
     <!-- One IBAN spans every currency ledger under it, so this sheet is the account itself. -->
     <string name="account_settings_title">Account</string>
-    <string name="account_settings_hint">Applies to every currency of this account.</string>
     <string name="account_settings_currencies">Currencies: %1$s</string>
     <string name="account_section_bank">Bank details</string>
     <string name="account_iban">IBAN</string>
     <string name="account_card_last4">Last 4 digits</string>
     <string name="account_card_last4_placeholder">1234</string>
     <string name="account_card_add">Add</string>
+    <string name="account_card_add_another">Add another card</string>
     <string name="account_card_remove">Remove card ••%1$s</string>
     <string name="account_card_label">Card ••%1$s</string>
     <string name="account_card_physical">Physical</string>
     <string name="account_card_virtual">Virtual</string>
     <string name="account_card_unclassified">Type to confirm</string>
-    <string name="account_card_type_needed">Choose physical or virtual for this card</string>
-    <string name="account_cards_discovered_hint">The bank or SMS supplied these last four digits and their account. Choose each card’s type; choose Primary only if it is your main card.</string>
+    <string name="account_card_decide_later">Later</string>
+    <string name="account_cards_discovered_short">This card was found for the account.</string>
+    <string name="account_settings_numbered_title">Account ••%1$s</string>
+    <string name="account_settings_bank_details">Name and IBAN</string>
     <string name="sms_card_type_later">You can choose physical or virtual later in Accounts.</string>
     <string name="account_card_primary">Primary</string>
     <string name="account_iban_short">Account •%1$s</string>

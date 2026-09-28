@@ -99,14 +99,26 @@ class SetupQaActivity : ComponentActivity() {
                         SetupAction(getString(dev.whekin.whfin.R.string.setup_review_accounts)) {},
                     ), {}, {}, content = { SetupBankAccountsContent(SetupOverviewState.Ready(overview), {}, {}) })
                 } else if (intent.getBooleanExtra("unknownCard", false)) {
-                    dev.whekin.whfin.ui.accounts.BankMappingSheet(
-                        account = dev.whekin.whfin.data.db.AccountEntity(id = 2, name = "TBC GEL",
-                            type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",
-                            groupId = 2, iban = "GE00TB0000000000000002"),
-                        existingCards = emptyList(), existingVirtualCards = emptyList(),
-                        existingUnclassifiedCards = listOf("5678"), currencies = listOf("GEL", "USD"),
-                        onDismiss = {}, onConfirm = { _, _, _, _, _, _, _, _ -> },
-                    )
+                    val account = dev.whekin.whfin.data.db.AccountEntity(id = 2, name = "TBC GEL",
+                        type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",
+                        groupId = 2, iban = "GE00TB0000000000000002")
+                    Box(Modifier.fillMaxSize()) {
+                        val overview = SetupOverview(emptyList(), emptyMap(), emptySet(), 0, 0, 0, 0, 0, 0,
+                            bankContainers = listOf(SetupBankContainer("tbc",
+                                dev.whekin.whfin.data.sms.BankSmsBank.TBC, listOf(account),
+                                listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
+                                    id = 8, groupId = 2,
+                                    type = dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD,
+                                    last4 = "5678")))))
+                        SetupStageScreen(SetupStage.Accounts, emptyList(), {}, {}, content = {
+                            SetupBankAccountsContent(SetupOverviewState.Ready(overview), {}, {})
+                        })
+                        dev.whekin.whfin.ui.accounts.BankMappingSheet(
+                            account = account, existingCards = emptyList(), existingVirtualCards = emptyList(),
+                            existingUnclassifiedCards = listOf("5678"), currencies = listOf("GEL", "USD"),
+                            onDismiss = {}, onConfirm = { _, _, _, _, _, _, _, _ -> },
+                        )
+                    }
                 } else if (intent.getBooleanExtra("deferredHome", false)) {
                     dev.whekin.whfin.ui.feed.FeedScreen(
                         mode = dev.whekin.whfin.ui.feed.FeedMode.HOME,

@@ -19,7 +19,7 @@ class SetupAccountsVisualTest {
     @Test fun bankInventoryRussianCompact() = render("ru", true, 1.5f,
         "accountSetup", R.string.setup_accounts_title, compact = true)
     @Test fun unknownCardRussianLarge() = render("ru", true, 1.5f,
-        "unknownCard", R.string.account_card_type_needed)
+        "unknownCard", R.string.account_card_decide_later)
 
     private fun render(language: String, dark: Boolean, font: Float, extra: String,
         expected: Int, compact: Boolean = false) {

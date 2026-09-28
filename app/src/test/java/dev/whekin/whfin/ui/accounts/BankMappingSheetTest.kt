@@ -99,8 +99,10 @@ class BankMappingSheetTest {
 
         compose.onNodeWithText(context.getString(R.string.account_card_label, "0001")).assertExists()
         compose.onNodeWithText(context.getString(R.string.account_card_label, "0002")).assertExists()
-        compose.onAllNodesWithText(context.getString(R.string.account_card_physical)).assertCountEquals(2)
-        compose.onAllNodesWithText(context.getString(R.string.account_card_virtual)).assertCountEquals(2)
+        compose.onNodeWithTag("card-0001-type-rail").assertExists()
+        compose.onNodeWithTag("card-0002-type-rail")
+            .performScrollToNode(hasTestTag("card-0002-virtual"))
+        compose.onNodeWithTag("card-0002-virtual").assertIsSelected()
         compose.onAllNodesWithText(context.getString(R.string.account_card_primary)).assertCountEquals(2)
     }
 
@@ -120,9 +122,10 @@ class BankMappingSheetTest {
             )
         } }
         compose.onNodeWithText(context.getString(R.string.account_card_label, "9876")).assertExists()
-        compose.onNodeWithText(context.getString(R.string.account_card_type_needed)).assertExists()
+        compose.onNodeWithTag("card-9876-later").assertIsSelected()
         compose.onNodeWithTag("card-9876-primary").assertDoesNotExist()
-        compose.onNodeWithTag("card-9876-physical").performScrollTo().assertIsNotSelected()
+        compose.onNodeWithTag("card-9876-type-rail").performScrollTo()
+            .performScrollToNode(hasTestTag("card-9876-virtual"))
         compose.onNodeWithTag("card-9876-virtual").assertIsNotSelected().performClick()
         compose.onNodeWithTag("card-9876-primary").assertExists()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
@@ -150,12 +153,36 @@ class BankMappingSheetTest {
             }
         }
 
-        compose.onNodeWithTag("card-0001-virtual").performScrollTo().performClick()
+        compose.onNodeWithTag("card-0001-type-rail").performScrollTo()
+            .performScrollToNode(hasTestTag("card-0001-virtual"))
+        compose.onNodeWithTag("card-0001-virtual").performClick()
         compose.onNodeWithTag("card-0001-virtual").assertIsSelected()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         compose.runOnIdle {
             assertEquals(emptyList<String>(), physical)
             assertEquals(listOf("0001"), virtual)
+        }
+    }
+
+    @Test fun deferringCardTypeAlsoClearsItsPrimaryChoice() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var unclassified = emptyList<String>()
+        var primary: String? = "unset"
+        compose.setContent { WhfinTheme { BankMappingSheet(
+            account = AccountEntity(id = 1, name = "Everyday", type = AccountType.BANK,
+                currency = "GEL"),
+            existingCards = listOf("0001"), existingVirtualCards = emptyList(),
+            existingPrimaryCard = "0001", onDismiss = {},
+            onConfirm = { _, _, _, _, _, _, unknown, savedPrimary ->
+                unclassified = unknown; primary = savedPrimary
+            },
+        ) } }
+        compose.onNodeWithTag("card-0001-later").performScrollTo().performClick()
+        compose.onNodeWithTag("card-0001-primary").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
+        compose.runOnIdle {
+            assertEquals(listOf("0001"), unclassified)
+            assertEquals(null, primary)
         }
     }
 
@@ -211,6 +238,9 @@ class BankMappingSheetTest {
         }
 
         compose.onNodeWithText(context.getString(R.string.account_bank_product)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.account_bank_product)).performClick()
+        compose.onNodeWithTag("bank-product-rail").performScrollToNode(
+            hasText(context.getString(R.string.account_product_term_deposit)))
         compose.onNodeWithText(context.getString(R.string.account_product_term_deposit))
             .performScrollTo()
             .performClick()
@@ -239,6 +269,7 @@ class BankMappingSheetTest {
         }
 
         // Three digits are not a card yet, so there is nothing to add.
+        compose.onNodeWithText(context.getString(R.string.account_card_add_another)).performClick()
         val cardField = context.getString(R.string.account_card_last4)
         compose.onNodeWithContentDescription(cardField).performScrollTo().performTextInput("000")
         compose.onNodeWithTag("card-add").assertIsNotEnabled()
@@ -246,8 +277,10 @@ class BankMappingSheetTest {
         compose.onNodeWithTag("card-add").performClick()
 
         compose.onNodeWithText(context.getString(R.string.account_card_label, "0002")).assertExists()
-        compose.onNodeWithText(context.getString(R.string.account_card_type_needed)).assertExists()
-        compose.onNodeWithTag("card-0002-physical").performScrollTo().performClick()
+        compose.onNodeWithTag("card-0002-later").assertIsSelected()
+        compose.onNodeWithTag("card-0002-type-rail").performScrollTo()
+            .performScrollToNode(hasTestTag("card-0002-physical"))
+        compose.onNodeWithTag("card-0002-physical").performClick()
         compose.onNodeWithText(context.getString(R.string.action_save)).performClick()
         compose.runOnIdle { assertEquals(listOf("0001", "0002"), physical) }
     }
