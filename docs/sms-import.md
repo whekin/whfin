@@ -79,6 +79,20 @@ For card payments, routing is deliberately strict: `bank + card last4 → one ph
 `card + balance currency → one active ledger`. Four digits are required. One card may be connected to
 GEL, USD, EUR, and other ledgers under the same IBAN, so the card mapping is not duplicated per currency.
 WHFIN never guesses from a bank name alone because one bank can contain several cards and several IBANs.
+For reconciliation against existing bank rows, the purchase currency is also checked inside the known
+card's contract: an available GEL balance in a message does not prove the purchase settled in GEL.
+A row in the purchase currency requires the exact amount and merchant. A purchase can settle two
+calendar days after its message; that additional day also requires an exact comparable amount.
+Transfers retain their narrower date window and use both members of an existing bank transfer group
+to distinguish equal withdrawals to different own IBANs.
+
+Historical batch reconciliation also handles a bank-consolidated card charge when the bank arrived
+first: the full day's unresolved cohort must share one card, merchant, currency and mapped ledger,
+sum exactly to the sole bank purchase at that merchant on that day, and find no previously attached
+evidence on that row. All messages then attach to the existing transaction without changing money.
+Subsets, repeated bank purchases and mixed cards remain ambiguous. This is the explicit exception to
+the ordinary one-message-to-one-bank-row rule.
+
 An account-free outgoing transfer is not a routing question when statements already cover **every**
 eligible same-bank, same-currency ledger on its date. WHFIN leaves that SMS outside the ledger for
 later bank matching; choosing one account cannot justify another transaction in a covered period.

@@ -599,14 +599,17 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                     receivedAt = receivedAt,
                     accountId = resolution.account.id,
                 )
-                statementEvidence.find(evidenceDiagnostic, listOf(resolution.account))?.let { existing ->
+                val evidenceAccounts = if (sms is BankSmsMessage.CardPayment && sms.currency != sms.balanceCurrency)
+                    cardFamilyFor(resolution.account) else listOf(resolution.account)
+                statementEvidence.find(evidenceDiagnostic, evidenceAccounts)?.let { existing ->
                     if (!persist) {
                         return SmsImportResult(
                             SmsDiagnosticOutcome.ATTACHED,
                             transactionId = existing.transaction.id,
                         )
                     }
-                    val diagnostic = evidenceDiagnostic.copy(transactionId = existing.transaction.id)
+                    val diagnostic = evidenceDiagnostic.copy(accountId = existing.account.id,
+                        transactionId = existing.transaction.id)
                     val id = persistDiagnostic(diagnostic)
                     return SmsImportResult(SmsDiagnosticOutcome.ATTACHED, id, existing.transaction.id)
                 }
@@ -1255,6 +1258,23 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
                 resolveIntoAccount(diagnostic, resolution.account, TxStatus.CONFIRMED)
                 resolved += 1
             }
+        }
+        val cohorts = db.smsDiagnosticDao().unrouted().filter {
+            BankSmsBank.fromKey(it.externalKey) == bank && it.kind == SmsDiagnosticKind.CARD_PAYMENT &&
+                it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD
+        }.groupBy { diagnostic ->
+            Triple(diagnostic.occurredAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() },
+                diagnostic.cardLast4 to diagnostic.currency,
+                diagnostic.counterparty?.let(dev.whekin.whfin.data.importer.MerchantNormalizer::normalize))
+        }
+        cohorts.values.forEach { messages ->
+            val match = statementEvidence.findCardAggregate(messages) ?: return@forEach
+            messages.forEach { diagnostic ->
+                db.smsDiagnosticDao().update(diagnostic.copy(outcome = SmsDiagnosticOutcome.ATTACHED,
+                    reason = null, accountId = match.account.id, transactionId = match.transaction.id,
+                    updatedAt = System.currentTimeMillis()))
+            }
+            resolved += messages.size
         }
         resolved
     }
