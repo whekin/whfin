@@ -59,8 +59,13 @@ class BankSmsQaActivity : ComponentActivity() {
             reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, receivedAt = 1_788_000_050_000L,
             amountMinor = 100, currency = "GEL", counterparty = "Example internet",
             updatedAt = 1_788_000_050_000L)
+        val matchedGroup = SmsDiagnosticEntity(id = 4, externalKey = "sms|qa-matched-cohort",
+            kind = SmsDiagnosticKind.OWN_TRANSFER, outcome = SmsDiagnosticOutcome.MATCHED_GROUP,
+            receivedAt = 1_788_000_050_000L, occurredAt = 1_788_000_050_000L,
+            amountMinor = 700, currency = "GEL", updatedAt = 1_788_000_050_000L)
+        val cohortMode = intent.getBooleanExtra("matchedGroup", false)
         val data = SmsDiagnosticsData(
-            diagnostics = listOf(needsCard, waiting) + recent,
+            diagnostics = if (cohortMode) listOf(matchedGroup) else listOf(needsCard, waiting) + recent,
             accounts = listOf(SmsAccountOption(account, "Credo")),
             cardFamilies = listOf(family),
             cardMappings = listOf(SmsCardMapping(PaymentInstrumentEntity(

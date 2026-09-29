@@ -124,4 +124,70 @@ class SmsSettlementEvidenceTest {
         assertEquals(id,SmsTransactionImporter(db).import(sms).transactionId)
         assertEquals(4,db.transactionDao().allForIntegrity().size)
     }
+    @Test fun marketplaceDescriptorUsesExactMoneyAndKnownCardContract() = runBlocking {
+        val id=statement(usd,merchant="AMAZON MKTPL*EXAMPLE")
+        val sms=body().replace("EXAMPLE SUBSCRIPTION","AMAZON MKTPLACE PMTS")
+        assertEquals(id,SmsTransactionImporter(db).import(sms).transactionId)
+        assertEquals(1,db.transactionDao().allForIntegrity().size)
+    }
+    @Test fun convertedPurchaseUsesOriginalMoneyInBankCardDescription() = runBlocking {
+        val id=statement(usd,lag=2,amount=-599,merchant="AMAZON*EXAMPLE ORDER")
+        val row=requireNotNull(db.transactionDao().byId(id))
+        db.transactionDao().update(row.copy(note="გადახდა - AMAZON*EXAMPLE ORDER 4.56 GBP 10.09.2026"))
+        val sms=body("GBP","4.56").replace("EXAMPLE SUBSCRIPTION","AMAZON.CO.UK")
+        assertEquals(id,SmsTransactionImporter(db).import(sms).transactionId)
+        assertEquals(row.copy(note="გადახდა - AMAZON*EXAMPLE ORDER 4.56 GBP 10.09.2026"),db.transactionDao().byId(id))
+    }
+    @Test fun indistinguishableOwnTransfersMatchAsACohortWithoutAssigningRows() = runBlocking {
+        cover()
+        val to=db.accountDao().insert(gel.copy(id=0,iban="GE00CD0000000000000002"))
+        val at=day.atStartOfDay(LedgerCalendar.zone).toInstant().toEpochMilli()
+        repeat(2) {
+            val group=db.transactionDao().insertTransferGroup(TransferGroupEntity(type=TransferGroupType.TRANSFER,createdAt=1))
+            db.transactionDao().insert(TransactionEntity(accountId=gel.id,amountMinor=-700,currency="GEL",occurredAt=at,
+                source=TxSource.STATEMENT,status=TxStatus.CONFIRMED,isTransfer=true,transferGroupId=group))
+            db.transactionDao().insert(TransactionEntity(accountId=to,amountMinor=700,currency="GEL",occurredAt=at,
+                source=TxSource.STATEMENT,status=TxStatus.CONFIRMED,isTransfer=true,transferGroupId=group))
+        }
+        val before=db.transactionDao().allForIntegrity()
+        val sms="Transfer between accounts\nAmount: 7.00 GEL;\nFrom: GE00CD0000000000000001\nTo: GE00CD0000000000000002\nBalance: 80.00 GEL\nDate: 9/8/2026 10:22:00 PM"
+        val importer=SmsTransactionImporter(db)
+        val ids=listOf(sms,sms.replace("10:22:00","10:23:00")).map { requireNotNull(importer.import(it).diagnosticId) }
+        assertEquals(2,importer.attachUnroutedToStatements())
+        ids.forEach {
+            val d=requireNotNull(db.smsDiagnosticDao().byId(it))
+            assertEquals("MATCHED_GROUP",d.outcome.name)
+            assertNull(d.transactionId)
+        }
+        assertEquals(before,db.transactionDao().allForIntegrity())
+        assertEquals(0,importer.attachUnroutedToStatements())
+        assertEquals("MATCHED_GROUP",importer.import(sms).outcome.name)
+        // A changed bank count must not assign one of two receipts to the remaining row.
+        db.transactionDao().delete(before.first { it.amountMinor < 0 }.id)
+        val corrected=db.transactionDao().allForIntegrity()
+        assertEquals(0,importer.attachUnroutedToStatements())
+        ids.forEach { assertEquals(SmsDiagnosticReason.STATEMENT_COVERS_PERIOD,db.smsDiagnosticDao().byId(it)?.reason) }
+        assertEquals(2,db.smsDiagnosticDao().unrouted().size)
+        assertEquals(corrected,db.transactionDao().allForIntegrity())
+    }
+
+    @Test fun originalPurchaseAmountMustAgreeBeforeDescriptorAliasMatches() = runBlocking {
+        val id=statement(usd,lag=2,amount=-599,merchant="AMAZON*EXAMPLE ORDER")
+        val row=requireNotNull(db.transactionDao().byId(id))
+        db.transactionDao().update(row.copy(note="გადახდა - AMAZON*EXAMPLE ORDER 4.55 GBP 10.09.2026"))
+        val sms=body("GBP","4.56").replace("EXAMPLE SUBSCRIPTION","AMAZON.CO.UK")
+        assertNull(SmsTransactionImporter(db).preview(sms).transactionId)
+    }
+    @Test fun repeatedMarketplaceChargesRemainAmbiguous() = runBlocking {
+        statement(usd,merchant="AMAZON MKTPL*EXAMPLE ONE")
+        statement(usd,merchant="AMAZON MKTPL*EXAMPLE TWO")
+        val sms=body().replace("EXAMPLE SUBSCRIPTION","AMAZON MKTPLACE PMTS")
+        assertNull(SmsTransactionImporter(db).preview(sms).transactionId)
+    }
+    @Test fun marketplaceAndRetailDescriptorsAreSeparateFamilies() = runBlocking {
+        statement(usd,merchant="AMAZON*EXAMPLE ORDER")
+        val sms=body().replace("EXAMPLE SUBSCRIPTION","AMAZON MKTPLACE PMTS")
+        assertNull(SmsTransactionImporter(db).preview(sms).transactionId)
+    }
+
 }

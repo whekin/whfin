@@ -115,25 +115,34 @@ internal class SmsStatementEvidence(
 
         // Credo can print the available GEL balance while settling the purchase on the card's
         // USD/EUR ledger. Search that currency too, but require its exact purchase amount.
-        val currencies = if (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT)
+        val initialCurrencies = if (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT)
             setOfNotNull(ledgerCurrency, diagnostic.currency) else setOf(ledgerCurrency)
-        val routed = restrictTo ?: diagnostic.cardLast4?.let { last4 ->
-            currencies.flatMap { db.accountDao().byCardAndCurrency(last4, it) }
+        val mapped = diagnostic.cardLast4?.let { last4 ->
+            initialCurrencies.flatMap { db.accountDao().byCardAndCurrency(last4, it) }
                 .filter { BankSmsBank.fromKey(diagnostic.externalKey).accepts(db, it) }
                 .takeIf { it.isNotEmpty() }
         }
+        val routed = restrictTo ?: mapped?.flatMap { account ->
+            if (account.groupId == null || account.iban == null) listOf(account)
+            else db.accountDao().byGroup(account.groupId).filter { it.iban == account.iban }
+        }?.distinctBy { it.id }
+        val currencies = if (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT)
+            initialCurrencies + routed.orEmpty().map { it.currency } else initialCurrencies
         val amountCandidates = currencies.flatMap { candidatesFor(diagnostic, it, routed) }
             .filter { (_, transaction) ->
             val signMatches = if (incoming) transaction.amountMinor > 0 else transaction.amountMinor < 0
-            val amountMatches = transaction.currency != diagnostic.currency ||
-                abs(transaction.amountMinor) == abs(amountMinor)
-            val merchantMatches = merchant == null ||
-                MerchantNormalizer.equivalent(transaction.rawCounterparty, merchant)
+            val card = diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT
+            val exactPurchaseMoney = card && BankCardPurchaseEvidence.exactMoney(transaction, diagnostic)
+            val amountMatches = if (card) !BankCardPurchaseEvidence.contradictsMoney(transaction, diagnostic) &&
+                (exactPurchaseMoney || transaction.currency == ledgerCurrency && !sameCurrency)
+                else transaction.currency != diagnostic.currency || abs(transaction.amountMinor) == abs(amountMinor)
+            val merchantMatches = merchant == null || if (card)
+                BankCardPurchaseEvidence.merchantMatches(transaction, diagnostic)
+                else MerchantNormalizer.equivalent(transaction.rawCounterparty, merchant)
             val extraSettlementDay = diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT &&
                 Instant.ofEpochMilli(transaction.occurredAt).atZone(zone).toLocalDate() ==
                     Instant.ofEpochMilli(requireNotNull(diagnostic.occurredAt)).atZone(zone).toLocalDate().plusDays(2)
-            val strongSettlementAmount = transaction.currency == diagnostic.currency &&
-                abs(transaction.amountMinor) == abs(amountMinor)
+            val strongSettlementAmount = exactPurchaseMoney
             signMatches && amountMatches && (!extraSettlementDay || strongSettlementAmount) && when (diagnostic.kind) {
                 // A card payment is identified by where it was made; the statement prints the same
                 // merchant the message did.
@@ -159,7 +168,7 @@ internal class SmsStatementEvidence(
         return decide(candidates, diagnostic, exact)?.let { match ->
             match.copy(exact = match.exact ||
                 (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT &&
-                    match.transaction.currency == diagnostic.currency && merchant != null))
+                    BankCardPurchaseEvidence.exactMoney(match.transaction, diagnostic) && merchant != null))
         }
     }
 
@@ -197,6 +206,8 @@ internal class SmsStatementEvidence(
         diagnostic: SmsDiagnosticEntity,
         restrictTo: List<AccountEntity>?,
     ): Match? {
+        // A changed cohort must not be redistributed to its remaining rows one SMS at a time.
+        if (OwnTransferCohortEvidence(db, zone).hasPeers(diagnostic)) return null
         val amountMinor = diagnostic.amountMinor ?: return null
         val currency = diagnostic.currency ?: return null
         val fromIban = diagnostic.fromIban ?: return null
@@ -240,12 +251,13 @@ internal class SmsStatementEvidence(
         val throughDays = if (diagnostic.kind == SmsDiagnosticKind.CARD_PAYMENT) 3L else 2L
         val accounts = restrictTo?.filter { it.currency == currency }
             ?: db.accountDao().bankAccountsByCurrency(currency)
+        val reserved = OwnTransferCohortEvidence(db, zone).reservedSourceIds()
         return accounts.filter { BankSmsBank.fromKey(diagnostic.externalKey).accepts(db, it) }.flatMap { account ->
             days.flatMap { possibleDay -> db.transactionDao().statementCandidates(account.id,
                 possibleDay.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
                 possibleDay.plusDays(throughDays).atStartOfDay(zone).toInstant().toEpochMilli() - 1) }.distinctBy { it.id }
                 .filter {
-                    db.smsDiagnosticDao()
+                    it.id !in reserved && db.smsDiagnosticDao()
                         .countOtherForTransaction(it.id, diagnostic.externalKey) == 0
                 }
                 .map { account to it }

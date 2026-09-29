@@ -1121,6 +1121,9 @@ private fun diagnosticPresentation(item: SmsDiagnosticEntity): DiagnosticPresent
     SmsDiagnosticOutcome.ATTACHED -> DiagnosticPresentation(
         R.string.sms_outcome_attached, Icons.Default.CheckCircle,
     ) { MaterialTheme.colorScheme.primary }
+    SmsDiagnosticOutcome.MATCHED_GROUP -> DiagnosticPresentation(
+        R.string.sms_outcome_matched_group, Icons.Default.CheckCircle,
+    ) { MaterialTheme.colorScheme.primary }
     // Nothing is owed and nothing is pending: the bank took the charge back.
     SmsDiagnosticOutcome.CANCELED -> DiagnosticPresentation(
         R.string.sms_outcome_canceled, Icons.AutoMirrored.Filled.Undo,
@@ -1410,6 +1413,9 @@ private val previewDiagnostics = listOf(
         counterparty = "Example market",
         updatedAt = 1_752_700_000_000,
     ),
+    SmsDiagnosticEntity(id = 5, externalKey = "preview-cohort", kind = SmsDiagnosticKind.OWN_TRANSFER,
+        outcome = SmsDiagnosticOutcome.MATCHED_GROUP, receivedAt = 1_752_700_000_000,
+        amountMinor = 700, currency = "GEL", updatedAt = 1_752_700_000_000),
 )
 
 @Preview(name = "Bank SMS light", widthDp = 400, heightDp = 850, showBackground = true)

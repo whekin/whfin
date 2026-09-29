@@ -55,6 +55,7 @@ internal fun isDepositLedger(account: AccountEntity): Boolean =
 class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: BankSmsBank = BankSmsBank.CREDO) {
     private val zone = LedgerCalendar.zone
     private val statementEvidence = SmsStatementEvidence(db, zone)
+    private val cohortEvidence = OwnTransferCohortEvidence(db, zone)
 
     /** A reversal follows its payment closely; a wider window would retract an unrelated purchase. */
     private val CANCELLATION_WINDOW_MILLIS = 3L * 24 * 60 * 60 * 1000
@@ -556,6 +557,8 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
         // Message identity survives settlement, which replaces the transaction's external key.
         // Re-reading a receipt must not erase its durable diagnostic link or create new money.
         db.smsDiagnosticDao().byExternalKey(key)?.let { evidence ->
+            if (evidence.outcome == SmsDiagnosticOutcome.MATCHED_GROUP && cohortEvidence.validFor(evidence))
+                return SmsImportResult(SmsDiagnosticOutcome.MATCHED_GROUP, evidence.id.takeIf { persist })
             evidence.transactionId?.let { id ->
                 var linked = db.transactionDao().byId(id)
                 val seen = mutableSetOf<Long>()
@@ -1231,6 +1234,20 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
 
     private suspend fun attachBankUnroutedToStatements(): Int = db.withTransaction {
         var resolved = 0
+        // A cohort is evidence of a complete set, not a durable assignment to individual rows.
+        // Changed bank multiplicity invalidates it and returns its messages to quiet reconciliation.
+        db.smsDiagnosticDao().ownTransferCohortCandidates()
+            .filter { BankSmsBank.fromKey(it.externalKey) == bank && it.outcome == SmsDiagnosticOutcome.MATCHED_GROUP }
+            .groupBy(cohortEvidence::key).values.forEach { messages ->
+                val all = db.smsDiagnosticDao().ownTransferCohortCandidates().filter {
+                    cohortEvidence.key(it) == cohortEvidence.key(messages.first())
+                }
+                if (cohortEvidence.find(all) == null) messages.forEach { diagnostic ->
+                    db.smsDiagnosticDao().update(diagnostic.copy(outcome = SmsDiagnosticOutcome.CHOOSE_ACCOUNT,
+                        reason = SmsDiagnosticReason.STATEMENT_COVERS_PERIOD, accountId = null,
+                        updatedAt = System.currentTimeMillis()))
+                }
+            }
         db.smsDiagnosticDao().unrouted().forEach { diagnostic ->
             if (BankSmsBank.fromKey(diagnostic.externalKey) != bank) return@forEach
             val attached = attachToStatement(diagnostic, persist = true)
@@ -1276,6 +1293,17 @@ class SmsTransactionImporter(private val db: WhfinDatabase, private val bank: Ba
             }
             resolved += messages.size
         }
+        db.smsDiagnosticDao().ownTransferCohortCandidates()
+            .filter { BankSmsBank.fromKey(it.externalKey) == bank }
+            .groupBy(cohortEvidence::key).filterKeys { it != null }.values.forEach { messages ->
+                val match = cohortEvidence.find(messages) ?: return@forEach
+                messages.filter { it.outcome != SmsDiagnosticOutcome.MATCHED_GROUP }.forEach { diagnostic ->
+                    db.smsDiagnosticDao().update(diagnostic.copy(outcome = SmsDiagnosticOutcome.MATCHED_GROUP,
+                        reason = null, accountId = match.accountId, transactionId = null,
+                        updatedAt = System.currentTimeMillis()))
+                    resolved++
+                }
+            }
         resolved
     }
 

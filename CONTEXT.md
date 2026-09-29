@@ -77,6 +77,13 @@ recent processing activity. Parser diagnostics are details of an individual resu
 of this surface.
 _Avoid_: SMS diagnostics, parser log, card-mapping screen
 
+**Matched transfer cohort**:
+Several own-transfer receipts that match a complete set of bank-confirmed pairs with equal
+multiplicity, currency, amount, day and both IBANs. Each receipt keeps its own identity but has no
+invented per-row assignment. It is a handled Bank SMS result, excluded from Unrouted operations;
+changed bank multiplicity invalidates the result and returns the receipts to reconciliation.
+_Avoid_: Ignored transfer, arbitrary match, duplicate transaction.
+
 ### Bank support
 
 **Bank setup**:

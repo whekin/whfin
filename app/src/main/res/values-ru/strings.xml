@@ -418,6 +418,7 @@
     <string name="sms_diagnostics_error_body">WHFIN не смог прочитать локальную активность сообщений.</string>
     <string name="sms_outcome_imported">Добавлено из SMS</string>
     <string name="sms_outcome_attached">Сверено с выпиской</string>
+    <string name="sms_outcome_matched_group">Сопоставлено группой</string>
     <string name="sms_outcome_duplicate">Уже есть в книге</string>
     <string name="sms_outcome_ignored">Безопасно пропущено</string>
     <string name="sms_outcome_unrecognized">Формат сообщения не распознан</string>

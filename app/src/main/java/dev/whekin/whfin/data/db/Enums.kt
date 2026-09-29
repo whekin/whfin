@@ -71,6 +71,8 @@ enum class SmsDiagnosticOutcome {
     /** The bank reversed a card payment; the draft it had created was withdrawn. */
     CANCELED,
     ATTACHED,
+    /** The full SMS cohort matches complete bank pairs, without assigning individual rows. */
+    MATCHED_GROUP,
     DUPLICATE,
     IGNORED,
     UNRECOGNIZED,
