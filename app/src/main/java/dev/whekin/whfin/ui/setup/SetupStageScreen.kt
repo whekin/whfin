@@ -3,12 +3,15 @@ package dev.whekin.whfin.ui.setup
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,42 +48,71 @@ internal fun SetupStageScreen(
     continueEnabled: Boolean = true,
     footerAction: SetupAction? = null,
     content: (@Composable () -> Unit)? = null,
+    primaryAction: SetupAction? = null,
+    additionalActions: List<SetupAction> = emptyList(),
+    onSelectStage: ((SetupStage) -> Unit)? = null,
 ) {
+    var showMore by rememberSaveable(stage) { mutableStateOf(false) }
+    var showGuide by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberSaveable(stage, saver = ScrollState.Saver) { ScrollState(0) }
     BackHandler(onBack = onBack)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
+                Modifier.weight(1f).verticalScroll(scrollState).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                WhfinBackButton(stringResource(R.string.action_back), onBack)
-                WhfinSectionLabel(stringResource(R.string.setup_stage_progress, stage.ordinal + 1, SetupStage.entries.size))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WhfinBackButton(stringResource(R.string.action_back), onBack)
+                    Column(Modifier.weight(1f)) {
+                        WhfinSectionLabel(stringResource(R.string.setup_stage_progress, stage.ordinal + 1, SetupStage.entries.size))
+                    }
+                    if (onSelectStage != null) WhfinButton(stringResource(R.string.setup_guide),
+                        { showGuide = !showGuide }, style = WhfinActionStyle.Quiet)
+                }
+                if (showGuide && onSelectStage != null) {
+                    Text(stringResource(R.string.setup_guide_body), style = MaterialTheme.typography.bodyMedium)
+                    WhfinLedgerGroup {
+                        SetupStage.entries.forEachIndexed { index, target ->
+                            WhfinLedgerRow(title = "${index + 1}. ${stringResource(target.title)}",
+                                supportingText = if (target == stage) stringResource(R.string.setup_current_step) else null,
+                                onClick = { showGuide = false; onSelectStage(target) }, divider = index < SetupStage.entries.lastIndex)
+                        }
+                    }
+                }
                 when (stage) {
                     SetupStage.Categories -> SetupIllustration(WhfinIllustrationScene.Sort)
                     SetupStage.Ready -> SetupIllustration(WhfinIllustrationScene.Balance)
                     else -> Unit
                 }
-                Text(stringResource(stage.title), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(stage.title), style = MaterialTheme.typography.headlineMedium)
                 if (stage != SetupStage.Ready) Text(stringResource(stage.body), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (summary != null) Text(summary, style = MaterialTheme.typography.bodyMedium)
                 content?.invoke()
-                if (actions.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                    actions.forEachIndexed { index, action ->
+                val visibleActions = actions + if (showMore) additionalActions else emptyList()
+                if (visibleActions.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
+                    visibleActions.forEachIndexed { index, action ->
                         WhfinLedgerRow(title = action.label, supportingText = action.supportingText, onClick = action.onClick,
-                            divider = index < actions.lastIndex,
+                            divider = index < visibleActions.lastIndex,
                             trailing = { Icon(Icons.Default.ChevronRight, null) })
                     }
                 }
+                if (additionalActions.isNotEmpty()) WhfinButton(
+                    stringResource(if (showMore) R.string.setup_less_options else R.string.setup_more_options),
+                    { showMore = !showMore }, style = WhfinActionStyle.Quiet,
+                )
             }
             Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                if (footerAction != null) WhfinButton(footerAction.label, footerAction.onClick, Modifier.fillMaxWidth())
+                val primary = primaryAction ?: footerAction
+                if (primary != null) WhfinButton(primary.label, primary.onClick, Modifier.fillMaxWidth())
                 WhfinButton(
-                    continueLabel ?: stringResource(if (stage == SetupStage.Ready) R.string.personal_setup_continue_action else R.string.setup_next),
+                    continueLabel ?: stringResource(setupNextLabel(stage, false, false, false, false, false)),
                     onContinue, Modifier.fillMaxWidth(),
                     enabled = continueEnabled,
-                    style = if (footerAction == null) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
+                    style = if (primary != null || stage == SetupStage.Banks || stage == SetupStage.Accounts && actions.isEmpty())
+                        WhfinActionStyle.Quiet else WhfinActionStyle.Primary,
                 )
             }
         }

@@ -23,6 +23,7 @@ class SetupAccountsVisualTest {
 
     private fun render(language: String, dark: Boolean, font: Float, extra: String,
         expected: Int, compact: Boolean = false) {
+        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val device = UiDevice.getInstance(instrumentation)
@@ -46,6 +47,7 @@ class SetupAccountsVisualTest {
                 assertNotNull(node)
                 val out = File(context.getExternalFilesDir(null), "setup-accounts-qa").apply { mkdirs() }
                 assertTrue(device.takeScreenshot(File(out, "$language-$extra.png")))
+                device.dumpWindowHierarchy(File(out, "$language-$extra.xml"))
             }
         } finally {
             if (compact) device.executeShellCommand("wm size ${oldSize ?: "reset"}")

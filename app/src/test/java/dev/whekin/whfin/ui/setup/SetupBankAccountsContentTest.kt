@@ -28,9 +28,11 @@ class SetupBankAccountsContentTest {
         val tbc = AccountEntity(id = 2, name = "TBC GEL", type = AccountType.BANK,
             currency = "GEL", groupId = 2, iban = "GE00TB0000000000000002")
         val containers = listOf(
-            SetupBankContainer("credo", BankSmsBank.CREDO, listOf(credo), listOf(
+            SetupBankContainer("credo", BankSmsBank.CREDO, listOf(credo, credo.copy(id = 3, currency = "USD")), listOf(
                 PaymentInstrumentEntity(id = 7, groupId = 1, type = PaymentInstrumentType.PHYSICAL_CARD,
-                    last4 = "1234", isPrimary = true))),
+                    last4 = "1234", isPrimary = true)), reviews = listOf(
+                    SetupAccountReview(credo, "Credo", 128740L, null, null, null, null, 0, "one"),
+                    SetupAccountReview(credo.copy(id = 3, currency = "USD"), "Credo", -500L, null, null, null, null, 0, "three"))),
             SetupBankContainer("tbc", BankSmsBank.TBC, listOf(tbc), emptyList()),
         )
         val overview = SetupOverview(emptyList(), emptyMap(), emptySet(), 0, 0, 0, 0, 0, 0,
@@ -42,8 +44,11 @@ class SetupBankAccountsContentTest {
         compose.onNodeWithText(context.getString(R.string.account_product_demand_deposit), substring = true).assertExists()
         compose.onNodeWithText(context.getString(R.string.account_purpose_reserve), substring = true).assertExists()
         compose.onNodeWithText(context.getString(R.string.setup_bank_product_missing), substring = true).assertExists()
-        compose.onNodeWithText(context.getString(R.string.setup_bank_account_label, "Credo", "0001"))
+        compose.onNodeWithText("Credo GEL")
             .performClick()
         assertEquals("credo", opened)
+        compose.onNodeWithText(dev.whekin.whfin.ui.formatMinor(128740L, "GEL")).assertExists()
+        compose.onNodeWithText(dev.whekin.whfin.ui.formatMinor(-500L, "USD")).assertExists()
+        compose.onNodeWithText(context.getString(R.string.setup_balance_unknown)).assertExists()
     }
 }

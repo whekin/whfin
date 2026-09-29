@@ -12,7 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import dev.whekin.whfin.data.tbc.TbcAccount
-import dev.whekin.whfin.ui.SecondaryPage
+import dev.whekin.whfin.ui.setup.PersonalSetupSecondaryPage
 import dev.whekin.whfin.ui.theme.WhfinTheme
 import java.util.Locale
 
@@ -20,6 +20,7 @@ import java.util.Locale
 class TbcLoginQaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
         val dark = intent.getBooleanExtra("dark", false)
         val language = intent.getStringExtra("language") ?: "en"
         val config = Configuration(resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
@@ -79,7 +80,7 @@ class TbcLoginQaActivity : ComponentActivity() {
                 LocalDensity provides Density(LocalDensity.current.density, font)) {
                 WhfinTheme(darkTheme = dark) {
                     androidx.compose.material3.Surface {
-                    SecondaryPage(if (language == "ru") "Подключение TBC" else "TBC connection", {}) {
+                    PersonalSetupSecondaryPage(if (language == "ru") "Подключение TBC" else "TBC connection", {}) {
                         TbcLoginScreen(state, canStoreSession = true,
                             onLogin = { _, _ -> state = state.copy(stage = TbcLoginStage.Code) },
                             onCode = { state = state.copy(stage = TbcLoginStage.Connected) },

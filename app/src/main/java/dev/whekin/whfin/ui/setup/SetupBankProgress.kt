@@ -68,16 +68,16 @@ internal fun shouldAdvanceAfterBankSignIn(
     entryRunId: Long,
     status: BankSyncStatus?,
 ): Boolean = armedPage != null && armedPage == visiblePage &&
-    status?.runId != null && status.runId != entryRunId && status.canReturnHome
+    status?.runId != null && status.runId != entryRunId && status.canReturnHome && armedPage == SetupPage.Credo
 
 internal data class SetupBankReturn(val stack: List<String>, val stage: SetupStage)
 
 internal fun returnFromBankPage(
-    stack: List<String>, stage: SetupStage, page: SetupPage, firstConnection: Boolean,
+    stack: List<String>, stage: SetupStage, page: SetupPage,
 ): SetupBankReturn {
     if (SetupPage.fromSaved(stack.lastOrNull()) != page) return SetupBankReturn(stack, stage)
     return SetupBankReturn(stack.dropLast(1),
-        if (firstConnection && stage == SetupStage.Banks) SetupStage.Sms else stage)
+        stage)
 }
 
 @Composable

@@ -30,6 +30,14 @@ class TbcLoginVisualTest {
     @Test fun codeEnglishDarkLarge() = render("code-en-dark-large", dark = true, font = 1.5f, stage = "Code")
     @Test fun connectedEnglishDark() = render("connected-en", dark = true, stage = "Connected")
     @Test fun initialStatementRussianLarge() = render("initial-ru-large", "ru", font = 1.5f, stage = "Connected", initial = true)
+    @Test fun initialBalancesRussianDarkCompact() {
+        check(Build.HARDWARE in setOf("ranchu", "goldfish"))
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val oldSize = Regex("Override size: (\\d+x\\d+)").find(device.executeShellCommand("wm size"))?.groupValues?.get(1)
+        device.executeShellCommand("wm size 1200x1920")
+        try { render("initial-ru-dark-compact", "ru", true, 1.5f, stage = "Connected", initial = true) }
+        finally { device.executeShellCommand("wm size ${oldSize ?: "reset"}") }
+    }
     @Test fun manualBalanceEnglish() = render("manual-balance-en", stage = "Connected", initial = true)
     @Test fun syncResultEnglish() = render("result-en", stage = "Connected", rich = true)
     @Test fun syncResultRussianDarkLarge() = render("result-ru-dark-large", "ru", true, 1.5f, stage = "Connected", rich = true)
@@ -62,9 +70,11 @@ class TbcLoginVisualTest {
                 // it wants is already filled in from the bank's own figure.
                 val attention = if (language == "ru") "Требует решения" else "Needs you"
                 val accounts = if (language == "ru") "Счета" else "Accounts"
-                assertNotNull(device.wait(Until.findObject(By.text(attention)), 5000))
+                assertNotNull(device.wait(Until.findObject(By.textContains(if (language == "ru") "Остаток 1 из" else "Balance 1 of")), 5000))
                 assertTrue(device.hasObject(By.text("1287.40")))
-                assertTrue(device.hasObject(By.text(if (language == "ru") "Проведённый остаток" else "Booked balance")))
+                assertTrue(device.hasObject(By.textContains(if (language == "ru") "Проведённый остаток" else "Booked balance")))
+                scrollTo(device, if (language == "ru") "Варианты импорта и другие результаты" else "Import options and other results").click()
+                scrollTo(device, if (language == "ru") "Подробности загрузки" else "Read details").click()
                 // The deposit listing is WHFIN's own word, so it is read in the reader's language.
                 assertNotNull(scrollTo(device, if (language == "ru") "Депозиты" else "Deposits"))
                 scrollTo(device, accounts)
@@ -74,7 +84,9 @@ class TbcLoginVisualTest {
                 val details = if (language == "ru") "Подробности загрузки" else "Read details"
                 scrollTo(device, details).click()
                 assertNotNull(device.wait(Until.findObject(By.textContains(if (language == "ru") "пустую первую страницу" else "empty first page")), 5000))
-                assertNotNull(scrollTo(device, if (language == "ru") "Готово" else "Done"))
+                assertNotNull(scrollTo(device, if (rich) {
+                    if (language == "ru") "Продолжить без истории банка" else "Continue without bank history"
+                } else if (language == "ru") "Готово" else "Done"))
             }
             if (saved) assertFalse(device.hasObject(By.clazz("android.widget.EditText")))
             if (journey) {
@@ -98,9 +110,17 @@ class TbcLoginVisualTest {
             }
             android.os.SystemClock.sleep(400)
             assertTrue(device.takeScreenshot(File(out, "$name.png")))
+            device.dumpWindowHierarchy(File(out, "$name.xml"))
             if (initial && language == "ru") {
-                scrollTo(device, "Подтвердить 5 остатков и загрузить операции")
+                scrollTo(device, "Проверить следующий остаток")
                 assertTrue(device.takeScreenshot(File(out, "$name-actions.png")))
+                repeat(4) { step ->
+                    scrollTo(device, "Проверить следующий остаток").click()
+                    assertNotNull(device.wait(Until.findObject(By.text("Остаток ${step + 2} из 5")), 5000))
+                }
+                assertNotNull(device.wait(Until.findObject(By.text("Подтвердить 5 остатков и загрузить операции")), 5000))
+                device.waitForIdle(700)
+                assertTrue(device.takeScreenshot(File(out, "$name-final-balance.png")))
                 scrollTo(device, "Продолжить без истории банка").click()
                 assertNotNull(device.wait(Until.findObject(By.text("Оставить эти счета на потом?")), 5000))
                 assertTrue(device.takeScreenshot(File(out, "$name-confirm-exit.png")))
@@ -134,13 +154,24 @@ class TbcLoginVisualTest {
                 val ime = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
                 assertTrue(device.wait(Until.hasObject(By.pkg(ime)), 10000))
                 device.waitForIdle(1000)
+                val next = device.findObject(By.text("Check next balance"))
+                assertNotNull("Next balance must be pinned above the IME", next)
+                assertTrue(next.visibleBounds.height() >= 40)
                 assertTrue(device.takeScreenshot(File(out, "$name-keyboard.png")))
                 device.pressBack()
-                if (!device.hasObject(By.text("Confirm 5 balances and load transactions"))) {
-                    androidx.test.uiautomator.UiScrollable(androidx.test.uiautomator.UiSelector().scrollable(true))
-                        .scrollTextIntoView("Confirm 5 balances and load transactions")
+                repeat(4) { step ->
+                    val next = device.wait(Until.findObject(By.text("Check next balance")), 5000)
+                    assertNotNull(next); next.click()
+                    assertNotNull(device.wait(Until.findObject(By.text("Balance ${step + 2} of 5")), 5000))
                 }
-                device.findObject(By.text("Confirm 5 balances and load transactions")).click()
+                assertNotNull(device.wait(Until.findObject(By.text("Confirm 5 balances and load transactions")), 5000))
+                device.waitForIdle(700)
+                assertTrue(device.takeScreenshot(File(out, "$name-final-balance.png")))
+                device.findObject(By.text("Previous balance")).click()
+                assertNotNull(device.wait(Until.findObject(By.text("Check next balance")), 5000))
+                device.findObject(By.text("Check next balance")).click()
+                val confirmBalances = device.wait(Until.findObject(By.text("Confirm 5 balances and load transactions")), 5000)
+                assertNotNull(confirmBalances); confirmBalances.click()
                 assertTrue(device.wait(Until.gone(By.clazz("android.widget.EditText")), 5000))
             }
         }

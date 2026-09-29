@@ -30,7 +30,9 @@ class SetupQaActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
         if (savedInstanceState == null) (application as WhfinApp).runtimeModes.personalSetupStage = null
-        enableEdgeToEdge()
+        val barStyle = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
         androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark
         setContent {
             var complete by remember { mutableStateOf(false) }
@@ -86,18 +88,26 @@ class SetupQaActivity : ComponentActivity() {
                     val overview = SetupOverview(emptyList(), emptyMap(), emptySet(), 0, 0, 0, 0, 0, 0,
                         bankContainers = listOf(
                             SetupBankContainer("credo", dev.whekin.whfin.data.sms.BankSmsBank.CREDO,
-                                listOf(credo), listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
+                                listOf(credo, credo.copy(id = 3, currency = "USD")), listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
                                     id = 7, groupId = 1, type = dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD,
-                                    last4 = "1234"))),
+                                    last4 = "1234")), reviews = listOf(
+                                    setupAccountReview(credo, "Credo", listOf(dev.whekin.whfin.data.db.TransactionEntity(
+                                        id = 1, accountId = 1, amountMinor = 248750L, currency = "GEL", occurredAt = 0,
+                                        status = dev.whekin.whfin.data.db.TxStatus.MANUAL, source = dev.whekin.whfin.data.db.TxSource.MANUAL)), emptyList()),
+                                    setupAccountReview(credo.copy(id = 3, currency = "USD"), "Credo", emptyList(), emptyList()))),
                             SetupBankContainer("tbc", dev.whekin.whfin.data.sms.BankSmsBank.TBC,
                                 listOf(tbc), listOf(dev.whekin.whfin.data.db.PaymentInstrumentEntity(
                                     id = 8, groupId = 2, type = dev.whekin.whfin.data.db.PaymentInstrumentType.UNCLASSIFIED_CARD,
-                                    last4 = "5678"))),
+                                    last4 = "5678")), reviews = listOf(setupAccountReview(tbc, "TBC",
+                                    listOf(dev.whekin.whfin.data.db.TransactionEntity(id = 2, accountId = 2,
+                                        amountMinor = 128740L, currency = "GEL", occurredAt = 0,
+                                        status = dev.whekin.whfin.data.db.TxStatus.MANUAL, source = dev.whekin.whfin.data.db.TxSource.MANUAL)), emptyList()))),
                         ))
                     SetupStageScreen(SetupStage.Accounts, listOf(
                         SetupAction(getString(dev.whekin.whfin.R.string.personal_setup_cash_add_action)) {},
                         SetupAction(getString(dev.whekin.whfin.R.string.setup_review_accounts)) {},
-                    ), {}, {}, content = { SetupBankAccountsContent(SetupOverviewState.Ready(overview), {}, {}) })
+                    ), {}, {}, continueLabel = getString(dev.whekin.whfin.R.string.setup_to_categories),
+                        content = { SetupBankAccountsContent(SetupOverviewState.Ready(overview), {}, {}) })
                 } else if (intent.getBooleanExtra("unknownCard", false)) {
                     val account = dev.whekin.whfin.data.db.AccountEntity(id = 2, name = "TBC GEL",
                         type = dev.whekin.whfin.data.db.AccountType.BANK, currency = "GEL",

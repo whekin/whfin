@@ -61,7 +61,6 @@ fun PersonalSetupFlow(
     val bankWorkActive = bankSyncStatuses.any { it.active }
     var stage by rememberSaveable { mutableStateOf(setupStageFromSaved(runtime.personalSetupStage)) }
     LaunchedEffect(stage) { runtime.personalSetupStage = stage.name }
-    var showSteps by rememberSaveable { mutableStateOf(false) }
     var showCashSheet by rememberSaveable { mutableStateOf(false) }
     var selectedBankSetupKey by rememberSaveable { mutableStateOf<String?>(null) }
     var cardLinkState by remember { mutableStateOf<SetupCardLinkState>(SetupCardLinkState.NotStarted) }
@@ -133,9 +132,8 @@ fun PersonalSetupFlow(
     }
     fun back() { stack = stack.dropLast(1) }
     fun finishBank(page: SetupPage) {
-        val firstConnection = autoAdvanceBank == page
         autoAdvanceBank = null
-        val next = returnFromBankPage(stack, stage, page, firstConnection)
+        val next = returnFromBankPage(stack, stage, page)
         stack = next.stack
         stage = next.stage
     }
@@ -147,6 +145,7 @@ fun PersonalSetupFlow(
     fun messages(bank: BankSmsBank?) { smsBank = bank; open(SetupPage.Messages) }
     fun account(id: Long) { selectedAccount = id; open(SetupPage.Account) }
     fun lockForCredo() { rememberCredo = true; createPin = true; open(SetupPage.Lock) }
+    fun lockForTbc() { createPin = true; open(SetupPage.Lock) }
 
     val credoRuntime = bankSyncStatuses.firstOrNull { it.bank == "Credo" }
     val tbcRuntime = bankSyncStatuses.firstOrNull { it.bank == "TBC" }
@@ -236,10 +235,7 @@ fun PersonalSetupFlow(
             ) else emptyList()) + (if (reviewCount != null && reviewCount > 0) listOf(
                 SetupAction(stringResource(R.string.data_health_title)) { open(SetupPage.Health) },
                 SetupAction(stringResource(R.string.sms_diagnostics_title), overview?.unrouted?.takeIf { it > 0 }?.let { stringResource(R.string.setup_needs_account, it) }) { messages(null) },
-            ) else emptyList()) + listOf(SetupAction(stringResource(R.string.setup_edit_steps)) { showSteps = !showSteps }) +
-                (if (showSteps) SetupStage.entries.filter { it != SetupStage.Ready }.map { target ->
-                SetupAction(stringResource(target.title)) { stage = target; showSteps = false }
-            } else emptyList())
+            ) else emptyList())
         }
         val oneBankConnected = credoProgress.kind != SetupBankProgressKind.NOT_CONNECTED ||
             tbcProgress.kind != SetupBankProgressKind.NOT_CONNECTED
@@ -257,7 +253,26 @@ fun PersonalSetupFlow(
             tbcProgressText.takeIf { tbcProgress.isNotable }
                 ?.let { stringResource(R.string.setup_bank_progress_line, "TBC", it) },
         ).joinToString("\n").takeIf(String::isNotEmpty)
-        SetupStageScreen(stage, followUps + actions,
+        val primary = when (stage) {
+            SetupStage.Categories -> actions.first()
+            SetupStage.Income -> actions.first().takeIf { (overview?.incomes ?: 0) == 0 }
+            SetupStage.Plans -> actions.first().takeIf { (overview?.savingsPlans ?: 0) == 0 }
+            else -> null
+        }
+        val extraCount = when (stage) {
+            SetupStage.Banks -> 3
+            SetupStage.Sms -> actions.size
+            SetupStage.Accounts -> 2
+            SetupStage.Categories -> 1
+            SetupStage.Preferences -> 2
+            else -> 0
+        }
+        val visibleActions = actions.dropLast(extraCount).filterNot { it === primary }
+        val additionalActions = actions.takeLast(extraCount)
+        SetupStageScreen(stage, followUps + visibleActions,
+            onSelectStage = { stage = it },
+            primaryAction = primary,
+            additionalActions = additionalActions,
             onBack = { if (stage.ordinal == 0) onExit() else stage = SetupStage.entries[stage.ordinal - 1] },
             onContinue = {
                 if (stage == SetupStage.Ready) onContinue(0, false)
@@ -266,7 +281,10 @@ fun PersonalSetupFlow(
                     stage = SetupStage.entries[stage.ordinal + 1]
                 }
             },
-            continueLabel = if (stage != SetupStage.Ready) null else when (readyCta) {
+            continueLabel = if (stage != SetupStage.Ready) stringResource(setupNextLabel(stage,
+                oneBankConnected, credoSmsEnabled && tbcSmsEnabled && state.hasSmsPermission,
+                overview?.bankContainers?.isNotEmpty() == true, (overview?.incomes ?: 0) > 0,
+                (overview?.savingsPlans ?: 0) > 0)) else when (readyCta) {
                 SetupReadyCta.WAIT_FOR_DATA -> stringResource(R.string.setup_review_loading)
                 SetupReadyCta.START_WITHOUT_REVIEW -> stringResource(R.string.setup_start_without_review)
                 SetupReadyCta.START_WITH_BANK_ACTION -> stringResource(R.string.setup_start_with_bank_pending)
@@ -290,6 +308,7 @@ fun PersonalSetupFlow(
                     SetupSmsConsent(credoSmsEnabled && tbcSmsEnabled, state.hasSmsPermission)
                 })
                 SetupStage.Accounts -> ({
+                    if (bankWorkActive) androidx.compose.material3.Text(stringResource(R.string.setup_balance_pending))
                     SetupBankAccountsContent(overviewState, overviewModel::retry) { key ->
                         if (overview?.bankContainers?.firstOrNull { it.key == key }?.representative?.groupId != null)
                             selectedBankSetupKey = key
@@ -401,7 +420,7 @@ fun PersonalSetupFlow(
                 onContinueDuringSync = { finishBank(SetupPage.Credo) })
             SetupPage.Tbc -> TbcLoginRoute(appLockHasPin, false,
                 onOpenStatements = { open(SetupPage.Statements) },
-                onDone = { finishBank(SetupPage.Tbc) })
+                onDone = { finishBank(SetupPage.Tbc) }, onOpenAppLock = ::lockForTbc)
             SetupPage.Accounts -> AccountsScreen(
                 onConnectBank = { open(if (it == "Credo") SetupPage.Credo else SetupPage.Tbc) },
                 onOpenStatements = { open(SetupPage.Statements) }, onOpenSavings = { open(SetupPage.Savings) },

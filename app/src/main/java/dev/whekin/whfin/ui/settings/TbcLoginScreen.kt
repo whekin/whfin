@@ -35,7 +35,16 @@ import dev.whekin.whfin.data.tbc.TbcAccount
 import dev.whekin.whfin.ui.theme.WhfinTheme
 
 @Composable
-fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements: () -> Unit = {}, routineSyncRequestKey: Int = 0, onRoutineSyncConsumed: () -> Unit = {}, viewModelOverride: TbcLoginViewModel? = null, onDone: (() -> Unit)? = null) {
+fun TbcLoginRoute(
+    canStoreSession: Boolean,
+    demoMode: Boolean,
+    onOpenStatements: () -> Unit = {},
+    routineSyncRequestKey: Int = 0,
+    onRoutineSyncConsumed: () -> Unit = {},
+    viewModelOverride: TbcLoginViewModel? = null,
+    onDone: (() -> Unit)? = null,
+    onOpenAppLock: (() -> Unit)? = null,
+) {
     if (demoMode) {
         Text(stringResource(R.string.demo_mode_live_import_unavailable), Modifier.padding(20.dp))
         return
@@ -116,7 +125,7 @@ fun TbcLoginRoute(canStoreSession: Boolean, demoMode: Boolean, onOpenStatements:
         onRefresh = vm::syncTransactions, onForget = vm::forget,
         onCancel = { otpKey++; preparation?.cancel(); preparing = false; otpInbox.endChallenge(); incomingOtp = null; vm.leave() },
         onOpenStatements = onOpenStatements, onConfirmBalances = vm::confirmBalances,
-        incomingOtp = incomingOtp, onOtpConsumed = { incomingOtp = null }, onDone = onDone)
+        incomingOtp = incomingOtp, onOtpConsumed = { incomingOtp = null }, onDone = onDone, onOpenAppLock = onOpenAppLock)
 
 }
 
@@ -136,6 +145,7 @@ internal fun TbcLoginScreen(
     incomingOtp: String? = null,
     onOtpConsumed: () -> Unit = {},
     onDone: (() -> Unit)? = null,
+    onOpenAppLock: (() -> Unit)? = null,
 ) {
     // Deliberately not rememberSaveable: neither secret belongs in instance state.
     var username by remember { mutableStateOf("") }
@@ -162,7 +172,16 @@ internal fun TbcLoginScreen(
             if (delivered != null) { onCode(delivered); code = "" }
         }
     }
+    var showOtherResults by remember(state.syncResult) { mutableStateOf(false) }
+    var balanceIndex by remember(state.syncResult) { mutableIntStateOf(0) }
     val keyboard = LocalSoftwareKeyboardController.current
+    val result = state.syncResult
+    if (state.stage == TbcLoginStage.Connected && result != null &&
+        result.needsStatement.isNotEmpty() && !showOtherResults) {
+        TbcBalanceWizard(result, balanceDrafts, balanceIndex, { balanceIndex = it }, state.error, onConfirmBalances,
+            onOpenStatements, onRefresh, { showOtherResults = true }, { keyboard?.hide() }, onDone)
+        return
+    }
     if (state.stage == TbcLoginStage.Code) {
         LaunchedEffect(Unit) { keyboard?.hide() }
         TbcOtpContent(state, code, { code = it }, { onCode(code); code = "" }, onCancel)
@@ -201,6 +220,8 @@ internal fun TbcLoginScreen(
                     } else {
                         Text(stringResource(R.string.tbc_lock_needed), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (onOpenAppLock != null) WhfinButton(stringResource(R.string.app_lock_title), onOpenAppLock,
+                            style = WhfinActionStyle.Quiet)
                     }
                     WhfinButton(stringResource(R.string.tbc_login), {
                         onLogin(username, credential); credential = ""; keyboard?.hide()
@@ -213,11 +234,16 @@ internal fun TbcLoginScreen(
                 WhfinLoadingIndicator(Modifier.size(36.dp))
                 Text(if (state.syncProgress != null) stringResource(R.string.tbc_sync_progress, state.syncProgress.first, state.syncProgress.second)
                     else stringResource(R.string.tbc_working))
+                if (state.syncProgress != null && onDone != null) WhfinButton(
+                    stringResource(R.string.tbc_back_while_loading), onDone, Modifier.fillMaxWidth())
                 WhfinButton(stringResource(R.string.action_cancel), onCancel, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
             }
             TbcLoginStage.Code -> Unit // Dedicated keypad surface above.
-            TbcLoginStage.Connected -> TbcConnectedContent(state, onRefresh, onForget, onOpenStatements,
-                onConfirmBalances, balanceDrafts, { keyboard?.hide() }, onDone)
+            TbcLoginStage.Connected -> {
+                if (showOtherResults) WhfinButton(stringResource(R.string.tbc_balance_previous),
+                    { showOtherResults = false }, style = WhfinActionStyle.Secondary)
+                TbcConnectedContent(state, onRefresh, onForget, onDone)
+            }
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -236,10 +262,6 @@ private fun ColumnScope.TbcConnectedContent(
     state: TbcLoginState,
     onRefresh: () -> Unit,
     onForget: () -> Unit,
-    onOpenStatements: () -> Unit,
-    onConfirmBalances: (List<Pair<String, Long>>) -> Unit,
-    balanceDrafts: androidx.compose.runtime.snapshots.SnapshotStateMap<String, String>,
-    onHideKeyboard: () -> Unit,
     onDone: (() -> Unit)?,
 ) {
     val result = state.syncResult
@@ -270,45 +292,6 @@ private fun ColumnScope.TbcConnectedContent(
     if (waiting.isNotEmpty() || unreported.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             WhfinSectionLabel(stringResource(R.string.tbc_section_attention))
-            if (waiting.isNotEmpty()) {
-                Text(stringResource(R.string.tbc_initial_statement), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (waiting.any { it.balanceMinor != null }) Text(stringResource(R.string.tbc_balance_prefilled),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                var explainBalance by remember { mutableStateOf(false) }
-                WhfinButton(stringResource(R.string.tbc_balance_help), { explainBalance = !explainBalance },
-                    style = WhfinActionStyle.Quiet)
-                if (explainBalance) Text(stringResource(R.string.tbc_balance_help_body),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                    waiting.forEachIndexed { index, remote ->
-                        val initial = result?.initialHistories?.singleOrNull { it.remote.key == remote.key }
-                        WhfinLedgerRow(title = remote.label,
-                            icon = Icons.Default.AccountBalance, divider = index < waiting.lastIndex)
-                        if (initial != null) {
-                            // The bank prints a figure for the account; what it means is not documented,
-                            // so it is an offer to check rather than an anchor.
-                            val balance = balanceDrafts[remote.key].orEmpty()
-                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                WhfinField(balance, { balanceDrafts[remote.key] = it }, stringResource(R.string.tbc_booked_balance_field),
-                                    keyboardType = KeyboardType.Decimal, modifier = Modifier.fillMaxWidth())
-                            }
-                        }
-                    }
-                }
-                val ready = waiting.mapNotNull { remote ->
-                    if (result?.initialHistories?.none { it.remote.key == remote.key } != false) null
-                    else parseBookedBalance(balanceDrafts[remote.key].orEmpty())?.let { remote.key to it }
-                }
-                WhfinButton(stringResource(R.string.tbc_confirm_balances, waiting.size), {
-                    onHideKeyboard(); onConfirmBalances(ready)
-                }, Modifier.fillMaxWidth(), enabled = ready.size == waiting.size)
-                WhfinButton(stringResource(R.string.statements_upload), onOpenStatements,
-                    Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-                WhfinButton(stringResource(R.string.tbc_refresh_read), onRefresh,
-                    Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-            }
             // A product family that could not be listed is its own failure, not part of the form above.
             if (unreported.isNotEmpty()) WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                 unreported.entries.forEachIndexed { index, (label, code) ->
@@ -373,14 +356,18 @@ private fun ColumnScope.TbcConnectedContent(
             { showReadDetails = !showReadDetails }, style = WhfinActionStyle.Quiet)
     }
 
-    if (waiting.isEmpty()) WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh, Modifier.fillMaxWidth())
     if (onDone != null) WhfinButton(
         stringResource(if (waiting.isEmpty()) R.string.action_done else R.string.tbc_continue_later),
         if (waiting.isEmpty()) onDone else { { confirmSkip = true } }, Modifier.fillMaxWidth(),
-        style = if (waiting.isEmpty()) WhfinActionStyle.Secondary else WhfinActionStyle.Quiet,
+        style = if (waiting.isEmpty()) WhfinActionStyle.Primary else WhfinActionStyle.Quiet,
         leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
     )
-    WhfinButton(stringResource(R.string.tbc_forget), onForget, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
+    if (waiting.isEmpty()) WhfinButton(stringResource(R.string.tbc_sync_action), onRefresh,
+        Modifier.fillMaxWidth(), style = if (onDone == null) WhfinActionStyle.Primary else WhfinActionStyle.Secondary)
+    var manageConnection by remember { mutableStateOf(false) }
+    WhfinButton(stringResource(R.string.tbc_manage_connection), { manageConnection = !manageConnection }, style = WhfinActionStyle.Quiet)
+    if (manageConnection) WhfinButton(stringResource(R.string.tbc_forget), onForget,
+        Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
 }
 
 /** A booked balance can be zero or negative; transaction amount validation is different. */

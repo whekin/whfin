@@ -41,13 +41,20 @@ class SetupBankProgressTest {
             setupBankProgress(completed, accountCount = 5, hasImportedHistory = true).kind)
     }
 
-    @Test fun firstBankSignInMovesOnButASecondCallbackCannotPopAnotherPage() {
+    @Test fun firstBankReturnsToBankSelectionAndASecondCallbackCannotPopAnotherPage() {
         val first = returnFromBankPage(listOf(SetupPage.Credo.savedKey), SetupStage.Banks,
-            SetupPage.Credo, firstConnection = true)
-        assertEquals(SetupBankReturn(emptyList(), SetupStage.Sms), first)
-        assertEquals(first, returnFromBankPage(first.stack, first.stage, SetupPage.Credo, true))
+            SetupPage.Credo)
+        assertEquals(SetupBankReturn(emptyList(), SetupStage.Banks), first)
+        assertEquals(first, returnFromBankPage(first.stack, first.stage, SetupPage.Credo))
         assertEquals(SetupBankReturn(emptyList(), SetupStage.Sms),
             returnFromBankPage(listOf(SetupPage.Tbc.savedKey), SetupStage.Sms,
-                SetupPage.Tbc, firstConnection = false))
+                SetupPage.Tbc))
     }
+    @Test fun tbcNeverLeavesBeforeTheOwnerCanReviewItsInitialBalances() {
+        val reading = BankSyncStatus("TBC", 2, active = true, phase = SyncPhase.HISTORY, canReturnHome = true)
+        assertFalse(shouldAdvanceAfterBankSignIn(SetupPage.Tbc, SetupPage.Tbc, 1, reading))
+        assertFalse(shouldAdvanceAfterBankSignIn(SetupPage.Tbc, SetupPage.Tbc, 1,
+            reading.copy(active = false, phase = SyncPhase.ATTENTION)))
+    }
+
 }

@@ -40,6 +40,7 @@ internal data class SetupBankContainer(
     val bank: BankSmsBank,
     val accounts: List<AccountEntity>,
     val cards: List<PaymentInstrumentEntity>,
+    val reviews: List<SetupAccountReview> = emptyList(),
 ) {
     val representative: AccountEntity get() = accounts.firstOrNull { it.currency == "GEL" } ?: accounts.first()
     val currencies: List<String> get() = accounts.map(AccountEntity::currency).distinct().sorted()
@@ -63,6 +64,7 @@ internal fun setupBankContainers(
                     accounts = entries.map { it.account },
                     cards = links.filter { it.accountId in accountIds }
                         .mapNotNull { byInstrumentId[it.instrumentId] }.distinctBy(PaymentInstrumentEntity::id),
+                    reviews = entries,
                 )
             }
     }
