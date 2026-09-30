@@ -33,7 +33,9 @@ class TbcSavedLoginScreenTest {
             syncResult = dev.whekin.whfin.data.importer.TbcSyncResult(needsStatement = listOf(remote))), true,
             onDone = { completed = true }) } }
         compose.onNodeWithText(context.getString(R.string.action_done)).assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.tbc_continue_later)).assertIsDisplayed().performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_setup_later)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.tbc_result_options)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_setup_later)).performScrollTo().performClick()
         compose.runOnIdle { assertFalse(completed) }
         compose.onNodeWithText(context.getString(R.string.tbc_continue_later_title)).assertExists()
         compose.onNodeWithText(context.getString(R.string.action_cancel)).performClick()
@@ -117,11 +119,11 @@ class TbcSavedLoginScreenTest {
                 onConfirmBalances = { confirmed = it }) }
         }
         compose.onAllNodes(hasSetTextAction()).assertCountEquals(1)
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 4)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_save_and_load)).assertDoesNotExist()
         repeat(3) {
             compose.onNodeWithText(context.getString(R.string.tbc_balance_next)).performClick()
         }
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 4)).assertIsDisplayed().performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_save_and_load)).assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(remotes.map { it.key to 0L }, confirmed) }
     }
 
@@ -157,9 +159,9 @@ class TbcSavedLoginScreenTest {
         // Nothing is asserted about an account the bank said nothing about.
         compose.onAllNodesWithText(context.getString(R.string.tbc_balance_prefilled)).assertCountEquals(1)
         compose.onNodeWithText(context.getString(R.string.tbc_balance_next)).performClick()
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 2)).assertIsNotEnabled()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_save_and_load)).assertIsNotEnabled()
         compose.onAllNodes(hasSetTextAction())[0].performScrollTo().performTextInput("0")
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 2)).assertIsDisplayed().performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_save_and_load)).assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf(known.key to -1234L, silent.key to 0L), confirmed) }
     }
 
@@ -184,11 +186,11 @@ class TbcSavedLoginScreenTest {
             onConfirmBalances = { calls++ }) } }
         compose.onNode(hasSetTextAction()).performTextReplacement("-12.34")
         compose.onNodeWithText(context.getString(R.string.tbc_balance_next)).performClick()
-        compose.onNodeWithText(context.getString(R.string.tbc_balance_previous)).performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_previous_short)).performScrollTo().performClick()
         compose.onNodeWithText("-12.34").assertExists()
         assertEquals(0, calls)
         compose.onNodeWithText(context.getString(R.string.tbc_balance_next)).performClick()
-        compose.onNodeWithText(context.getString(R.string.tbc_confirm_balances, 2)).performClick()
+        compose.onNodeWithText(context.getString(R.string.tbc_balance_save_and_load)).performClick()
         assertEquals(1, calls)
     }
 

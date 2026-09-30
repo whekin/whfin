@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.whekin.whfin.R
@@ -30,6 +31,7 @@ internal fun TbcBalanceWizard(
     onDone: (() -> Unit)?,
 ) {
     val waiting = result.needsStatement
+    val last = index == waiting.lastIndex
     var showHelp by remember { mutableStateOf(false) }
     var showOptions by remember { mutableStateOf(false) }
     var confirmSkip by remember { mutableStateOf(false) }
@@ -53,7 +55,13 @@ internal fun TbcBalanceWizard(
         key(remote.key) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                WhfinSectionLabel(stringResource(R.string.tbc_balance_step, index + 1, waiting.size))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WhfinSectionLabel(stringResource(R.string.tbc_balance_step, index + 1, waiting.size),
+                        Modifier.weight(1f))
+                    if (index > 0) WhfinButton(stringResource(R.string.tbc_balance_previous_short),
+                        { onHideKeyboard(); onIndexChange(index - 1) }, style = WhfinActionStyle.Quiet)
+                }
                 Text(remote.name.ifBlank { "TBC" }, style = MaterialTheme.typography.headlineSmall)
                 Text("${remote.currency} · •${remote.iban.takeLast(4)}", style = MaterialTheme.typography.titleMedium)
                 error?.let { WhfinNotice(stringResource(R.string.credo_sync_error_title),
@@ -66,7 +74,7 @@ internal fun TbcBalanceWizard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (remote.balanceMinor != null) Text(stringResource(R.string.tbc_balance_prefilled),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.tbc_balance_batch_note), style = MaterialTheme.typography.bodySmall,
+                    if (!last) Text(stringResource(R.string.tbc_balance_batch_note), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else WhfinNotice(stringResource(R.string.tbc_section_attention),
                     stringResource(R.string.tbc_balance_unavailable), kind = WhfinNoticeKind.Attention)
@@ -84,19 +92,18 @@ internal fun TbcBalanceWizard(
                     WhfinButton(stringResource(R.string.tbc_refresh_read), onRefresh, style = WhfinActionStyle.Quiet)
                     if (result.reports.isNotEmpty() || result.errors.isNotEmpty())
                         WhfinButton(stringResource(R.string.tbc_read_details), onShowResults, style = WhfinActionStyle.Quiet)
+                    if (onDone != null) WhfinButton(stringResource(R.string.tbc_balance_setup_later),
+                        { onHideKeyboard(); confirmSkip = true }, style = WhfinActionStyle.Quiet)
                 }
             }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (index > 0) WhfinButton(stringResource(R.string.tbc_balance_previous),
-                { onHideKeyboard(); onIndexChange(index - 1) }, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
-            val last = index == waiting.lastIndex
-            WhfinButton(stringResource(if (last) R.string.tbc_confirm_balances else R.string.tbc_balance_next, waiting.size),
+            if (last) Text(pluralStringResource(R.plurals.tbc_balance_apply_summary, waiting.size, waiting.size),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WhfinButton(stringResource(if (last) R.string.tbc_balance_save_and_load else R.string.tbc_balance_next),
                 { onHideKeyboard(); if (last) onConfirm(ready) else onIndexChange(index + 1) }, Modifier.fillMaxWidth(),
                 enabled = valid && (!last || ready.size == waiting.size))
-            if (onDone != null) WhfinButton(stringResource(R.string.tbc_continue_later),
-                { onHideKeyboard(); confirmSkip = true }, Modifier.fillMaxWidth(), style = WhfinActionStyle.Quiet)
         }
     }
 }

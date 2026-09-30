@@ -100,3 +100,20 @@ Actual TBC transport, bank credentials and owner balances were not exercised. Da
 inspected on these final QA hosts, which now use explicit dark bar styles; this does not claim an
 additional physical-device run. Production insets and OTP policy were not changed. The release was
 built but not installed on S25.
+
+## Follow-up: one completion action in TBC
+
+The three full-width controls on the last balance page still made navigation, completion and
+postponement compete. Previous now sits beside the step count; the pinned footer contains only
+`Save and load history` and a short count of the balances that will be saved together. The count
+uses EN/RU plurals, including a single balance. `Set up later` lives under `Other options` and keeps
+its explicit confirmation of the missing bank history. The existing batch validation, exact money
+parsing and atomic write callback are unchanged.
+
+Validation for this follow-up: all 13 `TbcSavedLoginScreenTest` host tests passed; explicit emulator
+EN/light and RU/dark/font 1.5/1200×1920 journeys passed through five balances, Previous, batch apply
+and the disclosed skip confirmation. A separate EN replay verified the final save action above a
+real IME. Final screenshots were inspected under `artifacts/tbc-balance-actions/final-screens/`,
+including `manual-balance-en-final-keyboard.png` and
+`initial-ru-dark-compact-final-balance.png`. Debug/test APK builds and release R8/lintVital passed.
+The physical phone and live bank were not used.

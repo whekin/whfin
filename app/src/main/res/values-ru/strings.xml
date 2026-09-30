@@ -1766,7 +1766,7 @@
     <string name="tbc_balance_guide">Сравните проведённый остаток в TBC — до вычета покупок в обработке.</string>
     <string name="tbc_balance_batch_note">Остатки сохранятся только после подтверждения последнего.</string>
     <string name="tbc_balance_unavailable">Историю этого счёта не удалось прочитать. Повторите загрузку или добавьте выписку XLSX.</string>
-    <string name="tbc_result_options">Варианты импорта и другие результаты</string>
+    <string name="tbc_result_options">Другие варианты</string>
     <string name="tbc_manage_connection">Управление подключением</string>
     <string name="setup_guide">Шаги</string>
     <string name="setup_guide_body">Все шаги необязательны. Выберите шаг, чтобы настроить его или вернуться к нему.</string>
@@ -1774,4 +1774,13 @@
     <string name="tbc_other_accounts_attention">Другие счета требуют внимания</string>
     <string name="tbc_other_accounts_attention_body">Можно посмотреть их результаты, сохранив введённые остатки.</string>
     <string name="tbc_back_while_loading">Вернуться, пока история загружается</string>
+    <string name="tbc_balance_previous_short">Предыдущий</string>
+    <string name="tbc_balance_save_and_load">Сохранить и загрузить</string>
+    <string name="tbc_balance_setup_later">Настроить позже</string>
+    <plurals name="tbc_balance_apply_summary">
+        <item quantity="one">Сохранится %1$d остаток.</item>
+        <item quantity="few">Все %1$d остатка сохранятся вместе.</item>
+        <item quantity="many">Все %1$d остатков сохранятся вместе.</item>
+        <item quantity="other">Все %1$d остатка сохранятся вместе.</item>
+    </plurals>
 </resources>

@@ -1704,7 +1704,7 @@
     <string name="tbc_balance_guide">Compare the booked balance in TBC, before subtracting pending purchases.</string>
     <string name="tbc_balance_batch_note">Nothing is saved until you confirm the last balance.</string>
     <string name="tbc_balance_unavailable">History for this account was not read. Retry the bank read or upload an XLSX statement.</string>
-    <string name="tbc_result_options">Import options and other results</string>
+    <string name="tbc_result_options">Other options</string>
     <string name="tbc_manage_connection">Manage connection</string>
     <string name="setup_guide">Steps</string>
     <string name="setup_guide_body">Every step is optional. Choose one to set it up or return to it.</string>
@@ -1712,4 +1712,11 @@
     <string name="tbc_other_accounts_attention">Other accounts need attention</string>
     <string name="tbc_other_accounts_attention_body">You can review their results without losing these balance drafts.</string>
     <string name="tbc_back_while_loading">Back while history loads</string>
+    <string name="tbc_balance_previous_short">Previous</string>
+    <string name="tbc_balance_save_and_load">Save and load history</string>
+    <string name="tbc_balance_setup_later">Set up later</string>
+    <plurals name="tbc_balance_apply_summary">
+        <item quantity="one">This balance will be saved.</item>
+        <item quantity="other">All %1$d balances will be saved together.</item>
+    </plurals>
 </resources>
