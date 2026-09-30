@@ -1775,4 +1775,23 @@
         <item quantity="many">Все %1$d остатков сохранятся вместе.</item>
         <item quantity="other">Все %1$d остатка сохранятся вместе.</item>
     </plurals>
+
+    <string name="form_discard_title">Отменить изменения?</string>
+    <string name="split_multiple_preserved">У расхода несколько сохранённых долей. Они сохранены. Чтобы заменить распределение, сначала явно удалите его.</string>
+    <string name="split_named_preview">%1$s: %2$s · На себя: %3$s</string>
+    <string name="split_amount_invalid">Введите долю в пределах суммы расхода.</string>
+    <string name="split_choose_person">Выберите человека для распределения.</string>
+    <string name="split_amount_limit">Введите сумму больше нуля и не больше %1$s.</string>
+    <string name="split_gift_full">Подарок целиком</string>
+    <string name="split_gift_hint">Эта доля — подарок, а не долг перед вами.</string>
+    <string name="allocation_existing_person">Выбрать существующего человека</string>
+    <string name="allocation_find_person">Найти человека</string>
+    <string name="allocation_people_empty">Никого не найдено. Можно добавить человека ниже.</string>
+    <string name="statements_review_delete_title">Удалить предварительную операцию?</string>
+    <string name="statements_review_delete_body">%1$s · %2$s · %3$s. Операция влияет на остаток. У связанного перевода будут удалены обе стороны.</string>
+    <string name="statements_review_write_failed">Не удалось применить решение. Записи сохранены. Попробуйте ещё раз.</string>
+    <string name="statements_review_protected">Операция защищена или изменилась. Она сохранена.</string>
+    <string name="statements_review_empty">Все вопросы проверки обработаны.</string>
+    <string name="allocation_person_label">Человек</string>
+    <string name="debt_named_preview">К возврату от %1$s: %2$s</string>
 </resources>

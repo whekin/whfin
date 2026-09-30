@@ -132,6 +132,8 @@ data class FeedItem(
     val isDebt: Boolean = false,
     /** Доли на людей (SHARED/GIFT): имя → сумма на этого человека (abs, minor). */
     val splitOnPeople: List<Pair<String, Long>> = emptyList(),
+    val splitAllocations: List<TransactionAllocationEntity> = emptyList(),
+    val allocationIds: Set<Long> = emptySet(),
     val day: LocalDate,
 )
 
@@ -147,13 +149,6 @@ data class PhysicalCardHomeBalance(
     val cardLast4s: List<String>,
     val bankName: String? = null,
     val bankApp: SupportedBankApp? = null,
-)
-
-/** Одна доля разбивки: сколько потрачено на человека и с каким смыслом. */
-data class SplitShare(
-    val personId: Long,
-    val amountMinor: Long,
-    val purpose: AllocationPurpose,
 )
 
 internal fun buildBaseFeedItems(
@@ -239,6 +234,7 @@ internal fun applyDebtAllocations(
     people: List<PersonEntity>,
 ): List<FeedItem> {
     val personById = people.associateBy { it.id }
+    val allocationIdsByTransaction = allocations.groupBy { it.transactionId }.mapValues { (_, rows) -> rows.mapTo(mutableSetOf()) { it.id } }
     val debtByTransaction = allocations.filter { it.purpose == AllocationPurpose.LOAN }
         .groupBy { it.transactionId }
     // Доли на людей (совместное/подарок) — справочное измерение, не долг
@@ -259,6 +255,8 @@ internal fun applyDebtAllocations(
             debtMinor = debts.takeIf { it.isNotEmpty() }?.sumOf { kotlin.math.abs(it.amountMinor) },
             isDebt = debts.isNotEmpty(),
             splitOnPeople = splits,
+            splitAllocations = splitByTransaction[item.tx.id].orEmpty(),
+            allocationIds = allocationIdsByTransaction[item.tx.id].orEmpty(),
         )
     }
 }
@@ -860,30 +858,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun assignDebt(item: FeedItem, personId: Long) {
-        if (item.tx.amountMinor >= 0) return
-        mutate {
-            transactionMutations.replaceAllocations(
-                item.tx.id,
-                listOf(AllocationMutation(
-                    amountMinor = item.tx.amountMinor,
-                    categoryId = item.tx.categoryId,
-                    personId = personId,
-                    purpose = AllocationPurpose.LOAN,
-                )),
-            )
-        }
-    }
-
-    fun addPersonAndAssignDebt(item: FeedItem, name: String) {
-        val clean = name.trim()
-        if (clean.isEmpty() || item.tx.amountMinor >= 0) return
-        viewModelScope.launch {
-            val personId = db.personDao().insert(PersonEntity(
-                name = clean,
-                color = 0xFF78906F.toInt(),
-            ))
-            assignDebt(item, personId)
+    fun saveExpenseBeneficiary(item: FeedItem, beneficiary: dev.whekin.whfin.data.mutation.ExpenseBeneficiary,
+        purpose: AllocationPurpose) {
+        formSaver.save {
+            transactionMutations.setExpenseBeneficiary(item.tx.id, item.tx.amountMinor, item.allocationIds,
+                beneficiary, purpose)
         }
     }
 
@@ -934,62 +913,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun unlinkOwnTransfer(item: FeedItem) =
         mutate { ownTransfers.unlink(requireNotNull(item.tx.transferGroupId)) }
-
-    /**
-     * Разбить расход по людям (вариант 1: справочное измерение, свой расход не меняется).
-     * [onPeople] — сколько потрачено на каждого человека (положит. minor); purpose определяет,
-     * совместно (SHARED) или подарок (GIFT). Остаток идёт на себя (PERSONAL), без personId.
-     * Ноль долей — очистка разбивки.
-     */
-    fun saveSplit(item: FeedItem, onPeople: List<SplitShare>) {
-        if (item.tx.amountMinor >= 0) return
-        mutate {
-            val total = kotlin.math.abs(item.tx.amountMinor)
-            var remaining = total
-            val allocations = buildList {
-                onPeople.filter { it.amountMinor > 0 }.forEach { share ->
-                    val amount = share.amountMinor.coerceAtMost(remaining)
-                    if (amount <= 0L) return@forEach
-                    remaining -= amount
-                    add(TransactionAllocationEntity(
-                        transactionId = item.tx.id,
-                        amountMinor = -amount,
-                        categoryId = item.tx.categoryId,
-                        personId = share.personId,
-                        purpose = share.purpose,
-                    ))
-                }
-                if (remaining > 0) add(TransactionAllocationEntity(
-                    transactionId = item.tx.id,
-                    amountMinor = -remaining,
-                    categoryId = item.tx.categoryId,
-                    personId = null,
-                    purpose = AllocationPurpose.PERSONAL,
-                ))
-            }
-            transactionMutations.replaceAllocations(
-                item.tx.id,
-                allocations.map { allocation ->
-                    AllocationMutation(
-                        amountMinor = allocation.amountMinor,
-                        categoryId = allocation.categoryId,
-                        personId = allocation.personId,
-                        purpose = allocation.purpose,
-                        note = allocation.note,
-                    )
-                },
-            )
-        }
-    }
-
-    fun addPerson(name: String, onCreated: (Long) -> Unit) {
-        val clean = name.trim()
-        if (clean.isEmpty()) return
-        viewModelScope.launch {
-            val id = db.personDao().insert(PersonEntity(name = clean, color = 0xFF78906F.toInt()))
-            onCreated(id)
-        }
-    }
 
     fun updateStatus(item: FeedItem, status: TxStatus) {
         if (item.tx.status == status) return

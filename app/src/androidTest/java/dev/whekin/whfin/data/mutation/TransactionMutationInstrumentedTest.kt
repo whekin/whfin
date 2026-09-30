@@ -310,4 +310,52 @@ class TransactionMutationInstrumentedTest {
 
         assertTrue(report.issues.any { it.code == "allocation_total_mismatch" && it.entityId == transactionId })
     }
+
+    @Test fun expenseShareCreatesPersonAndAllocationsWithoutChangingMoney() = runBlocking {
+        val id = mutations.createManual(ManualMutation(accountId, -2113, occurredAt = 1000))
+        val parent = db.transactionDao().byId(id)
+        mutations.setExpenseBeneficiary(id, -2113, emptySet(), ExpenseBeneficiary(newPersonName = "Mira", shareMinor = 1056), AllocationPurpose.SHARED)
+        assertEquals(parent, db.transactionDao().byId(id))
+        assertEquals(-2113L, db.transactionDao().sumByAccount(accountId))
+        val rows = db.transactionAllocationDao().forTransaction(id)
+        assertEquals(-2113L, rows.sumOf { it.amountMinor })
+        assertEquals(-1056L, rows.single { it.personId != null }.amountMinor)
+        assertEquals("Mira", db.personDao().observeActive().first().single().name)
+    }
+
+    @Test fun excessiveShareIsRejectedWithoutCreatingAnOrphanPerson() = runBlocking {
+        val id = mutations.createManual(ManualMutation(accountId, -2113, occurredAt = 1000))
+        try {
+            mutations.setExpenseBeneficiary(id, -2113, emptySet(), ExpenseBeneficiary(newPersonName = "Mira", shareMinor = 9900), AllocationPurpose.SHARED)
+            org.junit.Assert.fail("A share must never be clamped")
+        } catch (_: TransactionMutationException) { }
+        assertTrue(db.personDao().observeActive().first().isEmpty())
+        assertTrue(db.transactionAllocationDao().forTransaction(id).isEmpty())
+    }
+
+    @Test fun staleShareSnapshotKeepsNewerAllocationAndDoesNotCreatePerson() = runBlocking {
+        val id = mutations.createManual(ManualMutation(accountId, -2113, occurredAt = 1000))
+        mutations.replaceAllocations(id, listOf(AllocationMutation(-2113, purpose = AllocationPurpose.PERSONAL)))
+        val before = db.transactionAllocationDao().forTransaction(id)
+        try {
+            mutations.setExpenseBeneficiary(id, -2113, emptySet(), ExpenseBeneficiary(newPersonName = "Mira", shareMinor = 1000), AllocationPurpose.SHARED)
+            org.junit.Assert.fail("A stale draft must not replace newer data")
+        } catch (_: TransactionMutationException) { }
+        assertEquals(before, db.transactionAllocationDao().forTransaction(id))
+        assertTrue(db.personDao().observeActive().first().isEmpty())
+    }
+
+    @Test fun severalSavedSharesRemainIntactWhenCompactEditorSubmits() = runBlocking {
+        val first = db.personDao().insert(PersonEntity(name = "Mira", color = 0))
+        val second = db.personDao().insert(PersonEntity(name = "Kai", color = 0))
+        val id = mutations.createManual(ManualMutation(accountId, -2113, occurredAt = 1000), listOf(
+            AllocationMutation(-1000, personId = first, purpose = AllocationPurpose.SHARED),
+            AllocationMutation(-1113, personId = second, purpose = AllocationPurpose.GIFT)))
+        val before = db.transactionAllocationDao().forTransaction(id)
+        try {
+            mutations.setExpenseBeneficiary(id, -2113, before.map { it.id }.toSet(), ExpenseBeneficiary(first, shareMinor = 1056), AllocationPurpose.SHARED)
+            org.junit.Assert.fail("Every existing participant must be preserved")
+        } catch (_: TransactionMutationException) { }
+        assertEquals(before, db.transactionAllocationDao().forTransaction(id))
+    }
 }

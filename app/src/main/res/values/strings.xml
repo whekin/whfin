@@ -1711,4 +1711,23 @@
         <item quantity="one">This balance will be saved.</item>
         <item quantity="other">All %1$d balances will be saved together.</item>
     </plurals>
+
+    <string name="form_discard_title">Discard changes?</string>
+    <string name="split_multiple_preserved">This expense has several saved shares. They are preserved. Clear the allocation explicitly before replacing it.</string>
+    <string name="split_named_preview">%1$s: %2$s · You: %3$s</string>
+    <string name="split_amount_invalid">Enter a share within the expense amount.</string>
+    <string name="split_choose_person">Choose a person to save the allocation.</string>
+    <string name="split_amount_limit">Enter an amount above zero and no more than %1$s.</string>
+    <string name="split_gift_full">Gift in full</string>
+    <string name="split_gift_hint">This share is a gift, not money owed to you.</string>
+    <string name="allocation_existing_person">Choose an existing person</string>
+    <string name="allocation_find_person">Find a person</string>
+    <string name="allocation_people_empty">No people found. You can add a new person below.</string>
+    <string name="statements_review_delete_title">Delete this provisional transaction?</string>
+    <string name="statements_review_delete_body">%1$s · %2$s · %3$s. The transaction changes your balance. Both sides of a linked transfer will be deleted.</string>
+    <string name="statements_review_write_failed">Could not apply the decision. Your records have been kept. Try again.</string>
+    <string name="statements_review_protected">This transaction is protected or has changed. It was kept.</string>
+    <string name="statements_review_empty">All review items have been handled.</string>
+    <string name="allocation_person_label">Person</string>
+    <string name="debt_named_preview">To be repaid by %1$s: %2$s</string>
 </resources>

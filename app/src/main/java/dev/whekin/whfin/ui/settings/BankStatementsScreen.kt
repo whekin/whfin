@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -70,6 +71,7 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
     val histories by viewModel.histories.collectAsState()
     val cardHistories by viewModel.cardHistories.collectAsState()
     val state by viewModel.importState.collectAsState()
+    val reviewWrite by viewModel.reviewWrite.collectAsState()
     var reviewing by remember { mutableStateOf<AccountStatementHistory?>(null) }
     var removing by remember { mutableStateOf<StatementImportEntity?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -129,7 +131,8 @@ fun BankStatementsScreen(viewModel: BankStatementsViewModel = viewModel()) {
     }
     reviewing?.let { history ->
         ReviewSheet(
-            history = history,
+            history = histories.firstOrNull { it.account.id == history.account.id } ?: history,
+            writeState = reviewWrite,
             onDismiss = { reviewing = null },
             onKeep = viewModel::keepIssue,
             onDelete = viewModel::deleteDraft,
@@ -463,49 +466,56 @@ private fun AccountHistoryCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReviewSheet(
+internal fun ReviewSheet(
     history: AccountStatementHistory,
     onDismiss: () -> Unit,
     onKeep: (dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction) -> Unit,
     onDelete: (dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction) -> Unit,
+    writeState: ReviewWriteState = ReviewWriteState(),
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    var deleting by remember { mutableStateOf<dev.whekin.whfin.data.db.ReconciliationIssueWithTransaction?>(null) }
+    val busy = writeState.busyId != null
+    dev.whekin.whfin.ui.components.FormSheet(
+        title = stringResource(R.string.statements_review_title), onDismiss = onDismiss,
+        primaryLabel = stringResource(R.string.action_done), primaryEnabled = !busy, onPrimary = onDismiss,
+        busy = busy, scrollable = false,
+        footer = { writeState.problem?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) } },
     ) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-            Text(stringResource(R.string.statements_review_title), style = MaterialTheme.typography.titleLarge)
-            Text(
-                stringResource(R.string.statements_review_explanation),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
-            )
-            history.reviewItems.forEach { item ->
-                WhfinLedgerGroup(Modifier.fillMaxWidth().padding(bottom = 10.dp), tonal = true) {
+        LazyColumn(Modifier.fillMaxWidth().testTag("review-items"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text(stringResource(R.string.statements_review_explanation), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (history.reviewItems.isEmpty()) item { Text(stringResource(R.string.statements_review_empty)) }
+            items(history.reviewItems, key = { it.issue.id }) { item ->
+                WhfinLedgerGroup(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            item.transaction.rawCounterparty ?: item.transaction.note
-                                ?: stringResource(R.string.feed_no_description),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(formatMinor(item.transaction.amountMinor, item.transaction.currency, withSign = true))
+                        Text(item.transaction.rawCounterparty ?: item.transaction.note ?: stringResource(R.string.feed_no_description),
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(formatMinor(item.transaction.amountMinor, item.transaction.currency, withSign = true),
+                            style = MaterialTheme.typography.titleLarge)
+                        Text(java.time.Instant.ofEpochMilli(item.transaction.occurredAt).atZone(dev.whekin.whfin.data.LedgerCalendar.zone)
+                            .toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+                            style = MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.statements_not_found), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            WhfinButton(
-                                stringResource(R.string.action_delete_draft), { onDelete(item) },
-                                style = WhfinActionStyle.Destructive,
-                            )
-                            WhfinButton(
-                                stringResource(R.string.action_keep_separate), { onKeep(item) },
-                                Modifier.padding(start = 8.dp),
-                            )
-                        }
+                        WhfinButton(stringResource(if (writeState.busyId == item.issue.id) R.string.form_saving else R.string.action_keep_separate),
+                            { onKeep(item) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                        WhfinButton(stringResource(R.string.action_delete_draft), { deleting = item }, enabled = !busy,
+                            style = WhfinActionStyle.DestructiveSecondary, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
         }
+    }
+    deleting?.let { item ->
+        WhfinConfirmDialog(
+            title = stringResource(R.string.statements_review_delete_title),
+            body = stringResource(R.string.statements_review_delete_body,
+                history.account.name, formatMinor(item.transaction.amountMinor, item.transaction.currency, withSign = true),
+                java.time.Instant.ofEpochMilli(item.transaction.occurredAt).atZone(dev.whekin.whfin.data.LedgerCalendar.zone)
+                    .toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))),
+            confirmLabel = stringResource(R.string.action_delete_draft), dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = { deleting = null; onDelete(item) }, onDismiss = { deleting = null },
+        )
     }
 }
 

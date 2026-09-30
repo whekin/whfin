@@ -59,6 +59,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -1150,12 +1151,34 @@ fun WhfinFormSheet(
     primaryLabel: String,
     primaryEnabled: Boolean,
     onPrimary: () -> Unit,
+    busy: Boolean = false,
+    dismissAllowed: Boolean = true,
+    scrollable: Boolean = true,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val currentBusy by androidx.compose.runtime.rememberUpdatedState(busy)
+    val currentDismissAllowed by androidx.compose.runtime.rememberUpdatedState(dismissAllowed)
+    val currentDismiss by androidx.compose.runtime.rememberUpdatedState(onDismiss)
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { if (!busy) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { value ->
+            if (value != androidx.compose.material3.SheetValue.Hidden) true
+            else if (currentBusy) false
+            else if (!currentDismissAllowed) { currentDismiss(); false }
+            else true
+        }),
+        sheetGesturesEnabled = !busy,
+        properties = androidx.compose.material3.ModalBottomSheetProperties(
+            shouldDismissOnBackPress = !busy,
+            shouldDismissOnClickOutside = !busy,
+        ),
         containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
+                Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = MaterialTheme.colorScheme.onSurfaceVariant) {}
+            }
+        },
     ) {
         // The sheet is measured against the room it actually has, not against a constant.
         //
@@ -1172,18 +1195,27 @@ fun WhfinFormSheet(
             // Unbounded happens in tests and in previews, where there is no window to take a share
             // of; the old constant is the right answer there and nowhere else.
             val boundedHeight = constraints.hasBoundedHeight
+            val compact = boundedHeight && maxHeight < 420.dp
             val scrollCap = if (boundedHeight) maxHeight * SHEET_MAX_HEIGHT_FRACTION else 620.dp
             Column(
                 Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = if (compact) 4.dp else 12.dp),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = if (compact) 2.dp else 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                    Text(title, style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.weight(1f))
+                    WhfinIconButton(
+                        Icons.Default.Close,
+                        androidx.compose.ui.res.stringResource(R.string.whfin_close),
+                        onDismiss,
+                        outlined = false,
+                        enabled = !busy,
+                    )
                 }
                 Column(
                     Modifier
@@ -1193,9 +1225,9 @@ fun WhfinFormSheet(
                         // when the IME opens. Unbounded previews still need the explicit cap.
                         .then(if (boundedHeight) Modifier.weight(1f, fill = false) else Modifier)
                         .heightIn(max = scrollCap)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                        .padding(horizontal = 20.dp, vertical = if (compact) 4.dp else 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
                     content = content,
                 )
                 // The one thing every form is for, where the hand already is and where the rest of
@@ -1203,13 +1235,20 @@ fun WhfinFormSheet(
                 // on the sheet, at the far end of a form the reader had just scrolled away from,
                 // and — on a form long enough to need scrolling — off the top of the screen once the
                 // keyboard opened. The bar stays put while the content scrolls under it.
+                footer?.let {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = if (compact) 2.dp else 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        it()
+                    }
+                }
                 WhfinButton(
                     label = primaryLabel,
                     onClick = onPrimary,
-                    enabled = primaryEnabled,
+                    enabled = primaryEnabled && !busy,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, top = 10.dp),
+                        .padding(start = 20.dp, end = 20.dp, top = if (compact) 4.dp else 10.dp),
                 )
             }
         }

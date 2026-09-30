@@ -192,7 +192,8 @@ internal fun AccountTransactionsScreen(
         )
     }
 
-    details?.let { item ->
+    details?.let { original ->
+        val item = (state as? AccountTransactionsUiState.Content)?.items.orEmpty().firstOrNull { it.tx.id == original.tx.id } ?: original
         TransactionDetailsSheet(
             item = item,
             onDismiss = { details = null },
@@ -346,18 +347,18 @@ internal fun AccountTransactionsScreen(
         SplitSheet(
             item = item,
             people = people,
-            onDismiss = { splitFor = null },
-            onAddPerson = { name, then -> feedViewModel.addPerson(name, then) },
-            onSave = { shares -> feedViewModel.saveSplit(item, shares); splitFor = null },
+            onDismiss = { splitFor = null; details = item },
+            formState = formState,
+            onSave = { beneficiary, purpose -> feedViewModel.saveExpenseBeneficiary(item, beneficiary, purpose) },
         )
     }
     debtFor?.let { item ->
         DebtPersonSheet(
             item = item,
             people = people,
-            onDismiss = { debtFor = null },
-            onSelect = { feedViewModel.assignDebt(item, it.id); debtFor = null },
-            onAdd = { feedViewModel.addPersonAndAssignDebt(item, it); debtFor = null },
+            onDismiss = { debtFor = null; details = item },
+            formState = formState,
+            onSave = { feedViewModel.saveExpenseBeneficiary(item, it, dev.whekin.whfin.data.db.AllocationPurpose.LOAN) },
         )
     }
 

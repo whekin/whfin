@@ -512,6 +512,41 @@ class TransactionMutationModule(private val db: WhfinDatabase) {
         replaceAllocationsInternal(transactionId, allocations)
     }
 
+    /** The person and the share are one write; a cancelled draft never creates a person. */
+    suspend fun setExpenseBeneficiary(
+        transactionId: Long,
+        expectedAmountMinor: Long,
+        expectedAllocationIds: Set<Long>,
+        beneficiary: ExpenseBeneficiary,
+        purpose: AllocationPurpose,
+    ) = db.withTransaction {
+        val row = transaction(transactionId)
+        val existing = db.transactionAllocationDao().forTransaction(transactionId)
+        if (row.amountMinor >= 0 || row.amountMinor == Long.MIN_VALUE || row.isTransfer ||
+            row.transferGroupId != null || row.isVoided || hasDebtEvent(row)) reject("This expense cannot be shared.")
+        if (row.amountMinor != expectedAmountMinor || existing.map { it.id }.toSet() != expectedAllocationIds)
+            reject("The expense changed while its share was being edited.")
+        if (existing.count { it.personId != null } > 1 || existing.count { it.personId == null } > 1)
+            reject("Keep every existing allocation.")
+        if (purpose !in setOf(AllocationPurpose.SHARED, AllocationPurpose.GIFT, AllocationPurpose.LOAN))
+            reject("Choose an expense share purpose.")
+        val total = -row.amountMinor
+        val share = beneficiary.shareMinor ?: total
+        if (share !in 1..total || purpose == AllocationPurpose.LOAN && share != total)
+            reject("The share must fit the expense.")
+        val name = beneficiary.newPersonName?.trim()?.takeIf(String::isNotEmpty)
+        if ((beneficiary.personId == null) == (name == null)) reject("Choose one person.")
+        val personId = beneficiary.personId?.also { id ->
+            if (db.personDao().byId(id)?.isArchived != false) reject("The selected person is unavailable.")
+        } ?: db.personDao().insert(dev.whekin.whfin.data.db.PersonEntity(name = requireNotNull(name), color = 0xFF78906F.toInt()))
+        replaceAllocationsInternal(transactionId, buildList {
+            add(AllocationMutation(-share, row.categoryId, personId, purpose,
+                existing.singleOrNull { it.personId != null }?.note))
+            if (share < total) add(AllocationMutation(-(total - share), row.categoryId,
+                purpose = AllocationPurpose.PERSONAL, note = existing.singleOrNull { it.personId == null }?.note))
+        })
+    }
+
     suspend fun assignCategory(transactionId: Long, categoryId: Long) = db.withTransaction {
         val row = transaction(transactionId)
         db.transactionDao().update(row.copy(categoryId = categoryId))

@@ -40,6 +40,8 @@ data class CardStatementHistory(
     val imports: List<StatementImportEntity>,
 )
 
+data class ReviewWriteState(val busyId: Long? = null, val problem: Int? = null)
+
 sealed interface StatementImportUiState {
     data object Idle : StatementImportUiState
 
@@ -87,6 +89,8 @@ class BankStatementsViewModel internal constructor(
 
     private val db = (app as WhfinApp).db
     private val transactionMutations = TransactionMutationModule(db)
+    private val mutableReviewWrite = MutableStateFlow(ReviewWriteState())
+    val reviewWrite: StateFlow<ReviewWriteState> = mutableReviewWrite
 
     val histories: StateFlow<List<AccountStatementHistory>> = combine(
         db.accountDao().observeActive(),
@@ -222,18 +226,27 @@ class BankStatementsViewModel internal constructor(
         }
     }
 
-    fun keepIssue(item: ReconciliationIssueWithTransaction) {
-        viewModelScope.launch(Dispatchers.IO) {
-            db.withTransaction {
-                db.reconciliationIssueDao().keep(item.issue.id)
-                transactionMutations.keepReviewDraft(item.transaction.id)
-            }
-        }
-    }
+    fun keepIssue(item: ReconciliationIssueWithTransaction) = decideReview(item, delete = false)
+    fun deleteDraft(item: ReconciliationIssueWithTransaction) = decideReview(item, delete = true)
 
-    fun deleteDraft(item: ReconciliationIssueWithTransaction) {
+    private fun decideReview(item: ReconciliationIssueWithTransaction, delete: Boolean) {
+        val before = mutableReviewWrite.value
+        if (before.busyId != null || !mutableReviewWrite.compareAndSet(before, ReviewWriteState(item.issue.id))) return
         viewModelScope.launch(Dispatchers.IO) {
-            transactionMutations.deleteDraft(item.transaction.id)
+            try {
+                val changed = db.withTransaction {
+                    if (db.transactionDao().byId(item.transaction.id) != item.transaction) false
+                    else if (delete) transactionMutations.deleteDraft(item.transaction.id).changed > 0
+                    else {
+                        db.reconciliationIssueDao().keep(item.issue.id)
+                        transactionMutations.keepReviewDraft(item.transaction.id)
+                        true
+                    }
+                }
+                mutableReviewWrite.value = ReviewWriteState(problem = if (changed) null else R.string.statements_review_protected)
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { mutableReviewWrite.value = ReviewWriteState(problem = R.string.statements_review_write_failed) }
+            finally { mutableReviewWrite.value = mutableReviewWrite.value.copy(busyId = null) }
         }
     }
 

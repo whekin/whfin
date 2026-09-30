@@ -861,7 +861,8 @@ fun FeedScreen(
         )
     }
 
-    details?.let { item ->
+    details?.let { original ->
+        val item = items.firstOrNull { it.tx.id == original.tx.id } ?: original
         TransactionDetailsSheet(
             item = item,
             categoryAcknowledgement = rememberedCategoryFor?.takeIf { it.first == item.tx.id }?.second,
@@ -997,18 +998,18 @@ fun FeedScreen(
         DebtPersonSheet(
             item = item,
             people = people,
-            onDismiss = { debtFor = null },
-            onSelect = { viewModel.assignDebt(item, it.id); debtFor = null },
-            onAdd = { viewModel.addPersonAndAssignDebt(item, it); debtFor = null },
+            onDismiss = { debtFor = null; details = item },
+            formState = formState,
+            onSave = { viewModel.saveExpenseBeneficiary(item, it, dev.whekin.whfin.data.db.AllocationPurpose.LOAN) },
         )
     }
     splitFor?.let { item ->
         SplitSheet(
             item = item,
             people = people,
-            onDismiss = { splitFor = null },
-            onAddPerson = { name, then -> viewModel.addPerson(name, then) },
-            onSave = { shares -> viewModel.saveSplit(item, shares); splitFor = null },
+            onDismiss = { splitFor = null; details = item },
+            formState = formState,
+            onSave = { beneficiary, purpose -> viewModel.saveExpenseBeneficiary(item, beneficiary, purpose) },
         )
     }
 }

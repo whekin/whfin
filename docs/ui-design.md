@@ -992,3 +992,14 @@ The setup settings wrapper uses the same header, with system insets owned once.
 Analytics publishes the selected period and its calculation together. While a new Room query is pending, the previous correctly labelled snapshot remains visible. A chart month tap preserves that chart’s viewport offset through the next measurement, including intermediate results from rapid taps. Top arrows retain the visible period controls. Normal scroll boundaries still clamp a shorter page; no blank spacer is added to force an impossible offset. Empty spending sections distinguish no expenses from amounts awaiting conversion.
 
 Connection entries opening the bank-message journal say **Bank SMS / SMS банка** and use the SMS icon, including the per-bank entry and push-journal shortcut.
+
+### Working allocation and statement review sheets
+
+Allocation and debt-by-transaction forms share WhfinFormSheet's independent scroll body,
+optional pinned reading, Close and busy guards. Short windows reduce chrome spacing and
+use the smaller headline role without overriding font scale. New-person entry is deferred
+until requested; creation and allocation are one committed write. A custom share must fit
+exactly within the expense, without UI clamping. A saved multi-person allocation remains
+read-only in this compact editor. Review queues use lazy content and explicit deletion
+confirmation; protected or changed rows report refusal rather than disappearing optimistically.
+Validation and limits: [working sheets polish](working-sheets-polish-2026-10-01.md).
