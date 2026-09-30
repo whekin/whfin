@@ -1154,7 +1154,6 @@
     <string name="analytics_expenses_empty_body">Выберите другой период или импортируйте выписку, чтобы увидеть распределение.</string>
     <string name="analytics_open">Открыть статистику по месяцам</string>
     <string name="analytics_view_year_total">Итог за %1$d год</string>
-    <string name="analytics_choose_month_hint">Выберите месяц ниже</string>
     <string name="analytics_previous_period">Предыдущий период</string>
     <string name="analytics_next_period">Следующий период</string>
     <string name="analytics_month_result">Итог месяца</string>
@@ -1190,10 +1189,6 @@
     <string name="analytics_changes_show_main">Только главные причины</string>
     <string name="analytics_changes_contribution">Вклад категории %1$s: %2$s</string>
     <string name="analytics_pace_typical">Среднее по записям</string>
-    <string name="analytics_trend_more">На %1$s больше</string>
-    <string name="analytics_trend_less">На %1$s меньше</string>
-    <string name="analytics_trend_same">Столько же</string>
-    <string name="analytics_trend_base">База: %1$s</string>
     <string name="analytics_changes_title">Что изменилось</string>
     <string name="analytics_uncategorized">Без категории</string>
     <string name="analytics_merchants_title">Кому платили</string>
@@ -1208,9 +1203,7 @@
         <item quantity="many">%d платежей</item>
         <item quantity="other">%d платежа</item>
     </plurals>
-    <string name="analytics_year_trend_months">Месяцы %1$d года</string>
     <string name="analytics_all_expenses">Все расходы</string>
-    <string name="analytics_view_transactions">Показать транзакции</string>
     <string name="analytics_transactions_title">Транзакции</string>
     <string name="analytics_transactions_total">Выбранные расходы</string>
     <string name="analytics_transactions_loading">Загружаем транзакции…</string>
@@ -1219,8 +1212,6 @@
     <string name="analytics_transactions_empty_body">Выберите другой период или категорию в Статистике.</string>
     <string name="analytics_transactions_error_title">Не удалось загрузить транзакции</string>
     <string name="analytics_transactions_error_body">Данные не изменены. Вернитесь в Статистику и попробуйте снова.</string>
-    <string name="analytics_no_previous">В прошлом месяце нет расходов для сравнения</string>
-    <string name="analytics_no_previous_year">В прошлом году нет расходов для сравнения</string>
     <string name="analytics_unaccounted">Корректировки баланса</string>
     <string name="analytics_unaccounted_hint">Показаны отдельно и не входят в доходы, расходы и тренды категорий</string>
     <string name="analytics_other_currencies">Ещё не пересчитано</string>

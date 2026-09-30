@@ -156,12 +156,19 @@ there is no user-declared target.
 
 For a running period, place the spending-pace block after the difference: elapsed day count, a
 month-end projection, and the same recorded average over whole periods. Never project a historical
-period. Reading order is result → why → pace → where it went → year chart, without dashboard tiles or
-a second competing hero.
+period. Reading order is period + months → result → why → pace → where it went, without dashboard
+tiles or a second competing hero.
+
+The months of the year are not a section: they are a short strip (48 dp of columns plus labels, no
+card, no footer) directly under the period title, shared by Analytics and Spending. Tapping a month
+selects it; in year scale none is selected and a tap drills into that month. The strip never repeats
+the selected total, never compares neighbouring months (a second base beside the recorded average) and
+never offers its own "view transactions". A category drawn in it names itself with a selected pill and
+an "All expenses" pill beside it.
 
 Spending is the screen of composition, reached from Analytics by one row rather than a colour bar with
 a button under it. It leads with the period's expense total and the same difference sentence, then
-categories, counterparties and the year chart. There is no ring: it drew the proportions the category
+categories and counterparties; the months stand in the strip above the total. There is no ring: it drew the proportions the category
 rows already carry, without a single name beside them and at the size of the screen. Each row draws its
 own share as a hairline under its name.
 

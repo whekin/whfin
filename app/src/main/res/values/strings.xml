@@ -1098,7 +1098,6 @@
     <string name="analytics_expenses_empty_body">Choose another period or import a statement to see the breakdown.</string>
     <string name="analytics_open">Open monthly statistics</string>
     <string name="analytics_view_year_total">View %1$d total</string>
-    <string name="analytics_choose_month_hint">Select a month below</string>
     <string name="analytics_previous_period">Previous period</string>
     <string name="analytics_next_period">Next period</string>
     <string name="analytics_month_result">Month result</string>
@@ -1134,10 +1133,6 @@
     <string name="analytics_changes_show_main">Main causes only</string>
     <string name="analytics_changes_contribution">Contribution of %1$s: %2$s</string>
     <string name="analytics_pace_typical">Recorded average</string>
-    <string name="analytics_trend_more">%1$s more</string>
-    <string name="analytics_trend_less">%1$s less</string>
-    <string name="analytics_trend_same">The same</string>
-    <string name="analytics_trend_base">Base: %1$s</string>
     <string name="analytics_changes_title">What changed</string>
     <string name="analytics_uncategorized">Uncategorized</string>
     <string name="analytics_merchants_title">Who was paid</string>
@@ -1150,9 +1145,7 @@
         <item quantity="one">%d payment</item>
         <item quantity="other">%d payments</item>
     </plurals>
-    <string name="analytics_year_trend_months">Months of %1$d</string>
     <string name="analytics_all_expenses">All expenses</string>
-    <string name="analytics_view_transactions">View transactions</string>
     <string name="analytics_transactions_title">Transactions</string>
     <string name="analytics_transactions_total">Selected expenses</string>
     <string name="analytics_transactions_loading">Loading transactions…</string>
@@ -1161,8 +1154,6 @@
     <string name="analytics_transactions_empty_body">Try another period or category from Statistics.</string>
     <string name="analytics_transactions_error_title">Transactions could not be loaded</string>
     <string name="analytics_transactions_error_body">Your data is unchanged. Return to Statistics and try again.</string>
-    <string name="analytics_no_previous">No comparable expenses in the previous month</string>
-    <string name="analytics_no_previous_year">No comparable expenses in the previous year</string>
     <string name="analytics_unaccounted">Unaccounted adjustments</string>
     <string name="analytics_unaccounted_hint">Shown separately and excluded from income, expenses, and category trends</string>
     <string name="analytics_other_currencies">Not converted yet</string>

@@ -104,8 +104,6 @@ internal fun ExpenseAnalysisContent(
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
-    val chartPosition = rememberAnalyticsChartPosition(listState, model, "expense-trend",
-        4 + if ((model.state as? AnalyticsUiState.Content)?.data?.merchantValues?.isNotEmpty() == true) 1 else 0)
     val scope = rememberCoroutineScope()
     AnalyticsScaffold(
         model = model,
@@ -118,9 +116,11 @@ internal fun ExpenseAnalysisContent(
         ),
         emptyBody = stringResource(R.string.analytics_expenses_empty_body),
         onBack = onBack,
-        onPreviousPeriod = { chartPosition.change(model.period, model.period.previous(), action = onPreviousPeriod) },
-        onNextPeriod = { chartPosition.change(model.period, model.period.next(), action = onNextPeriod) },
-        onScaleChange = { scale -> chartPosition.change(model.period, model.period.withScale(scale)) { onScaleChange(scale) } },
+        onPreviousPeriod = onPreviousPeriod,
+        onNextPeriod = onNextPeriod,
+        onScaleChange = onScaleChange,
+        onSelectMonth = onSelectMonth,
+        onShowAllTrend = onShowAllTrend,
         listState = listState,
         listTestTag = "expense-analysis-list",
     ) { data ->
@@ -130,16 +130,17 @@ internal fun ExpenseAnalysisContent(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             )
         }
-        // How much, against what, on what, to whom, and only then the shape of the months. The
-        // chart used to stand between the total and the categories, so the answer to "on what did
-        // it go" — the names and the amounts — began below the fold on every visit.
+        // How much, against what, on what, to whom. The shape of the months is the strip under the
+        // period title, shared with Statistics, so the names and the amounts follow the total
+        // directly instead of waiting behind a chart.
         item(key = "expense-categories") {
             ExpenseCategories(
                 data = data,
                 onCategoryClick = { categoryId ->
                     onShowCategoryTrend(categoryId)
-                    // Header and period selector precede the hero.
-                    scope.launch { listState.animateScrollToItem(2) }
+                    // The category's months are drawn in the strip at the top of the page, so the
+                    // answer to the tap is up there, not beside the row that was tapped.
+                    scope.launch { listState.animateScrollToItem(0) }
                 },
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
@@ -154,21 +155,6 @@ internal fun ExpenseAnalysisContent(
                     .padding(start = 20.dp, end = 20.dp, top = 28.dp)
                     .testTag("expense-analysis-merchants"),
             )
-        }
-        item(key = "expense-trend") {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 28.dp)
-                    .testTag("expense-analysis-trend"),
-            ) {
-                PeriodTrend(
-                    data = data,
-                    onSelectMonth = { month -> chartPosition.change(model.period, AnalyticsPeriod.month(month), chartAction = true) { onSelectMonth(month) } },
-                    onShowAllTrend = onShowAllTrend,
-                    onOpenTransactions = onOpenTransactions,
-                )
-            }
         }
         if (data.otherCurrencyExpenses.isNotEmpty()) item(key = "expense-currencies") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 28.dp)) {
@@ -514,7 +500,6 @@ private val expensePreviewData = AnalyticsData(
     trendValues = (1..12).map { month ->
         AnalyticsMonthValue(YearMonth.of(2026, month), listOf(510, 430, 390, 620, 470, 520, 490, 904, 0, 0, 0, 0)[month - 1] * 1_000L)
     },
-    previousTrendExpenseMinor = 640_000,
     unaccountedNetMinor = 0,
     otherCurrencyExpenses = emptyList(),
     pendingCount = 2,

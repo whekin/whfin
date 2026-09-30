@@ -70,7 +70,6 @@ class HomeInsightsTest {
         trendFilter = AnalyticsTrendFilter.All,
         trendFilterName = null,
         trendValues = listOf(AnalyticsMonthValue(YearMonth.of(2026, 8), 0)),
-        previousTrendExpenseMinor = 0,
         unaccountedNetMinor = 0,
         otherCurrencyExpenses = emptyList(),
         pendingCount = 0,

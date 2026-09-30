@@ -130,6 +130,10 @@ internal fun AnalyticsScreen(
 /**
  * The frame every statistics screen shares: title, scale, period, then whatever the period is.
  *
+ * The months of the year stand with the period controls rather than at the end of the page: they
+ * are the same control — where in time this screen is — and a chart that moves the whole screen
+ * through time cannot sit below everything it moves.
+ *
  * Loading and failure keep the same period controls rather than a frozen "now", so the screen never
  * shows a month the user is not on and never offers an arrow that does nothing.
  */
@@ -143,6 +147,8 @@ internal fun AnalyticsScaffold(
     onPreviousPeriod: () -> Unit,
     onNextPeriod: () -> Unit,
     onScaleChange: (AnalyticsScale) -> Unit,
+    onSelectMonth: (YearMonth) -> Unit,
+    onShowAllTrend: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     listTestTag: String,
     content: LazyListScope.(AnalyticsData) -> Unit,
@@ -169,15 +175,29 @@ internal fun AnalyticsScaffold(
             ) {
                 item(key = "analytics-header") { AnalyticsHeader(onBack, title) }
                 item(key = "analytics-period") {
-                    PeriodSelector(
-                        period = model.period,
-                        canSelectPrevious = model.canSelectPrevious,
-                        canSelectNext = model.canSelectNext,
-                        onPreviousPeriod = onPreviousPeriod,
-                        onNextPeriod = onNextPeriod,
-                        onScaleChange = onScaleChange,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
-                    )
+                    Column(
+                        Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        PeriodSelector(
+                            period = model.period,
+                            canSelectPrevious = model.canSelectPrevious,
+                            canSelectNext = model.canSelectNext,
+                            onPreviousPeriod = onPreviousPeriod,
+                            onNextPeriod = onNextPeriod,
+                            onScaleChange = onScaleChange,
+                        )
+                        // Only a calculated period has months to draw. A first load has none yet,
+                        // and later periods keep showing the previous answer until the next one
+                        // arrives, so the strip never blinks out between two months.
+                        (model.state as? AnalyticsUiState.Content)?.let { content ->
+                            PeriodTimeline(
+                                data = content.data,
+                                onSelectMonth = onSelectMonth,
+                                onShowAllTrend = onShowAllTrend,
+                            )
+                        }
+                    }
                 }
                 when (val state = model.state) {
                     AnalyticsUiState.Loading -> item(key = "state") {
@@ -310,17 +330,17 @@ internal fun AnalyticsContent(
     onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
-    val chartPosition = rememberAnalyticsChartPosition(listState, model, "trend",
-        5 + if ((model.state as? AnalyticsUiState.Content)?.data?.pace != null) 1 else 0)
     AnalyticsScaffold(
         model = model,
         title = stringResource(R.string.analytics_title),
         emptyTitle = stringResource(R.string.analytics_empty_title),
         emptyBody = stringResource(R.string.analytics_empty_body),
         onBack = onBack,
-        onPreviousPeriod = { chartPosition.change(model.period, model.period.previous(), action = onPreviousPeriod) },
-        onNextPeriod = { chartPosition.change(model.period, model.period.next(), action = onNextPeriod) },
-        onScaleChange = { scale -> chartPosition.change(model.period, model.period.withScale(scale)) { onScaleChange(scale) } },
+        onPreviousPeriod = onPreviousPeriod,
+        onNextPeriod = onNextPeriod,
+        onScaleChange = onScaleChange,
+        onSelectMonth = onSelectMonth,
+        onShowAllTrend = onShowAllTrend,
         listState = listState,
         listTestTag = "analytics-list",
     ) { data ->
@@ -329,9 +349,9 @@ internal fun AnalyticsContent(
                 PeriodResult(data, onOpenExpenses)
             }
         }
-        // How much, how far that is from ordinary, what made the difference — and only then the
-        // shape of the year. The chart used to stand second, so the answer to "why was it more"
-        // began below the fold on a screen whose whole purpose is to answer it.
+        // How much, how far that is from ordinary, what made the difference. The shape of the year
+        // is not a section of its own: it is the strip under the period title, so it no longer
+        // competes with "why was it more" for the first screen.
         item(key = "changes") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                 SpendingDifference(
@@ -350,21 +370,6 @@ internal fun AnalyticsContent(
         item(key = "categories") {
             Box(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
                 SpendingLink(data = data, onOpenExpenses = onOpenExpenses)
-            }
-        }
-        item(key = "trend") {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, bottom = 28.dp)
-                    .testTag("analytics-trend"),
-            ) {
-                PeriodTrend(
-                    data = data,
-                    onSelectMonth = { month -> chartPosition.change(model.period, AnalyticsPeriod.month(month), chartAction = true) { onSelectMonth(month) } },
-                    onShowAllTrend = onShowAllTrend,
-                    onOpenTransactions = onOpenTransactions,
-                )
             }
         }
         if (data.unaccountedNetMinor != 0L) item(key = "unaccounted") {
@@ -531,14 +536,6 @@ internal fun PeriodSelector(
                 onNextPeriod,
                 outlined = false,
                 enabled = canSelectNext,
-            )
-        }
-        if (period.scale == AnalyticsScale.YEAR) {
-            Text(
-                stringResource(R.string.analytics_choose_month_hint),
-                modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -932,43 +929,54 @@ private fun SpendingLink(data: AnalyticsData, onOpenExpenses: () -> Unit) {
     }
 }
 
+/**
+ * The months of the selected year, as the second half of the period control above it.
+ *
+ * It says nothing the screen does not already say in words: the selected month's total is the
+ * figure under it, and how it compares is what "What changed" answers against the ordinary level.
+ * A footer here once repeated the total and compared it with the neighbouring month instead — a
+ * second base next to the first, and a second "view transactions" beside the one the total offers.
+ * What is left is the shape, which no sentence carries, and a target for every month.
+ *
+ * In month scale the selected bar is the period; in year scale every bar belongs to it, so none is
+ * selected and a tap is the drill-down into that month.
+ */
 @Composable
-internal fun PeriodTrend(
+internal fun PeriodTimeline(
     data: AnalyticsData,
     onSelectMonth: (YearMonth) -> Unit,
     onShowAllTrend: () -> Unit,
-    onOpenTransactions: (AnalyticsTransactionsRequest) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val locale = currentLocale()
     val period = data.period
-    val filterName = when (val filter = data.trendFilter) {
-        AnalyticsTrendFilter.All -> stringResource(R.string.analytics_all_expenses)
-        is AnalyticsTrendFilter.Category -> data.trendFilterName ?: stringResource(R.string.analytics_uncategorized)
-    }
-    // In month scale the chart is a rolling window around one selected bar. In year scale every bar
-    // belongs to the selected period, so the footer reports the year itself and a bar is a drill-down.
-    val selectedValue = when (period.scale) {
-        AnalyticsScale.MONTH -> data.trendValues.firstOrNull { it.month == period.month }?.expenseMinor ?: 0L
-        AnalyticsScale.YEAR -> data.trendValues.sumOf { it.expenseMinor }
-    }
-    // Never the neighbouring bar: a bar is a whole month, and while this period is still running
-    // the honest partner for it is the same stretch of the previous one, which is what the
-    // calculator put in `previousTrendExpenseMinor`.
-    val previousValue = when {
-        data.comparisonDays != null -> data.previousTrendExpenseMinor
-        period.scale == AnalyticsScale.MONTH ->
-            data.trendValues.firstOrNull { it.month == period.month.minusMonths(1) }?.expenseMinor
-                ?: data.previousTrendExpenseMinor
-        else -> data.previousTrendExpenseMinor
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        WhfinSectionHeader(
-            title = stringResource(R.string.analytics_year_trend_months, period.year),
-            // The filter names itself only while one is on. Unfiltered, "All expenses" repeated
-            // what the chart under it is: a second line that carried no new fact.
-            supportingText = filterName.takeIf { data.trendFilter is AnalyticsTrendFilter.Category },
+    // The bars stay a strip at any font size: the labels grow with the reader's scale, the columns
+    // above them keep their room.
+    val labelHeight = with(LocalDensity.current) { MaterialTheme.typography.labelSmall.lineHeight.toDp() }
+    Column(modifier.fillMaxWidth().testTag("analytics-timeline"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        WhfinMonthlyBarChart(
+            bars = data.trendValues.map { point ->
+                WhfinMonthlyBar(
+                    label = point.month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale),
+                    value = point.expenseMinor,
+                    amountDescription = formatMinor(point.expenseMinor, "GEL"),
+                    selected = period.scale == AnalyticsScale.MONTH && point.month == period.month,
+                    periodDescription = monthTitle(point.month),
+                )
+            },
+            onBarClick = { index -> data.trendValues.getOrNull(index)?.month?.let(onSelectMonth) },
+            fitToWidth = true,
+            height = TIMELINE_BARS + labelHeight,
         )
+        // A category drawn in the strip has to say so, or its months read as all spending.
         if (data.trendFilter is AnalyticsTrendFilter.Category) WhfinChoiceRail {
+            item {
+                WhfinFilterPill(
+                    data.trendFilterName ?: stringResource(R.string.analytics_uncategorized),
+                    selected = true,
+                    onClick = {},
+                )
+            }
             item {
                 WhfinFilterPill(
                     stringResource(R.string.analytics_all_expenses),
@@ -976,79 +984,12 @@ internal fun PeriodTrend(
                     onClick = onShowAllTrend,
                 )
             }
-            item {
-                WhfinFilterPill(filterName, selected = true, onClick = {})
-            }
-        }
-        WhfinLedgerGroup(Modifier.fillMaxWidth(), tonal = true) {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                WhfinMonthlyBarChart(
-                    bars = data.trendValues.map { point ->
-                        WhfinMonthlyBar(
-                            label = point.month.month.getDisplayName(TextStyle.NARROW_STANDALONE, locale),
-                            value = point.expenseMinor,
-                            amountDescription = formatMinor(point.expenseMinor, "GEL"),
-                            selected = period.scale == AnalyticsScale.MONTH && point.month == period.month,
-                            periodDescription = monthTitle(point.month),
-                        )
-                    },
-                    onBarClick = { index -> data.trendValues.getOrNull(index)?.month?.let(onSelectMonth) },
-                    fitToWidth = true,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    Column(Modifier.weight(1f)) {
-                        Text(periodTitle(period), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        WhfinAmount(
-                            formatMinor(selectedValue, "GEL"),
-                            symbol = currencySymbol("GEL"),
-                            modifier = Modifier.testTag("analytics-selected-trend-amount"),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                    }
-                    // The chart's own footer compares neighbouring bars, which is a different base
-                    // from the ordinary level above it — so it names the month it used. Two
-                    // comparisons may differ; neither may leave the reader guessing which is which.
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                        Text(
-                            trendComparisonText(selectedValue, previousValue, period.scale),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        // Named only when there is a base: "Base: July" under "no comparable
-                        // expenses in the previous month" would contradict the line above it.
-                        if (previousValue > 0L) Text(
-                            stringResource(
-                                R.string.analytics_trend_base,
-                                periodSpanText(period.previous(), data.comparisonDays),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                WhfinButton(
-                    label = stringResource(R.string.analytics_view_transactions),
-                    onClick = {
-                        onOpenTransactions(
-                            AnalyticsTransactionsRequest(
-                                period = period,
-                                categoryFilterEnabled = data.trendFilter is AnalyticsTrendFilter.Category,
-                                categoryId = (data.trendFilter as? AnalyticsTrendFilter.Category)?.categoryId,
-                                filterName = filterName,
-                                expectedExpenseMinor = selectedValue,
-                            ),
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth().testTag("analytics-view-transactions"),
-                    enabled = selectedValue > 0L,
-                    style = WhfinActionStyle.Secondary,
-                    leadingIcon = Icons.AutoMirrored.Filled.List,
-                )
-            }
         }
     }
 }
+
+/** Columns plus the gap to their labels; tall enough to compare, short enough to stay a control. */
+private val TIMELINE_BARS = 48.dp
 
 @Composable
 private fun UnaccountedSection(amountMinor: Long) {
@@ -1112,28 +1053,6 @@ internal fun OtherCurrenciesSection(values: List<AnalyticsCurrencyValue>) {
     }
 }
 
-/**
- * The chart footer's own comparison: this bar against the one before it.
- *
- * A percentage is right here and wrong above: bars are levels of the same shape, so their ratio is
- * the reading, while an ordinary level can honestly be zero and a percentage of it cannot.
- */
-@Composable
-private fun trendComparisonText(current: Long, previous: Long, scale: AnalyticsScale): String {
-    if (previous <= 0L) return stringResource(
-        if (scale == AnalyticsScale.MONTH) R.string.analytics_no_previous
-        else R.string.analytics_no_previous_year,
-    )
-    val percent = abs(current - previous).toDouble() / previous * 100.0
-    val formatted = NumberFormat.getPercentInstance().apply { maximumFractionDigits = 0 }
-        .format(percent / 100.0)
-    return when {
-        current > previous -> stringResource(R.string.analytics_trend_more, formatted)
-        current < previous -> stringResource(R.string.analytics_trend_less, formatted)
-        else -> stringResource(R.string.analytics_trend_same)
-    }
-}
-
 @Composable
 internal fun periodTitle(period: AnalyticsPeriod): String = when (period.scale) {
     AnalyticsScale.MONTH -> monthTitle(period.month)
@@ -1165,7 +1084,6 @@ private val previewData = AnalyticsData(
     trendValues = (1..12).map { month ->
         AnalyticsMonthValue(YearMonth.of(2026, month), listOf(82, 91, 76, 104, 98, 96, 109, 0, 0, 0, 0, 0)[month - 1] * 1_000L)
     },
-    previousTrendExpenseMinor = 96_000,
     baseline = AnalyticsBaseline(
         periods = (4..6).map { AnalyticsPeriod.month(YearMonth.of(2026, it)) },
         requestedPeriods = 3,
@@ -1199,7 +1117,6 @@ private val previewYearData = previewData.copy(
         projectedExpenseMinor = 11_870_000,
         typicalWholeExpenseMinor = 10_240_000,
     ),
-    previousTrendExpenseMinor = 10_240_000,
 )
 
 private fun previewModel(

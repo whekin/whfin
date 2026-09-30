@@ -19,6 +19,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -68,9 +70,9 @@ class AnalyticsScreenTest {
     }
 
     @Test
-    fun trendBarSelectionUpdatesAmountAndOpensMatchingTransactions() {
-        var opened: AnalyticsTransactionsRequest? = null
+    fun aCategoryDrawnInTheMonthsNamesItselfAndReturnsToAllSpending() {
         var month by mutableStateOf(YearMonth.of(2026, 7))
+        var showedAll = false
         compose.setContent {
             WhfinTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -85,27 +87,23 @@ class AnalyticsScreenTest {
                         onNextPeriod = {},
                         onScaleChange = {},
                         onSelectMonth = { month = it },
-                        onShowAllTrend = {},
+                        onShowAllTrend = { showedAll = true },
                         onOpenExpenses = {},
-                        onOpenTransactions = { opened = it },
+                        onOpenTransactions = {},
                     )
                 }
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
-        compose.onNodeWithTag("analytics-selected-trend-amount").assertTextEquals("60.00 ₾")
-        compose.waitForIdle()
-        compose.onNodeWithTag("analytics-view-transactions").performScrollTo().assertIsEnabled().performClick()
-        compose.waitUntil(timeoutMillis = 1_000) { opened != null }
-
-        compose.runOnIdle {
-            assertEquals(YearMonth.of(2026, 6), opened?.period?.month)
-            assertEquals(true, opened?.categoryFilterEnabled)
-            assertEquals(1L, opened?.categoryId)
-            assertEquals(6_000L, opened?.expectedExpenseMinor)
-        }
+        compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
+        val inTimeline = hasAnyAncestor(hasTestTag("analytics-timeline"))
+        compose.onNode(hasText("Food") and inTimeline).assertIsDisplayed()
+        compose.onNode(hasText("All expenses") and inTimeline).performClick()
+        compose.runOnIdle { assertEquals(true, showedAll) }
+        // The strip is the whole chart now: no second total or second way into the list under it.
+        compose.onNodeWithTag("analytics-selected-trend-amount").assertDoesNotExist()
+        compose.onNodeWithTag("analytics-view-transactions").assertDoesNotExist()
     }
 
     @Test
@@ -227,6 +225,8 @@ class AnalyticsScreenTest {
         compose.onNodeWithText("+100.00 ₾", substring = true).assertExists()
         compose.onNodeWithTag("expense-category-1").performClick()
         compose.runOnIdle { assertEquals(AnalyticsTrendFilter.Category(1), filter) }
+        // The answer to the tap is the category's months, and those stand at the top of the page.
+        compose.onNode(hasText("Food") and hasAnyAncestor(hasTestTag("analytics-timeline"))).assertIsDisplayed()
     }
 
     @Test
@@ -253,8 +253,7 @@ class AnalyticsScreenTest {
         // The month title is a control now — it zooms out to its year — so the text it prints
         // lives one level below the merged click target.
         compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).assertTextEquals("July 2026")
-        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
-        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
+                compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 6), month) }
         // The title itself is merged into its zoom-out control, so the control is what a scroll can find.
         compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-view-year"))
@@ -293,8 +292,7 @@ class AnalyticsScreenTest {
 
         compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         compose.onNodeWithText("Food").assertExists()
-        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-trend"))
-        compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
+                compose.onNodeWithTag("whfin-monthly-bar-5").performClick()
         compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-categories"))
         compose.onNodeWithText("Transport").assertExists()
         compose.onNodeWithText("Food").assertDoesNotExist()
@@ -324,8 +322,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
-        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+                compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
@@ -354,8 +351,7 @@ class AnalyticsScreenTest {
             }
         }
 
-        compose.onNodeWithTag("expense-analysis-list").performScrollToNode(hasTestTag("expense-analysis-trend"))
-        compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
+                compose.onNodeWithContentDescription("July 2026, 2,132.05 ₾").performClick()
         compose.onNodeWithContentDescription("August 2026, 321.54 ₾").assertExists().performClick()
         compose.runOnIdle { assertEquals(YearMonth.of(2026, 8), month) }
     }
@@ -545,7 +541,6 @@ class AnalyticsScreenTest {
         trendValues = (1..12).map {
             AnalyticsMonthValue(YearMonth.of(2026, it), it * 1_000L)
         },
-        previousTrendExpenseMinor = 6_000,
         unaccountedNetMinor = 0,
         otherCurrencyExpenses = emptyList(),
         pendingCount = 0,

@@ -573,6 +573,10 @@ data class WhfinMonthlyBar(
  * A closed period — especially a calendar year — is one shape the reader is meant to take in at
  * once, so [fitToWidth] divides the available width instead of asking the reader to scroll a year
  * they can already name. Screens using that dense mode must also provide arrow navigation.
+ *
+ * [height] is the whole chart including its labels. A short chart is a timeline — the shape of the
+ * months beside the control that moves between them — rather than a figure to be studied, and its
+ * corners shrink with it so a low column still reads as a column and not as a pill.
  */
 @Composable
 fun WhfinMonthlyBarChart(
@@ -581,9 +585,11 @@ fun WhfinMonthlyBarChart(
     color: Color = MaterialTheme.colorScheme.tertiary,
     onBarClick: ((Int) -> Unit)? = null,
     fitToWidth: Boolean = false,
+    height: Dp = 148.dp,
 ) {
     val maximum = bars.maxOfOrNull { it.value }?.coerceAtLeast(1L) ?: 1L
-    val chartModifier = modifier.fillMaxWidth().height(148.dp)
+    val chartModifier = modifier.fillMaxWidth().height(height)
+    val corner = (height * .05f).coerceIn(3.dp, 7.dp)
     if (fitToWidth) {
         Row(
             modifier = chartModifier,
@@ -596,6 +602,7 @@ fun WhfinMonthlyBarChart(
                     index = index,
                     maximum = maximum,
                     color = color,
+                    corner = corner,
                     onBarClick = onBarClick,
                     modifier = Modifier.weight(1f),
                 )
@@ -620,6 +627,7 @@ fun WhfinMonthlyBarChart(
                 index = index,
                 maximum = maximum,
                 color = color,
+                corner = corner,
                 onBarClick = onBarClick,
                 modifier = Modifier.width(48.dp),
             )
@@ -633,6 +641,7 @@ private fun MonthlyBar(
     index: Int,
     maximum: Long,
     color: Color,
+    corner: Dp,
     onBarClick: ((Int) -> Unit)?,
     modifier: Modifier,
 ) {
@@ -674,7 +683,7 @@ private fun MonthlyBar(
                         .fillMaxHeight(grown.coerceAtLeast(0.02f))
                         .background(
                             if (bar.selected) color else color.copy(alpha = .38f),
-                            RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp),
+                            RoundedCornerShape(topStart = corner, topEnd = corner),
                         ),
                 )
             }

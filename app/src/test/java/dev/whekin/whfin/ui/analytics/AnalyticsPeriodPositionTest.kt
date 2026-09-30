@@ -21,8 +21,32 @@ import org.robolectric.annotation.GraphicsMode
 class AnalyticsPeriodPositionTest {
     @get:Rule val compose = createComposeRule()
 
+    // The months stand with the period controls, above every section a month can grow or shrink,
+    // so nothing a tap changes can move the strip that was tapped.
     @Test fun choosingNeighbouringMonthKeepsTheChartUnderTheFinger() = switchingMonths(false)
     @Test fun expenseChartStaysPutWhenMerchantRowsChange() = switchingMonths(true)
+
+    @Test fun statisticsMonthsStandWithThePeriodAboveTheResult() = monthsStandWithThePeriod(false)
+    @Test fun spendingMonthsStandWithThePeriodAboveTheCategories() = monthsStandWithThePeriod(true)
+
+    private fun monthsStandWithThePeriod(expenses: Boolean) {
+        val rows = AnalyticsScenario.transactions(AnalyticsScenario.Shape.DEARER)
+        compose.setContent { WhfinTheme { Surface {
+            val data = calculateAnalytics(rows, AnalyticsScenario.categories, emptyList(),
+                AnalyticsPeriod.month(AnalyticsScenario.selectedMonth), AnalyticsTrendFilter.All,
+                zoneId = AnalyticsScenario.zone, today = AnalyticsScenario.insideSelectedMonth, merchants = AnalyticsScenario.merchants)
+            val model = AnalyticsUiModel(data.period, true, true, AnalyticsUiState.Content(data))
+            if (expenses) ExpenseAnalysisContent(model, {}, {}, {}, {}, {}, {}, {}, {})
+            else AnalyticsContent(model, null, {}, {}, {}, {}, {}, {}, {})
+        } } }
+        val title = compose.onNodeWithTag("analytics-period-title", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val timeline = compose.onNodeWithTag("analytics-timeline").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val below = compose.onNodeWithTag(if (expenses) "expense-analysis-categories" else "analytics-open-expenses")
+        assertTrue(title.bottom <= timeline.top)
+        // A strip, not a figure: the answer under it must still be on the first screen.
+        assertTrue(timeline.height < 100f * compose.density.density)
+        assertTrue(timeline.bottom <= below.fetchSemanticsNode().boundsInRoot.top)
+    }
 
     @Test fun topArrowsKeepThePeriodControlsVisibleWhenAShortMonthGrows() {
         var month by mutableStateOf(YearMonth.of(2026, 6))
@@ -52,7 +76,6 @@ class AnalyticsPeriodPositionTest {
             AnalyticsContent(AnalyticsUiModel(data.period, true, true, AnalyticsUiState.Content(data)), null, {}, {}, {},
                 { requests += it }, {}, {}, {})
         } } }
-        compose.onNodeWithTag("analytics-list").performScrollToNode(hasTestTag("analytics-trend"))
         val before = compose.onNodeWithTag("whfin-monthly-bar-6").fetchSemanticsNode().boundsInRoot.top
         compose.onNodeWithTag("whfin-monthly-bar-6").performClick()
         compose.onNodeWithTag("whfin-monthly-bar-4").performClick()
@@ -82,8 +105,6 @@ class AnalyticsPeriodPositionTest {
                 onNextPeriod = { month = month.plusMonths(1) }, onScaleChange = {},
                 onSelectMonth = { month = it }, onShowAllTrend = {}, onOpenExpenses = {}, onOpenTransactions = {}, listState = list)
         } } }
-        compose.onNodeWithTag(if (expenses) "expense-analysis-list" else "analytics-list")
-            .performScrollToNode(hasTestTag(if (expenses) "expense-analysis-trend" else "analytics-trend"))
         listOf(7, 8, 5, 1, 8).forEach { selected ->
             val before = compose.onNodeWithTag("whfin-monthly-bar-6").fetchSemanticsNode().boundsInRoot.top
             compose.onNodeWithTag("whfin-monthly-bar-${selected - 1}").performClick()

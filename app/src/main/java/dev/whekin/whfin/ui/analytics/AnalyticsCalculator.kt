@@ -145,7 +145,6 @@ internal data class AnalyticsData(
     val trendFilter: AnalyticsTrendFilter,
     val trendFilterName: String?,
     val trendValues: List<AnalyticsMonthValue>,
-    val previousTrendExpenseMinor: Long,
     val unaccountedNetMinor: Long,
     val otherCurrencyExpenses: List<AnalyticsCurrencyValue>,
     val pendingCount: Int,
@@ -313,7 +312,6 @@ internal fun calculateAnalytics(
     val selectedBase = baseSlices.filter { period.contains(it.month) }
     val income = selectedBase.sumOf { it.gelMinor!!.coerceAtLeast(0L) }
     val expenses = -selectedBase.sumOf { it.gelMinor!!.coerceAtMost(0L) }
-    val previousPeriod = period.previous()
     // A number is only compared with a number measured the same way. Five days of this month
     // against a whole previous month is not a comparison, and it was printed as one — "88% less
     // than the previous month" on the fifth. While the period is still running, every base is cut
@@ -465,13 +463,6 @@ internal fun calculateAnalytics(
             .sumOf { it.gelMinor!! }
         AnalyticsMonthValue(month, expense)
     }
-    // The bars stay whole months — a chart of months that showed part of one would be lying about
-    // its own axis — but the sentence under them compares the running period against the same
-    // stretch of the one before it.
-    val previousTrendExpense = -baseSlices
-        .filter { withinComparison(previousPeriod, it) && it.gelMinor!! < 0L && matchesTrendFilter(it) }
-        .sumOf { it.gelMinor!! }
-
     val selectedUnaccounted = slices.filter { period.contains(it.month) && it.unaccounted }
     // Only what could not be valued stays a native amount; the rest is already in the totals above.
     val otherCurrencies = slices
@@ -493,7 +484,6 @@ internal fun calculateAnalytics(
             ?.let(categoryById::get)
             ?.name,
         trendValues = trendValues,
-        previousTrendExpenseMinor = previousTrendExpense,
         unaccountedNetMinor = selectedUnaccounted.sumOf { it.gelMinor ?: 0L },
         otherCurrencyExpenses = otherCurrencies,
         unvaluedCurrencies = unvaluedCurrencies,

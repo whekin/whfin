@@ -651,10 +651,14 @@ never repeated, because the list's own label states it.
 ## Spending
 
 Spending reads downwards in the order the question is asked: how much, against what, on what, to
-whom, and only then the shape of the months. The year chart used to stand between the total and the
-categories, so the answer to "what did it go on" — the names and the amounts — began below the fold
-on every visit; it closes the screen now instead of gating it, and the month bar still selects a
-period there.
+whom. The shape of the months is not a section of either statistics screen: it is a short strip
+directly under the period title, because it is the same control as the arrows — where in time the
+screen is. As a full section it stood first and pushed the answer below the fold, then stood last and
+put the control that moves the whole screen through time under everything it moves. Its old footer
+repeated the selected total, compared it with the neighbouring month (a second base next to the
+recorded average) and offered a second way into the transaction list; all three are gone. Choosing a
+category on Spending draws that category in the strip, named by a pill beside "All expenses", and the
+page scrolls up to show it.
 
 There is no ring. It drew the same proportions the category rows carry, without a single name beside
 them, at the size of the screen. Each row draws its own share as a hairline under its name, where the

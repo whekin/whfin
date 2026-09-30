@@ -29,9 +29,8 @@ class AnalyticsMonthMotionTest {
             .putExtra("fontScale", font).putExtra("expenses", expenses)
         try { ActivityScenario.launch<AnalyticsQaActivity>(intent).use { scenario ->
             val list = if (expenses) "expense-analysis-list" else "analytics-list"
-            val trend = if (expenses) "expense-analysis-trend" else "analytics-trend"
             assertNotNull(device.wait(Until.findObject(By.res(list)), 10000))
-            UiScrollable(UiSelector().resourceId(list)).scrollIntoView(UiSelector().resourceId(trend))
+            assertNotNull(device.wait(Until.findObject(By.res("analytics-timeline")), 10000))
             fun capture(suffix: String) {
                 device.takeScreenshot(File(out, "$language-$dark-$font-$expenses-$suffix.png"))
                 device.dumpWindowHierarchy(File(out, "$language-$dark-$font-$expenses-$suffix.xml"))
@@ -41,7 +40,7 @@ class AnalyticsMonthMotionTest {
             fun chartOffset(): Int {
                 var offset = 0
                 scenario.onActivity { activity ->
-                    offset = activity.listState.layoutInfo.visibleItemsInfo.first { it.key == if (expenses) "expense-trend" else "trend" }.offset
+                    offset = activity.listState.layoutInfo.visibleItemsInfo.first { it.key == "analytics-period" }.offset
                 }
                 return offset
             }

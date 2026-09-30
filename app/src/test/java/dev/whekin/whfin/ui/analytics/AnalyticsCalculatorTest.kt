@@ -535,7 +535,6 @@ class AnalyticsCalculatorTest {
         assertEquals(YearMonth.of(2026, 1), data.trendValues.first().month)
         assertEquals(YearMonth.of(2026, 12), data.trendValues.last().month)
         assertEquals(listOf(1_000L, 2_000L, 3_000L), data.trendValues.map { it.expenseMinor }.filter { it > 0L })
-        assertEquals(5_000L, data.previousTrendExpenseMinor)
         assertEquals(5_000L, data.baseline.expenseMinor)
         // Categories follow the period, so a year's categories add up to the year's expenses.
         assertEquals(data.expenseMinor, data.categoryValues.sumOf { it.expenseMinor })
