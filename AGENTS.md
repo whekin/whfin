@@ -31,6 +31,20 @@ This is a single-context repository with root domain documentation and system-wi
 
 ## Статус (обновлять после каждого этапа!)
 
+- [x] Main очищен и 0.3.81 (93) установлена на S25 — 2026-09-30.
+  Обе рабочие ветки вошли в main; codex/tron-wallet-history и codex/sms-bank-match
+  удалены после проверки ancestry. Осталась одна локальная ветка main и основной
+  checkout; managed worktree архивирован. Дублирующий stash удалён после сохранения
+  проверенного recoverable bundle в ignored artifacts/git-recovery.
+  Объединённый host: 1298 тестов, 0 failures/errors, 5 skipped; 43 core-ui эталона,
+  androidTest compilation и release R8/lintVital прошли. Подписанный merged APK
+  установлен адресным install -r поверх 0.3.80 (92). Сертификат af6009…fae92 и
+  SHA-256 установленного base.apk 37cb948a…9c608d1b совпали со сборкой.
+  firstInstallTime 2026-08-16 19:13:46, три разрешения и backup в Downloads
+  сохранились. Активного BankSyncService перед установкой не было.
+  Данные не очищались, приложение после обновления не открывалось.
+  Отчёт: docs/sms-cohort-match-0.3.81-2026-09-30.md.
+
 - [x] Объединение рабочих веток в main — 2026-09-30.
   Завершённая история codex/tron-wallet-history и SMS-коммиты codex/sms-bank-match
   объединены с сохранением обеих работ. Единственный конфликт в AGENTS.md
