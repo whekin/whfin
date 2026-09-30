@@ -43,7 +43,11 @@ This is a single-context repository with root domain documentation and system-wi
   Host: 1300 тестов, 0 failures/errors, 5 skipped; core-ui screenshots, release R8/lintVital
   и public-tree прошли. На эмуляторе просмотрены EN/light месяц → июль → 2026, Расходы с
   категорией, RU/dark/font 1.5. Instrumented AnalyticsMonthMotionTest обновлён, но не
-  запускался: подключён S25, guard блокирует connected-тесты. Телефон не обновлялся.
+  запускался: подключён S25, guard блокирует connected-тесты.
+  По запросу владельца 0.3.82 (94) установлена на S25 через install -r поверх 0.3.81 (93):
+  сертификат af6009…fae92 сверен до установки, SHA-256 установленного base.apk совпал со
+  сборкой (af829d28…), firstInstallTime 2026-08-16 и три разрешения сохранились, FATAL нет.
+  BankSyncService не работал, сверху был лаунчер; приложение после установки не открывалось.
 
 - [x] Main очищен и 0.3.81 (93) установлена на S25 — 2026-09-30.
   Обе рабочие ветки вошли в main; codex/tron-wallet-history и codex/sms-bank-match
