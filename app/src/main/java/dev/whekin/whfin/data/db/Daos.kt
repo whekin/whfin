@@ -1242,6 +1242,9 @@ interface ReconciliationIssueDao {
 
 @Dao
 interface SmsDiagnosticDao {
+    @Query("SELECT * FROM sms_diagnostics WHERE kind = 'OWN_TRANSFER' AND transactionId IS NULL " +
+        "AND outcome IN ('CHOOSE_ACCOUNT', 'MATCHED_GROUP') ORDER BY occurredAt, id")
+    suspend fun ownTransferCohortCandidates(): List<SmsDiagnosticEntity>
     @Query("SELECT d.* FROM sms_diagnostics d JOIN transactions t ON t.id = d.transactionId WHERE t.accountId = :accountId AND t.source = 'SMS' AND t.isVoided = 0")
     suspend fun activeEvidenceForAccount(accountId: Long): List<SmsDiagnosticEntity>
     @Query("SELECT * FROM sms_diagnostics WHERE transactionId = :id") suspend fun forTransaction(id: Long): List<SmsDiagnosticEntity>

@@ -400,6 +400,7 @@
     <string name="sms_diagnostics_error_body">WHFIN couldn’t read the local message activity.</string>
     <string name="sms_outcome_imported">Added from SMS</string>
     <string name="sms_outcome_attached">Matched to bank statement</string>
+    <string name="sms_outcome_matched_group">Transfers matched as a group</string>
     <string name="sms_outcome_duplicate">Already in the ledger</string>
     <string name="sms_outcome_ignored">Ignored safely</string>
     <string name="sms_outcome_unrecognized">Message format not recognized</string>

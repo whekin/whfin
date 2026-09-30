@@ -67,6 +67,7 @@ Each candidate message gets exactly one visible outcome:
 |---|---|---|
 | Imported | An active transaction was added from SMS | Open transaction |
 | Matched to statement | The SMS was attached as evidence to an existing confirmed row | Open transaction |
+| Transfers matched as a group | The complete receipt set matches equal multiplicity of complete bank transfer pairs; no individual row identity is guessed | None; original receipts remain available |
 | Already imported | Stable key matches an existing row | Open transaction |
 | Needs card mapping | Card last four is known to the SMS but not WHFIN | Choose/create instrument and ledger |
 | Choose account | More than one ledger can receive a transfer | Tap one derived route |
@@ -92,6 +93,21 @@ sum exactly to the sole bank purchase at that merchant on that day, and find no 
 evidence on that row. All messages then attach to the existing transaction without changing money.
 Subsets, repeated bank purchases and mixed cards remain ambiguous. This is the explicit exception to
 the ordinary one-message-to-one-bank-row rule.
+
+Credo card descriptions can carry original purchase money even when the debit is converted into a
+different currency. Existing known card contracts may be searched in their other currencies only
+when that printed amount/currency supplies exact evidence. A narrow Amazon descriptor rule separates
+marketplace and retail names and requires exact money, the known contract and a unique candidate;
+it does not rewrite merchant/category memory or collapse arbitrary brand prefixes.
+
+Indistinguishable own-transfer receipts can be matched as a complete cohort: equal count of bank
+withdrawals, each with one receiving member of a permitted automatic bank group, on the same day,
+with the same currency, amount and both IBANs. Occupied source rows and owner-created OWN_LINK groups
+are excluded. MATCHED_GROUP has no transactionId; the original structured fields identify the cohort.
+Its bank source rows remain reserved against individual matching while the proof holds. Every batch
+rechecks the proof; changed multiplicity returns all receipts to quiet bank reconciliation without
+redistributing them to remaining rows or writing money. This device-local outcome adds no columns,
+Room migration or portable-backup data. See ADR 0003.
 
 An account-free outgoing transfer is not a routing question when statements already cover **every**
 eligible same-bank, same-currency ledger on its date. WHFIN leaves that SMS outside the ledger for

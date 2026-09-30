@@ -41,6 +41,26 @@ class SmsDiagnosticsScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @Test fun cohortMatchIsHandledWithoutOfferingAnAccountChoice() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val diagnostic = SmsDiagnosticEntity(id = 30, externalKey = "sms|synthetic-cohort",
+            kind = SmsDiagnosticKind.OWN_TRANSFER, outcome = SmsDiagnosticOutcome.MATCHED_GROUP,
+            receivedAt = 1_000, occurredAt = 1_000, amountMinor = 700, currency = "GEL", updatedAt = 1_000)
+        compose.setContent { WhfinTheme { SmsDiagnosticsScreen(
+            loadState = SmsDiagnosticsLoadState.Content(SmsDiagnosticsData(diagnostics = listOf(diagnostic))),
+            scanState = SmsScanState.Idle, messageState = SmsMessageState.Hidden,
+            smsImportEnabled = true, hasReceivePermission = true, hasHistoryPermission = true,
+            canRequestHistoryPermission = true, onScanHistory = {}, onConfirmHistoryImport = {},
+            onCancelHistoryImport = {}, onResolve = { _, _, _ -> }, onAddCardMapping = { _, _, _ -> },
+            onViewMessage = {}, onDismissMessage = {},
+        ) } }
+        compose.onNodeWithText(context.getString(R.string.sms_outcome_matched_group)).performScrollTo().assertIsDisplayed()
+        assertFalse(diagnostic.needsUserAction())
+        assertFalse(diagnostic.awaitsStatement())
+        assertEquals(1, summarizeSmsPreview(listOf(dev.whekin.whfin.data.sms.SmsImportResult(
+            SmsDiagnosticOutcome.MATCHED_GROUP))).duplicates)
+    }
+
     @Test fun cardSuffixCollision_isExplainedWithoutClaimingASuccessfulLink() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         assertEquals(CardMappingProblem.COLLISION,

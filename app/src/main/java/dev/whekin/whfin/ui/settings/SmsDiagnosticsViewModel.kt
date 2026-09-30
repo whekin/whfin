@@ -107,7 +107,7 @@ internal fun summarizeSmsPreview(results: List<SmsImportResult>): SmsScanSummary
     total = results.size,
     importable = results.count { it.outcome == SmsDiagnosticOutcome.IMPORTED },
     duplicates = results.count { it.outcome in setOf(SmsDiagnosticOutcome.DUPLICATE,
-        SmsDiagnosticOutcome.ATTACHED, SmsDiagnosticOutcome.CANCELED) },
+        SmsDiagnosticOutcome.ATTACHED, SmsDiagnosticOutcome.MATCHED_GROUP, SmsDiagnosticOutcome.CANCELED) },
     needsAttention = results.count(SmsImportResult::needsRoutingDecision),
     ignored = results.count { it.outcome == SmsDiagnosticOutcome.IGNORED },
     waitingForStatement = results.count { it.reason == SmsDiagnosticReason.STATEMENT_COVERS_PERIOD },
