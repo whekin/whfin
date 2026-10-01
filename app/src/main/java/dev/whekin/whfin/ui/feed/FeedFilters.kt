@@ -113,10 +113,10 @@ internal fun FeedFilterSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var draftFilter by remember(filter) { mutableStateOf(filter) }
-    var draftSort by remember(sort) { mutableStateOf(sort) }
-    var draftCategories by remember(selectedCategoryIds) { mutableStateOf(selectedCategoryIds) }
-    var showAllCategories by remember { mutableStateOf(false) }
+    var draftFilter by androidx.compose.runtime.saveable.rememberSaveable(filter) { mutableStateOf(filter) }
+    var draftSort by androidx.compose.runtime.saveable.rememberSaveable(sort) { mutableStateOf(sort) }
+    var draftCategories by androidx.compose.runtime.saveable.rememberSaveable(selectedCategoryIds) { mutableStateOf(selectedCategoryIds) }
+    var showAllCategories by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     val eligibleCategories = remember(categories, draftFilter) {
         when (draftFilter) {
@@ -148,15 +148,29 @@ internal fun FeedFilterSheet(
         return
     }
 
+    val filterTitle = stringResource(when (draftFilter) {
+        FeedFilter.ALL -> R.string.feed_filter_all
+        FeedFilter.EXPENSES -> R.string.feed_filter_expenses
+        FeedFilter.INCOME -> R.string.feed_filter_income
+        FeedFilter.TRANSFERS -> R.string.feed_filter_transfers
+        FeedFilter.NEEDS_REVIEW -> R.string.home_needs_attention
+        FeedFilter.WAITING_BANK -> R.string.feed_waiting_bank
+    })
+    val sortTitle = stringResource(when (draftSort) {
+        FeedSort.NEWEST -> R.string.feed_sort_newest
+        FeedSort.OLDEST -> R.string.feed_sort_oldest
+        FeedSort.AMOUNT -> R.string.feed_sort_amount
+    })
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(.66f)
+                .heightIn(max = maxHeight * .85f)
                 .navigationBarsPadding(),
         ) {
             Row(
@@ -169,7 +183,7 @@ internal fun FeedFilterSheet(
                         style = MaterialTheme.typography.headlineSmall,
                     )
                     Text(
-                        stringResource(R.string.feed_filters_hint),
+                        "$filterTitle · $sortTitle",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -192,7 +206,7 @@ internal fun FeedFilterSheet(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState())
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, top = 18.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -335,6 +349,7 @@ internal fun FeedFilterSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
         }
     }
 }

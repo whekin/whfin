@@ -105,17 +105,17 @@ fun AddAccountSheet(
     onConnectBank: ((String) -> Unit)? = null,
     formState: FormSaveState = FormSaveState(),
 ) {
-    var name by remember { mutableStateOf("") }
-    var network by remember { mutableStateOf(CryptoNetwork.ETHEREUM) }
-    var currency by remember { mutableStateOf("GEL") }
-    var type by remember { mutableStateOf(initialType) }
-    var address by remember { mutableStateOf("") }
-    var customBank by remember { mutableStateOf(false) }
-    var customCashName by remember { mutableStateOf(false) }
-    var opening by remember { mutableStateOf("") }
-    var bankProvider by remember { mutableStateOf<String?>(null) }
-    var manualBank by remember { mutableStateOf<String?>(null) }
-    var bankProduct by remember { mutableStateOf<BankProduct?>(null) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var network by rememberSaveable { mutableStateOf(CryptoNetwork.ETHEREUM) }
+    var currency by rememberSaveable { mutableStateOf("GEL") }
+    var type by rememberSaveable { mutableStateOf(initialType) }
+    var address by rememberSaveable { mutableStateOf("") }
+    var customBank by rememberSaveable { mutableStateOf(false) }
+    var customCashName by rememberSaveable { mutableStateOf(false) }
+    var opening by rememberSaveable { mutableStateOf("") }
+    var bankProvider by rememberSaveable { mutableStateOf<String?>(null) }
+    var manualBank by rememberSaveable { mutableStateOf<String?>(null) }
+    var bankProduct by rememberSaveable { mutableStateOf<BankProduct?>(null) }
 
     val openingMinor = parseToMinor(opening, allowZero = true)
     val validOpening = opening.isBlank() || openingMinor != null
@@ -133,9 +133,11 @@ fun AddAccountSheet(
     FormSheet(
         title = titleOverride ?: stringResource(R.string.accounts_add),
         onDismiss = { if (!formState.busy) onDismiss() },
+        busy = formState.busy,
         primaryLabel = stringResource(
             if (formState.busy) R.string.form_saving else if (offerConnection) R.string.bank_connect_action else if (type == AccountType.CRYPTO) R.string.crypto_wallet_track else R.string.action_save,
         ),
+        dirty = address.isNotBlank() || opening.isNotBlank() || (customCashName || customBank) && name.isNotBlank(),
         primaryEnabled = if (formState.busy) false else if (offerConnection) true else if (choosingBank) false else if (type == AccountType.CRYPTO) {
             addressCheck is CryptoAddressValidator.Result.Valid
         } else {
@@ -339,15 +341,17 @@ fun EditAccountSheet(
     ) -> Unit,
     formState: FormSaveState = FormSaveState(),
 ) {
-    var name by remember { mutableStateOf(account.name) }
-    var currency by remember { mutableStateOf(account.currency) }
-    var address by remember { mutableStateOf(initialAddress.orEmpty()) }
-    var fundRole by remember { mutableStateOf(account.fundRole) }
+    var name by rememberSaveable { mutableStateOf(account.name) }
+    var currency by rememberSaveable { mutableStateOf(account.currency) }
+    var address by rememberSaveable { mutableStateOf(initialAddress.orEmpty()) }
+    var fundRole by rememberSaveable { mutableStateOf(account.fundRole) }
 
     FormSheet(
         title = stringResource(R.string.account_edit),
         onDismiss = { if (!formState.busy) onDismiss() },
+        busy = formState.busy,
         primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        dirty = name != account.name || fundRole != account.fundRole,
         primaryEnabled = !formState.busy && (account.type == AccountType.CASH || name.isNotBlank()) && currency.isNotBlank(),
         onPrimary = {
             onConfirm(
@@ -529,19 +533,19 @@ fun BankMappingSheet(
 ) {
     // A name the import wrote is not an answer the owner gave, so the field starts empty and the
     // ledgers keep being named by their bank, number and product until there is something to say.
-    var name by remember(account.id, account.name) {
+    var name by rememberSaveable(account.id, account.name) {
         mutableStateOf(if (dev.whekin.whfin.data.db.isGeneratedLedgerName(account.name, account.iban)) "" else account.name)
     }
-    var fundRole by remember(account.id, account.fundRole) { mutableStateOf(account.fundRole) }
-    var iban by remember { mutableStateOf(account.iban.orEmpty()) }
-    var bankProduct by remember(account.id, account.bankProduct) {
+    var fundRole by rememberSaveable(account.id, account.fundRole) { mutableStateOf(account.fundRole) }
+    var iban by rememberSaveable { mutableStateOf(account.iban.orEmpty()) }
+    var bankProduct by rememberSaveable(account.id, account.bankProduct) {
         mutableStateOf(account.bankProduct)
     }
-    var cards by remember(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
+    var cards by rememberSaveable(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
         mutableStateOf((existingCards + existingVirtualCards + existingUnclassifiedCards).distinct())
     }
-    var pendingCard by remember(account.id) { mutableStateOf("") }
-    var cardTypes by remember(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
+    var pendingCard by rememberSaveable(account.id) { mutableStateOf("") }
+    var cardTypes by rememberSaveable(account.id, existingCards, existingVirtualCards, existingUnclassifiedCards) {
         mutableStateOf(
             buildMap {
                 existingCards.forEach { put(it, PaymentInstrumentType.PHYSICAL_CARD) }
@@ -550,7 +554,7 @@ fun BankMappingSheet(
             },
         )
     }
-    var primaryCard by remember(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
+    var primaryCard by rememberSaveable(account.id, existingPrimaryCard) { mutableStateOf(existingPrimaryCard) }
     var showProductChoices by rememberSaveable(account.id) { mutableStateOf(false) }
     var showBankDetails by rememberSaveable(account.id) { mutableStateOf(false) }
     var showAddCard by rememberSaveable(account.id) { mutableStateOf(false) }
@@ -560,6 +564,17 @@ fun BankMappingSheet(
         title = account.iban?.takeLast(4)?.let { stringResource(R.string.account_settings_numbered_title, it) }
             ?: stringResource(R.string.account_settings_title),
         onDismiss = { if (!formState.busy) onDismiss() },
+        busy = formState.busy,
+        dirty = name != (if (dev.whekin.whfin.data.db.isGeneratedLedgerName(account.name, account.iban)) "" else account.name) ||
+            fundRole != account.fundRole || iban != account.iban.orEmpty() || bankProduct != account.bankProduct ||
+            cards.toSet() != (existingCards + existingVirtualCards + existingUnclassifiedCards).toSet() ||
+            primaryCard != existingPrimaryCard || cardTypes.any { (mask, type) ->
+                type != when (mask) {
+                    in existingCards -> PaymentInstrumentType.PHYSICAL_CARD
+                    in existingVirtualCards -> PaymentInstrumentType.VIRTUAL_CARD
+                    else -> PaymentInstrumentType.UNCLASSIFIED_CARD
+                }
+            } || pendingCard.isNotBlank(),
         primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
         primaryEnabled = !formState.busy,
         onPrimary = {

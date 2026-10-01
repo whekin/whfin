@@ -123,7 +123,7 @@ reveal a harmless in-memory Quiet Ledger note; this never exposes debug controls
 
 Feed selection starts with a long press and keeps the ledger spatially stable: summary/search controls give
 way to a compact selected-count header, selected rows receive one continuous tonal surface and a check icon,
-and subsequent taps toggle rows. Batch status is quiet; batch delete uses the destructive semantic color and
+and subsequent taps toggle rows. Batch review applies only to legacy pending SMS; batch delete uses the destructive semantic color and
 an explicit balance-impact confirmation. A transfer or conversion is one visible selection and always updates
 or deletes both persisted legs.
 
@@ -132,17 +132,11 @@ selection shows the three most-used eligible categories plus More. The ranking c
 usage and keeps already-selected categories visible. More replaces the sheet with a dedicated full-screen,
 lazy category list; the ordinary sheet never composes every category or reserves nearly the full display.
 
-Transaction details prioritize the amount and four routine facts. Status and category become the action when
-they are editable instead of being repeated below as separate rows. Bank/source metadata is collapsed by
-default. The answers a row can be given — confirm, own transfer, debt, split — wrap two to a row instead of
-riding a horizontal rail: on a rail, whether an answer existed depended on whether the reader thought to drag
-it, and at ordinary phone density the fourth one sat past the right edge. Each keeps its full name, because
-the name is what says what the action does; the labels are allowed two lines so a large font scale shortens
-nothing. Correcting an imported row and deleting live in the overflow beside the heading with the rest of the
-rare answers — correcting carries the longest label in the sheet and was listed in both places. Editable
-summary rows do not add trailing pencil icons that disturb the value column; they close with one quiet
-chevron after the value, because a row with no affordance at all was read as a static database record. The
-sheet uses lazy content so long bank descriptions do not turn scrolling into a full-column remeasure.
+Transaction details prioritize the amount and four routine facts. Status is read-only bank/owner provenance;
+category is the prominent editable block. Routine edit/debt/allocation answers wrap two per row, while
+own-transfer classification, imported correction and deletion live in overflow. Saved allocations retain
+an explicit Edit action; removal is a separate confirmed decision. Bank/source metadata remains collapsed,
+and the lazy receipt keeps long data from causing whole-column remeasurement.
 
 Legacy pending rows retain an explicit confirmation action in their receipt, but no longer become
 Home's decision queue merely because of that status. SMS awaiting statement evidence and bank holds
@@ -187,7 +181,7 @@ and pushed a short grid into half a screen of emptiness.
 Account activity is the single owner of one currency ledger and its account-container actions. Edit account,
 bank details, balance adjustment and delete live beside the balance in a wrapping two-column action area;
 Accounts no longer opens an intermediate settings sheet. The activity ledger reuses the same transaction
-details, category/status editing, manual composer, debt and delete paths as Feed. Small sheets use
+details, category assignment, legacy SMS review, manual composer, debt and delete paths as Feed. Small sheets use
 `skipPartiallyExpanded`, so their primary actions are reachable on first presentation without an extra swipe.
 
 Account overview explains the current balance rather than pretending to be analytics. Assets, liabilities, available funds, reserve, and source distribution are calculated only in GEL. Other currencies remain separate native amounts until WHFIN has exchange rates with provenance and timestamps; they are never mixed into the GEL net worth or distribution percentages.
@@ -1003,3 +997,13 @@ exactly within the expense, without UI clamping. A saved multi-person allocation
 read-only in this compact editor. Review queues use lazy content and explicit deletion
 confirmation; protected or changed rows report refusal rather than disappearing optimistically.
 Validation and limits: [working sheets polish](working-sheets-polish-2026-10-01.md).
+
+### Category drafts and searchable working catalogues
+
+WhfinPickerSheet keeps context and search stable above one lazy catalogue. Qualified category names
+and all-word search preserve the two-level tree. Create-and-select commits the category, transaction
+assignment and remembered/history effects together. CategoryEditor stores appearance, group and position
+as one draft and writes it atomically; sibling movement stays within the same tree level. Choice/swatches
+carry selected semantics, names and explicit markers, including the existing custom value. Current status
+has no editing affordance where the monetary domain does not permit a change. Validation and limits:
+[working sheets polish](working-sheets-polish-2026-10-01.md).

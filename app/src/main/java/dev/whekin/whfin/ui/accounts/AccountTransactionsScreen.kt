@@ -82,7 +82,6 @@ import dev.whekin.whfin.ui.feed.dayExpenses
 import dev.whekin.whfin.ui.feed.FeedItem
 import dev.whekin.whfin.ui.feed.FeedRow
 import dev.whekin.whfin.ui.feed.TransactionDetailsSheet
-import dev.whekin.whfin.ui.feed.TransactionStatusSheet
 import dev.whekin.whfin.ui.feed.CategoryPickerSheet
 import dev.whekin.whfin.ui.feed.DebtPersonSheet
 import dev.whekin.whfin.ui.feed.SplitSheet
@@ -106,6 +105,7 @@ internal fun AccountTransactionsScreen(
 ) {
     LaunchedEffect(accountId) { viewModel.bind(accountId) }
     val state by viewModel.uiState.collectAsState()
+    val formState by feedViewModel.formSaveState.collectAsState()
     val accountRowsState by accountsViewModel.accountRowsState.collectAsState()
     val accounts by feedViewModel.accounts.collectAsState()
     val ownLinkGroupIds by feedViewModel.ownLinkGroupIds.collectAsState()
@@ -127,7 +127,6 @@ internal fun AccountTransactionsScreen(
     }.orEmpty()
     var details by remember { mutableStateOf<FeedItem?>(null) }
     var categoryFor by remember { mutableStateOf<FeedItem?>(null) }
-    var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var editTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var correctTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
     var deleteTransactionFor by remember { mutableStateOf<FeedItem?>(null) }
@@ -213,20 +212,16 @@ internal fun AccountTransactionsScreen(
                 details = null
                 editTransactionFor = item
             }} else null,
-            onDebt = if (item.tx.amountMinor < 0 && item.splitOnPeople.isEmpty()) {{
+            onDebt = if (item.tx.amountMinor < 0 && !item.tx.isTransfer && item.tx.transferGroupId == null && item.splitOnPeople.isEmpty()) {{
                 details = null
                 debtFor = item
             }} else null,
             onClearDebt = if (item.isDebt) {{ feedViewModel.clearAllocations(item); details = null }} else null,
-            onSplit = if (item.tx.amountMinor < 0 && !item.isDebt) {{ details = null; splitFor = item }} else null,
+            onSplit = if (item.tx.amountMinor < 0 && !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt) {{ details = null; splitFor = item }} else null,
             onClearSplit = if (item.splitOnPeople.isNotEmpty()) {{
                 feedViewModel.clearAllocations(item)
                 details = null
             }} else null,
-            onChangeStatus = {
-                details = null
-                statusFor = item
-            },
             // The same row offers the same answers wherever it is opened from. A draft asks to be
             // confirmed on the ledger it sits on just as loudly as it does in the feed.
             onConfirm = {
@@ -257,7 +252,7 @@ internal fun AccountTransactionsScreen(
                 transaction = item.tx,
                 candidates = offered,
                 accounts = accounts,
-                onDismiss = { ownTransferFor = null },
+                onDismiss = { ownTransferFor = null; details = item },
                 onConfirm = { choice ->
                     when (choice) {
                         is OwnTransferChoice.Existing -> feedViewModel.linkOwnTransfer(item, choice.sides)
@@ -268,12 +263,6 @@ internal fun AccountTransactionsScreen(
                     ownTransferFor = null
                 },
             )
-        }
-    }
-    statusFor?.let { item ->
-        TransactionStatusSheet(item.tx.status, { statusFor = null }) { status ->
-            feedViewModel.updateStatus(item, status)
-            statusFor = null
         }
     }
     categoryFor?.let { item ->
@@ -293,9 +282,15 @@ internal fun AccountTransactionsScreen(
                 }
             },
             onCreateCategory = feedViewModel::createCategory,
+            formState = formState,
+            onCreateAndSelect = { name, kind, icon, color ->
+                feedViewModel.createCategoryAndAssign(item, name, kind, icon, color) { category ->
+                    categoryFor = null
+                    details = item.copy(category = category, tx = item.tx.copy(categoryId = category.id))
+                }
+            },
         )
     }
-    val formState by feedViewModel.formSaveState.collectAsState()
     editTransactionFor?.let { item ->
         AddTransactionSheet(
             formState = formState,

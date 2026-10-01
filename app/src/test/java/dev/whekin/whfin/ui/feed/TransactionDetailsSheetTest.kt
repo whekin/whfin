@@ -1,5 +1,7 @@
 package dev.whekin.whfin.ui.feed
 
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -103,7 +105,6 @@ class TransactionDetailsSheetTest {
                     onEdit = null,
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = { error("SMS provenance must not open a status task") },
                 )
             }
         }
@@ -142,7 +143,6 @@ class TransactionDetailsSheetTest {
                     onEdit = null,
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = {},
                     onConfirm = { error("SMS provenance must not offer confirmation") },
                 )
             }
@@ -181,7 +181,6 @@ class TransactionDetailsSheetTest {
                     onEdit = null,
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = {},
                     onConfirm = {},
                 )
             }
@@ -230,7 +229,6 @@ class TransactionDetailsSheetTest {
                     onEdit = {},
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = {},
                 )
             }
         }
@@ -272,7 +270,6 @@ class TransactionDetailsSheetTest {
                     onEdit = null,
                     onDebt = null,
                     onClearDebt = null,
-                    onChangeStatus = {},
                     onConfirm = { confirmed = true },
                 )
             }
@@ -290,6 +287,44 @@ class TransactionDetailsSheetTest {
     @Test
     @Config(sdk = [35], qualifiers = "ru")
     fun everyAnswerSurvivesTheLongerLanguage() = assertEveryActionVisible()
+
+    @Test
+    fun manualStatusIsReadOnlyAndOwnTransferLivesInOverflow() {
+        var linked = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { WhfinTheme {
+            TransactionDetailsSheet(FeedItem(TransactionEntity(id = 1, accountId = 1, amountMinor = -2113, currency = "GEL",
+                occurredAt = 1000, status = TxStatus.MANUAL, source = TxSource.MANUAL), null, null, null, null,
+                day = LocalDate.of(2026, 9, 1)), {}, null, null, onEdit = null, onDebt = null, onClearDebt = null,
+                onOwnTransfer = { linked = true })
+        } }
+        compose.onNode(hasText(context.getString(R.string.status_manual)) and hasClickAction()).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.own_transfer_action)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(context.getString(R.string.transaction_actions)).performClick()
+        compose.onNodeWithText(context.getString(R.string.own_transfer_action)).performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(linked) }
+    }
+
+    @Test
+    fun savedAllocationCanBeEditedAndClearingRequiresConfirmation() {
+        var edited = false
+        var cleared = false
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { WhfinTheme {
+            TransactionDetailsSheet(FeedItem(TransactionEntity(id = 1, accountId = 1, amountMinor = -2113, currency = "GEL",
+                occurredAt = 1000, status = TxStatus.MANUAL, source = TxSource.MANUAL), null, null, null, null,
+                splitOnPeople = listOf("Mira" to 1056L), day = LocalDate.of(2026, 9, 1)), {}, null, null,
+                onEdit = null, onDebt = null, onClearDebt = null, onSplit = { edited = true }, onClearSplit = { cleared = true })
+        } }
+        compose.onNodeWithText(context.getString(R.string.split_edit)).performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(edited) }
+        compose.onNodeWithContentDescription(context.getString(R.string.transaction_actions)).performClick()
+        compose.onNodeWithText(context.getString(R.string.split_clear)).performClick()
+        compose.runOnIdle { org.junit.Assert.assertFalse(cleared) }
+        compose.onNodeWithText(context.getString(R.string.split_clear_title)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.split_clear)).performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(cleared) }
+    }
 
     private fun assertEveryActionVisible() {
         // The actions used to ride a horizontally scrolling rail, so whether an answer existed
@@ -330,8 +365,7 @@ class TransactionDetailsSheetTest {
                         onClearDebt = null,
                         onSplit = {},
                         onClearSplit = null,
-                        onChangeStatus = {},
-                        onConfirm = {},
+                            onConfirm = {},
                         onOwnTransfer = {},
                     )
                 }
@@ -340,7 +374,6 @@ class TransactionDetailsSheetTest {
 
         listOf(
             R.string.transaction_mark_reviewed,
-            R.string.own_transfer_action,
             R.string.debt_action_short,
             R.string.split_action_short,
         ).forEach { label ->

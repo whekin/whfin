@@ -1,6 +1,16 @@
 package dev.whekin.whfin.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import dev.whekin.whfin.R
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +51,7 @@ fun CategoryGrid(
     /** [Dp.Unspecified] — сетка занимает высоту, отданную ей родителем (например `weight`). */
     maxHeight: Dp = Dp.Unspecified,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(72.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)),
@@ -51,7 +62,8 @@ fun CategoryGrid(
         items(categories, key = { it.id }) { category ->
             val selected = selectedId == category.id
             Column(
-                Modifier.clip(MaterialTheme.shapes.medium).clickable { onSelect(category) }.padding(vertical = 4.dp),
+                Modifier.clip(MaterialTheme.shapes.medium).selectable(selected, enabled = enabled, role = Role.RadioButton,
+                    onClick = { onSelect(category) }).padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -72,6 +84,7 @@ fun CategoryGrid(
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -79,44 +92,37 @@ fun CategoryGrid(
 }
 
 @Composable
-fun CategoryAppearancePicker(
-    icon: String,
-    color: Int,
-    onIcon: (String) -> Unit,
-    onColor: (Int) -> Unit,
-) {
-    val icons = listOf("ShoppingCart", "Restaurant", "Home", "DirectionsBus", "MedicalServices", "VolunteerActivism", "Work", "Sell")
-    val colors = listOf(0xFF78906F, 0xFFD16D5A, 0xFFE0A246, 0xFF5D7F91, 0xFF8873A8, 0xFF4C956C).map(Long::toInt)
+fun CategoryAppearancePicker(icon: String, color: Int, onIcon: (String) -> Unit, onColor: (Int) -> Unit, enabled: Boolean = true) {
+    val originalIcon = androidx.compose.runtime.saveable.rememberSaveable { icon }
+    val baseIcons = listOf("ShoppingCart", "Restaurant", "Home", "DirectionsBus", "MedicalServices", "VolunteerActivism", "Work", "Sell")
+    val icons = (baseIcons + originalIcon).distinct()
+    val labels = listOf(R.string.category_icon_shopping, R.string.category_icon_food, R.string.category_icon_home,
+        R.string.category_icon_transport, R.string.category_icon_health, R.string.category_icon_giving,
+        R.string.category_icon_work, R.string.category_icon_other)
+    val initialIndex = androidx.compose.runtime.remember { icons.indexOf(icon) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.horizontalScroll(rememberScrollState())) {
-            icons.forEach { value ->
-                Surface(
-                    onClick = { onIcon(value) },
-                    shape = CircleShape,
+        dev.whekin.whfin.core.ui.WhfinChoiceRail(revealIndex = initialIndex) {
+            icons.forEachIndexed { index, value -> item(key = value) {
+                val description = stringResource(labels.getOrElse(index) { R.string.category_icon_current })
+                Surface(onClick = { onIcon(value) }, enabled = enabled, shape = CircleShape,
+                    modifier = Modifier.size(48.dp).semantics { contentDescription = description; selected = value == icon },
                     color = if (value == icon) Color(color).copy(alpha = .22f) else MaterialTheme.colorScheme.surfaceContainer,
-                    border = if (value == icon) androidx.compose.foundation.BorderStroke(1.5.dp, Color(color)) else null,
-                ) { Icon(CategoryIcons.resolve(value), null, tint = Color(color), modifier = Modifier.padding(12.dp).size(21.dp)) }
-                Spacer(Modifier.width(8.dp))
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            colors.forEach { value ->
-                Surface(
-                    onClick = { onColor(value) },
-                    shape = CircleShape,
-                    color = Color.Transparent,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(value),
-                            border = if (value == color) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface) else null,
-                            modifier = Modifier.size(30.dp),
-                        ) {}
-                    }
+                    border = if (value == icon) androidx.compose.foundation.BorderStroke(1.5.dp, Color(color)) else null) {
+                    Icon(CategoryIcons.resolve(value), null, tint = Color(color), modifier = Modifier.padding(12.dp).size(21.dp))
                 }
-            }
+            } }
         }
+        CategoryColorPicker(color, onColor, enabled)
     }
+}
+
+@Composable
+fun CategoryColorPicker(color: Int, onColor: (Int) -> Unit, enabled: Boolean = true) {
+    val originalColor = androidx.compose.runtime.saveable.rememberSaveable { color }
+    val colors = (listOf(0xFF78906F, 0xFFD16D5A, 0xFFE0A246, 0xFF5D7F91, 0xFF8873A8, 0xFF4C956C).map(Long::toInt) + originalColor).distinct()
+    val labels = listOf(R.string.category_color_sage, R.string.category_color_coral, R.string.category_color_amber,
+        R.string.category_color_blue, R.string.category_color_purple, R.string.category_color_green)
+    dev.whekin.whfin.core.ui.WhfinColorPicker(colors.mapIndexed { index, value ->
+        dev.whekin.whfin.core.ui.WhfinChoice(value, stringResource(labels.getOrElse(index) { R.string.category_color_current }))
+    }, color, onColor, enabled)
 }

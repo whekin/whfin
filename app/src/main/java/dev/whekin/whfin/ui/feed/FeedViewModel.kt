@@ -316,6 +316,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private val debtRepository = dev.whekin.whfin.data.debt.DebtRepository(db)
     private val smsImporter = SmsTransactionImporter(db)
     private val transactionMutations = TransactionMutationModule(db)
+    private val categorizer = dev.whekin.whfin.data.categorization.TransactionCategorizer(db)
     private val zone = LedgerCalendar.zone
 
     /** Contradictions the last integrity pass found; Home says so rather than only the log. */
@@ -774,13 +775,17 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         db.insertBankLedger(CREDO_PROVIDER, name, currency)
 
     fun assignCategory(item: FeedItem, categoryId: Long, onAssigned: () -> Unit = {}) {
-        mutate {
-            transactionMutations.assignCategory(item.tx.id, categoryId)
-            item.merchant?.let { merchant ->
-                db.merchantDao().setCategory(merchant.id, categoryId)
-                db.transactionDao().categorizeUnassignedForMerchant(merchant.id, categoryId)
-            }
+        formSaver.save {
+            categorizer.assign(item.tx.id, item.merchant?.id, categoryId)
             onAssigned()
+        }
+    }
+
+    fun createCategoryAndAssign(item: FeedItem, name: String, kind: CategoryKind, icon: String, color: Int,
+        onAssigned: (CategoryEntity) -> Unit) {
+        formSaver.save {
+            val created = categorizer.createAndAssign(item.tx.id, item.merchant?.id, name, kind, icon, color)
+            onAssigned(created)
         }
     }
 

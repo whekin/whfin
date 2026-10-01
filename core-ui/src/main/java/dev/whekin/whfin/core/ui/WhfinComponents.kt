@@ -60,6 +60,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -109,6 +112,7 @@ import androidx.compose.ui.window.DialogProperties
 enum class WhfinActionStyle { Primary, Secondary, Quiet, Destructive, DestructiveSecondary }
 
 private val LocalProminentIconButtons = staticCompositionLocalOf { false }
+internal val LocalFormControlsEnabled = staticCompositionLocalOf { true }
 
 @Composable
 fun WhfinButton(
@@ -147,7 +151,7 @@ fun WhfinButton(
         WhfinActionStyle.Primary -> Button(
             onClick = onClick,
             modifier = sized,
-            enabled = enabled,
+            enabled = enabled && LocalFormControlsEnabled.current,
             shapes = shapes,
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             content = content,
@@ -155,7 +159,7 @@ fun WhfinButton(
         WhfinActionStyle.Secondary -> OutlinedButton(
             onClick = onClick,
             modifier = sized,
-            enabled = enabled,
+            enabled = enabled && LocalFormControlsEnabled.current,
             shapes = shapes,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
@@ -164,7 +168,7 @@ fun WhfinButton(
         WhfinActionStyle.Quiet -> TextButton(
             onClick = onClick,
             modifier = sized,
-            enabled = enabled,
+            enabled = enabled && LocalFormControlsEnabled.current,
             shapes = shapes,
             contentPadding = PaddingValues(
                 horizontal = if (alignsWithContent) 0.dp else 14.dp,
@@ -175,7 +179,7 @@ fun WhfinButton(
         WhfinActionStyle.Destructive -> Button(
             onClick = onClick,
             modifier = sized,
-            enabled = enabled,
+            enabled = enabled && LocalFormControlsEnabled.current,
             shapes = shapes,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
@@ -187,7 +191,7 @@ fun WhfinButton(
         WhfinActionStyle.DestructiveSecondary -> OutlinedButton(
             onClick = onClick,
             modifier = sized,
-            enabled = enabled,
+            enabled = enabled && LocalFormControlsEnabled.current,
             shapes = shapes,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -357,7 +361,7 @@ fun WhfinIconButton(
     val useProminentIcon = prominent ?: LocalProminentIconButtons.current
     Surface(
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled && LocalFormControlsEnabled.current,
         modifier = modifier.size(WhfinThemeTokens.sizes.minTouchTarget),
         shape = CircleShape,
         color = when {
@@ -764,10 +768,12 @@ fun WhfinFilterPill(
     leadingIcon: ImageVector? = null,
     /** Set when the pill is one segment of a row that divides the width between equal choices. */
     centered: Boolean = false,
+    enabled: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Surface(
         onClick = onClick,
+        enabled = enabled && LocalFormControlsEnabled.current,
         modifier = modifier.heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).semantics { this.selected = selected },
         interactionSource = interactionSource,
         shape = rememberWhfinPressShape(interactionSource, WhfinThemeTokens.sizes.pillCorner),
@@ -1030,6 +1036,7 @@ fun WhfinLedgerRow(
     onClick: (() -> Unit)? = null,
     divider: Boolean = false,
 ) {
+    val controlsEnabled = LocalFormControlsEnabled.current
     val interactionSource = remember { MutableInteractionSource() }
     // A row of one or two lines is a line: its mark belongs beside the middle of it. A row allowed
     // to run on is a paragraph, and there the middle is the middle of a sentence — the mark then
@@ -1037,7 +1044,7 @@ fun WhfinLedgerRow(
     // it draws grows to the height of what it is bracketing instead of staying a tick at the top.
     val paragraph = titleMaxLines > 2 || supportingMaxLines > 2
     Column(modifier.fillMaxWidth().then(
-        if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        if (onClick != null && controlsEnabled) Modifier.clickable(onClick = onClick) else Modifier,
     )) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = WhfinThemeTokens.sizes.minTouchTarget).padding(horizontal = 16.dp, vertical = 13.dp)
@@ -1094,6 +1101,9 @@ fun WhfinField(
     keyboardType: KeyboardType = KeyboardType.Text,
     leadingIcon: ImageVector? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    enabled: Boolean = true,
+    imeAction: androidx.compose.ui.text.input.ImeAction = androidx.compose.ui.text.input.ImeAction.Default,
+    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
     trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1116,8 +1126,10 @@ fun WhfinField(
             leadingIcon = leadingIcon?.let { { Icon(it, null) } },
             trailingIcon = trailingIcon,
             isError = isError,
+            enabled = enabled && LocalFormControlsEnabled.current,
             singleLine = singleLine,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+            keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
             shape = MaterialTheme.shapes.medium,
             colors = TextFieldDefaults.colors(
@@ -1174,11 +1186,7 @@ fun WhfinFormSheet(
             shouldDismissOnClickOutside = !busy,
         ),
         containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = {
-            Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
-                Surface(Modifier.size(32.dp, 4.dp), shape = CircleShape, color = MaterialTheme.colorScheme.onSurfaceVariant) {}
-            }
-        },
+        dragHandle = { WhfinSheetDragHandle() },
     ) {
         // The sheet is measured against the room it actually has, not against a constant.
         //
@@ -1228,7 +1236,9 @@ fun WhfinFormSheet(
                         .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                         .padding(horizontal = 20.dp, vertical = if (compact) 4.dp else 8.dp),
                     verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
-                    content = content,
+                    content = {
+                        CompositionLocalProvider(LocalFormControlsEnabled provides !busy) { content() }
+                    },
                 )
                 // The one thing every form is for, where the hand already is and where the rest of
                 // the app puts it. It used to be a quiet word beside the title: the smallest control
@@ -1257,3 +1267,29 @@ fun WhfinFormSheet(
 
 /** How much of its window a form sheet may take, leaving the page it came from visible above it. */
 private const val SHEET_MAX_HEIGHT_FRACTION = .72f
+
+/** Named swatches share the same selection and touch contract as every other choice. */
+@Composable
+fun WhfinColorPicker(options: List<WhfinChoice<Int>>, selected: Int, onSelect: (Int) -> Unit, enabled: Boolean = true) {
+    val initialIndex = remember { options.indexOfFirst { it.value == selected } }
+    WhfinChoiceRail(revealIndex = initialIndex.takeIf { options.size > 6 && it >= 0 }) {
+        options.forEach { option -> item(key = option.value) {
+            Surface(onClick = { onSelect(option.value) }, enabled = enabled && LocalFormControlsEnabled.current,
+                shape = CircleShape, color = Color.Transparent,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = option.label
+                    this.selected = option.value == selected
+                }) {
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(Modifier.size(30.dp), shape = CircleShape, color = Color(option.value),
+                        border = if (option.value == selected) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface) else null) {
+                        if (option.value == selected) Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Check, null, Modifier.size(18.dp),
+                                tint = if (Color(option.value).compositeOver(MaterialTheme.colorScheme.surface).luminance() > .179f) Color.Black else Color.White)
+                        }
+                    }
+                }
+            }
+        } }
+    }
+}

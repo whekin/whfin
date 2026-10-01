@@ -198,6 +198,7 @@ fun FeedScreen(
     val context = LocalContext.current
     val homeAnalyticsState = collectHomeAnalyticsState(mode == FeedMode.HOME)
     val items by viewModel.items.collectAsState()
+    val formState by viewModel.formSaveState.collectAsState()
     val displayCurrency by viewModel.displayCurrency.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val categoriesByUsage by viewModel.categoriesByUsage.collectAsState()
@@ -254,7 +255,6 @@ fun FeedScreen(
     val ownLinkGroupIds by viewModel.ownLinkGroupIds.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
     var editFor by remember { mutableStateOf<FeedItem?>(null) }
-    var statusFor by remember { mutableStateOf<FeedItem?>(null) }
     var expandedTransferDays by remember { mutableStateOf(setOf<LocalDate>()) }
     var expandedExpenseDays by remember { mutableStateOf(setOf<LocalDate>()) }
     var search by remember { mutableStateOf("") }
@@ -284,7 +284,6 @@ fun FeedScreen(
     var sort by remember { mutableStateOf(FeedSort.NEWEST) }
     var categoryFilters by remember { mutableStateOf(emptySet<Long>()) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
-    var showBatchStatus by remember { mutableStateOf(false) }
     var showBatchDelete by remember { mutableStateOf(false) }
     var noticesExpanded by remember { mutableStateOf(false) }
     val monthFlow by viewModel.monthFlow.collectAsState()
@@ -365,7 +364,7 @@ fun FeedScreen(
     val grouped = sortedEntries.groupBy(FeedTimelineEntry::day)
     val selectedItems = items.filter { it.tx.id in selectedIds }
     val selectionMode = selectedIds.isNotEmpty()
-    val allSelectedPending = selectedItems.isNotEmpty() && selectedItems.all { it.tx.status == TxStatus.PENDING && it.tx.source != TxSource.BANK_HOLD }
+    val hasReviewableSelection = selectedItems.any { it.tx.source == TxSource.SMS && it.tx.status == TxStatus.PENDING }
     val headerScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(items) {
@@ -411,18 +410,12 @@ fun FeedScreen(
                         outlined = false,
                     )
                     WhfinIconButton(
-                        icon = if (allSelectedPending) Icons.Default.CheckCircle else Icons.Default.TaskAlt,
-                        contentDescription = stringResource(
-                            if (allSelectedPending) R.string.transactions_confirm_selected
-                            else R.string.transactions_change_status,
-                        ),
+                        icon = Icons.Default.CheckCircle,
+                        enabled = hasReviewableSelection,
+                        contentDescription = stringResource(R.string.transactions_mark_reviewed_selected),
                         onClick = {
-                            if (allSelectedPending) {
-                                viewModel.updateStatuses(selectedItems, TxStatus.CONFIRMED)
-                                selectedIds = emptySet()
-                            } else {
-                                showBatchStatus = true
-                            }
+                            viewModel.updateStatuses(selectedItems, TxStatus.CONFIRMED)
+                            selectedIds = emptySet()
                         },
                         outlined = false,
                     )
@@ -783,16 +776,6 @@ fun FeedScreen(
         )
     }
 
-    if (showBatchStatus) TransactionStatusSheet(
-        current = selectedItems.map { it.tx.status }.distinct().singleOrNull(),
-        onDismiss = { showBatchStatus = false },
-        onSelect = { status ->
-            viewModel.updateStatuses(selectedItems, status)
-            showBatchStatus = false
-            selectedIds = emptySet()
-        },
-    )
-
     if (showBatchDelete) {
         // Bank truth survives a bulk delete, so the count that matters is the one that will actually
         // go. Saying it before the tap beats a dialog that promises more than it can do.
@@ -824,7 +807,6 @@ fun FeedScreen(
         }
     }
 
-    val formState by viewModel.formSaveState.collectAsState()
     if (showAdd) {
         AddTransactionSheet(
             formState = formState,
@@ -884,14 +866,10 @@ fun FeedScreen(
                 details = null
                 editFor = item
             }} else null,
-            onDebt = if (item.tx.amountMinor < 0 && item.splitOnPeople.isEmpty()) {{ details = null; debtFor = item }} else null,
+            onDebt = if (item.tx.amountMinor < 0 && !item.tx.isTransfer && item.tx.transferGroupId == null && item.splitOnPeople.isEmpty()) {{ details = null; debtFor = item }} else null,
             onClearDebt = if (item.isDebt) {{ viewModel.clearAllocations(item); details = null }} else null,
-            onSplit = if (item.tx.amountMinor < 0 && !item.isDebt) {{ details = null; splitFor = item }} else null,
+            onSplit = if (item.tx.amountMinor < 0 && !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt) {{ details = null; splitFor = item }} else null,
             onClearSplit = if (item.splitOnPeople.isNotEmpty()) {{ viewModel.clearAllocations(item); details = null }} else null,
-            onChangeStatus = {
-                details = null
-                statusFor = item
-            },
             onConfirm = {
                 viewModel.updateStatus(item, TxStatus.CONFIRMED)
                 details = null
@@ -921,7 +899,7 @@ fun FeedScreen(
                 transaction = item.tx,
                 candidates = offered,
                 accounts = accountList,
-                onDismiss = { ownTransferFor = null },
+                onDismiss = { ownTransferFor = null; details = item },
                 onConfirm = { choice ->
                     when (choice) {
                         is OwnTransferChoice.Existing -> viewModel.linkOwnTransfer(item, choice.sides)
@@ -933,17 +911,6 @@ fun FeedScreen(
                 },
             )
         }
-    }
-
-    statusFor?.let { item ->
-        TransactionStatusSheet(
-            current = item.tx.status,
-            onDismiss = { statusFor = null },
-            onSelect = { status ->
-                viewModel.updateStatus(item, status)
-                statusFor = null
-            },
-        )
     }
 
     categoryFor?.let { item ->
@@ -964,6 +931,13 @@ fun FeedScreen(
                 }
             },
             onCreateCategory = viewModel::createCategory,
+            formState = formState,
+            onCreateAndSelect = { name, kind, icon, color ->
+                viewModel.createCategoryAndAssign(item, name, kind, icon, color) { category ->
+                    categoryFor = null
+                    details = item.copy(category = category, tx = item.tx.copy(categoryId = category.id))
+                }
+            },
         )
     }
 
@@ -1086,7 +1060,7 @@ internal enum class FeedFilter { ALL, EXPENSES, INCOME, TRANSFERS, NEEDS_REVIEW,
  */
 internal fun matchesFeedFilter(item: FeedItem, filter: FeedFilter): Boolean = when (filter) {
     FeedFilter.ALL -> true
-    FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.isDebt
+    FeedFilter.EXPENSES -> !item.tx.isTransfer && item.tx.amountMinor < 0 && !item.tx.isTransfer && item.tx.transferGroupId == null && !item.isDebt
     FeedFilter.INCOME -> !item.tx.isTransfer && item.tx.amountMinor > 0
     FeedFilter.TRANSFERS -> item.tx.isTransfer || item.tx.transferGroupId != null
     FeedFilter.NEEDS_REVIEW -> false
@@ -1119,67 +1093,6 @@ private fun TransferBundleRow(count: Int, onExpand: () -> Unit) {
             trailing = { Icon(Icons.Default.ExpandMore, contentDescription = stringResource(R.string.categories_show_all)) },
             onClick = onExpand,
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun CategoryPickerSheet(
-    item: FeedItem,
-    categories: List<CategoryEntity>,
-    onDismiss: () -> Unit,
-    onSelect: (CategoryEntity) -> Unit,
-    onCreateCategory: (String, CategoryKind, String, Int) -> Unit,
-) {
-    var creating by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    val kind = if (item.tx.amountMinor >= 0) CategoryKind.INCOME else CategoryKind.EXPENSE
-    var customIcon by remember { mutableStateOf(if (kind == CategoryKind.EXPENSE) "VolunteerActivism" else "Work") }
-    var customColor by remember { mutableIntStateOf(if (kind == CategoryKind.EXPENSE) 0xFFD16D5A.toInt() else 0xFF78906F.toInt()) }
-    var categoryQuery by rememberSaveable(item.tx.id) { mutableStateOf("") }
-    val visible = categories.filter { !it.isSystem && it.kind == kind &&
-        it.name.contains(categoryQuery.trim(), ignoreCase = true) }
-    val title = item.transferSummary
-        ?: (item.merchant?.displayName ?: item.tx.rawCounterparty)?.let { counterpartyLabel(it) }
-        ?: stringResource(R.string.feed_no_description)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        Column(Modifier.navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
-            Text(
-                formatMinor(item.tx.amountMinor, item.tx.currency, withSign = true),
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(top = 4.dp, bottom = 18.dp),
-            )
-            Text(stringResource(if (kind == CategoryKind.EXPENSE) R.string.categories_expense else R.string.categories_income),
-                style = MaterialTheme.typography.titleMedium)
-            if (creating) {
-                WhfinField(
-                    name,
-                    { name = it.take(32) },
-                    stringResource(R.string.category_name),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                )
-                CategoryAppearancePicker(customIcon, customColor, { customIcon = it }, { customColor = it })
-                WhfinButton(label = stringResource(R.string.category_create), onClick = {
-                    onCreateCategory(name.trim(), kind, customIcon, customColor)
-                    creating = false
-                }, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp))
-            } else {
-                WhfinField(categoryQuery, { categoryQuery = it }, stringResource(R.string.category_search),
-                    leadingIcon = Icons.Default.Search, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
-                CategoryGrid(visible, item.tx.categoryId, onSelect, maxHeight = 350.dp,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
-                WhfinButton(
-                    stringResource(R.string.category_new), { creating = true },
-                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 28.dp),
-                    style = WhfinActionStyle.Secondary, leadingIcon = Icons.Default.Add,
-                )
-            }
-        }
     }
 }
 

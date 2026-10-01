@@ -55,6 +55,7 @@ fun <T> WhfinChoiceList(
                     .fillMaxWidth()
                     .selectable(
                         selected = isSelected,
+                        enabled = LocalFormControlsEnabled.current,
                         role = Role.RadioButton,
                         onClick = { onSelect(option.value) },
                     )
@@ -129,6 +130,7 @@ fun <T> WhfinSegmentedChoice(
                             ))
                             .selectable(
                                 selected = isSelected,
+                                enabled = LocalFormControlsEnabled.current,
                                 role = Role.RadioButton,
                                 onClick = { onSelect(option.value) },
                             )
@@ -157,11 +159,11 @@ fun <T> WhfinCheckList(options: List<WhfinChoice<T>>, selected: Set<T>, onToggle
     WhfinLedgerGroup(Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, option ->
             Row(Modifier.fillMaxWidth()
-                .toggleable(value = option.value in selected, enabled = enabled, role = Role.Checkbox, onValueChange = { onToggle(option.value) })
+                .toggleable(value = option.value in selected, enabled = enabled && LocalFormControlsEnabled.current, role = Role.Checkbox, onValueChange = { onToggle(option.value) })
                 .background(if (option.value in selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
                 .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Checkbox(checked = option.value in selected, onCheckedChange = null, enabled = enabled)
+                Checkbox(checked = option.value in selected, onCheckedChange = null, enabled = enabled && LocalFormControlsEnabled.current)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(option.label, style = MaterialTheme.typography.bodyLarge)
                     option.supportingText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }

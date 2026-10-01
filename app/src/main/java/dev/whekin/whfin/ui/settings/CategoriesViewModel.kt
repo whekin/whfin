@@ -24,6 +24,13 @@ data class CategoryRow(
 
 class CategoriesViewModel(app: Application) : AndroidViewModel(app) {
     private val db = (app as WhfinApp).db
+    private val formSaver = dev.whekin.whfin.ui.FormSaver(viewModelScope)
+    val formSaveState = formSaver.state
+    private val editor = dev.whekin.whfin.data.categorization.CategoryEditor(db)
+
+    fun save(category: CategoryEntity, name: String, icon: String, color: Int, parentId: Long?, moveBy: Int) {
+        formSaver.save { editor.save(category, name, icon, color, parentId, moveBy) }
+    }
 
     val rows: StateFlow<List<CategoryRow>?> = combine(
         db.categoryDao().observeAll(),
@@ -68,7 +75,7 @@ class CategoriesViewModel(app: Application) : AndroidViewModel(app) {
     fun create(name: String, kind: CategoryKind, icon: String, color: Int) {
         val clean = name.trim()
         if (clean.isEmpty()) return
-        viewModelScope.launch {
+        formSaver.save {
             db.categoryDao().insert(CategoryEntity(
                 name = clean,
                 kind = kind,
@@ -108,6 +115,6 @@ class CategoriesViewModel(app: Application) : AndroidViewModel(app) {
 
     /** DAO сам защищает системные категории (isSystem = 0 в WHERE). */
     fun delete(category: CategoryEntity) {
-        viewModelScope.launch { db.categoryDao().delete(category.id) }
+        formSaver.save { db.categoryDao().delete(category.id) }
     }
 }

@@ -103,7 +103,7 @@
         <item quantity="many">%d операций ждут выписку</item>
         <item quantity="other">%d операции ждут выписку</item>
     </plurals>
-    <string name="transactions_history_title">История операций</string>
+    <string name="transactions_history_title">Операции</string>
     <string name="feed_unrouted_operation">Немаршрутизированная операция</string>
     <string name="feed_unrouted_choose_account">Выбрать счёт</string>
     <string name="feed_unrouted_awaiting_bank_match">Ждёт сверку с банком</string>
@@ -1794,4 +1794,31 @@
     <string name="statements_review_empty">Все вопросы проверки обработаны.</string>
     <string name="allocation_person_label">Человек</string>
     <string name="debt_named_preview">К возврату от %1$s: %2$s</string>
+    <string name="category_draft_position">Позиция %1$d из %2$d · применится после сохранения</string>
+    <string name="category_create_and_select">Создать и выбрать</string>
+    <string name="category_search_empty">Категорий не найдено. Попробуйте другое название или создайте категорию.</string>
+    <string name="category_rule_scope">Применится к этой операции и неразмеченной истории контрагента. Выбор будет запомнен.</string>
+    <string name="search_clear">Очистить поиск</string>
+    <string name="category_icon_shopping">Иконка: продукты</string>
+    <string name="category_icon_food">Иконка: еда</string>
+    <string name="category_icon_home">Иконка: дом</string>
+    <string name="category_icon_transport">Иконка: транспорт</string>
+    <string name="category_icon_health">Иконка: здоровье</string>
+    <string name="category_icon_giving">Иконка: помощь</string>
+    <string name="category_icon_work">Иконка: работа</string>
+    <string name="category_icon_other">Иконка: другие покупки</string>
+    <string name="category_color_sage">Цвет: приглушённый зелёный</string>
+    <string name="category_color_coral">Цвет: коралловый</string>
+    <string name="category_color_amber">Цвет: янтарный</string>
+    <string name="category_color_blue">Цвет: синий</string>
+    <string name="category_color_purple">Цвет: сиреневый</string>
+    <string name="category_color_green">Цвет: зелёный</string>
+    <string name="category_changed">Категория изменилась. Закройте и снова откройте редактор, чтобы использовать актуальные настройки.</string>
+    <string name="category_icon_current">Текущая иконка</string>
+    <string name="category_color_current">Текущий цвет</string>
+    <string name="category_picker_title">Категория</string>
+    <string name="transactions_mark_reviewed_selected">Отметить выбранные просмотренными</string>
+    <string name="split_edit">Изменить разбивку</string>
+    <string name="split_clear_title">Убрать разбивку?</string>
+    <string name="split_clear_body">Расход будет учитываться целиком на вас. Все доли на людей будут удалены.</string>
 </resources>

@@ -431,6 +431,7 @@ fun IncomeSourceSheet(
                 value = amount,
                 onValueChange = { amount = it.take(12) },
                 label = stringResource(R.string.income_sources_amount),
+                keyboardType = KeyboardType.Decimal,
                 modifier = Modifier.weight(2f),
             )
             WhfinField(

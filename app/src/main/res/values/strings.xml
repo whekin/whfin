@@ -90,7 +90,7 @@
         <item quantity="one">%d operation awaits a statement</item>
         <item quantity="other">%d operations await statements</item>
     </plurals>
-    <string name="transactions_history_title">Transaction history</string>
+    <string name="transactions_history_title">History</string>
     <string name="feed_unrouted_operation">Unrouted operation</string>
     <string name="feed_unrouted_choose_account">Choose account</string>
     <string name="feed_unrouted_awaiting_bank_match">Awaiting bank match</string>
@@ -1730,4 +1730,31 @@
     <string name="statements_review_empty">All review items have been handled.</string>
     <string name="allocation_person_label">Person</string>
     <string name="debt_named_preview">To be repaid by %1$s: %2$s</string>
+    <string name="category_draft_position">Position %1$d of %2$d · applied when saved</string>
+    <string name="category_create_and_select">Create and select</string>
+    <string name="category_search_empty">No categories found. Try another name or create a category.</string>
+    <string name="category_rule_scope">Applies to this transaction and this name’s uncategorized history. The choice will be remembered.</string>
+    <string name="search_clear">Clear search</string>
+    <string name="category_icon_shopping">Icon: groceries</string>
+    <string name="category_icon_food">Icon: food</string>
+    <string name="category_icon_home">Icon: home</string>
+    <string name="category_icon_transport">Icon: transport</string>
+    <string name="category_icon_health">Icon: health</string>
+    <string name="category_icon_giving">Icon: giving</string>
+    <string name="category_icon_work">Icon: work</string>
+    <string name="category_icon_other">Icon: other purchases</string>
+    <string name="category_color_sage">Color: muted green</string>
+    <string name="category_color_coral">Color: coral</string>
+    <string name="category_color_amber">Color: amber</string>
+    <string name="category_color_blue">Color: blue</string>
+    <string name="category_color_purple">Color: purple</string>
+    <string name="category_color_green">Color: green</string>
+    <string name="category_changed">This category changed. Close and reopen its editor to use the current settings.</string>
+    <string name="category_icon_current">Current icon</string>
+    <string name="category_color_current">Current color</string>
+    <string name="category_picker_title">Category</string>
+    <string name="transactions_mark_reviewed_selected">Mark selected as reviewed</string>
+    <string name="split_edit">Edit allocation</string>
+    <string name="split_clear_title">Remove the allocation?</string>
+    <string name="split_clear_body">The expense will be treated as entirely yours. All shares on people will be removed.</string>
 </resources>

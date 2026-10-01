@@ -181,16 +181,17 @@ private fun PersonSheet(
     archiveRow: PersonListRow? = null,
     onArchive: (() -> Unit)? = null,
 ) {
-    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var role by remember { mutableStateOf(initial?.role) }
-    var color by remember { mutableIntStateOf(initial?.color ?: PersonColors.first()) }
+    var name by androidx.compose.runtime.saveable.rememberSaveable(initial?.id) { mutableStateOf(initial?.name.orEmpty()) }
+    var role by androidx.compose.runtime.saveable.rememberSaveable(initial?.id) { mutableStateOf(initial?.role) }
+    var color by androidx.compose.runtime.saveable.rememberSaveable(initial?.id) { mutableIntStateOf(initial?.color ?: PersonColors.first()) }
     var confirmArchive by remember { mutableStateOf(false) }
 
-    WhfinFormSheet(
+    dev.whekin.whfin.ui.components.FormSheet(
         title = title,
         onDismiss = onDismiss,
         primaryLabel = primaryLabel,
         primaryEnabled = name.isNotBlank(),
+        dirty = name != initial?.name.orEmpty() || role != initial?.role || color != (initial?.color ?: PersonColors.first()),
         onPrimary = { onPrimary(name, role, color) },
     ) {
         WhfinField(
@@ -208,27 +209,7 @@ private fun PersonSheet(
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PersonColors.forEach { value ->
-                Surface(
-                    onClick = { color = value },
-                    shape = CircleShape,
-                    color = Color.Transparent,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(value),
-                            border = if (value == color) {
-                                androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface)
-                            } else null,
-                            modifier = Modifier.size(30.dp),
-                        ) {}
-                    }
-                }
-            }
-        }
+        dev.whekin.whfin.ui.components.CategoryColorPicker(color, { color = it })
         if (onArchive != null) {
             WhfinButton(
                 label = stringResource(R.string.people_archive),

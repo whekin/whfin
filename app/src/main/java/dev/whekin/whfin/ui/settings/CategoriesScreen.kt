@@ -42,6 +42,10 @@ import dev.whekin.whfin.core.ui.WhfinField
 import dev.whekin.whfin.core.ui.WhfinFieldLabel
 import dev.whekin.whfin.core.ui.WhfinFilterPill
 import dev.whekin.whfin.core.ui.WhfinFormSheet
+import dev.whekin.whfin.ui.components.FormSheet
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.whekin.whfin.ui.FormSaveState
+import dev.whekin.whfin.ui.OnFormSaved
 import dev.whekin.whfin.core.ui.WhfinLedgerGroup
 import dev.whekin.whfin.core.ui.WhfinLedgerRow
 import dev.whekin.whfin.core.ui.WhfinSectionLabel
@@ -55,6 +59,7 @@ import android.content.res.Configuration
 @Composable
 fun CategoriesRoute(viewModel: CategoriesViewModel = viewModel()) {
     val rows by viewModel.rows.collectAsState()
+    val formState by viewModel.formSaveState.collectAsState()
     CategoriesScreen(
         rows = rows,
         onCreate = viewModel::create,
@@ -62,6 +67,8 @@ fun CategoriesRoute(viewModel: CategoriesViewModel = viewModel()) {
         onSetParent = viewModel::setParent,
         onMove = viewModel::move,
         onDelete = viewModel::delete,
+        formState = formState,
+        onSaveDefinition = viewModel::save,
     )
 }
 
@@ -73,12 +80,20 @@ fun CategoriesScreen(
     onSetParent: (CategoryEntity, Long?) -> Unit = { _, _ -> },
     onMove: (CategoryEntity, Int) -> Unit,
     onDelete: (CategoryEntity) -> Unit,
+    formState: FormSaveState? = null,
+    onSaveDefinition: ((CategoryEntity, String, String, Int, Long?, Int) -> Unit)? = null,
 ) {
-    var editing by remember { mutableStateOf<CategoryRow?>(null) }
-    var creatingKind by remember { mutableStateOf<CategoryKind?>(null) }
+    var editingId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var creatingKind by rememberSaveable { mutableStateOf<CategoryKind?>(null) }
+    if (formState != null) OnFormSaved(formState) { editingId = null; creatingKind = null }
 
     // До первого Room-snapshot ничего не показываем — не мигаем пустыми секциями.
-    if (rows == null) return
+    if (rows == null) {
+        dev.whekin.whfin.core.ui.WhfinSkeleton(stringResource(R.string.categories_title), Modifier.fillMaxWidth().padding(20.dp)) {
+            repeat(5) { dev.whekin.whfin.core.ui.WhfinSkeletonLedgerRow() }
+        }
+        return
+    }
 
     Column(
         Modifier
@@ -109,7 +124,7 @@ fun CategoriesScreen(
                         trailing = if (system) {
                             { Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                         } else null,
-                        onClick = if (system) null else { { editing = row } },
+                        onClick = if (system) null else { { editingId = row.category.id } },
                         divider = true,
                         // A child is offset rather than re-labelled: the group is directly above it,
                         // so repeating its name on every row would only make the list wordier.
@@ -125,25 +140,29 @@ fun CategoriesScreen(
         }
     }
 
-    editing?.let { row ->
+    editingId?.let { id ->
         // Живая позиция строки: после move показываем актуальное состояние из rows.
-        val current = rows.firstOrNull { it.category.id == row.category.id }
+        val current = rows.firstOrNull { it.category.id == id }
         if (current == null) {
-            editing = null
+            editingId = null
         } else {
             EditCategorySheet(
                 row = current,
                 siblings = rows.filter { it.category.kind == current.category.kind },
-                onDismiss = { editing = null },
-                onSave = { name, icon, color ->
-                    onUpdate(current.category, name, icon, color)
-                    editing = null
+                onDismiss = { editingId = null },
+                formState = formState ?: FormSaveState(),
+                onSave = { expected, name, icon, color, parent, moveBy ->
+                    if (onSaveDefinition != null) onSaveDefinition(expected, name, icon, color, parent, moveBy)
+                    else {
+                        onUpdate(current.category, name, icon, color)
+                        if (parent != current.category.parentId) onSetParent(current.category, parent)
+                        if (moveBy != 0) onMove(current.category, moveBy)
+                        editingId = null
+                    }
                 },
-                onMove = { delta -> onMove(current.category, delta) },
-                onSetParent = { parentId -> onSetParent(current.category, parentId) },
                 onDelete = {
                     onDelete(current.category)
-                    editing = null
+                    if (formState == null) editingId = null
                 },
             )
         }
@@ -155,78 +174,88 @@ fun CategoriesScreen(
             onDismiss = { creatingKind = null },
             onCreate = { name, icon, color ->
                 onCreate(name, kind, icon, color)
-                creatingKind = null
+                if (formState == null) creatingKind = null
             },
+            formState = formState ?: FormSaveState(),
         )
     }
 }
 
 @Composable
-private fun EditCategorySheet(
+internal fun EditCategorySheet(
     row: CategoryRow,
     siblings: List<CategoryRow>,
     onDismiss: () -> Unit,
-    onSave: (String, String, Int) -> Unit,
-    onMove: (Int) -> Unit,
+    onSave: (CategoryEntity, String, String, Int, Long?, Int) -> Unit,
     onDelete: () -> Unit,
-    onSetParent: (Long?) -> Unit = {},
+    formState: FormSaveState = FormSaveState(),
 ) {
-    var name by remember { mutableStateOf(row.category.name) }
-    var icon by remember { mutableStateOf(row.category.icon) }
-    var color by remember { mutableIntStateOf(row.category.color) }
+    val expected = rememberSaveable(row.category.id, saver = CategoryDefinitionSaver) { row.category }
+    var name by rememberSaveable(row.category.id) { mutableStateOf(expected.name) }
+    var icon by rememberSaveable(row.category.id) { mutableStateOf(expected.icon) }
+    var color by rememberSaveable(row.category.id) { mutableIntStateOf(expected.color) }
+    var parentId by rememberSaveable(row.category.id) { mutableStateOf(expected.parentId) }
+    var moveBy by rememberSaveable(row.category.id) { mutableIntStateOf(0) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val index = siblings.indexOfFirst { it.category.id == row.category.id }
+    val orderedSiblings = siblings.filter { it.category.parentId == parentId || it.category.id == row.category.id }
+        .sortedWith(compareBy<CategoryRow> { it.category.sortOrder }.thenBy { it.category.id })
+    val index = orderedSiblings.indexOfFirst { it.category.id == row.category.id }
     // Only a category that is not itself a group can join one, and it cannot join itself.
     val groups = if (row.isGroup) emptyList() else siblings
         .filter { !it.category.isSystem && it.category.parentId == null && it.category.id != row.category.id }
     val ownGroupLabel = stringResource(R.string.categories_group_none)
 
-    WhfinFormSheet(
+    FormSheet(
         title = stringResource(R.string.categories_edit_title),
         onDismiss = onDismiss,
-        primaryLabel = stringResource(R.string.action_save),
-        primaryEnabled = name.isNotBlank(),
-        onPrimary = { onSave(name, icon, color) },
+        primaryLabel = stringResource(if (formState.busy) R.string.form_saving else R.string.action_save),
+        primaryEnabled = name.isNotBlank() && row.category == expected, busy = formState.busy,
+        dirty = name != expected.name || icon != expected.icon || color != expected.color || parentId != expected.parentId || moveBy != 0,
+        onPrimary = { onSave(expected, name, icon, color, parentId, moveBy) },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
+        if (row.category != expected) Text(stringResource(R.string.category_changed), color = MaterialTheme.colorScheme.error)
         WhfinField(
             value = name,
             onValueChange = { name = it.take(32) },
             label = stringResource(R.string.category_name),
             modifier = Modifier.fillMaxWidth(),
         )
-        CategoryAppearancePicker(icon, color, { icon = it }, { color = it })
+        CategoryAppearancePicker(icon, color, { icon = it }, { color = it }, enabled = !formState.busy)
         if (groups.isNotEmpty()) {
             WhfinFieldLabel(stringResource(R.string.categories_group_label))
             WhfinChoiceRail {
                 item {
                     WhfinFilterPill(
                         label = ownGroupLabel,
-                        selected = row.category.parentId == null,
-                        onClick = { onSetParent(null) },
+                        selected = parentId == null,
+                        onClick = { parentId = null; moveBy = 0 },
                     )
                 }
                 items(groups, key = { it.category.id }) { candidate ->
                     WhfinFilterPill(
                         label = candidate.category.name,
-                        selected = row.category.parentId == candidate.category.id,
-                        onClick = { onSetParent(candidate.category.id) },
+                        selected = parentId == candidate.category.id,
+                        onClick = { parentId = candidate.category.id; moveBy = 0 },
                     )
                 }
             }
         }
+        Text(stringResource(R.string.category_draft_position, index + moveBy + 1, orderedSiblings.size),
+            style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             WhfinButton(
                 label = stringResource(R.string.categories_move_up),
-                onClick = { onMove(-1) },
-                enabled = index > 0,
+                onClick = { moveBy-- },
+                enabled = !formState.busy && index + moveBy > 0,
                 style = WhfinActionStyle.Secondary,
                 leadingIcon = Icons.Default.ArrowUpward,
                 modifier = Modifier.weight(1f),
             )
             WhfinButton(
                 label = stringResource(R.string.categories_move_down),
-                onClick = { onMove(1) },
-                enabled = index in 0 until siblings.lastIndex,
+                onClick = { moveBy++ },
+                enabled = !formState.busy && index + moveBy in 0 until orderedSiblings.lastIndex,
                 style = WhfinActionStyle.Secondary,
                 leadingIcon = Icons.Default.ArrowDownward,
                 modifier = Modifier.weight(1f),
@@ -259,33 +288,41 @@ private fun EditCategorySheet(
     }
 }
 
+private val CategoryDefinitionSaver = androidx.compose.runtime.saveable.listSaver<CategoryEntity, Any?>(
+    save = { listOf(it.id, it.name, it.kind.name, it.icon, it.color, it.isSystem, it.sortOrder, it.parentId) },
+    restore = { CategoryEntity(id = it[0] as Long, name = it[1] as String, kind = CategoryKind.valueOf(it[2] as String),
+        icon = it[3] as String, color = it[4] as Int, isSystem = it[5] as Boolean, sortOrder = it[6] as Int, parentId = it[7] as Long?) },
+)
+
 @Composable
 private fun CreateCategorySheet(
     kind: CategoryKind,
     onDismiss: () -> Unit,
     onCreate: (String, String, Int) -> Unit,
+    formState: FormSaveState = FormSaveState(),
 ) {
-    var name by remember { mutableStateOf("") }
-    var icon by remember {
+    var name by rememberSaveable(kind) { mutableStateOf("") }
+    var icon by rememberSaveable(kind) {
         mutableStateOf(if (kind == CategoryKind.EXPENSE) "ShoppingCart" else "Work")
     }
-    var color by remember {
+    var color by rememberSaveable(kind) {
         mutableIntStateOf(if (kind == CategoryKind.EXPENSE) 0xFFD16D5A.toInt() else 0xFF78906F.toInt())
     }
-    WhfinFormSheet(
+    FormSheet(
         title = stringResource(R.string.category_new),
         onDismiss = onDismiss,
         primaryLabel = stringResource(R.string.category_create),
-        primaryEnabled = name.isNotBlank(),
+        primaryEnabled = name.isNotBlank(), busy = formState.busy, dirty = name.isNotBlank(),
         onPrimary = { onCreate(name, icon, color) },
     ) {
+        if (formState.failed) Text(stringResource(R.string.form_save_failed), color = MaterialTheme.colorScheme.error)
         WhfinField(
             value = name,
             onValueChange = { name = it.take(32) },
             label = stringResource(R.string.category_name),
             modifier = Modifier.fillMaxWidth(),
         )
-        CategoryAppearancePicker(icon, color, { icon = it }, { color = it })
+        CategoryAppearancePicker(icon, color, { icon = it }, { color = it }, enabled = !formState.busy)
     }
 }
 

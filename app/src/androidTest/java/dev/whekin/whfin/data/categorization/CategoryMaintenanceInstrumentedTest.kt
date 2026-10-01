@@ -56,6 +56,60 @@ class CategoryMaintenanceInstrumentedTest {
         CategoryEntity(name = name, kind = CategoryKind.EXPENSE, icon = icon, color = 0),
     )
 
+    @Test fun categoryDefinitionChangesTogetherWithoutRewritingLedger() = runBlocking {
+        entry()
+        val before = db.transactionDao().allForIntegrity()
+        val expected = requireNotNull(db.categoryDao().byId(bankFeesId))
+        CategoryEditor(db).save(expected, "Service fees", "Work", 123, rentId, 0)
+        val updated = requireNotNull(db.categoryDao().byId(bankFeesId))
+        assertEquals("Service fees", updated.name)
+        assertEquals("Work", updated.icon)
+        assertEquals(123, updated.color)
+        assertEquals(rentId, updated.parentId)
+        assertEquals(before, db.transactionDao().allForIntegrity())
+    }
+
+    @Test fun invalidGroupDoesNotPartiallySaveAppearance() = runBlocking {
+        val incomeId = db.categoryDao().insert(CategoryEntity(name = "Pay", kind = CategoryKind.INCOME, icon = "Work", color = 0))
+        val before = db.categoryDao().all()
+        try {
+            CategoryEditor(db).save(requireNotNull(db.categoryDao().byId(bankFeesId)), "Changed", "Home", 321, incomeId, 0)
+            org.junit.Assert.fail("Income cannot parent an expense")
+        } catch (_: IllegalArgumentException) { }
+        assertEquals(before, db.categoryDao().all())
+    }
+
+    @Test fun movingAChildLeavesRootOrderAlone() = runBlocking {
+        val fee = requireNotNull(db.categoryDao().byId(bankFeesId)).copy(parentId = rentId, sortOrder = 10)
+        val transport = requireNotNull(db.categoryDao().byId(transportId)).copy(parentId = rentId, sortOrder = 11)
+        db.categoryDao().update(fee); db.categoryDao().update(transport)
+        val root = db.categoryDao().byId(rentId)
+        CategoryEditor(db).save(transport, transport.name, transport.icon, transport.color, rentId, -1)
+        assertEquals(listOf(transportId, bankFeesId), CategoryTree(db.categoryDao().all()).children(rentId).map { it.id })
+        assertEquals(root, db.categoryDao().byId(rentId))
+    }
+
+    @Test fun creatingAndAssigningRememberedCategoryCommitsAllEffects() = runBlocking {
+        val merchantId = db.merchantDao().insert(MerchantEntity(normalizedKey = "example", displayName = "Example cafe"))
+        val first = entry(merchantId = merchantId)
+        val second = entry(merchantId = merchantId)
+        val before = db.transactionDao().allForIntegrity().map { it.copy(categoryId = null) }
+        val created = TransactionCategorizer(db).createAndAssign(first, merchantId, "Coffee", CategoryKind.EXPENSE, "Restaurant", 123)
+        assertEquals(created.id, db.transactionDao().byId(first)?.categoryId)
+        assertEquals(created.id, db.transactionDao().byId(second)?.categoryId)
+        assertEquals(created.id, db.merchantDao().byKey("example")?.categoryId)
+        assertEquals(before, db.transactionDao().allForIntegrity().map { it.copy(categoryId = null) })
+    }
+
+    @Test fun failedAssignmentRollsBackNewCategory() = runBlocking {
+        val before = db.categoryDao().all()
+        try {
+            TransactionCategorizer(db).createAndAssign(Long.MAX_VALUE, null, "Coffee", CategoryKind.EXPENSE, "Restaurant", 123)
+            org.junit.Assert.fail("A missing operation must not leave an unused category")
+        } catch (_: dev.whekin.whfin.data.mutation.TransactionMutationException) { }
+        assertEquals(before, db.categoryDao().all())
+    }
+
     private suspend fun entry(
         note: String? = null,
         merchantId: Long? = null,

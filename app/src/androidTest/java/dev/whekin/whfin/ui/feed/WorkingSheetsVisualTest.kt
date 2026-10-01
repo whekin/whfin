@@ -65,6 +65,67 @@ class WorkingSheetsVisualTest {
 
     @Test fun reviewRequiresConfirmationAndScrollsLongQueue() = review(false)
     @Test fun russianCompactReviewKeepsBothActionsReadable() = review(true)
+
+    @Test fun categorySearchKeepsGeometryAndFindsParentWords() = category(false)
+    @Test fun russianDynamicCategorySearchKeepsGeometry() = category(true)
+    private fun category(large: Boolean) = journey("category", large, dynamic = large) { device, context, activity ->
+        val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
+        field.click(); compose.waitForIdle()
+        val keyboardPackage = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
+        assertNotNull(device.wait(Until.findObject(By.pkg(keyboardPackage)), 5000))
+        device.waitForIdle(1000); compose.waitForIdle()
+        val height = compose.onNodeWithTag("transaction-category-list").getUnclippedBoundsInRoot().let { it.bottom - it.top }
+        compose.onNode(hasSetTextAction()).performTextReplacement("zzzz"); compose.waitForIdle()
+        compose.onNodeWithText(context.getString(R.string.category_search_empty)).assertExists()
+        assertEquals(height, compose.onNodeWithTag("transaction-category-list").getUnclippedBoundsInRoot().let { it.bottom - it.top })
+        capture(device, "category-empty-$large")
+        compose.onNodeWithContentDescription(context.getString(R.string.search_clear)).performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement(if (large) "дом прод" else "home groc")
+        compose.waitForIdle()
+        capture(device, "category-parent-search-$large")
+        compose.onNodeWithText(if (large) "Дом · Продукты" else "Home · Groceries").performClick(); compose.waitForIdle()
+        activity.onActivity { assertEquals(2L, it.selectedCategory) }
+    }
+
+    @Test fun russianDynamicCreateCategoryKeepsPrimaryAboveIme() = journey("category", true, dynamic = true) { device, context, activity ->
+        compose.onNodeWithContentDescription(context.getString(R.string.category_new)).performClick(); compose.waitForIdle()
+        val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
+        field.click(); compose.onNode(hasSetTextAction()).performTextReplacement("New category"); compose.waitForIdle()
+        val save = device.wait(Until.findObject(By.text(context.getString(R.string.category_create_and_select))), 5000)
+        assertAboveIme(device, save)
+        capture(device, "category-create-ime-ru")
+        compose.onNodeWithText(context.getString(R.string.category_create_and_select)).performClick(); compose.waitForIdle()
+        activity.onActivity { assertEquals(99L, it.selectedCategory); assertEquals("New category", it.savedDefinition) }
+    }
+
+    @Test fun categoryDraftSurvivesActivityRecreation() = journey("category-editor", true) { device, context, activity ->
+        compose.onNode(hasSetTextAction()).performTextReplacement("My coffee")
+        compose.waitForIdle()
+        val keyboardPackage = device.executeShellCommand("settings get secure default_input_method").trim().substringBefore('/')
+        if (device.hasObject(By.pkg(keyboardPackage))) device.pressBack()
+        device.waitForIdle(1000); compose.waitForIdle()
+        compose.onNodeWithText(context.getString(R.string.categories_move_up)).performScrollTo()
+        compose.onNodeWithText("Home").assertIsDisplayed().performClick(); compose.waitForIdle()
+        compose.onNodeWithText("Home").assertIsSelected()
+        capture(device, "category-before-recreate-ru")
+        activity.onActivity { assertNull(it.savedDefinition) }
+        activity.recreate(); compose.waitForIdle()
+        compose.onNodeWithText("My coffee").assertExists()
+        compose.onNodeWithText("Home").assertIsSelected()
+        capture(device, "category-restored-ru")
+        compose.onNodeWithText(context.getString(R.string.action_save)).performClick(); compose.waitForIdle()
+        activity.onActivity { assertEquals("My coffee", it.savedDefinition) }
+    }
+
+    @Test fun englishFilterFitsItsContents() = filter(false)
+    @Test fun russianCompactFilterKeepsActionsVisible() = filter(true)
+    private fun filter(large: Boolean) = journey("filter", large) { device, context, _ ->
+        capture(device, "filter-polished-$large")
+        val apply = compose.onNodeWithText(context.getString(R.string.feed_filters_apply))
+        apply.assertIsDisplayed()
+        if (large) compose.onNodeWithText(context.getString(R.string.feed_sort_by)).performScrollTo()
+        apply.performClick(); compose.waitForIdle()
+    }
     private fun review(large: Boolean) = journey("review", large) { device, context, activity ->
         tap(device, context.getString(R.string.action_delete_draft))
         assertTrue(device.wait(Until.hasObject(By.text(context.getString(R.string.statements_review_delete_title))), 5000))
@@ -80,7 +141,7 @@ class WorkingSheetsVisualTest {
         capture(device, "review-last-$large")
     }
 
-    private fun journey(mode: String, large: Boolean, people: Int = 3,
+    private fun journey(mode: String, large: Boolean, people: Int = 3, dynamic: Boolean = false,
         body: (UiDevice, android.content.Context, ActivityScenario<WorkingSheetsQaActivity>) -> Unit) {
         check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
         val i = InstrumentationRegistry.getInstrumentation()
@@ -97,10 +158,13 @@ class WorkingSheetsVisualTest {
         try {
             ActivityScenario.launch<WorkingSheetsQaActivity>(Intent(i.targetContext, WorkingSheetsQaActivity::class.java)
                 .putExtra("mode", mode).putExtra("language", language).putExtra("dark", large)
+                .putExtra("dynamic", dynamic)
                 .putExtra("fontScale", if (large) 1.5f else 1f).putExtra("people", people)).use { activity ->
                 val ready = context.getString(when (mode) {
                     "review" -> R.string.action_done
                     "debt" -> R.string.debt_action_short
+                    "category" -> R.string.category_picker_title
+                    "filter" -> R.string.feed_filters_apply
                     else -> R.string.action_save
                 })
                 compose.waitForIdle()

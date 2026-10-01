@@ -51,6 +51,7 @@ fun WhfinDateField(
     todayLabel: String? = null,
     supportingText: String? = null,
 ) {
+    val controlsEnabled = LocalFormControlsEnabled.current
     var picking by remember { mutableStateOf(false) }
     val formatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -67,7 +68,7 @@ fun WhfinDateField(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable { picking = true }
+                    .clickable(enabled = controlsEnabled) { picking = true }
                     .heightIn(min = 56.dp)
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -102,7 +102,6 @@ internal fun TransactionDetailsSheet(
     onClearDebt: (() -> Unit)?,
     onSplit: (() -> Unit)? = null,
     onClearSplit: (() -> Unit)? = null,
-    onChangeStatus: (() -> Unit)? = null,
     onConfirm: (() -> Unit)? = null,
     onOwnTransfer: (() -> Unit)? = null,
     onClearOwnTransfer: (() -> Unit)? = null,
@@ -124,7 +123,6 @@ internal fun TransactionDetailsSheet(
             onClearDebt = onClearDebt,
             onSplit = onSplit,
             onClearSplit = onClearSplit,
-            onChangeStatus = onChangeStatus,
             onConfirm = onConfirm,
             onOwnTransfer = onOwnTransfer,
             onClearOwnTransfer = onClearOwnTransfer,
@@ -145,7 +143,6 @@ private fun TransactionDetailsContent(
     onClearDebt: (() -> Unit)?,
     onSplit: (() -> Unit)? = null,
     onClearSplit: (() -> Unit)? = null,
-    onChangeStatus: (() -> Unit)? = null,
     onConfirm: (() -> Unit)? = null,
     onOwnTransfer: (() -> Unit)? = null,
     onClearOwnTransfer: (() -> Unit)? = null,
@@ -156,6 +153,7 @@ private fun TransactionDetailsContent(
     val isTransfer = tx.isTransfer || tx.transferGroupId != null
     var showBankDetails by remember(tx.id) { mutableStateOf(false) }
     var actionMenuExpanded by remember(tx.id) { mutableStateOf(false) }
+    var confirmClearSplit by remember(tx.id) { mutableStateOf(false) }
     val genericTitle = stringResource(
         when {
             isTransfer -> R.string.tx_transfer
@@ -188,8 +186,8 @@ private fun TransactionDetailsContent(
     // and stays out of the rail: it carries the longest label in the sheet and was already listed
     // in both places, so on a real phone it pushed the everyday answers past the right edge.
     val hasQuickActions = confirmPending != null || onEdit != null || onDebt != null ||
-        onClearDebt != null || onSplit != null || onClearSplit != null ||
-        onOwnTransfer != null || onClearOwnTransfer != null
+        onClearDebt != null || onSplit != null ||
+        onClearOwnTransfer != null
 
     LazyColumn(
         modifier.fillMaxWidth().heightIn(max = 680.dp),
@@ -240,7 +238,7 @@ private fun TransactionDetailsContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (onDelete != null || onCorrect != null) {
+                if (onDelete != null || onCorrect != null || onOwnTransfer != null || onClearSplit != null) {
                     Box {
                         WhfinIconButton(
                             icon = Icons.Default.MoreVert,
@@ -252,6 +250,16 @@ private fun TransactionDetailsContent(
                             expanded = actionMenuExpanded,
                             onDismissRequest = { actionMenuExpanded = false },
                         ) {
+                            onOwnTransfer?.let { link -> DropdownMenuItem(
+                                text = { Text(stringResource(R.string.own_transfer_action)) },
+                                leadingIcon = { Icon(Icons.Default.SwapHoriz, null) },
+                                onClick = { actionMenuExpanded = false; link() },
+                            ) }
+                            onClearSplit?.let { DropdownMenuItem(
+                                text = { Text(stringResource(R.string.split_clear)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallSplit, null) },
+                                onClick = { actionMenuExpanded = false; confirmClearSplit = true },
+                            ) }
                             onDelete?.let { delete -> DropdownMenuItem(
                                 text = {
                                     Text(
@@ -314,7 +322,7 @@ private fun TransactionDetailsContent(
                     } else {
                         tx.status.label()
                     },
-                    onClick = onChangeStatus.takeIf { tx.source != TxSource.BANK_HOLD && tx.source != TxSource.SMS },
+                    onClick = null,
                 )
                 if (item.isDebt) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -369,28 +377,16 @@ private fun TransactionDetailsContent(
                             stringResource(R.string.own_transfer_unlink),
                             onClearOwnTransfer,
                         ),
-                    ) else if (onOwnTransfer != null) add(
-                        Triple(
-                            Icons.Default.SwapHoriz,
-                            stringResource(R.string.own_transfer_action),
-                            onOwnTransfer,
-                        ),
                     )
                     if (onClearDebt != null) add(
                         Triple(Icons.Default.PersonAdd, stringResource(R.string.debt_clear), onClearDebt),
                     ) else if (onDebt != null) add(
                         Triple(Icons.Default.PersonAdd, stringResource(R.string.debt_action_short), onDebt),
                     )
-                    if (onClearSplit != null) add(
+                    if (onSplit != null) add(
                         Triple(
                             Icons.AutoMirrored.Filled.CallSplit,
-                            stringResource(R.string.split_clear),
-                            onClearSplit,
-                        ),
-                    ) else if (onSplit != null) add(
-                        Triple(
-                            Icons.AutoMirrored.Filled.CallSplit,
-                            stringResource(R.string.split_action_short),
+                            stringResource(if (item.splitOnPeople.isNotEmpty()) R.string.split_edit else R.string.split_action_short),
                             onSplit,
                         ),
                     )
@@ -441,6 +437,12 @@ private fun TransactionDetailsContent(
         }
 
     }
+    if (confirmClearSplit && onClearSplit != null) dev.whekin.whfin.core.ui.WhfinConfirmDialog(
+        title = stringResource(R.string.split_clear_title), body = stringResource(R.string.split_clear_body),
+        confirmLabel = stringResource(R.string.split_clear), dismissLabel = stringResource(R.string.action_cancel),
+        onConfirm = { confirmClearSplit = false; onClearSplit() }, onDismiss = { confirmClearSplit = false },
+    )
+
 }
 
 @Preview(name = "Transaction details", widthDp = 400, heightDp = 620, showBackground = true)
@@ -501,7 +503,6 @@ private fun TransactionDetailsPreview() {
                 onDebt = {},
                 onClearDebt = null,
                 onSplit = {},
-                onChangeStatus = {},
             )
         }
     }
@@ -566,42 +567,8 @@ private fun TransactionDetailsPendingPreview() {
                 onDebt = {},
                 onClearDebt = null,
                 onSplit = {},
-                onChangeStatus = {},
                 onConfirm = {},
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun TransactionStatusSheet(
-    current: TxStatus?,
-    onDismiss: () -> Unit,
-    onSelect: (TxStatus) -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Text(stringResource(R.string.transaction_status_title), style = MaterialTheme.typography.headlineSmall)
-            WhfinLedgerGroup(Modifier.fillMaxWidth()) {
-                TxStatus.entries.forEachIndexed { index, status ->
-                    WhfinLedgerRow(
-                        title = status.label(),
-                        supportingText = stringResource(status.descriptionResource()),
-                        icon = Icons.Default.TaskAlt,
-                        trailing = if (status == current) {{ Icon(Icons.Default.Check, null) }} else null,
-                        onClick = { onSelect(status) },
-                        divider = index != TxStatus.entries.lastIndex,
-                    )
-                }
-            }
         }
     }
 }
@@ -614,12 +581,6 @@ private fun TxStatus.label(): String = stringResource(
         TxStatus.MANUAL -> R.string.status_manual
     },
 )
-
-private fun TxStatus.descriptionResource(): Int = when (this) {
-    TxStatus.PENDING -> R.string.status_pending_description
-    TxStatus.CONFIRMED -> R.string.status_confirmed_description
-    TxStatus.MANUAL -> R.string.status_manual_description
-}
 
 @Composable
 private fun DetailRow(label: String, value: String) {

@@ -27,6 +27,8 @@ import java.util.Locale
 class WorkingSheetsQaActivity : ComponentActivity() {
     var saved: ExpenseBeneficiary? = null
     var deleted = 0
+    var selectedCategory: Long? = null
+    var savedDefinition: String? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dark = intent.getBooleanExtra("dark", false)
@@ -45,12 +47,32 @@ class WorkingSheetsQaActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalContext provides localized, LocalResources provides localized.resources,
                 LocalConfiguration provides config, LocalDensity provides Density(LocalDensity.current.density, intent.getFloatExtra("fontScale", 1f))) {
-                WhfinTheme(darkTheme = dark) {
+                WhfinTheme(darkTheme = dark, dynamicColor = intent.getBooleanExtra("dynamic", false)) {
                     Surface(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
                         var closed by remember { mutableStateOf(false) }
                         var state by remember { mutableStateOf(FormSaveState()) }
                         if (closed) Text("Closed")
                         else when (intent.getStringExtra("mode")) {
+                            "category" -> {
+                                val names = if (locale.language == "ru") listOf("Дом", "Продукты", "Кофе") else listOf("Home", "Groceries", "Coffee")
+                                val categories = names.mapIndexed { index, name -> CategoryEntity(id = index + 1L, name = name,
+                                    parentId = if (index == 1) 1 else null, kind = CategoryKind.EXPENSE, icon = "Home", color = 0xFF78906F.toInt()) }
+                                CategoryPickerSheet(item, categories, { closed = true }, { selectedCategory = it.id; closed = true },
+                                    { _, _, _, _ -> }, onCreateAndSelect = { name, _, _, _ ->
+                                        savedDefinition = name; selectedCategory = 99; closed = true
+                                    })
+                            }
+                            "category-editor" -> {
+                                val category = CategoryEntity(id = 2, name = "Coffee", kind = CategoryKind.EXPENSE, icon = "LocalCafe", color = 0xFF78906F.toInt(), sortOrder = 1)
+                                val home = category.copy(id = 1, name = "Home", icon = "Home", sortOrder = 0)
+                                EditCategorySheet(CategoryRow(category, 2), listOf(CategoryRow(home, 1), CategoryRow(category, 2)),
+                                    { closed = true }, { _, name, _, _, _, _ -> savedDefinition = name; state = FormSaveState(completed = 1); closed = true }, {}, state)
+                            }
+                            "filter" -> FeedFilterSheet(FeedFilter.ALL, FeedSort.NEWEST,
+                                listOf(CategoryEntity(id = 1, name = "Coffee", kind = CategoryKind.EXPENSE, icon = "Restaurant", color = 0xFF78906F.toInt())),
+                                emptySet(), { _, _, _ -> closed = true }, { closed = true })
+                            "receipt" -> TransactionDetailsSheet(item, { closed = true }, {}, null,
+                                onEdit = {}, onDebt = {}, onClearDebt = null, onSplit = {}, onOwnTransfer = { closed = true })
                             "debt" -> DebtPersonSheet(item, people, { closed = true }, { saved = it; state = FormSaveState(completed = 1) }, state)
                             "review" -> {
                                 var rows by remember { mutableStateOf((1..30).map { index -> ReconciliationIssueWithTransaction(
